@@ -1,0 +1,12 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+
+# Assistant workspace (session-local, not project content)
+.claude/
+
+# Map editor pre-write backups — git IS the history now
+*.tres.bak
+
+# Temporary headless test harnesses (always deleted after a run, but just in case)
+/_test_*

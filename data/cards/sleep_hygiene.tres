@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="CardData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/card_effect_data.gd" id="1_eff"]
+[ext_resource type="Script" path="res://scripts/resources/card_data.gd" id="2_card"]
+
+[sub_resource type="Resource" id="Resource_sh1"]
+script = ExtResource("1_eff")
+stat_type = "willpower"
+value = 0.2
+
+[sub_resource type="Resource" id="Resource_sh2"]
+script = ExtResource("1_eff")
+stat_type = "awareness"
+value = 0.2
+
+[resource]
+script = ExtResource("2_card")
+id = &"sleep_hygiene"
+title = "Sleep Hygiene"
+description = "Nothing else you do today works as well on four hours of sleep."
+rarity = &"rare"
+effects = Array[ExtResource("1_eff")]([SubResource("Resource_sh1"), SubResource("Resource_sh2")])

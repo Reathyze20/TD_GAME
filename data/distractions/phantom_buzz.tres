@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="DistractionData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/distraction_data.gd" id="1_nvbxb"]
+
+[resource]
+script = ExtResource("1_nvbxb")
+id = &"phantom_buzz"
+display_name = "Phantom Buzz"
+description = "The pocket vibration that never happened. Walls and friends can't stop it."
+max_health = 8
+speed = 125.0
+is_flying = true
+compulsion = 2
+dopamine_reward = 3
+melee_damage = 0
+color = "5ec8ff"
+radius = 8.0

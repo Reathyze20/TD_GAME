@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/card_effect_data.gd" id="1_mpw6e"]
+[ext_resource type="Script" path="res://scripts/resources/card_data.gd" id="2_s62ry"]
+
+[sub_resource type="Resource" id="Resource_7uotp"]
+script = ExtResource("1_mpw6e")
+target = "focus_timer"
+value = 5.0
+is_percentage = false
+
+[resource]
+script = ExtResource("2_s62ry")
+id = &"cold_shower"
+title = "Cold Shower"
+description = "Willpower forged in discomfort."
+effects = Array[ExtResource("1_mpw6e")]([SubResource("Resource_7uotp")])
+rarity = &"common"

@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="CardData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/card_effect_data.gd" id="1_eff"]
+[ext_resource type="Script" path="res://scripts/resources/card_burst_data.gd" id="2_burst"]
+[ext_resource type="Script" path="res://scripts/resources/card_data.gd" id="3_card"]
+
+[sub_resource type="Resource" id="Resource_cs_eff"]
+script = ExtResource("1_eff")
+stat_type = "dopamine_bonus"
+value = 1.0
+is_percentage = false
+
+[sub_resource type="Resource" id="Resource_cs_burst"]
+script = ExtResource("2_burst")
+type = "clear_tolerance"
+
+[resource]
+script = ExtResource("3_card")
+id = &"clean_slate"
+title = "Clean Slate"
+description = "Tolerance is not a life sentence. Given a real break, the baseline comes back down — and rewards land properly again."
+rarity = &"diamond"
+min_draft = 2
+effects = Array[ExtResource("1_eff")]([SubResource("Resource_cs_eff")])
+burst = SubResource("Resource_cs_burst")

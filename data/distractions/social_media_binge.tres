@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="DistractionData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/distraction_data.gd" id="1"]
+[ext_resource type="Resource" path="res://data/distractions/notification.tres" id="2"]
+
+[resource]
+script = ExtResource("1")
+id = &"social_media_binge"
+display_name = "Social Media Binge"
+description = "One more scroll. Then another. Then the whole evening is gone."
+max_health = 900
+speed = 50.0
+compulsion = 6
+rationalization = 4
+dopamine_reward = 40
+focus_damage = 15
+melee_damage = 20
+color = "b07dff"
+radius = 30.0
+shape = "rect"
+is_boss = true
+shield_interval = 14.0
+shield_duration = 5.0
+minion_type = ExtResource("2")
+minion_count = 3
+minion_interval = 10.0

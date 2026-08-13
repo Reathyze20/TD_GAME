@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="HabitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/habit_data.gd" id="1_acc2"]
+
+[resource]
+script = ExtResource("1_acc2")
+id = &"accountability_2"
+name = "Support Circle"
+short = "Support+"
+description = "More people holding you to it. Trains up to 4 tougher Allies and guards a wider stretch."
+build_cost = 85
+range = 0.0
+arc_angle = 0.0
+willpower_damage = 0
+fire_cooldown = 0.0
+is_blocker = true
+ally_count = 4
+ally_health = 60
+ally_damage = 8
+ally_attack_cooldown = 0.55
+ally_spawn_cooldown = 3.0
+guard_radius = 260.0
+color = "45f0d8"
+projectile_color = "45f0d8"

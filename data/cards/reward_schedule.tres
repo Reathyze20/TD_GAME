@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/card_effect_data.gd" id="1_spb41"]
+[ext_resource type="Script" path="res://scripts/resources/card_data.gd" id="2_25qky"]
+
+[sub_resource type="Resource" id="Resource_bx6at"]
+script = ExtResource("1_spb41")
+stat_type = "dopamine_bonus"
+value = 2.0
+is_percentage = false
+
+[resource]
+script = ExtResource("2_25qky")
+id = &"reward_schedule"
+title = "Reward Scheduling"
+description = "Planned rewards feel more meaningful than random ones."
+effects = Array[ExtResource("1_spb41")]([SubResource("Resource_bx6at")])
+rarity = &"rare"

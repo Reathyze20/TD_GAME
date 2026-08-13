@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="CardData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/card_effect_data.gd" id="1_b67mj"]
+[ext_resource type="Script" path="res://scripts/resources/card_data.gd" id="2_nqenv"]
+
+[sub_resource type="Resource" id="Resource_laynj"]
+script = ExtResource("1_b67mj")
+stat_type = "range"
+value = 0.1
+
+[resource]
+script = ExtResource("2_nqenv")
+id = &"journaling"
+title = "Journaling"
+description = "Writing it down extends clarity."
+effects = Array[ExtResource("1_b67mj")]([SubResource("Resource_laynj")])
+rarity = &"common"

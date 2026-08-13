@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/card_effect_data.gd" id="1_63ghy"]
+[ext_resource type="Script" path="res://scripts/resources/card_data.gd" id="2_y4mkl"]
+
+[sub_resource type="Resource" id="Resource_65orl"]
+script = ExtResource("1_63ghy")
+stat_type = "fire_cooldown"
+target = "exercise"
+value = -0.15
+
+[resource]
+script = ExtResource("2_y4mkl")
+id = &"runners_high"
+title = "Runner's High"
+description = "Endorphins speed recovery."
+effects = Array[ExtResource("1_63ghy")]([SubResource("Resource_65orl")])
+rarity = &"common"

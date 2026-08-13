@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="GrowthNodeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/card_effect_data.gd" id="1_fnlhi"]
+[ext_resource type="Script" path="res://scripts/resources/card_data.gd" id="2_llpb7"]
+[ext_resource type="Script" path="res://scripts/resources/growth_node_data.gd" id="3_nkc6t"]
+
+[sub_resource type="Resource" id="Resource_0a53k"]
+script = ExtResource("1_fnlhi")
+value = 0.08
+
+[sub_resource type="Resource" id="Resource_31rit"]
+script = ExtResource("2_llpb7")
+id = &"growth_deep_sleep"
+title = "Deep Sleep Growth"
+description = ""
+effects = Array[ExtResource("1_fnlhi")]([SubResource("Resource_0a53k")])
+
+[resource]
+script = ExtResource("3_nkc6t")
+id = &"deep_sleep"
+name = "Deep Sleep"
+description = "Rest sharpens resolve. All habits: +8% damage, per rank."
+branch = &"discipline"
+tier = 0
+max_rank = 3
+costs = Array[int]([10, 20, 30])
+modifier = SubResource("Resource_31rit")

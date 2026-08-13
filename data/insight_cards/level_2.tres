@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="InsightCardData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/insight_card_data.gd" id="1_e7v22"]
+
+[resource]
+script = ExtResource("1_e7v22")
+level_id = 2
+title = "Tolerance"
+concept = "Dopamine Downregulation"
+description = "Every Quick Hit paid a little less than the one before — and after enough of them, even honest wins paid less too. The baseline crept up and never came back down. That is downregulation: a brain flooded with cheap dopamine turns the volume down on ALL of it, so the scroll stops satisfying and everything slower — work, books, people — pays less than it used to. You just felt your economy do exactly that."
+takeaway = "Cheap dopamine isn't free — it's borrowed against everything else you enjoy. A stretch without the feed resets the price of everything slower."
+color = "ffd479"

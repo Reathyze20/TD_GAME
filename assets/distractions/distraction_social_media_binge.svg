@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160">
+  <defs>
+    <radialGradient id="boss-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#bf5af2" stop-opacity="0.9"/>
+      <stop offset="60%" stop-color="#5e5ce6" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="boss-core" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#da8fff"/>
+      <stop offset="50%" stop-color="#af52de"/>
+      <stop offset="100%" stop-color="#3634a3"/>
+    </linearGradient>
+    <linearGradient id="screen-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2c2c2e"/>
+      <stop offset="100%" stop-color="#1c1c1e"/>
+    </linearGradient>
+    <filter id="boss-shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#000000" flood-opacity="0.6"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="#bf5af2" flood-opacity="0.8"/>
+    </filter>
+  </defs>
+
+  <!-- Large Aura -->
+  <circle cx="80" cy="80" r="76" fill="url(#boss-glow)"/>
+
+  <!-- Energy Tendrils Connecting Satellite Screens -->
+  <path d="M 80 80 L 35 35 M 80 80 L 125 35 M 80 80 L 35 125 M 80 80 L 125 125" stroke="#bf5af2" stroke-width="4" stroke-linecap="round"/>
+  <path d="M 80 80 L 35 35 M 80 80 L 125 35 M 80 80 L 35 125 M 80 80 L 125 125" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"/>
+
+  <!-- Central Boss Core Disc -->
+  <g transform="translate(80, 80)" filter="url(#boss-shadow)">
+    <circle cx="0" cy="0" r="32" fill="url(#boss-core)" stroke="#ffffff" stroke-width="3"/>
+    <!-- Infinite Dopamine Vortex Lines -->
+    <path d="M -20 -10 Q 0 -25 20 -10 Q 25 10 0 20 Q -25 10 -20 -10 Z" fill="none" stroke="#ffffff" stroke-width="2.5" opacity="0.9"/>
+    <circle cx="0" cy="0" r="8" fill="#ffd479"/>
+  </g>
+
+  <!-- Top-Left Satellite Screen (Like Heart) -->
+  <g transform="translate(35, 35)" filter="url(#boss-shadow)">
+    <rect x="-18" y="-22" width="36" height="44" rx="6" fill="url(#screen-grad)" stroke="#bf5af2" stroke-width="2"/>
+    <path d="M 0 -2 C -4 -7 -10 -2 0 6 C 10 -2 4 -7 0 -2 Z" fill="#ff3b30"/>
+  </g>
+
+  <!-- Top-Right Satellite Screen (Share / Retweet) -->
+  <g transform="translate(125, 35)" filter="url(#boss-shadow)">
+    <rect x="-18" y="-22" width="36" height="44" rx="6" fill="url(#screen-grad)" stroke="#5e5ce6" stroke-width="2"/>
+    <path d="M -6 4 L 0 -4 L 6 4 M 0 -4 L 0 8" fill="none" stroke="#30d158" stroke-width="2.5" stroke-linecap="round"/>
+  </g>
+
+  <!-- Bottom-Left Satellite Screen (Chat Bubble) -->
+  <g transform="translate(35, 125)" filter="url(#boss-shadow)">
+    <rect x="-18" y="-22" width="36" height="44" rx="6" fill="url(#screen-grad)" stroke="#64d2ff" stroke-width="2"/>
+    <path d="M -7 -4 C -7 -8 7 -8 7 -4 C 7 0 0 0 0 4 L -4 4 L -3 0 C -7 0 -7 -4 -7 -4 Z" fill="#64d2ff"/>
+  </g>
+
+  <!-- Bottom-Right Satellite Screen (Dopamine Star / Fire) -->
+  <g transform="translate(125, 125)" filter="url(#boss-shadow)">
+    <rect x="-18" y="-22" width="36" height="44" rx="6" fill="url(#screen-grad)" stroke="#ff9500" stroke-width="2"/>
+    <polygon points="0,-8 3,-2 8,0 3,2 0,8 -3,2 -8,0 -3,-2" fill="#ffcc00"/>
+  </g>
+
+  <!-- Outer Orbit Ring -->
+  <circle cx="80" cy="80" r="64" fill="none" stroke="#bf5af2" stroke-width="1.5" stroke-dasharray="12 12" opacity="0.6"/>
+</svg>

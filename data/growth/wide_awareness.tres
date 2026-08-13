@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="GrowthNodeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/card_effect_data.gd" id="1_vx85q"]
+[ext_resource type="Script" path="res://scripts/resources/card_data.gd" id="2_g3gi4"]
+[ext_resource type="Script" path="res://scripts/resources/growth_node_data.gd" id="3_mfxml"]
+
+[sub_resource type="Resource" id="Resource_cyh8d"]
+script = ExtResource("1_vx85q")
+stat_type = "range"
+target = "mindfulness"
+value = 0.12
+
+[sub_resource type="Resource" id="Resource_levdt"]
+script = ExtResource("2_g3gi4")
+id = &"growth_peripheral_vision"
+title = "Peripheral Vision Growth"
+description = ""
+effects = Array[ExtResource("1_vx85q")]([SubResource("Resource_cyh8d")])
+
+[resource]
+script = ExtResource("3_mfxml")
+id = &"wide_awareness"
+name = "Peripheral Vision"
+description = "Notice distractions before they grab you. Mindfulness +12% range, per rank."
+branch = &"awareness"
+tier = 0
+max_rank = 2
+costs = Array[int]([10, 20])
+modifier = SubResource("Resource_levdt")

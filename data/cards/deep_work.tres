@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CardData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/card_effect_data.gd" id="1_h1n14"]
+[ext_resource type="Script" path="res://scripts/resources/card_data.gd" id="2_0vfog"]
+
+[sub_resource type="Resource" id="Resource_eex2o"]
+script = ExtResource("1_h1n14")
+value = 0.15
+
+[resource]
+script = ExtResource("2_0vfog")
+id = &"deep_work"
+title = "Deep Work Session"
+description = "Uninterrupted focus hits harder."
+effects = Array[ExtResource("1_h1n14")]([SubResource("Resource_eex2o")])
+rarity = &"common"

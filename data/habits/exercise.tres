@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="HabitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/habit_data.gd" id="1_a7rur"]
+
+[resource]
+script = ExtResource("1_a7rur")
+id = &"exercise"
+name = "Exercise"
+short = "Move"
+description = "Slow, heavy single hits. Built for tanky distractions like Doomscroll."
+build_cost = 70
+upgrades = Array[StringName]([&"exercise_2"])
+range = 390.0
+arc_angle = 45.0
+willpower_damage = 34
+fire_cooldown = 1.1
+color = "ff8a3d"
+projectile_color = "ffc08a"

@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="GrowthNodeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/growth_node_data.gd" id="1_node"]
+
+[resource]
+script = ExtResource("1_node")
+id = &"iron_will"
+name = "Iron Will"
+description = "More room to be wrong. +8 starting Focus on every level, per rank."
+branch = &"discipline"
+tier = 2
+requires = Array[StringName]([&"strength_training"])
+max_rank = 2
+costs = Array[int]([25, 40])
+perk_key = &"max_focus"
+perk_value = 8.0

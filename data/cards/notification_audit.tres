@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="CardData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/card_effect_data.gd" id="1_eff"]
+[ext_resource type="Script" path="res://scripts/resources/card_data.gd" id="2_card"]
+
+[sub_resource type="Resource" id="Resource_na1"]
+script = ExtResource("1_eff")
+stat_type = "distraction_health"
+value = -0.2
+
+[resource]
+script = ExtResource("2_card")
+id = &"notification_audit"
+title = "Notification Audit"
+description = "You went through the settings once. Everything that survived the cut hits softer."
+rarity = &"rare"
+effects = Array[ExtResource("1_eff")]([SubResource("Resource_na1")])

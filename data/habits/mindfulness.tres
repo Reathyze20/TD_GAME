@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="HabitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/habit_data.gd" id="1_7xbl2"]
+
+[resource]
+script = ExtResource("1_7xbl2")
+id = &"mindfulness"
+name = "Mindfulness"
+short = "Breathe"
+description = "Area mind damage that also slows distractions and shreds their armor, so every other habit hits harder."
+build_cost = 45
+upgrades = Array[StringName]([&"mindfulness_2"])
+range = 260.0
+arc_angle = 90.0
+willpower_damage = 0
+awareness_damage = 5
+fire_cooldown = 0.7
+aoe = true
+slow = 0.5
+slow_duration = 1.0
+reframe = 3
+reframe_duration = 2.5
+color = "b07dff"
+projectile_color = "d7bcff"

@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="HabitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/habit_data.gd" id="1_ckkab"]
+
+[resource]
+script = ExtResource("1_ckkab")
+id = &"real_hobby"
+name = "Real Hobby"
+short = "Hobby"
+description = "Long range, light touch. Applies damage over time that ignores armor and mind resist."
+upgrades = Array[StringName]([&"real_hobby_2"])
+build_cost = 60
+range = 520.0
+arc_angle = 70.0
+willpower_damage = 0
+awareness_damage = 2
+fire_cooldown = 1.0
+aoe = true
+boredom = 3.0
+boredom_duration = 3.0
+color = "7cffb2"
+projectile_color = "b6ffd8"

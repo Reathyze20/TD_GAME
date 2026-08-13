@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="CardData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/card_effect_data.gd" id="1_hd5ch"]
+[ext_resource type="Script" path="res://scripts/resources/card_data.gd" id="2_wde4u"]
+
+[sub_resource type="Resource" id="Resource_yvflq"]
+script = ExtResource("1_hd5ch")
+stat_type = "awareness"
+value = 0.2
+
+[resource]
+script = ExtResource("2_wde4u")
+id = &"awareness_training"
+title = "Awareness Training"
+description = "Notice the hook before it lands."
+effects = Array[ExtResource("1_hd5ch")]([SubResource("Resource_yvflq")])
+rarity = &"common"

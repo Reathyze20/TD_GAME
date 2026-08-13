@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="CardData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/card_effect_data.gd" id="1_thuqk"]
+[ext_resource type="Script" path="res://scripts/resources/card_data.gd" id="2_oc4ir"]
+
+[sub_resource type="Resource" id="Resource_n6dvo"]
+script = ExtResource("1_thuqk")
+target = "exercise"
+value = 0.6
+
+[sub_resource type="Resource" id="Resource_lt61o"]
+script = ExtResource("1_thuqk")
+stat_type = "fire_cooldown"
+value = 0.2
+
+[resource]
+script = ExtResource("2_oc4ir")
+id = &"all_nighter"
+title = "All-Nighter"
+description = "One system runs hot while everything else drags behind it."
+effects = Array[ExtResource("1_thuqk")]([SubResource("Resource_n6dvo"), SubResource("Resource_lt61o")])
+tolerance_cost = 15.0
+rarity = &"legendary"

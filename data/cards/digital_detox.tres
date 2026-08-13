@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="CardData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/card_effect_data.gd" id="1_rbc0j"]
+[ext_resource type="Script" path="res://scripts/resources/card_data.gd" id="2_nd0od"]
+
+[sub_resource type="Resource" id="Resource_ebn3p"]
+script = ExtResource("1_rbc0j")
+stat_type = "distraction_speed"
+value = -0.12
+
+[resource]
+script = ExtResource("2_nd0od")
+id = &"digital_detox"
+title = "Digital Detox"
+description = "Stepping away slows the feed."
+effects = Array[ExtResource("1_rbc0j")]([SubResource("Resource_ebn3p")])
+rarity = &"rare"

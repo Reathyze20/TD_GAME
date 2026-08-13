@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/card_burst_data.gd" id="1_burst"]
+[ext_resource type="Script" path="res://scripts/resources/card_data.gd" id="2_card"]
+
+[sub_resource type="Resource" id="Resource_sw"]
+script = ExtResource("1_burst")
+type = "restore_focus"
+focus_percent = 0.4
+
+[resource]
+script = ExtResource("2_card")
+id = &"second_wind"
+title = "Second Wind"
+description = "Attention is not a tank that only empties. Step away, and some of it comes back."
+rarity = &"diamond"
+min_draft = 2
+burst = SubResource("Resource_sw")

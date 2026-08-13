@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="HabitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/habit_data.gd" id="1_5hhlc"]
+
+[resource]
+script = ExtResource("1_5hhlc")
+id = &"mindfulness_2"
+name = "Deep Mindfulness"
+short = "Breathe+"
+description = "Stronger area mind damage, longer slow, and heavy armor shred on everything it touches."
+build_cost = 55
+range = 320.0
+arc_angle = 105.0
+willpower_damage = 0
+awareness_damage = 10
+fire_cooldown = 0.55
+aoe = true
+slow = 0.38
+slow_duration = 1.8
+reframe = 6
+reframe_duration = 3.5
+color = "8833ff"
+projectile_color = "cc99ff"

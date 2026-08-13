@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="DistractionData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/distraction_data.gd" id="1_gchat"]
+
+[resource]
+script = ExtResource("1_gchat")
+id = &"group_chat"
+display_name = "Group Chat"
+description = "The thread that pings until you look. It isn't coming for you — it's coming for your habits."
+max_health = 45
+speed = 55.0
+compulsion = 2
+rationalization = 1
+dopamine_reward = 8
+focus_damage = 3
+melee_damage = 6
+color = "42c86a"
+radius = 13.0
+shape = "rect"
+disrupt_interval = 6.0
+disrupt_duration = 2.5
+disrupt_radius = 220.0

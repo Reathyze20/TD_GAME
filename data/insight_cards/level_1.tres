@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="InsightCardData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/insight_card_data.gd" id="1_u30fk"]
+
+[resource]
+script = ExtResource("1_u30fk")
+title = "Variable Rewards"
+concept = "Intermittent Reinforcement"
+description = "About one distraction in {drop_rate} dropped Insight, and you could never tell which one it would be. So you kept watching for the next drop. That is intermittent reinforcement — dopamine fires in ANTICIPATION of a reward, not on receiving it, and an unpredictable schedule holds attention far better than a reliable one. This game just ran that schedule on you for a whole level. It still worked."
+takeaway = "Turn off non-essential notifications. Make checking your phone a conscious choice rather than a reflex to a ping."

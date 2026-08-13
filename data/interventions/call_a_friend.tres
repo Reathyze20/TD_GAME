@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="InterventionData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/intervention_data.gd" id="1_0kvrt"]
+
+[resource]
+script = ExtResource("1_0kvrt")
+id = &"call_a_friend"
+name = "Call a Friend"
+short = "Friend"
+description = "Social support. Summons 2 Allies that block distractions for 14s."
+type = "summon_allies"
+cooldown = 30.0
+radius = 44.0
+ally_count = 2
+ally_health = 40
+ally_damage = 6
+ally_attack_cooldown = 0.6
+ally_lifetime = 14.0
+guard_radius = 260.0
+color = "ffd166"

@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="GrowthNodeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/growth_node_data.gd" id="1_node"]
+
+[resource]
+script = ExtResource("1_node")
+id = &"second_thoughts"
+name = "Second Thoughts"
+description = "The first option is rarely the best one. +1 reroll in every card draft, per rank."
+branch = &"recovery"
+tier = 2
+requires = Array[StringName]([&"support_network"])
+max_rank = 2
+costs = Array[int]([30, 50])
+perk_key = &"draft_rerolls"
+perk_value = 1.0

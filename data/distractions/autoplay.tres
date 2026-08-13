@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="DistractionData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/distraction_data.gd" id="1_jyynn"]
+
+[resource]
+script = ExtResource("1_jyynn")
+id = &"autoplay"
+display_name = "Autoplay"
+description = "The next-episode auto-roll that never stops."
+max_health = 12
+speed = 110.0
+dopamine_reward = 2
+melee_damage = 5
+color = "ffaa33"
+radius = 10.5
+shape = "triangle"

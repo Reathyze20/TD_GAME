@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="GrowthNodeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/growth_node_data.gd" id="1_node"]
+
+[resource]
+script = ExtResource("1_node")
+id = &"support_network"
+name = "Support Network"
+description = "People you can call without explaining first. Interventions come back 12% sooner, per rank."
+branch = &"recovery"
+tier = 1
+requires = Array[StringName]([&"starter_dopamine"])
+max_rank = 2
+costs = Array[int]([15, 25])
+perk_key = &"intervention_cooldown"
+perk_value = 0.12

@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="GrowthNodeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/growth_node_data.gd" id="1_node"]
+
+[resource]
+script = ExtResource("1_node")
+id = &"clear_sight"
+name = "Clear Sight"
+description = "You see the whole board. Every card draft offers one extra choice."
+branch = &"awareness"
+tier = 2
+requires = Array[StringName]([&"sharp_eye"])
+max_rank = 1
+costs = Array[int]([45])
+perk_key = &"draft_options"
+perk_value = 1.0

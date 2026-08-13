@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="HabitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/habit_data.gd" id="1_37ovn"]
+
+[resource]
+script = ExtResource("1_37ovn")
+id = &"anchor"
+name = "Anchor"
+short = "Anchor"
+build_cost = 20
+color = "33e6f2"
+projectile_color = "33e6f2"
+willpower_damage = 0
+awareness_damage = 0
+range = 260.0
+fire_cooldown = 999.0
+arc_angle = 360.0
+description = "Something you already do every day, used to hold a new habit in place. Extends your Routine 260px — habits outside it stall."
+upgrades = Array[StringName]([])
+has_work_cycle = false
+work_duration = 0.0
+break_short = 0.0
+break_long = 0.0

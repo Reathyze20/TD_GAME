@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/card_effect_data.gd" id="1_42xce"]
+[ext_resource type="Script" path="res://scripts/resources/card_data.gd" id="2_6qnb3"]
+
+[sub_resource type="Resource" id="Resource_c2n81"]
+script = ExtResource("1_42xce")
+stat_type = "range"
+target = "mindfulness"
+value = 0.25
+
+[resource]
+script = ExtResource("2_6qnb3")
+id = &"breath_focus"
+title = "Breath Focus"
+description = "Calm radiates further when centred."
+effects = Array[ExtResource("1_42xce")]([SubResource("Resource_c2n81")])
+rarity = &"common"

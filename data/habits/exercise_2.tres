@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="HabitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/habit_data.gd" id="1_jttro"]
+
+[resource]
+script = ExtResource("1_jttro")
+id = &"exercise_2"
+name = "Peak Movement"
+short = "Move+"
+description = "Peak performance. One-shots a Doomscroll."
+build_cost = 80
+range = 460.0
+arc_angle = 45.0
+willpower_damage = 60
+fire_cooldown = 0.9
+color = "ff5500"
+projectile_color = "ffaa33"

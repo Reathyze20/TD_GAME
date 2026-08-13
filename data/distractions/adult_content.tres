@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="DistractionData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/distraction_data.gd" id="1_distraction"]
+
+[resource]
+script = ExtResource("1_distraction")
+id = &"adult_content"
+display_name = "Adult Content"
+description = "High-threat dopamine drain. Anonymized pixelated distraction."
+max_health = 60
+speed = 50.0
+is_flying = false
+compulsion = 5
+rationalization = 2
+dopamine_reward = 12
+focus_damage = 5
+melee_damage = 10
+color = "ff7700"
+radius = 16.0
+shape = "rect"

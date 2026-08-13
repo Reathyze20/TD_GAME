@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="GrowthNodeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/growth_node_data.gd" id="1_node"]
+
+[resource]
+script = ExtResource("1_node")
+id = &"neuroplasticity"
+name = "Neuroplasticity"
+description = "The brain adapts — in both directions. Tolerance decays 15% faster, per rank."
+branch = &"recovery"
+tier = 1
+requires = Array[StringName]([&"starter_dopamine"])
+max_rank = 2
+costs = Array[int]([15, 25])
+perk_key = &"tolerance_decay"
+perk_value = 0.15

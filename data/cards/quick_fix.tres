@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="CardData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/card_effect_data.gd" id="1_1r4ub"]
+[ext_resource type="Script" path="res://scripts/resources/card_data.gd" id="2_2vqq2"]
+
+[sub_resource type="Resource" id="Resource_wpidf"]
+script = ExtResource("1_1r4ub")
+value = 0.35
+
+[resource]
+script = ExtResource("2_2vqq2")
+id = &"quick_fix"
+title = "Quick Fix"
+description = "A hit of motivation, right now. It genuinely works — and every reward after it lands a little softer."
+effects = Array[ExtResource("1_1r4ub")]([SubResource("Resource_wpidf")])
+tolerance_cost = 25.0
+rarity = &"legendary"

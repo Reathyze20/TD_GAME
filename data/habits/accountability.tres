@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="HabitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/habit_data.gd" id="1_ocaiu"]
+
+[resource]
+script = ExtResource("1_ocaiu")
+id = &"accountability"
+name = "Accountability"
+short = "Support"
+description = "Trains an Ally every few seconds (up to 3) that blocks distractions nearby instead of shooting them."
+upgrades = Array[StringName]([&"accountability_2"])
+build_cost = 55
+range = 0.0
+arc_angle = 0.0
+willpower_damage = 0
+fire_cooldown = 0.0
+is_blocker = true
+ally_count = 3
+ally_health = 40
+ally_damage = 6
+ally_attack_cooldown = 0.6
+ally_spawn_cooldown = 3.5
+guard_radius = 240.0
+color = "2bd6c0"
+projectile_color = "2bd6c0"

@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="CardData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/card_effect_data.gd" id="1_aq84s"]
+[ext_resource type="Script" path="res://scripts/resources/card_data.gd" id="2_lae34"]
+
+[sub_resource type="Resource" id="Resource_y5kxk"]
+script = ExtResource("1_aq84s")
+stat_type = "awareness"
+value = 0.3
+
+[sub_resource type="Resource" id="Resource_pb7w6"]
+script = ExtResource("1_aq84s")
+stat_type = "distraction_speed"
+value = 0.18
+
+[resource]
+script = ExtResource("2_lae34")
+id = &"always_on"
+title = "Always On"
+description = "You stay sharp by staying plugged in. You do notice more — and the feed keeps pace with you."
+effects = Array[ExtResource("1_aq84s")]([SubResource("Resource_y5kxk"), SubResource("Resource_pb7w6")])
+rarity = &"legendary"

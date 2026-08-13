@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="HabitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/habit_data.gd" id="1_37ovn"]
+
+[resource]
+script = ExtResource("1_37ovn")
+description = "Rapid single-target damage, but it works in intervals. Rest it before it burns out."
+upgrades = Array[StringName]([&"focus_timer_2"])
+has_work_cycle = true
+work_duration = 8.0
+break_short = 3.0
+break_long = 6.0
+name = "Focus Timer"
+short = "Timer"

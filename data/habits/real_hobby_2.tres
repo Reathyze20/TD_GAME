@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="HabitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/habit_data.gd" id="1_rhob2"]
+
+[resource]
+script = ExtResource("1_rhob2")
+id = &"real_hobby_2"
+name = "Passion Project"
+short = "Hobby+"
+description = "The hobby that became a calling. Wider reach, deeper boredom — the feed cannot compete with something you love."
+build_cost = 90
+range = 560.0
+arc_angle = 75.0
+willpower_damage = 0
+awareness_damage = 3
+fire_cooldown = 0.9
+aoe = true
+boredom = 5.0
+boredom_duration = 3.5
+color = "9dffc8"
+projectile_color = "d2ffe8"

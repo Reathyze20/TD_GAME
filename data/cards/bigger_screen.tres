@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="CardData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/card_effect_data.gd" id="1_qehrt"]
+[ext_resource type="Script" path="res://scripts/resources/card_data.gd" id="2_ejya1"]
+
+[sub_resource type="Resource" id="Resource_a7e17"]
+script = ExtResource("1_qehrt")
+stat_type = "range"
+value = 0.4
+
+[sub_resource type="Resource" id="Resource_hk0l4"]
+script = ExtResource("1_qehrt")
+stat_type = "distraction_health"
+value = 0.25
+
+[resource]
+script = ExtResource("2_ejya1")
+id = &"bigger_screen"
+title = "Bigger Screen"
+description = "More screen means more reach — and more to resist. Distractions arrive sturdier than before."
+effects = Array[ExtResource("1_qehrt")]([SubResource("Resource_a7e17"), SubResource("Resource_hk0l4")])
+rarity = &"legendary"

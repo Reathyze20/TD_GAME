@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="GrowthNodeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/card_effect_data.gd" id="1_eff"]
+[ext_resource type="Script" path="res://scripts/resources/card_data.gd" id="2_mod"]
+[ext_resource type="Script" path="res://scripts/resources/growth_node_data.gd" id="3_node"]
+
+[sub_resource type="Resource" id="Resource_st_eff"]
+script = ExtResource("1_eff")
+stat_type = "willpower"
+target = "exercise"
+value = 0.12
+
+[sub_resource type="Resource" id="Resource_st_mod"]
+script = ExtResource("2_mod")
+id = &"growth_strength_training"
+title = "Strength Training Growth"
+description = ""
+effects = Array[ExtResource("1_eff")]([SubResource("Resource_st_eff")])
+
+[resource]
+script = ExtResource("3_node")
+id = &"strength_training"
+name = "Strength Training"
+description = "Movement is the loudest signal you can send your own brain. Exercise: +12% damage, per rank."
+branch = &"discipline"
+tier = 1
+requires = Array[StringName]([&"deep_sleep"])
+max_rank = 2
+costs = Array[int]([15, 25])
+modifier = SubResource("Resource_st_mod")

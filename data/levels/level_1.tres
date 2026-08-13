@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="LevelData" format=3 uid="uid://dkgw2gqjmxvlk"]
+
+[ext_resource type="Script" uid="uid://vku5r0rw7b3u" path="res://scripts/resources/level_data.gd" id="1_8p1tc"]
+[ext_resource type="Script" uid="uid://l111d375ktc" path="res://scripts/resources/wave_curve_entry_data.gd" id="2_gyuma"]
+[ext_resource type="Resource" path="res://data/distractions/notification.tres" id="3_3dfqs"]
+[ext_resource type="Resource" path="res://data/distractions/autoplay.tres" id="4_kln2y"]
+[ext_resource type="Resource" path="res://data/distractions/doomscroll.tres" id="5_tntgb"]
+
+[sub_resource type="Resource" id="Resource_ql8xe"]
+script = ExtResource("2_gyuma")
+distraction = ExtResource("3_3dfqs")
+base_count = 26
+growth_per_wave = 5.0
+spacing = 0.1
+
+[sub_resource type="Resource" id="Resource_hp85r"]
+script = ExtResource("2_gyuma")
+distraction = ExtResource("4_kln2y")
+from_wave = 3
+growth_per_wave = 2.6
+spacing = 0.22
+
+[sub_resource type="Resource" id="Resource_0rw5c"]
+script = ExtResource("2_gyuma")
+distraction = ExtResource("5_tntgb")
+from_wave = 6
+base_count = 4
+growth_per_wave = 1.1
+spacing = 0.8
+
+[resource]
+script = ExtResource("1_8p1tc")
+display_name = "Level 1 — Two Fronts (1080p)"
+objective = Vector2i(36, 10)
+spawn_zones = Array[Rect2i]([Rect2i(0, 0, 1, 23)])
+high_ground = Array[Vector2i]([Vector2i(16, 2), Vector2i(16, 3), Vector2i(17, 3), Vector2i(17, 2), Vector2i(18, 3), Vector2i(17, 4), Vector2i(16, 4), Vector2i(15, 4), Vector2i(14, 4), Vector2i(13, 4), Vector2i(12, 4), Vector2i(12, 3), Vector2i(11, 3), Vector2i(11, 2), Vector2i(11, 4), Vector2i(12, 2), Vector2i(13, 2), Vector2i(13, 3), Vector2i(14, 3), Vector2i(14, 2), Vector2i(15, 2), Vector2i(15, 3), Vector2i(18, 4), Vector2i(19, 3), Vector2i(19, 4), Vector2i(20, 4), Vector2i(21, 4), Vector2i(22, 4), Vector2i(23, 4), Vector2i(24, 4), Vector2i(25, 4), Vector2i(26, 4), Vector2i(27, 4), Vector2i(28, 4), Vector2i(29, 4), Vector2i(29, 3), Vector2i(29, 2), Vector2i(28, 2), Vector2i(27, 2), Vector2i(26, 2), Vector2i(25, 2), Vector2i(24, 2), Vector2i(23, 2), Vector2i(22, 2), Vector2i(21, 2), Vector2i(20, 2), Vector2i(19, 2), Vector2i(18, 2), Vector2i(20, 3), Vector2i(21, 3), Vector2i(22, 3), Vector2i(23, 3), Vector2i(24, 3), Vector2i(25, 3), Vector2i(26, 3), Vector2i(27, 3), Vector2i(28, 3), Vector2i(11, 9), Vector2i(11, 10), Vector2i(11, 11), Vector2i(12, 11), Vector2i(12, 10), Vector2i(12, 9), Vector2i(13, 9), Vector2i(14, 9), Vector2i(15, 9), Vector2i(16, 9), Vector2i(17, 9), Vector2i(18, 9), Vector2i(19, 9), Vector2i(20, 9), Vector2i(21, 9), Vector2i(22, 9), Vector2i(23, 9), Vector2i(24, 9), Vector2i(25, 9), Vector2i(26, 9), Vector2i(27, 9), Vector2i(28, 9), Vector2i(29, 9), Vector2i(29, 10), Vector2i(29, 11), Vector2i(28, 11), Vector2i(27, 11), Vector2i(26, 11), Vector2i(25, 11), Vector2i(24, 11), Vector2i(23, 11), Vector2i(22, 11), Vector2i(21, 11), Vector2i(20, 11), Vector2i(19, 11), Vector2i(18, 11), Vector2i(17, 11), Vector2i(16, 11), Vector2i(15, 11), Vector2i(14, 11), Vector2i(13, 11), Vector2i(13, 10), Vector2i(14, 10), Vector2i(15, 10), Vector2i(16, 10), Vector2i(17, 10), Vector2i(18, 10), Vector2i(19, 10), Vector2i(20, 10), Vector2i(21, 10), Vector2i(22, 10), Vector2i(23, 10), Vector2i(24, 10), Vector2i(25, 10), Vector2i(26, 10), Vector2i(27, 10), Vector2i(28, 10), Vector2i(11, 16), Vector2i(11, 17), Vector2i(11, 18), Vector2i(12, 18), Vector2i(13, 18), Vector2i(14, 18), Vector2i(15, 18), Vector2i(16, 18), Vector2i(17, 18), Vector2i(18, 18), Vector2i(19, 18), Vector2i(20, 18), Vector2i(21, 18), Vector2i(22, 18), Vector2i(23, 18), Vector2i(24, 18), Vector2i(29, 18), Vector2i(29, 17), Vector2i(29, 16), Vector2i(28, 16), Vector2i(27, 16), Vector2i(26, 16), Vector2i(25, 16), Vector2i(24, 16), Vector2i(23, 16), Vector2i(22, 16), Vector2i(21, 16), Vector2i(20, 16), Vector2i(19, 16), Vector2i(18, 16), Vector2i(17, 16), Vector2i(16, 16), Vector2i(15, 16), Vector2i(14, 16), Vector2i(13, 16), Vector2i(12, 16), Vector2i(12, 17), Vector2i(13, 17), Vector2i(14, 17), Vector2i(15, 17), Vector2i(16, 17), Vector2i(17, 17), Vector2i(18, 17), Vector2i(19, 17), Vector2i(20, 17), Vector2i(21, 17), Vector2i(22, 17), Vector2i(23, 17), Vector2i(24, 17), Vector2i(25, 17), Vector2i(26, 17), Vector2i(27, 17), Vector2i(28, 17), Vector2i(25, 18), Vector2i(26, 18), Vector2i(27, 18), Vector2i(28, 18), Vector2i(14, 21), Vector2i(15, 21), Vector2i(18, 21), Vector2i(19, 21), Vector2i(22, 21), Vector2i(23, 21), Vector2i(26, 21), Vector2i(27, 21), Vector2i(30, 21), Vector2i(31, 21), Vector2i(34, 21), Vector2i(35, 21), Vector2i(10, 21), Vector2i(11, 21), Vector2i(7, 21), Vector2i(6, 21), Vector2i(3, 21), Vector2i(2, 21), Vector2i(38, 21), Vector2i(39, 21), Vector2i(33, 12), Vector2i(33, 13), Vector2i(33, 14), Vector2i(33, 15), Vector2i(33, 8), Vector2i(33, 7), Vector2i(33, 6), Vector2i(33, 5), Vector2i(7, 5), Vector2i(7, 6), Vector2i(7, 7), Vector2i(7, 8), Vector2i(7, 12), Vector2i(7, 13), Vector2i(7, 14), Vector2i(7, 15)])
+wave_curve = Array[ExtResource("2_gyuma")]([SubResource("Resource_ql8xe"), SubResource("Resource_hp85r"), SubResource("Resource_0rw5c")])

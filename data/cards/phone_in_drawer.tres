@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="CardData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/card_effect_data.gd" id="1_eff"]
+[ext_resource type="Script" path="res://scripts/resources/card_data.gd" id="2_card"]
+
+[sub_resource type="Resource" id="Resource_pd1"]
+script = ExtResource("1_eff")
+stat_type = "fire_cooldown"
+value = -0.18
+
+[resource]
+script = ExtResource("2_card")
+id = &"phone_in_drawer"
+title = "Phone in the Drawer"
+description = "Distance beats willpower. Every habit reacts faster when the pull isn't in arm's reach."
+rarity = &"rare"
+effects = Array[ExtResource("1_eff")]([SubResource("Resource_pd1")])

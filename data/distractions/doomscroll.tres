@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="DistractionData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/distraction_data.gd" id="1_sgkvq"]
+
+[resource]
+script = ExtResource("1_sgkvq")
+id = &"doomscroll"
+display_name = "Doomscroll"
+description = "The endless feed. Slow, tanky, high value."
+max_health = 40
+speed = 68.0
+compulsion = 4
+dopamine_reward = 5
+focus_damage = 2
+melee_damage = 7
+color = "33cc77"
+radius = 14.0
+shape = "rect"

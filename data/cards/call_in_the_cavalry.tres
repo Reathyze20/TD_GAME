@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="CardData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/card_burst_data.gd" id="1_burst"]
+[ext_resource type="Script" path="res://scripts/resources/card_data.gd" id="2_card"]
+
+[sub_resource type="Resource" id="Resource_civ"]
+script = ExtResource("1_burst")
+type = "summon_allies"
+ally_count = 4
+ally_health = 60
+ally_damage = 8
+ally_attack_cooldown = 0.6
+guard_radius = 280.0
+ally_lifetime = 0.0
+spawn_radius = 170.0
+
+[resource]
+script = ExtResource("2_card")
+id = &"call_in_the_cavalry"
+title = "Call in the Cavalry"
+description = "You told four people what you're trying to do. Now they're standing between you and the feed — and they don't leave."
+rarity = &"diamond"
+min_draft = 2
+burst = SubResource("Resource_civ")

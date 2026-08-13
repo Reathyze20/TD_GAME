@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="GrowthNodeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/growth_node_data.gd" id="1_node"]
+
+[resource]
+script = ExtResource("1_node")
+id = &"breakthrough"
+name = "Breakthrough"
+description = "Insight compounds until something gives. +4% chance of a Breakthrough card in every draft, per rank."
+branch = &"recovery"
+tier = 2
+requires = Array[StringName]([&"neuroplasticity"])
+max_rank = 2
+costs = Array[int]([35, 55])
+perk_key = &"rarity_odds_diamond"
+perk_value = 4.0

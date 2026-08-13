@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <radialGradient id="buzz-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#5ec8ff" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#007aff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="phone-ghost" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#64d2ff" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#0a84ff" stop-opacity="0.6"/>
+    </linearGradient>
+    <filter id="cyan-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="0" stdDeviation="5" flood-color="#64d2ff" flood-opacity="0.8"/>
+    </filter>
+  </defs>
+
+  <!-- Radiant Aura -->
+  <circle cx="64" cy="64" r="58" fill="url(#buzz-glow)"/>
+
+  <!-- Left Vibration Waves -->
+  <path d="M 28 44 A 26 26 0 0 0 28 84" fill="none" stroke="#64d2ff" stroke-width="3.5" stroke-linecap="round" filter="url(#cyan-glow)"/>
+  <path d="M 18 36 A 38 38 0 0 0 18 92" fill="none" stroke="#5ec8ff" stroke-width="2.5" stroke-linecap="round" opacity="0.7" filter="url(#cyan-glow)"/>
+  <path d="M 10 28 A 50 50 0 0 0 10 100" fill="none" stroke="#007aff" stroke-width="1.8" stroke-linecap="round" opacity="0.4"/>
+
+  <!-- Right Vibration Waves -->
+  <path d="M 100 44 A 26 26 0 0 1 100 84" fill="none" stroke="#64d2ff" stroke-width="3.5" stroke-linecap="round" filter="url(#cyan-glow)"/>
+  <path d="M 110 36 A 38 38 0 0 1 110 92" fill="none" stroke="#5ec8ff" stroke-width="2.5" stroke-linecap="round" opacity="0.7" filter="url(#cyan-glow)"/>
+  <path d="M 118 28 A 50 50 0 0 1 118 100" fill="none" stroke="#007aff" stroke-width="1.8" stroke-linecap="round" opacity="0.4"/>
+
+  <!-- Ghost Phone Body -->
+  <g transform="translate(64, 64)" filter="url(#cyan-glow)">
+    <!-- Phone Chassis -->
+    <rect x="-20" y="-36" width="40" height="72" rx="8" fill="url(#phone-ghost)" stroke="#ffffff" stroke-width="2"/>
+    <!-- Phone Screen -->
+    <rect x="-16" y="-28" width="32" height="54" rx="4" fill="#001833" opacity="0.8"/>
+    <!-- Screen Vibration Signal Waveform -->
+    <path d="M -12 0 L -7 -10 L -2 8 L 3 -12 L 8 10 L 12 0" fill="none" stroke="#64d2ff" stroke-width="2" stroke-linejoin="round"/>
+    <!-- Speaker Notch -->
+    <line x1="-6" y1="-32" x2="6" y2="-32" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+  </g>
+</svg>

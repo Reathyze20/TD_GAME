@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="GrowthNodeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/card_effect_data.gd" id="1_4jabg"]
+[ext_resource type="Script" path="res://scripts/resources/card_data.gd" id="2_7f0oy"]
+[ext_resource type="Script" path="res://scripts/resources/growth_node_data.gd" id="3_wh5tx"]
+
+[sub_resource type="Resource" id="Resource_5eum5"]
+script = ExtResource("1_4jabg")
+stat_type = "dopamine_bonus"
+value = 1.0
+is_percentage = false
+
+[sub_resource type="Resource" id="Resource_7fioi"]
+script = ExtResource("2_7f0oy")
+id = &"growth_morning_routine"
+title = "Morning Routine Growth"
+description = ""
+effects = Array[ExtResource("1_4jabg")]([SubResource("Resource_5eum5")])
+
+[resource]
+script = ExtResource("3_wh5tx")
+id = &"starter_dopamine"
+name = "Morning Routine"
+description = "Structure breeds momentum. +1 Dopamine per defeat, per rank."
+branch = &"recovery"
+tier = 0
+max_rank = 3
+costs = Array[int]([10, 15, 25])
+modifier = SubResource("Resource_7fioi")
