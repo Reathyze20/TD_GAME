@@ -1,9 +1,14 @@
 # Průvodce editorem map (MapEditor)
 
 Průvodce je česky, protože je pro tebe — obsah hry zůstává anglicky.
-Otevři scénu `scenes/MapEditor.tscn`, klikni na kořenový uzel **MapEditor** a všechno
-ovládáš z Inspectoru vpravo. Vše, co vidíš na plátně, se překreslí samo ~1 s po každé
-úpravě (přepínač `Live Analyze`).
+
+**Hlavní ovládání je dok „TD Designer"** vpravo v editoru (vedle Inspectoru — plugin
+`addons/td_level_designer`). Je vidět pořád, ať máš vybraný jakýkoli uzel: nahoře
+**který soubor edituješ** a **poslední akce**, pod tím tlačítka, přepínače a záložky
+Level / Campaign. Když scéna editoru není otevřená, dok nabídne „Open MapEditor.tscn".
+
+Vše, co vidíš na plátně i v doku, se překresluje samo ~1 s po každé úpravě
+(přepínač `Live analysis`). Tlačítka najdeš záložně i v Inspectoru na uzlu MapEditor.
 
 ---
 
@@ -43,7 +48,7 @@ Sloupec = počet nepřátel v té vlně. **Oranžová** = běžná vlna, **modr�
 (zabití neplatí Dopamin), **červený rámeček** = finále s bossem. Tvar, který chceš:
 plynulá rampa, občas propad na nádech, výrazná špička na konci.
 
-## 4. Tlačítka (Inspector → Actions)
+## 4. Tlačítka (dok TD Designer, záložně Inspector → Actions)
 
 | Tlačítko | Co dělá | Kdy |
 |---|---|---|
@@ -59,9 +64,12 @@ plynulá rampa, občas propad na nádech, výrazná špička na konci.
 ## 5. Jak se vlastně kreslí
 
 1. Ve stromě scény vyber uzel **HighGroundTiles** → dole se otevře panel **TileMap**.
-2. Kresli štětcem; obdélník a kbelík jsou v liště panelu TileMap. Vzory (patterns) si
-   ulož výběr dlaždic pro opakované motivy (rovinka, roh, komín).
-3. Zóny a Objective přesouváš normálním nástrojem výběru ve 2D pohledu — přichytávání
+2. **Používej záložku „Terrains"** (ne „Tiles"): vyber terén *High Ground* a kresli.
+   Editor sám vybírá správný dílek — rohy, téčka, rovinky se napojují automaticky,
+   nemusíš nic vybírat z atlasu ručně. Záložka „Tiles" se hodí jen, když chceš
+   položit jeden konkrétní dílek natvrdo.
+3. Obdélník a kbelík jsou v liště panelu TileMap; mazání = pravé tlačítko štětce.
+4. Zóny a Objective přesouváš normálním nástrojem výběru ve 2D pohledu — přichytávání
    na mřížku je automatické.
 4. Nastavení levelu: klikni v Inspectoru na **Target Level** — rozbalí se **všechna**
    pole (vlny, křivka hordy, lean, boss, ekonomika…). Každé pole má tooltip. Ulož přes
@@ -77,6 +85,19 @@ plynulá rampa, občas propad na nádech, výrazná špička na konci.
 | `spawn cells have no path` | Zeď úplně odřízla spawn od jádra. | Prokopej průchod — červené čáry se hned objeví. |
 | `curve entry has no distraction` | Řádek křivky bez přiřazeného nepřítele. | V Target Level → Wave Curve doplň resource z `data/distractions/`. |
 | `wave 1 has no spawns` | Žádný záznam nezačíná na vlně 1. | Dej aspoň jednomu záznamu `from_wave = 1`. |
+
+## 6b. Záložka Campaign (přehled celé hry)
+
+Druhá záložka doku ukazuje **všechny levely vedle sebe**: id a jméno, vlny (a celkové
+spawny), špičku, detour, stavební místa u jádra a bosse. Červené buňky = stejné cíle,
+jaké hlídá Analyze u jedné mapy. Tady vidíš rampu obtížnosti kampaně — jestli trojka
+opravdu navazuje na dvojku. Tlačítko *Refresh* přepočítá vše ze souborů.
+
+## 6c. Git — historie všeho
+
+Projekt je nově pod gitem. `.bak` je krok zpět; git je **celá historie**: po každém
+milníku si řekni o commit („commitni editor po dnešku") a kdykoli se lze vrátit
+k jakémukoli staršímu stavu map, křivek i kódu.
 
 ## 7. Zálohy
 

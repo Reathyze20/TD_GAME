@@ -21,6 +21,10 @@ const D = preload("res://scripts/data.gd")   ## GRID is a const, so no autoload 
 const G = preload("res://scripts/game.gd")   ## CORE/ANCHOR_ROUTINE_RADIUS live here.
 const TILESET_PATH := "res://data/terrain/high_ground_tileset.tres"
 
+## Fired at the end of every _analyze(). The designer dock listens and refreshes its
+## panel from _report_lines/_last_summary, instead of polling this node.
+signal analysis_updated
+
 @export var target_level: LevelData
 
 @export_group("Actions")
@@ -116,6 +120,16 @@ var _traffic_max: int = 0
 ## _wave_summary() output cached at analysis time, so _draw() can render the difficulty
 ## bar chart without recomputing the curve every frame.
 var _last_summary: Dictionary = {}
+## One-line record of the last write/launch ("Baked → level_1.tres · 14:32"), surfaced
+## by the dock so success is never something you go check in the Output console.
+var last_action := ""
+## The on-canvas info boxes (metrics panel, legend, difficulty chart) below the field.
+## The designer dock flips this off when it takes over their job. Deliberately NOT an
+## export: the plugin toggling it must never mark the scene as modified.
+var draw_info_boxes := true
+
+func _clock() -> String:
+	return Time.get_time_string_from_system().substr(0, 5)
 var _fingerprint: int = 0
 var _recheck_accum: float = 0.0
 var _analyze_delay: float = 0.0
@@ -703,17 +717,21 @@ func _analyze() -> void:
 	# self-triggered run doesn't immediately schedule another one.
 	_fingerprint = _current_fingerprint()
 	queue_redraw()
+	analysis_updated.emit()
 
 ## Per-wave spawn totals + the one-line function summary. MIRRORS Data.build_waves()
 ## (scripts/data.gd) — Data is an autoload and does not exist in the editor context,
 ## so the count formula is duplicated here. If build_waves() ever changes, change this.
 func _wave_summary() -> Dictionary:
-	if target_level == null or target_level.wave_curve.is_empty():
+	return _wave_summary_for(target_level)
+
+func _wave_summary_for(level: LevelData) -> Dictionary:
+	if level == null or level.wave_curve.is_empty():
 		return {}
 	var totals: Array[int] = []
-	for w in range(1, target_level.wave_count + 1):
+	for w in range(1, level.wave_count + 1):
 		var total := 0
-		for curve in target_level.wave_curve:
+		for curve in level.wave_curve:
 			if curve == null or w < curve.from_wave:
 				continue
 			total += roundi(curve.base_count + curve.growth_per_wave * (w - curve.from_wave))
@@ -730,16 +748,56 @@ func _wave_summary() -> Dictionary:
 	for i in range(totals.size()):
 		parts.append(str(totals[i]))
 	var lean_text := "none"
-	if not target_level.lean_waves.is_empty():
+	if not level.lean_waves.is_empty():
 		var lp: Array[String] = []
-		for lw in target_level.lean_waves:
+		for lw in level.lean_waves:
 			lp.append(str(lw))
 		lean_text = ",".join(lp)
 	var line := "%d waves · %d spawns total · peak wave %d (%d) · lean %s · boss %s · draft every %d" \
-		% [target_level.wave_count, sum, peak_wave, peak, lean_text,
-			"yes" if target_level.boss != null else "no", target_level.draft_interval]
+		% [level.wave_count, sum, peak_wave, peak, lean_text,
+			"yes" if level.boss != null else "no", level.draft_interval]
 	return {"totals": totals, "peak": peak, "peak_wave": peak_wave, "sum": sum,
 		"totals_text": " ".join(parts), "line": line}
+
+## Everything the campaign overview needs about one level, computed straight from the
+## RESOURCE — no scene, no Load. Reuses the same helpers Analyze runs on the canvas, so
+## the two views cannot disagree about a map. Note: detour here averages over reachable
+## spawn cells only, so it can differ slightly from Analyze on maps with cut-off cells.
+func level_stats(level: LevelData) -> Dictionary:
+	if level == null:
+		return {}
+	var g := _grid()
+	var solid := {}
+	for c in level.high_ground:
+		solid[c] = true
+	var rr := _routine_report(level.high_ground, level.objective)
+	var shortest := -1
+	var len_sum := 0
+	var manh := 0
+	for z: Rect2i in level.spawn_zones:
+		for x in range(maxi(0, z.position.x), mini(z.position.x + z.size.x, int(g.cols))):
+			for y in range(maxi(0, z.position.y), mini(z.position.y + z.size.y, int(g.rows))):
+				var c2 := Vector2i(x, y)
+				if solid.has(c2) or c2 == level.objective:
+					continue
+				var l := _path_len(c2, level.objective, solid)
+				if l < 0:
+					continue
+				len_sum += l
+				manh += absi(c2.x - level.objective.x) + absi(c2.y - level.objective.y)
+				shortest = l if shortest < 0 else mini(shortest, l)
+	var detour := 0.0
+	if manh > 0:
+		detour = float(len_sum) / float(manh)
+	var ws := _wave_summary_for(level)
+	return {
+		"id": level.id, "name": level.display_name,
+		"spots": rr.total, "core_spots": rr.in_core, "reachable": rr.reachable,
+		"shortest": shortest, "detour": detour,
+		"waves": level.wave_count, "spawns": int(ws.get("sum", 0)),
+		"peak": int(ws.get("peak", 0)), "lean": level.lean_waves.size(),
+		"boss": level.boss != null,
+	}
 
 func _report(label: String, value: String, ok: bool, note: String) -> void:
 	print("  %s %-26s %-18s %s" % ["ok  " if ok else "MISS", label, value, note])
@@ -826,6 +884,7 @@ func _bake_to_level() -> bool:
 	# is silent and unrecoverable without VCS.
 	print("MapEditor: baked %d cells, %d painted tiles, %d zones → %s"
 		% [cells.size(), tiles.size(), zones.size(), target_level.resource_path])
+	last_action = "Baked → %s · %s" % [target_level.resource_path.get_file(), _clock()]
 	_analyze()
 	return true
 
@@ -873,6 +932,7 @@ func _save_level_settings() -> bool:
 	var ws := _wave_summary()
 	if not ws.is_empty():
 		print("  %s" % ws.line)
+	last_action = "Settings saved → %s · %s" % [level_path.get_file(), _clock()]
 	_analyze()
 	return true
 
@@ -887,6 +947,7 @@ func _create_new_level() -> void:
 	target_level = nl
 	print("MapEditor: created %s (id %d, \"%s\") and made it the Target Level — Load, paint, Bake."
 		% [nl.resource_path, nl.id, nl.display_name])
+	last_action = "Created %s · %s" % [nl.resource_path.get_file(), _clock()]
 	_analyze()
 
 ## Next free file name AND id in one decision, so they can't drift apart: the id grows
@@ -951,6 +1012,7 @@ func _playtest() -> void:
 		print("MapEditor: PLAYTEST ABORTED — bake refused, see above. Nothing was launched.")
 		return
 	_write_playtest_marker(target_level.resource_path, playtest_designer_mode)
+	last_action = "Playtest %s · %s" % [target_level.resource_path.get_file(), _clock()]
 	# EditorInterface only exists inside a running editor; resolved by name so this
 	# script still parses and runs in game-only contexts (headless checks, exports).
 	if Engine.is_editor_hint() and Engine.has_singleton("EditorInterface"):
@@ -1009,6 +1071,7 @@ func _load_from_level() -> void:
 			_adopt(rr)
 
 	print("MapEditor: loaded %s" % target_level.resource_path)
+	last_action = "Loaded %s · %s" % [target_level.resource_path.get_file(), _clock()]
 	queue_redraw()
 	_analyze()
 
@@ -1103,7 +1166,10 @@ func _draw() -> void:
 
 	# On-canvas metrics panel, below the play field (the grid spans the full width, so
 	# below is the free space). The numbers that decide whether the map is good, without
-	# a trip to the Output console.
+	# a trip to the Output console. Skipped entirely when the designer dock is mounted —
+	# it shows the same data as real UI, and duplicating it here would just be noise.
+	if not draw_info_boxes:
+		return
 	var px := ox
 	var py := oy + h + 16.0
 	var line_h := 22.0
