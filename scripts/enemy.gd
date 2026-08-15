@@ -110,6 +110,8 @@ func _prune_blockers() -> void:
 
 func _process(delta: float) -> void:
 	if dead:
+		if _awaiting_death_anim:
+			_process_death_animation()
 		return
 	# Statuses tick before every early return below — a blocked or unrouted distraction
 	# must still shed its Calm and Reframe on schedule, and still take Boredom damage.
@@ -144,7 +146,25 @@ func _process(delta: float) -> void:
 		path_index += 1
 	else:
 		position += to / dist * step
+		note_heading(to / dist)
 	queue_redraw()
+
+## Which way this distraction is travelling, as one of four compass directions. The
+## animator picks its walk cycle from it — without this every creature moonwalked east
+## while playing its south-facing animation.
+##
+## Snapped to the dominant axis rather than kept as a raw vector: AStar runs with
+## DIAGONAL_MODE_NEVER, so real movement is axis-aligned and only `_scatter` (the small
+## per-enemy offset that stops a column overlapping into one blob) tilts it slightly.
+## Snapping ignores that tilt; a raw angle would flicker between two sets mid-corridor.
+enum Facing { SOUTH, NORTH, EAST, WEST }
+var facing: Facing = Facing.SOUTH
+
+func note_heading(dir: Vector2) -> void:
+	if absf(dir.x) > absf(dir.y):
+		facing = Facing.EAST if dir.x > 0.0 else Facing.WEST
+	else:
+		facing = Facing.SOUTH if dir.y > 0.0 else Facing.NORTH
 
 func distance_to_core() -> float:
 	return position.distance_to(game.objective_pos)
@@ -224,6 +244,7 @@ func _fly(delta: float) -> void:
 		_reach_core()
 		return
 	position += to / dist * step
+	note_heading(to / dist)
 	queue_redraw()
 
 ## Boredom damage callback — StatusManager emits this per source, so the habit that
@@ -265,9 +286,28 @@ func _die() -> void:
 	if dead:
 		return
 	dead = true
+	# Signals fire IMMEDIATELY, before any death animation. Reward, kill count, combo and
+	# the game's live-enemy list must not wait on presentation — a wave whose last kill
+	# animates for half a second would otherwise take half a second too long to end, and
+	# the corpse would still count as "on field".
 	defeated.emit(self)
 	SignalBus.distraction_defeated.emit(self, def.dopamine_reward)
+
+	# With death art, the node lingers just long enough to play it out. It is already
+	# `dead`, so nothing targets it, it deals no damage and it does not move.
+	if animator != null and animator.has_death_animation():
+		animator.play_death()
+		_awaiting_death_anim = true
+		set_process(true)
+		return
 	queue_free()
+
+## Set while the corpse plays its death frames; see _process's early-out below.
+var _awaiting_death_anim := false
+
+func _process_death_animation() -> void:
+	if animator == null or animator.is_death_finished():
+		queue_free()
 
 func _reach_core() -> void:
 	if dead:
@@ -286,11 +326,11 @@ func _draw() -> void:
 	if def.disrupt_interval > 0.0:
 		var charge: float = 1.0 - clampf(_disrupt_timer / def.disrupt_interval, 0.0, 1.0)
 		if charge > 0.6:
-			draw_arc(Vector2.ZERO, def.disrupt_radius, 0.0, TAU, 48,
-				Color(0.26, 0.78, 0.42, (charge - 0.6) * 0.6), 1.5)
+			PixelDraw.arc(self, Vector2.ZERO, def.disrupt_radius,
+				Color(0.26, 0.78, 0.42, (charge - 0.6) * 0.6), 1.0, 2.5)
 		if _ping_flash > 0.0:
 			var a: float = _ping_flash / 0.35
-			draw_line(Vector2.ZERO, to_local(_ping_target), Color(0.4, 1.0, 0.55, a * 0.9), 2.5)
+			PixelDraw.line(self, Vector2.ZERO, to_local(_ping_target), Color(0.4, 1.0, 0.55, a * 0.9), 1.0, 2.0)
 			draw_circle(to_local(_ping_target), 8.0 * a, Color(0.4, 1.0, 0.55, a * 0.5))
 
 	# Fallback drawing if animator component is not attached

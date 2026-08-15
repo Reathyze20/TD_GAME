@@ -97,62 +97,46 @@ func _process(delta: float) -> void:
 				_destroy()
 				return
 
+	# Walls stop shots. Mirrors the LOS filter in tower targeting and the shaded wedge
+	# preview — all three share game.cast_to_wall / high_ground, so they cannot drift.
+	# The 24px grace lets the shot clear the muzzle of a tower standing on high ground.
+	if game != null and distance_traveled > 24.0 \
+			and game.high_ground.has(game.world_to_cell(global_position)):
+		_create_impact_fx()
+		_destroy()
+		return
+
 	if distance_traveled >= max_travel_distance:
 		_destroy()
 		return
 
 	queue_redraw()
 
-func _draw() -> void:
-	# 1. Tapered Plasma Flame Tail (stretching backward along local -X axis)
-	var tail_len := 24.0
-	var tail_pts := PackedVector2Array([
-		Vector2(3.0, -4.5),
-		Vector2(-tail_len, -1.5),
-		Vector2(-tail_len - 10.0, 0.0),
-		Vector2(-tail_len, 1.5),
-		Vector2(3.0, 4.5)
-	])
-	draw_colored_polygon(tail_pts, Color(_color.r, _color.g, _color.b, 0.45))
-	
-	# Inner blazing hot flame core tail
-	var inner_tail := PackedVector2Array([
-		Vector2(3.0, -2.5),
-		Vector2(-tail_len * 0.65, 0.0),
-		Vector2(3.0, 2.5)
-	])
-	draw_colored_polygon(inner_tail, Color(1, 1, 1, 0.9))
+## One art pixel of the world's raster: terrain is 16px art scaled x3, so effects draw in
+## 3px blocks too. The old plasma polygons, glow circles and smooth trail lines were the
+## sharpest thing on screen — exactly the vector-against-pixel clash the art pass removed
+## from towers and enemies.
+const PX := 3.0
 
-	# 2. Motion trail dots
+## A single raster block centred on `pos` (local space), `units` art pixels wide.
+func _px(pos: Vector2, units: float, col: Color) -> void:
+	var s := PX * units
+	draw_rect(Rect2(pos - Vector2(s, s) * 0.5, Vector2(s, s)), col)
+
+func _draw() -> void:
+	# Motion trail: lone fading blocks snapped to the raster, so the wake flickers in
+	# place like dropped pixels instead of sliding smoothly behind the shot.
 	if _trail.size() > 1:
 		for i: int in range(_trail.size() - 1):
-			var alpha: float = float(i + 1) / float(_trail.size()) * 0.45
-			var p1: Vector2 = to_local(_trail[i])
-			var p2: Vector2 = to_local(_trail[i + 1])
-			draw_line(p1, p2, Color(_color.r, _color.g, _color.b, alpha), 6.0 * alpha + 1.0)
+			var alpha: float = float(i + 1) / float(_trail.size()) * 0.4
+			var p: Vector2 = to_local(_trail[i]).snapped(Vector2(PX, PX))
+			_px(p, 1.0, Color(_color.r, _color.g, _color.b, alpha))
 
-	# 3. Heavy Cannon Shell Body (Armored Capsule / Bullet Head pointing along +X)
-	var head_col := Color(_color.r, _color.g, _color.b, 1.0)
-	var glow_col := Color(_color.r, _color.g, _color.b, 0.35)
-	
-	# Outer energy halo
-	draw_circle(Vector2.ZERO, 9.0, glow_col)
-	
-	# Bullet Shell Geometry
-	var shell_pts := PackedVector2Array([
-		Vector2(9.0, 0.0),    # Tip
-		Vector2(5.0, -4.5),   # Top curve
-		Vector2(-4.0, -4.5),  # Top back
-		Vector2(-5.0, 0.0),   # Back center
-		Vector2(-4.0, 4.5),   # Bottom back
-		Vector2(5.0, 4.5)     # Bottom curve
-	])
-	draw_colored_polygon(shell_pts, head_col)
-	shell_pts.append(shell_pts[0])
-	draw_polyline(shell_pts, Color(1.0, 1.0, 1.0, 0.8), 1.5)
-	
-	# Hot glowing center core
-	draw_circle(Vector2(2.0, 0.0), 3.0, Color.WHITE)
+	# Bolt: 3x2-block body, lit tip ahead, dimmer block behind, white-hot core.
+	draw_rect(Rect2(-PX * 1.5, -PX, PX * 3.0, PX * 2.0), _color)
+	_px(Vector2(PX * 2.0, 0.0), 1.0, _color.lightened(0.4))
+	_px(Vector2(-PX * 2.0, 0.0), 1.0, Color(_color.r, _color.g, _color.b, 0.55))
+	_px(Vector2.ZERO, 1.0, Color(1, 1, 1, 0.95))
 
 func _create_impact_fx() -> void:
 	if game != null and "impact_fx_pool" in game:

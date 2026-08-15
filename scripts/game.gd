@@ -2,6 +2,8 @@ class_name Game
 extends Node2D
 
 var bg_texture: Texture2D = null
+var _spawn_marker_tex: Texture2D = null
+var _goal_marker_tex: Texture2D = null
 
 # Core gameplay (maze TD). Attach to the root Node2D of Game.tscn.
 # HIGH GROUND cells are fixed terrain that BLOCK movement AND are the only spots
@@ -25,6 +27,20 @@ var objective_pos: Vector2
 var high_ground := {}            # Vector2i -> true (blocking + buildable)
 var build_spots: Dictionary = {} # Vector2i -> BuildSpot
 var spawn_zone_cells: Array = [] # Array[Array[Vector2i]] — open cells per zone
+var decor_layer: DecorLayer = null
+
+## Ground-layer draw order. These used to be three competing move_child(..., 0) calls,
+## whose result depended on which layer happened to be built first — and it came out
+## backwards: the path layer landed on TOP, hiding the terrain, the decor and the
+## background under 718 cells of floor tile. Explicit z_index cannot be reordered by
+## construction order, so the stack stays what it says here.
+const Z_BACKGROUND := -40  ## the plate everything else sits on
+const Z_PATH := -30      ## walkable floor, the bottom of the world
+const Z_WALL_SHADOW := -25  ## contact shadow the walls cast onto the floor
+const Z_WALL_FACE := -22 ## the wall's front face, standing on the floor below it
+const Z_TERRAIN := -20   ## raised walls
+const Z_DECOR := -10     ## props lying on the floor, above it and below every unit
+var path_layer: TileMapLayer = null
 
 var _distractions: Array[Distraction] = []
 
@@ -134,6 +150,10 @@ func _ready() -> void:
 	# Before anything reads current_level_index: an editor Playtest launch may be
 	# redirecting this boot to the level that was just baked.
 	_consume_playtest_request()
+	# _draw() paints the background and the vector walls on this node itself, so the node's
+	# own filter decides how they scale. The background is authored at 320x152 and blown up
+	# x6 to the 1920x912 field — under the default linear filter that arrives as mush.
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	var bg_path := "res://assets/background.jpg"
 	if not FileAccess.file_exists(bg_path):
 		bg_path = "res://assets/background.png"
@@ -141,6 +161,11 @@ func _ready() -> void:
 		var img := Image.new()
 		if img.load(bg_path) == OK:
 			bg_texture = ImageTexture.create_from_image(img)
+	# Volitelné ručně kreslené značky; bez souborů se hra kreslí postaru (vektorově).
+	if ResourceLoader.exists("res://assets/markers/spawn_portal.png"):
+		_spawn_marker_tex = load("res://assets/markers/spawn_portal.png")
+	if ResourceLoader.exists("res://assets/markers/goal_core.png"):
+		_goal_marker_tex = load("res://assets/markers/goal_core.png")
 	level = Data.get_level(GameState.current_level_index)
 	level = level.duplicate(true)
 	level.waves = Data.build_waves(level)
@@ -158,6 +183,14 @@ func _ready() -> void:
 	entities.name = "Entities"
 	entities.y_sort_enabled = true
 	add_child(entities)
+	# After entities, so the placement preview draws above terrain AND units. The corner
+	# terrain tiles overhang half a cell past their vertex, so anything painted in
+	# Game._draw() — which renders below every child — gets clipped by tissue near walls;
+	# that is exactly where towers get placed.
+	_placement_overlay = PlacementOverlay.new()
+	_placement_overlay.name = "PlacementOverlay"
+	_placement_overlay.game = self
+	add_child(_placement_overlay)
 	_init_pools()
 	_build_field()
 	_build_glitch_overlay()
@@ -215,9 +248,12 @@ func _build_field() -> void:
 		bs.setup(self, cell)
 		build_spots[cell] = bs
 
+	_apply_path_weights()
+	_build_path_layer()
 	_build_terrain_layer()
 
 	spawn_zone_cells = []
+	# (populated just below; the decor pass at the end of this function needs it)
 	for zone: Rect2i in level.spawn_zones:
 		var cells: Array = []
 		for cx in range(zone.position.x, zone.position.x + zone.size.x):
@@ -228,7 +264,243 @@ func _build_field() -> void:
 		if not cells.is_empty():
 			spawn_zone_cells.append(cells)
 
+	_build_background_layer()
+	_build_wall_shadow_layer()
+	_build_wall_face_layer()
+	_build_decor_layer()
 	_compute_path_previews()
+
+## Makes the designer's painted lanes actually attract the horde.
+##
+## Every walkable cell that is NOT on a lane costs `path_off_lane_cost` times as much to
+## cross, so A* takes the lane whenever the detour is worth it and spills off only when
+## the lane is blocked or wildly longer. A hard block would have been simpler and wrong:
+## walling a lane off would leave the level unsolvable, and the game's whole premise is
+## routing around fixed high ground rather than following a fixed track.
+##
+## No lanes painted means no weights touched, so existing levels path exactly as before.
+func _apply_path_weights() -> void:
+	if level.path_cells.is_empty() or level.path_off_lane_cost <= 1.0:
+		return
+	var g = Data.GRID
+	var lane := {}
+	for c: Vector2i in level.path_cells:
+		lane[c] = true
+	for y in range(int(g.rows)):
+		for x in range(int(g.cols)):
+			var c := Vector2i(x, y)
+			if not lane.has(c) and astar.is_in_bounds(c.x, c.y):
+				astar.set_point_weight_scale(c, level.path_off_lane_cost)
+
+## Floor scenery. Sits directly above the terrain and below `entities`, so props are
+## painted over by anything that walks onto them. Built after the spawn zones exist,
+## because it deliberately leaves those cells clear.
+## The field's bottom plate. Its own node rather than a _draw() call, because _draw()
+## paints at THIS node's z_index and would sit on top of the path, terrain and decor
+## layers, hiding all three.
+func _build_background_layer() -> void:
+	var g = Data.GRID
+	var w: int = int(g.cols) * int(g.tile)
+	var h: int = int(g.rows) * int(g.tile)
+
+	var plate := ColorRect.new()
+	plate.name = "BackgroundPlate"
+	plate.color = Color("11141f")
+	plate.position = Vector2(g.origin_x, g.origin_y)
+	plate.size = Vector2(w, h)
+	plate.z_index = Z_BACKGROUND
+	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(plate)
+
+	if bg_texture == null:
+		return
+	var art := Sprite2D.new()
+	art.name = "Background"
+	art.texture = bg_texture
+	art.centered = false
+	art.position = Vector2(g.origin_x, g.origin_y)
+	# Authored at 320x152; the field is 1920x912, so this is an exact x6. NEAREST keeps
+	# the art pixels square instead of smearing them.
+	art.scale = Vector2(float(w) / bg_texture.get_width(), float(h) / bg_texture.get_height())
+	art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	art.z_index = Z_BACKGROUND
+	add_child(art)
+
+
+## The shadow a wall drops onto the floor at its foot. Without it a wall does not sit on
+## the ground, it hovers over it — the corridors read as cut out of a flat sheet rather
+## than sunk between raised masses. It cannot live in the terrain atlas, because the
+## shadow belongs to the cell BELOW the wall, which is floor and may be walked on.
+##
+## Length is constant regardless of how tall the wall is. That is a convention, not
+## physics: a shadow that grew with height would swallow the units standing next to it.
+## How far a wall's front face hangs into the cell below it. 8 art pixels at the x3
+## raster — half a cell, the usual proportion for this view. Shared by WallFace and
+## WallShadow, because the shadow has to start where the face ends.
+const WALL_FACE_H := 24
+
+
+## The wall's front face: what turns a flat top-down slab into a raised mass you can see
+## the side of. Three-quarter view (Zelda, Stardew): the floor is seen from above, the
+## characters from the front, and a raised block shows its south side.
+##
+## This was tried once before and rejected (docs/ART_PIPELINE.md), but the thing that
+## failed was asking PixelLab to extrude the wall INSIDE the 16px tile — top and face
+## sharing sixteen art pixels came back as a two-colour strip with the top eaten away.
+## Here the face is not part of the tile at all: the geometry is drawn by code into the
+## cell below, and only the material comes from the generator. Same split that makes the
+## wall atlas work.
+##
+## Only the southern rim of a wall mass gets a face — a cell with solid ground below it
+## is looking at its neighbour, not at open floor.
+class WallFace extends Node2D:
+	var solid: Dictionary = {}
+	var variants: Array[Texture2D] = []
+	var ox := 0
+	var oy := 0
+	var tile := 48
+	var rows := 0
+	var seed_val := 0
+	## Set from Game.WALL_FACE_H at build time — an inner class cannot read the outer
+	## script's constants directly.
+	var face_h := 24
+
+	func _draw() -> void:
+		if variants.is_empty():
+			return
+		var rng := RandomNumberGenerator.new()
+		var keys: Array = solid.keys()
+		keys.sort()          # deterministic order, so the same seed lays out identically
+		for cell: Vector2i in keys:
+			var below := cell + Vector2i.DOWN
+			if solid.has(below) or below.y >= rows:
+				continue
+			# One variant per cell, keyed off the cell itself: a long wall picks a mix
+			# instead of repeating one strip every 48 px.
+			rng.seed = hash(Vector2i(cell.x, cell.y)) ^ seed_val
+			var tex: Texture2D = variants[rng.randi() % variants.size()]
+			draw_texture_rect(tex, Rect2(ox + cell.x * tile, oy + below.y * tile,
+				tile, face_h), false)
+
+
+class WallShadow extends Node2D:
+	const DEPTH := 12          ## 4 art pixels at the x3 raster
+	const SIDE := 4            ## ambient occlusion where a wall meets floor sideways
+
+	var solid: Dictionary = {}
+	var ox := 0
+	var oy := 0
+	var tile := 48
+	var cols := 0
+	var rows := 0
+	## The wall now has a visible front face standing in this cell, so the shadow starts
+	## at the FOOT of that face rather than at the top edge of the cell. Left at the old
+	## position it would fall across the face itself and read as a smear on the wall.
+	var face_h := 24
+
+	func _draw() -> void:
+		# Cool and translucent, never black: a neutral black shadow reads as a hole,
+		# a blue-shifted one reads as shade.
+		var near := Color(0.016, 0.027, 0.063, 0.62)
+		var far := Color(0.016, 0.027, 0.063, 0.30)
+		for cell: Vector2i in solid.keys():
+			var below := cell + Vector2i.DOWN
+			if not solid.has(below) and below.y < rows:
+				var x := ox + cell.x * tile
+				var y := oy + below.y * tile + face_h
+				draw_rect(Rect2(x, y, tile, DEPTH * 0.5), near)
+				draw_rect(Rect2(x, y + DEPTH * 0.5, tile, DEPTH * 0.5), far)
+			for dx in [-1, 1]:
+				var side := cell + Vector2i(dx, 0)
+				if solid.has(side) or side.x < 0 or side.x >= cols:
+					continue
+				# The strip hugs the wall: on the wall's left neighbour it sits against
+				# that cell's right edge, and vice versa.
+				var inset := tile - SIDE if dx < 0 else 0
+				draw_rect(Rect2(ox + side.x * tile + inset, oy + side.y * tile,
+					SIDE, tile), far)
+
+
+## Built only for the tilemap terrain; the vector fallback paints its own shadow pass.
+func _build_wall_shadow_layer() -> void:
+	if terrain_layer == null or level == null:
+		return
+	var g = Data.GRID
+	var sh := WallShadow.new()
+	sh.name = "WallShadow"
+	sh.z_index = Z_WALL_SHADOW
+	sh.ox = int(g.origin_x)
+	sh.oy = int(g.origin_y)
+	sh.tile = int(g.tile)
+	sh.cols = int(g.cols)
+	sh.rows = int(g.rows)
+	sh.face_h = WALL_FACE_H if _has_wall_faces() else 0
+	for c: Vector2i in level.high_ground:
+		if c != level.objective:
+			sh.solid[c] = true
+	add_child(sh)
+
+
+const WALL_FACE_DIR := "res://assets/terrain/face"
+
+## Face art is optional. With no files the game keeps the flat top-down look it had
+## before, shadow included — so this can be reverted by deleting a folder.
+func _load_wall_face_variants() -> Array[Texture2D]:
+	var out: Array[Texture2D] = []
+	var dir := DirAccess.open(WALL_FACE_DIR)
+	if dir == null:
+		return out
+	var files := dir.get_files()
+	files.sort()
+	for f in files:
+		var base := f.trim_suffix(".remap").trim_suffix(".import")
+		if not base.ends_with(".png"):
+			continue
+		var p := "%s/%s" % [WALL_FACE_DIR, base]
+		if not ResourceLoader.exists(p):
+			continue
+		var tex = load(p)
+		if tex is Texture2D and not out.has(tex):
+			out.append(tex)
+	return out
+
+
+func _has_wall_faces() -> bool:
+	return not _load_wall_face_variants().is_empty()
+
+
+func _build_wall_face_layer() -> void:
+	if terrain_layer == null or level == null:
+		return
+	var variants := _load_wall_face_variants()
+	if variants.is_empty():
+		return
+	var g = Data.GRID
+	var wf := WallFace.new()
+	wf.name = "WallFace"
+	wf.z_index = Z_WALL_FACE
+	wf.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	wf.ox = int(g.origin_x)
+	wf.oy = int(g.origin_y)
+	wf.tile = int(g.tile)
+	wf.rows = int(g.rows)
+	wf.face_h = WALL_FACE_H
+	wf.variants = variants
+	wf.seed_val = hash(level.id)
+	for c: Vector2i in level.high_ground:
+		if c != level.objective:
+			wf.solid[c] = true
+	add_child(wf)
+
+
+func _build_decor_layer() -> void:
+	decor_layer = DecorLayer.new()
+	decor_layer.name = "Decor"
+	add_child(decor_layer)
+	decor_layer.z_index = Z_DECOR
+	# Seeded from the level so a restart lays out identically; hash keeps it stable
+	# across runs, unlike randi() which would rearrange the world every load.
+	decor_layer.build(self, hash(level.id))
 
 ## Predicted walking routes shown during the build phase: a few faint polylines from
 ## each spawn zone to the objective, so the player can see where the pressure will come
@@ -259,11 +531,29 @@ func _compute_path_previews() -> void:
 ## instead of failing to parse.
 const TERRAIN_TILESET_PATH := "res://data/terrain/high_ground_tileset.tres"
 
+## Corner-based (Wang) atlas from PixelLab. When this file exists it wins over the legacy
+## side-mask tileset above; delete or rename it to fall back.
+# TENTYŽ soubor, který zapisuje tools/tiles.py a čte náhled v editoru. Dřív tu bylo
+# high_ground_corner_atlas.png — hra pak tiše kreslila starý atlas, zatímco editor nový,
+# a nebylo z čeho poznat proč.
+const CORNER_ATLAS_PATH := "res://assets/terrain/high_ground_atlas.png"
+
 var terrain_layer: TileMapLayer = null
 
-## Builds the painted terrain, if a level has any. Added before `entities`, so it draws
+## Builds the painted terrain, if a level has any. Moved to child index 0 so it draws
 ## above the background that Game._draw() paints and below every unit.
+##
+## The move is not cosmetic. _build_field() runs after `entities` and the BuildSpots are
+## already children, so a plain add_child() puts the terrain LAST and Godot paints it over
+## every habit, soldier and distraction on the field. That stayed invisible only while the
+## placeholder atlas was a plus-shaped block with transparent corners — the moment the
+## tiles became solid 48px squares, towers built on high ground vanished behind them.
 func _build_terrain_layer() -> void:
+	if ResourceLoader.exists(CORNER_ATLAS_PATH) and not level.high_ground.is_empty():
+		_build_corner_terrain()
+		return
+
+	# Legacy path: per-cell side-mask tiles authored in the map editor (terrain_tiles).
 	if level.terrain_tiles.is_empty():
 		return
 	if not ResourceLoader.exists(TERRAIN_TILESET_PATH):
@@ -277,16 +567,224 @@ func _build_terrain_layer() -> void:
 	terrain_layer.tile_set = load(TERRAIN_TILESET_PATH)
 	terrain_layer.position = Vector2(g.origin_x, g.origin_y)
 	add_child(terrain_layer)
+	terrain_layer.z_index = Z_TERRAIN
 
 	for key in level.terrain_tiles:
 		var cell: Vector2i = key
 		var t: Vector3i = level.terrain_tiles[key]
 		terrain_layer.set_cell(cell, t.x, Vector2i(t.y, t.z))
 
+## Corner-based ("dual grid") terrain. The PixelLab tileset stores terrain on tile
+## CORNERS, not in tile centres — one tile straddles four game cells. So the layer is
+## shifted half a cell up-left and its cells sit on grid VERTICES: vertex (i,j) looks at
+## the four cells that touch it and picks the atlas slot whose bits mark which of them
+## are high ground. This is what makes inner corners round — the tile at a concave bend
+## exists in this atlas, whereas the 16-slot side atlas had no such piece.
+##
+## Slot layout: bit 1 = NW cell solid, 2 = NE, 4 = SW, 8 = SE; x = mask % 4, y = mask / 4.
+## Derived from high_ground directly; terrain_tiles is only read by the legacy path.
+const PATH_TILES_DIR := "res://assets/terrain/path"
+
+## Share of lane cells that carry a synapse, and how long one strand may run.
+## 6 % clustered reads far calmer than 10 % scattered, for the same pixel count.
+const ACCENT_SHARE := 0.06
+const ACCENT_STRAND := 4
+
+## Painted lanes, drawn as their own floor under the walls. Cell-level, not corner-level:
+## a lane is a surface the designer paints, not a mass that has to fit its neighbours, so
+## it needs no autotiling — variants are picked per cell just for texture variety.
+func _build_path_layer() -> void:
+	if level.path_cells.is_empty():
+		return
+	# Two pools by filename: path_*.png is quiet floor, accent_*.png carries a synapse.
+	# They are placed by different rules (see below), so they cannot share one list.
+	var calm: Array[Texture2D] = []
+	var accent: Array[Texture2D] = []
+	var dir := DirAccess.open(PATH_TILES_DIR)
+	if dir != null:
+		var files := dir.get_files()
+		files.sort()
+		for f in files:
+			var base := f.trim_suffix(".remap").trim_suffix(".import")
+			if not base.ends_with(".png"):
+				continue
+			var p := "%s/%s" % [PATH_TILES_DIR, base]
+			if not ResourceLoader.exists(p):
+				continue
+			var tex = load(p)
+			if tex is Texture2D:
+				if base.begins_with("accent_"):
+					if not accent.has(tex):
+						accent.append(tex)
+				elif not calm.has(tex):
+					calm.append(tex)
+	if calm.is_empty():
+		return
+	var variants: Array[Texture2D] = calm + accent
+
+	var g = Data.GRID
+	var tile: int = int(g.tile)
+	var ts := TileSet.new()
+	ts.tile_size = Vector2i(tile, tile)
+	# Blown up to the cell size once, here, instead of scaling the layer: a scaled layer
+	# would put every lane cell's coordinates in art units rather than game cells, which
+	# is a conversion waiting to be got wrong. NEAREST, so pixel art stays crisp.
+	for i in range(variants.size()):
+		var img := variants[i].get_image()
+		img.resize(tile, tile, Image.INTERPOLATE_NEAREST)
+		var src := TileSetAtlasSource.new()
+		src.texture = ImageTexture.create_from_image(img)
+		src.texture_region_size = Vector2i(tile, tile)
+		src.create_tile(Vector2i.ZERO)
+		ts.add_source(src, i)
+
+	path_layer = TileMapLayer.new()
+	path_layer.name = "Paths"
+	path_layer.tile_set = ts
+	path_layer.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	path_layer.position = Vector2(g.origin_x, g.origin_y)
+	add_child(path_layer)
+	path_layer.z_index = Z_PATH
+
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(level.id) ^ 0x9a71
+
+	# Quiet floor everywhere first.
+	for c: Vector2i in level.path_cells:
+		path_layer.set_cell(c, rng.randi() % calm.size(), Vector2i.ZERO)
+	if accent.is_empty():
+		return
+
+	# Then the synapses in CLUSTERS, not as an even sprinkle.
+	#
+	# Picking a variant per cell out of one mixed pool is a uniform scatter, and a uniform
+	# scatter of bright marks reads as confetti — the field looks busy however low the
+	# ratio goes, because nothing in a real place is evenly spaced. DecorLayer already
+	# learned this and seeds piles; the lane floor was still sprinkling. A few short
+	# strands with bare floor between them read as something that grew there.
+	var cells: Array[Vector2i] = level.path_cells.duplicate()
+	var strands: int = maxi(1, int(cells.size() * ACCENT_SHARE / float(ACCENT_STRAND)))
+	for _s in range(strands):
+		var head: Vector2i = cells[rng.randi() % cells.size()]
+		var pick: int = calm.size() + rng.randi() % accent.size()
+		for _i in range(rng.randi_range(2, ACCENT_STRAND)):
+			if not level.path_cells.has(head) or high_ground.has(head):
+				break
+			path_layer.set_cell(head, pick, Vector2i.ZERO)
+			# Walk on, so a strand trails across a few cells like a fibre rather than
+			# stamping the same tile in a blob.
+			head += [Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP][rng.randi() % 4]
+
+func _build_corner_terrain() -> void:
+	var g = Data.GRID
+	var tile: int = int(g.tile)
+
+	# Mirror the vector renderer: the objective cell is never drawn as terrain.
+	var solid := {}
+	for c: Vector2i in level.high_ground:
+		if c != level.objective:
+			solid[c] = true
+	if solid.is_empty():
+		return
+
+	# The TileSet is assembled at runtime instead of generated into a .tres — plain tiles
+	# need no terrain sets or peering bits, only atlas coordinates.
+	#
+	# The atlas may stack several VARIANTS of the same sixteen slots: a 192x192 sheet is
+	# one variant, 192x384 is two, and so on. Sixteen shapes alone tile visibly — a long
+	# wall repeats the identical texture every cell — so each cell rolls its own variant.
+	var atlas_tex: Texture2D = load(CORNER_ATLAS_PATH)
+	var variants: int = maxi(1, int(atlas_tex.get_height() / float(tile * 4)))
+
+	var ts := TileSet.new()
+	ts.tile_size = Vector2i(tile, tile)
+	var src := TileSetAtlasSource.new()
+	src.texture = atlas_tex
+	src.texture_region_size = Vector2i(tile, tile)
+	for v in range(variants):
+		for m in range(16):
+			src.create_tile(Vector2i(m % 4, v * 4 + int(m / 4.0)))
+	ts.add_source(src, 0)
+
+	terrain_layer = TileMapLayer.new()
+	terrain_layer.name = "Terrain"
+	terrain_layer.tile_set = ts
+	terrain_layer.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	terrain_layer.position = Vector2(g.origin_x - tile / 2.0, g.origin_y - tile / 2.0)
+	add_child(terrain_layer)
+	terrain_layer.z_index = Z_TERRAIN
+
+	# Seeded from the level, like the decor: the same level must look the same on every
+	# load, or the walls would re-texture themselves under the player on each restart.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(level.id) ^ 0x7e44a1
+
+	# One vertex more than cells in each axis, or the outermost walls lose their rim.
+	for j in range(g.rows + 1):
+		for i in range(g.cols + 1):
+			var m := 0
+			if solid.has(Vector2i(i - 1, j - 1)): m |= 1
+			if solid.has(Vector2i(i, j - 1)): m |= 2
+			if solid.has(Vector2i(i - 1, j)): m |= 4
+			if solid.has(Vector2i(i, j)): m |= 8
+			if m != 0:
+				var v: int = rng.randi() % variants
+				terrain_layer.set_cell(Vector2i(i, j), 0,
+					Vector2i(m % 4, v * 4 + int(m / 4.0)))
+
 ## True while a level has no painted terrain, so Game._draw() should render the vector
 ## walls instead. Both renderers must never run at once or the capsules show through.
 func _uses_vector_walls() -> bool:
 	return terrain_layer == null
+
+var _placement_overlay: Node2D = null
+
+## Thin canvas that only paints the build preview. It must be a separate node: Game's own
+## _draw() renders below every child including the terrain layer, and the overhanging
+## corner tiles were clipping the marker right where building happens.
+class PlacementOverlay extends Node2D:
+	var game
+	func _process(_dt: float) -> void:
+		queue_redraw()
+	func _draw() -> void:
+		game._draw_placement_preview(self)
+
+func _draw_placement_preview(cv: CanvasItem) -> void:
+	var sel = GameState.selected_habit
+	if sel == null or not _in_bounds(_hover_cell):
+		return
+	var g = Data.GRID
+	var tile: int = g.tile
+	var ok: bool = _can_build(_hover_cell) and GameState.can_afford(Data.get_habit(sel).build_cost)
+	var tint := Color(0.35, 1.0, 0.55) if ok else Color(1.0, 0.4, 0.4)
+	var r := Rect2(g.origin_x + _hover_cell.x * tile, g.origin_y + _hover_cell.y * tile, tile, tile)
+	_draw_pixel_frame(cv, r, tint)
+	# Every habit previews its reach BEFORE the player pays — attack range, patrol
+	# zone, or Routine radius. It used to be pay-first-see-later for everything but
+	# barracks. A circle, not a cone: facing is chosen in the aiming step after.
+	var sel_def := Data.get_habit(sel)
+	var pr: float = _preview_radius(sel_def)
+	if pr > 0.0:
+		var centre := r.get_center()
+		cv.draw_circle(centre, pr, Color(tint.r, tint.g, tint.b, 0.07))
+		PixelDraw.arc(cv, centre, pr, Color(tint.r, tint.g, tint.b, 0.6))
+
+## Rounded chunky frame in the terrain's raster (1 art pixel = 3 screen px), so the cell
+## marker reads as part of the pixel world instead of a vector rectangle floating over it.
+## Each edge stops two units short of the corner and a single diagonal step closes it —
+## the same silhouette the tissue tiles use.
+func _draw_pixel_frame(cv: CanvasItem, r: Rect2, tint: Color) -> void:
+	var u := 3.0
+	cv.draw_rect(Rect2(r.position.x + u, r.position.y + u, r.size.x - 2 * u, r.size.y - 2 * u),
+		Color(tint.r, tint.g, tint.b, 0.16))
+	cv.draw_rect(Rect2(r.position.x + 2 * u, r.position.y, r.size.x - 4 * u, u), tint)
+	cv.draw_rect(Rect2(r.position.x + 2 * u, r.end.y - u, r.size.x - 4 * u, u), tint)
+	cv.draw_rect(Rect2(r.position.x, r.position.y + 2 * u, u, r.size.y - 4 * u), tint)
+	cv.draw_rect(Rect2(r.end.x - u, r.position.y + 2 * u, u, r.size.y - 4 * u), tint)
+	cv.draw_rect(Rect2(r.position.x + u, r.position.y + u, u, u), tint)
+	cv.draw_rect(Rect2(r.end.x - 2 * u, r.position.y + u, u, u), tint)
+	cv.draw_rect(Rect2(r.position.x + u, r.end.y - 2 * u, u, u), tint)
+	cv.draw_rect(Rect2(r.end.x - 2 * u, r.end.y - 2 * u, u, u), tint)
 
 func cell_center(cell: Vector2i) -> Vector2:
 	var g = Data.GRID
@@ -301,6 +799,32 @@ func world_to_cell(pos: Vector2) -> Vector2i:
 func _in_bounds(c: Vector2i) -> bool:
 	var g = Data.GRID
 	return c.x >= 0 and c.x < g.cols and c.y >= 0 and c.y < g.rows
+
+# ---------------------------------------------------------------- line of sight
+#
+# Walls shade fire. One cast routine serves the wedge preview, target picking and the
+# projectile's wall death, so what the player sees shadowed IS what cannot be hit —
+# three separate implementations would drift apart the first time one gets tweaked.
+
+## Distance from `from` along normalized `dir` to the first wall cell, capped at
+## `max_dist`. The cell the ray STARTS in never blocks: towers stand on high ground and
+## shoot outward. 6px sampling; both gameplay and preview use the same granularity.
+func cast_to_wall(from: Vector2, dir: Vector2, max_dist: float) -> float:
+	var start_cell := world_to_cell(from)
+	var d := 6.0
+	while d < max_dist:
+		var c := world_to_cell(from + dir * d)
+		if c != start_cell and high_ground.has(c):
+			return d
+		d += 6.0
+	return max_dist
+
+func has_line_of_sight(from: Vector2, to: Vector2) -> bool:
+	var delta := to - from
+	var dist := delta.length()
+	if dist < 0.001:
+		return true
+	return cast_to_wall(from, delta / dist, dist) >= dist
 
 func assign_path(d: Distraction) -> void:
 	if d.is_flying:
@@ -326,18 +850,27 @@ func _draw() -> void:
 	var w: int = g.cols * tile
 	var h: int = g.rows * tile
 
-	draw_rect(Rect2(ox, oy, w, h), Color("11141f"))
-	if bg_texture != null:
-		draw_texture_rect(bg_texture, Rect2(ox, oy, w, h), false, Color(1, 1, 1, 0.85))
+	# The background is NOT painted here — a node's own _draw() lands at its own z_index,
+	# so anything drawn here would cover every ground layer below it. It lives in
+	# _build_background_layer() at Z_BACKGROUND instead.
 
 	for cells: Array in spawn_zone_cells:
 		for c: Vector2i in cells:
 			draw_rect(Rect2(ox + c.x * tile, oy + c.y * tile, tile, tile), Color(0.9, 0.3, 0.4, 0.12))
 
-	# Predicted enemy routes — build phase only, so the field reads clean mid-wave.
-	if between_waves and not game_ended:
-		for line: PackedVector2Array in _spawn_path_previews:
-			draw_polyline(line, Color(0.9, 0.35, 0.45, 0.10), 3.0)
+	# Jedna brána na zónu, ne dlaždice děr v každé buňce — hráč má vidět "tady to leze
+	# ven", ne vzorek. Slabý nádech nad ní nechává zónu čitelnou celou.
+	if _spawn_marker_tex != null and level != null:
+		for zone: Rect2i in level.spawn_zones:
+			var zc := Vector2(ox + (zone.position.x + zone.size.x * 0.5) * tile,
+				oy + (zone.position.y + zone.size.y * 0.5) * tile)
+			var msz := Vector2(_spawn_marker_tex.get_size()) \
+				* maxf(1.0, floorf(float(tile) / _spawn_marker_tex.get_width()))
+			draw_texture_rect(_spawn_marker_tex, Rect2(zc - msz / 2.0, msz), false)
+
+	# Predicted enemy routes were drawn here as faint trails; cut entirely — the player
+	# reads routes from the corridors themselves and the trails just dirtied the field.
+	# _spawn_path_previews stays computed in case the hint returns as a toggle.
 
 	# Dotted background grid instead of hard lines
 	for c in range(g.cols + 1):
@@ -362,6 +895,13 @@ func _draw() -> void:
 	# Dynamic Animated Focus Core Rendering (Sleek & Living Reactor)
 	var t := Time.get_ticks_msec() / 1000.0
 	var base_radius := tile * 0.3
+
+	# Podstavec pod jádrem — kreslený PŘED pulzy, aby vektorové jádro stálo na něčem
+	# hmotném místo aby viselo na holé podlaze.
+	if _goal_marker_tex != null:
+		var gsz := Vector2(_goal_marker_tex.get_size()) \
+			* maxf(1.0, floorf(float(tile) / _goal_marker_tex.get_width()))
+		draw_texture_rect(_goal_marker_tex, Rect2(objective_pos - gsz / 2.0, gsz), false)
 	var max_f := float(max(1, level.focus)) if level != null else 30.0
 	var focus_ratio := clampf(float(GameState.focus) / max_f, 0.0, 1.0)
 	
@@ -388,20 +928,21 @@ func _draw() -> void:
 		var wave_phase := fmod(t * (pulse_speed * 0.25) + phase_offset, 1.0)
 		var wave_r := base_radius * (1.0 + wave_phase * 0.9)
 		var wave_alpha := (1.0 - wave_phase) * 0.3
-		draw_arc(objective_pos, wave_r, 0.0, TAU, 32, Color(core_color.r, core_color.g, core_color.b, wave_alpha), 1.5)
+		PixelDraw.arc(self, objective_pos, wave_r, Color(core_color.r, core_color.g, core_color.b, wave_alpha), 1.0, 1.5)
 	
-	# Outer Slim Health Arc (Progress Ring)
+	# Outer Slim Health Arc (Progress Ring) — raster blocks; the filled part is denser
+	# than the faint track so the ratio stays readable.
 	var ring_r := base_radius + 7.0
-	draw_arc(objective_pos, ring_r, 0.0, TAU, 32, Color(1, 1, 1, 0.1), 1.5) # Track background
+	PixelDraw.arc(self, objective_pos, ring_r, Color(1, 1, 1, 0.1), 1.0, 2.0)
 	if focus_ratio > 0.0:
 		var start_angle := -PI / 2.0
 		var end_angle := start_angle + (TAU * focus_ratio)
-		draw_arc(objective_pos, ring_r, start_angle, end_angle, 32, core_color, 2.5)
+		PixelDraw.arc(self, objective_pos, ring_r, core_color, 1.0, 1.2, start_angle, end_angle)
 
-	# Orbiting Energy Particle around ring
+	# Orbiting energy block around ring
 	var orbit_angle := t * 2.5
 	var orbit_pos := objective_pos + Vector2(cos(orbit_angle), sin(orbit_angle)) * ring_r
-	draw_circle(orbit_pos, 2.5, core_color.lightened(0.5))
+	draw_rect(Rect2((orbit_pos / 3.0).floor() * 3.0, Vector2(3.0, 3.0)), core_color.lightened(0.5))
 
 	# Main Inner Glowing Core
 	draw_circle(objective_pos, base_radius * pulse_scale * 1.2, Color(core_color.r, core_color.g, core_color.b, 0.2))
@@ -413,24 +954,8 @@ func _draw() -> void:
 	draw_string(ThemeDB.fallback_font, objective_pos + Vector2(-22, base_radius + 20.0), "FOCUS",
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 12, text_col)
 
-	# Habit build preview
-	var sel = GameState.selected_habit
-	if sel != null and _in_bounds(_hover_cell):
-		var ok: bool = _can_build(_hover_cell) and GameState.can_afford(Data.get_habit(sel).build_cost)
-		var tint := Color(0.35, 1.0, 0.55) if ok else Color(1.0, 0.4, 0.4)
-		var hx := ox + _hover_cell.x * tile
-		var hy := oy + _hover_cell.y * tile
-		draw_rect(Rect2(hx + 1, hy + 1, tile - 2, tile - 2), Color(tint.r, tint.g, tint.b, 0.16))
-		draw_rect(Rect2(hx + 1, hy + 1, tile - 2, tile - 2), tint, false, 2.0)
-		# Every habit previews its reach BEFORE the player pays — attack range, patrol
-		# zone, or Routine radius. It used to be pay-first-see-later for everything but
-		# barracks. A circle, not a cone: facing is chosen in the aiming step after.
-		var sel_def := Data.get_habit(sel)
-		var pr: float = _preview_radius(sel_def)
-		if pr > 0.0:
-			var centre := Vector2(hx + tile / 2.0, hy + tile / 2.0)
-			draw_circle(centre, pr, Color(tint.r, tint.g, tint.b, 0.07))
-			draw_arc(centre, pr, 0.0, TAU, 48, Color(tint.r, tint.g, tint.b, 0.6), 2.0)
+	# Habit build preview lives on _placement_overlay (drawn above terrain) — see
+	# _draw_placement_preview().
 
 	# Routine links — each working habit draws a line back to whatever holds it in place,
 	# the Focus core or the nearest Anchor. Seeing what a habit hangs on is the point.
@@ -449,10 +974,22 @@ func _draw() -> void:
 								min_d = d
 								closest_src = hb2.global_position
 				
-				# Glowing laser energy tether
-				var pulse_a := (sin(Time.get_ticks_msec() * 0.007 + hb.global_position.x * 0.1) * 0.25) + 0.55
-				draw_line(hb.global_position, closest_src, Color(0.2, 0.9, 0.95, pulse_a * 0.4), 2.5)
-				draw_line(hb.global_position, closest_src, Color(1.0, 1.0, 1.0, pulse_a * 0.65), 1.0)
+				# Routine tether: marching blocks over a dark underlay (readable even on
+				# pink tissue), plus a glowing energy packet that runs the length of the
+				# line INTO the habit — the delivery is the point, the dash just connects.
+				var t_ms := Time.get_ticks_msec()
+				var flow := t_ms * 0.02
+				PixelDraw.line(self, closest_src, hb.global_position,
+					Color(0.02, 0.09, 0.14, 0.85), 1.66, 2.5, flow)
+				PixelDraw.line(self, closest_src, hb.global_position,
+					Color(0.25, 0.95, 1.0, 0.7), 1.0, 2.5, flow)
+				# Per-habit phase so packets on different tethers don't arrive in sync;
+				# the pause after each arrival gives the eye a beat between deliveries.
+				var tether_len: float = hb.global_position.distance_to(closest_src)
+				var phase: float = hb.global_position.x * 7.3 + hb.global_position.y * 3.1
+				PixelDraw.packet(self, closest_src, hb.global_position,
+					Color(0.45, 1.0, 1.0, 0.95),
+					fposmod(t_ms * 0.001 * 110.0 + phase, tether_len + 90.0))
 
 	# Intervention targeting preview
 	if selected_intervention != null and Data.get_intervention(selected_intervention) != null:
@@ -460,25 +997,26 @@ func _draw() -> void:
 		var mouse_pos = get_global_mouse_position()
 		var tint = Color(idef.color)
 		draw_circle(mouse_pos, idef.radius, Color(tint.r, tint.g, tint.b, 0.2))
-		draw_arc(mouse_pos, idef.radius, 0.0, TAU, 40, tint, 2.0)
+		PixelDraw.arc(self, mouse_pos, idef.radius, tint)
 
 	# SWHAOP Aiming mode: Sniper crosshair reticle & laser sight
 	if is_aiming and aiming_habit != null and is_instance_valid(aiming_habit):
 		var mouse_pos: Vector2 = get_global_mouse_position()
 		var habit_pos: Vector2 = aiming_habit.global_position
 
-		# Laser sight line from tower to sniper reticle
-		draw_line(habit_pos, mouse_pos, Color(1.0, 0.3, 0.3, 0.6), 1.5)
+		# Laser sight as a dashed pixel trail, denser than the Routine tether so it still
+		# reads as a straight beam.
+		PixelDraw.line(self, habit_pos, mouse_pos, Color(1.0, 0.3, 0.3, 0.6), 1.0, 2.0)
 
-		# Sniper crosshair reticle graphics
+		# Sniper crosshair reticle in raster blocks
 		var r_size := 12.0
 		var r_col := Color("ff4455")
-		draw_circle(mouse_pos, 3.5, r_col)
-		draw_arc(mouse_pos, r_size, 0.0, TAU, 24, r_col, 1.8)
-		draw_line(mouse_pos + Vector2(-r_size - 6, 0), mouse_pos + Vector2(-4, 0), r_col, 1.8)
-		draw_line(mouse_pos + Vector2(4, 0), mouse_pos + Vector2(r_size + 6, 0), r_col, 1.8)
-		draw_line(mouse_pos + Vector2(0, -r_size - 6), mouse_pos + Vector2(0, -4), r_col, 1.8)
-		draw_line(mouse_pos + Vector2(0, 4), mouse_pos + Vector2(0, r_size + 6), r_col, 1.8)
+		draw_rect(Rect2(mouse_pos.x - 3.0, mouse_pos.y - 3.0, 6.0, 6.0), r_col)
+		PixelDraw.arc(self, mouse_pos, r_size, r_col, 1.0, 1.5)
+		PixelDraw.line(self, mouse_pos + Vector2(-r_size - 6, 0), mouse_pos + Vector2(-4, 0), r_col, 1.0, 1.5)
+		PixelDraw.line(self, mouse_pos + Vector2(4, 0), mouse_pos + Vector2(r_size + 6, 0), r_col, 1.0, 1.5)
+		PixelDraw.line(self, mouse_pos + Vector2(0, -r_size - 6), mouse_pos + Vector2(0, -4), r_col, 1.0, 1.5)
+		PixelDraw.line(self, mouse_pos + Vector2(0, 4), mouse_pos + Vector2(0, r_size + 6), r_col, 1.0, 1.5)
 
 		# Dynamic cone angle tag next to reticle
 		var arc_text := "%d°" % int(aiming_habit.arc_angle)
@@ -869,8 +1407,8 @@ func _cast_intervention(key: String, target_pos: Vector2) -> void:
 	, start_pos, target_pos, 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 
 	strike.draw.connect(func():
-		# Sky trail streak
-		strike.draw_line(Vector2(0, -50), Vector2.ZERO, Color(col.r, col.g, col.b, 0.6), 4.0)
+		# Sky trail streak, chunky
+		PixelDraw.line(strike, Vector2(0, -50), Vector2.ZERO, Color(col.r, col.g, col.b, 0.6), 1.5, 1.2)
 		strike.draw_circle(Vector2.ZERO, 8.0, Color.WHITE)
 		strike.draw_circle(Vector2.ZERO, 12.0, Color(col.r, col.g, col.b, 0.4))
 	)
@@ -905,7 +1443,7 @@ func _trigger_intervention_impact(idef: InterventionData, target_pos: Vector2) -
 
 	wave.draw.connect(func():
 		wave.draw_circle(Vector2.ZERO, cur_r, Color(col.r, col.g, col.b, cur_a * 0.25))
-		wave.draw_arc(Vector2.ZERO, cur_r, 0.0, TAU, 32, Color(col.r, col.g, col.b, cur_a * 0.9), 3.0)
+		PixelDraw.arc(wave, Vector2.ZERO, cur_r, Color(col.r, col.g, col.b, cur_a * 0.9), 1.0, 1.5)
 	)
 
 	tw.set_parallel(false)
@@ -1553,6 +2091,12 @@ func _on_distraction_defeated(d: Distraction) -> void:
 	_combo += 1
 	_combo_timer = _COMBO_HOLD_TIME
 	_spawn_dopamine_burst(d.position)
+	# Death burst in the enemy's own colour — bigger and slower than a shot impact
+	# (see ImpactFX), fired here because the dying node is freed right after this.
+	var fx = impact_fx_pool.acquire()
+	if fx != null:
+		fx.global_position = d.global_position
+		fx.play(Color(d.def.color), 1.8)
 
 ## The paid-out amount arrives separately from GameState, because only GameState knows
 ## the economy rules and only the distraction knows where it died. Both write to

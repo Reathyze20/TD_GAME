@@ -8,6 +8,10 @@ extends VBoxContainer
 const EDITOR_SCENE := "res://scenes/MapEditor.tscn"
 
 var _ed: MapEditor = null     ## bound MapEditor in the edited scene (null = none open)
+
+## Read-only handle na navázaný editor (pro případné externí nástroje).
+var editor: MapEditor:
+	get: return _ed
 ## Unbound MapEditor instance for campaign math only — level_stats() works straight from
 ## LevelData resources, so the overview needs no scene at all. Kept OUT of the tree:
 ## in the tree its canvas drawing and _process would run inside the dock.
@@ -138,6 +142,8 @@ func _build_ui() -> void:
 			_ed.show_traffic = on
 			_ed.queue_redraw())
 
+	_build_hint()
+
 	var tabs := TabContainer.new()
 	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(tabs)
@@ -172,6 +178,25 @@ func _build_ui() -> void:
 	for i in range(titles.size()):
 		_campaign_tree.set_column_title(i, titles[i])
 	camp_tab.add_child(_campaign_tree)
+
+## Návod místo palety. Maluje se vestavěným editorem dlaždic — dock jen říká, kterou
+## vrstvu vybrat. Vlastní razítkovací palety a režimy tu byly a zmizely se vstupní
+## vrstvou pluginu: reimplementovaly půlku Godotu, hůř.
+var _hint: Label
+
+func _build_hint() -> void:
+	add_child(HSeparator.new())
+	_hint = Label.new()
+	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_hint.add_theme_font_size_override("font_size", 11)
+	_hint.text = ("Maluj Godotem — vyber uzel a kresli:\n"
+		+ "•  HighGroundTiles = zdi (fialová)\n"
+		+ "•  PathTiles = cesty (oranžová)\n"
+		+ "•  Spawny/Cíl: přesuň uzly nástrojem výběru\n"
+		+ "•  Rekvizity: duplikuj sprite pod Props (Ctrl+D)\n"
+		+ "Panel vpravo ukazuje živě, jak to vykreslí hra.\n"
+		+ "Bake zapíše všechno (zdi, cesty, rekvizity, zóny, cíl).")
+	add_child(_hint)
 
 func _add_action(parent: Node, label: String, tip: String, action: Callable) -> void:
 	var b := Button.new()

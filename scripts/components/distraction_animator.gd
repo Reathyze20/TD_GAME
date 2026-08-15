@@ -30,10 +30,28 @@ const COLOR_ADULT_HOT := Color("ff9500")
 const COLOR_BOSS_CORE := Color("af52de")
 const COLOR_BOSS_TENDRILL := Color("bf5af2")
 
+## The set currently on screen; always one of the four facings below, so existing code
+## that asks "does this enemy have sprite art?" keeps working unchanged.
 var _frame_textures: Array[Texture2D] = []
+
+var _frames_south: Array[Texture2D] = []
+var _frames_north: Array[Texture2D] = []
+var _frames_east: Array[Texture2D] = []
+var _frames_west: Array[Texture2D] = []
+
+## How fast hand-authored frames cycle. Independent of the procedural animations, which
+## are driven by _time directly.
+## Sprite width in radii. See _sprite_size().
+const ART_SPAN := 2.0
+
+const SPRITE_FPS := 12.0
 
 func _ready() -> void:
 	set_process(true)
+	# Sprite frames are pixel art. The project default filter is linear, which would smear
+	# them, so this node opts out rather than forcing a project-wide setting on every
+	# other canvas item.
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 
 func setup(parent_enemy: Distraction) -> void:
 	enemy = parent_enemy
@@ -41,28 +59,236 @@ func setup(parent_enemy: Distraction) -> void:
 	_load_frame_textures()
 	queue_redraw()
 
+## Cache shared by every instance: <id>|<variant> -> frames. Twenty Notifications in a
+## wave used to hit the disk twenty times over; now the first one pays and the rest
+## borrow. Keyed per variant because variants are separate frame sets.
+static var _frame_cache: Dictionary = {}
+
+## Art variants let one enemy type field several different-looking creatures, so a wave
+## reads as a crowd rather than an army of clones.
+##
+## Files: `<id>_frame_N.png` is variant 0; `<id>_b_frame_N.png`, `<id>_c_...` are extras.
+## Drop a set in and it joins the rotation — no code change, no registry to update.
+const VARIANT_SUFFIXES := ["", "_b", "_c", "_d", "_e", "_f"]
+
 func _load_frame_textures() -> void:
 	_frame_textures.clear()
 	if enemy == null or enemy.def == null:
 		return
-	
+
 	var base_id := String(enemy.def.id)
-	for i in range(1, 5):
-		var p := "res://assets/distractions/%s_frame_%d.png" % [base_id, i]
+	# Which variants exist is a property of the files, so it is discovered once and
+	# cached; picking is per-instance.
+	var available: Array = _frame_cache.get("avail|" + base_id, [])
+	if available.is_empty():
+		for suffix in VARIANT_SUFFIXES:
+			if _variant_first_frame_exists(base_id, suffix):
+				available.append(suffix)
+		if available.is_empty():
+			return
+		_frame_cache["avail|" + base_id] = available
+
+	var suffix: String = available[randi() % available.size()]
+	_variant_suffix = suffix
+	_load_death_frames(base_id, suffix)
+
+	# Facing sets. The bare name is south (the direction every enemy shipped with), so
+	# older art keeps working untouched; the others are optional additions.
+	#
+	# Spelled out rather than abbreviated: `_e` would be indistinguishable from the fifth
+	# art variant, which is also `_e`.
+	_frames_south = _load_set(base_id, suffix, "")
+	_frames_north = _load_set(base_id, suffix, "_north")
+	_frames_east = _load_set(base_id, suffix, "_east")
+	# West is east mirrored at draw time unless real west art exists — a walk cycle seen
+	# from the side is symmetric enough that generating it twice buys nothing.
+	_frames_west = _load_set(base_id, suffix, "_west")
+	_frame_textures = _frames_south
+
+func _load_set(base_id: String, suffix: String, dir_suffix: String) -> Array[Texture2D]:
+	var key := base_id + "|" + suffix + "|" + dir_suffix
+	if _frame_cache.has(key):
+		return _frame_cache[key]
+	# Loads until a frame is missing rather than assuming four, so a distraction can ship
+	# with as many frames as its animation needs.
+	var frames: Array[Texture2D] = []
+	for i in range(1, 33):
+		var p := "res://assets/distractions/%s%s%s_frame_%d.png" % [base_id, suffix, dir_suffix, i]
 		if ResourceLoader.exists(p):
 			var tex = load(p)
 			if tex is Texture2D:
-				_frame_textures.append(tex)
+				frames.append(tex)
 		elif FileAccess.file_exists(p):
 			var img := Image.new()
 			if img.load(p) == OK:
-				_frame_textures.append(ImageTexture.create_from_image(img))
+				frames.append(ImageTexture.create_from_image(img))
+		else:
+			break
+	_frame_cache[key] = frames
+	return frames
+
+func _variant_first_frame_exists(base_id: String, suffix: String) -> bool:
+	var p := "res://assets/distractions/%s%s_frame_1.png" % [base_id, suffix]
+	return ResourceLoader.exists(p) or FileAccess.file_exists(p)
+
+## A pool of the distraction's own colour on the ground under it.
+##
+## Measured need, not decoration: the sprite family shares one muted palette, and at the
+## 32-64px a distraction actually occupies, "grey-green creature holding a phone" and
+## "grey-green creature with antennae" are the same handful of pixels. No amount of detail
+## in the art fixes that — a 32px sprite cannot carry an identity from across the screen.
+## Colour and size can. The glow puts def.color under every enemy, so type reads instantly
+## and matches the wave-preview legend, which uses the same colour.
+##
+## Drawn first, so it sits beneath the body; it fades out with the death animation.
+func _draw_type_glow(r: float, strength: float) -> void:
+	if strength <= 0.01 or enemy.def == null:
+		return
+	var col := Color(enemy.def.color)
+	# Squashed vertically: a flat pool on the floor, not a halo around the body.
+	var steps := 4
+	for i in range(steps):
+		var t := float(i) / float(steps)
+		var rad := r * (1.75 - t * 0.95)
+		draw_set_transform(Vector2(0.0, r * 0.55), 0.0, Vector2(1.0, 0.45))
+		draw_circle(Vector2.ZERO, rad, Color(col.r, col.g, col.b, 0.10 * strength))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+## A tight dark ellipse where the creature meets the ground.
+##
+## This is what reconciles front-facing creatures with a top-down floor. The two views do
+## clash on paper, but it is the standard convention for 2D games (Zelda, Stardew) and it
+## reads fine — provided the character is anchored. Without a shadow the sprite floats and
+## looks pasted on, which is exactly what "the style doesn't fit the map" turns out to be.
+## Tried and rejected first: extruding the walls into 2.5D, which measurably looked worse.
+##
+## Flyers get theirs pushed further down and softer, so the gap reads as altitude.
+func _draw_contact_shadow(r: float, strength: float) -> void:
+	if strength <= 0.01:
+		return
+	var drop: float = r * (1.45 if enemy.is_flying else 0.72)
+	var alpha: float = (0.22 if enemy.is_flying else 0.38) * strength
+	draw_set_transform(Vector2(0.0, drop), 0.0, Vector2(1.0, 0.4))
+	draw_circle(Vector2.ZERO, r * 0.95, Color(0.02, 0.02, 0.06, alpha))
+	draw_circle(Vector2.ZERO, r * 0.62, Color(0.02, 0.02, 0.06, alpha * 0.8))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+## Draws the current frame centred on the enemy.
+##
+## The scale is a whole number on purpose: pixel art drawn at 1.4x lands on fractions of a
+## pixel and the whole sprite shimmers as it walks. Rounding to an integer keeps every
+## source pixel a clean square, at the cost of the sprite not matching `radius` exactly —
+## which is the right trade, since radius is a gameplay number and this is art.
+## Chooses the walk cycle matching the enemy's heading, falling back to south whenever a
+## facing has no art — so a half-finished set degrades to "always faces the camera"
+## instead of vanishing.
+##
+## Returns the frames plus whether to mirror them: with no dedicated west art, west is
+## the east cycle flipped.
+func _facing_frames() -> Array:
+	match enemy.facing:
+		Distraction.Facing.NORTH:
+			if not _frames_north.is_empty():
+				return [_frames_north, false]
+		Distraction.Facing.EAST:
+			if not _frames_east.is_empty():
+				return [_frames_east, false]
+		Distraction.Facing.WEST:
+			if not _frames_west.is_empty():
+				return [_frames_west, false]
+			if not _frames_east.is_empty():
+				return [_frames_east, true]
+	return [_frames_south, false]
+
+func _draw_sprite_frames(r: float) -> void:
+	var pick := _facing_frames()
+	var frames: Array[Texture2D] = pick[0]
+	if frames.is_empty():
+		return
+	var mirror: bool = pick[1]
+	var tex: Texture2D = frames[int(_time * SPRITE_FPS) % frames.size()]
+	if mirror:
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2(-1.0, 1.0))
+		_draw_texture_centred(tex, r)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	else:
+		_draw_texture_centred(tex, r)
+
+func _draw_texture_centred(tex: Texture2D, r: float, glow: float = 1.0) -> void:
+	var size := _sprite_size(tex, r)
+	if size == Vector2.ZERO:
+		return
+	_draw_body_glow(tex, size, glow)
+	draw_texture_rect(tex, Rect2(-size * 0.5, size), false)
+
+## On-screen size of one frame, deliberately NOT derived from radius alone.
+##
+## radius is a gameplay number — projectile.gd hits against it — so it cannot be changed to
+## resize the art. ART_SPAN is the art side of that split. In practice every current
+## creature lands on the floor of 2, so the working rule is: a sprite draws at twice its
+## art size, and size differences are authored into the art itself — regulars ship 32px
+## art (64 on screen, 4/3 of a cell), the boss ships 64px art and comes out at 128.
+## The bestiary was 16px art for half a day; it went back up because at 32 screen px the
+## fur and teeth that make these creatures worth looking at didn't survive.
+##
+## The scale is a whole number on purpose: pixel art drawn at 1.4x lands on fractions of a
+## pixel and the whole sprite shimmers as it walks. The floor is 2, not 1 — one art pixel
+## must never be one screen pixel, or the creature reads twice as fine as the world it
+## stands in.
+func _sprite_size(tex: Texture2D, r: float) -> Vector2:
+	var src := Vector2(tex.get_width(), tex.get_height())
+	if src.x <= 0.0:
+		return Vector2.ZERO
+	return src * maxf(2.0, roundf(r * ART_SPAN / src.x))
+
+## Half of what the body actually covers on screen — as opposed to `radius`, which is the
+## hitbox. Ground FX and status rings must wrap THIS: the art is now wider than the
+## hitbox, and anything sized from `radius` alone ends up hidden behind the sprite —
+## a shield ring the boss wears under its own fur announces nothing.
+## For procedural bodies (no frames) the two are the same number.
+func _visual_radius(r: float) -> float:
+	var frames: Array[Texture2D] = _death_frames if _dying else _frame_textures
+	if frames.is_empty():
+		return r
+	return _sprite_size(frames[0], r).x * 0.5
+
+## A halo of the creature's own colour behind its silhouette.
+##
+## The sprite family was drawn against the old pale map and is mostly olive, grey and
+## brown; on the Deep Focus floor those bodies sit within a few values of the ground and
+## a half-size creature all but disappears. The floor pool in _draw_type_glow marks where
+## something is, but the body itself still needs to separate from the background — so the
+## same frame is stamped a step larger in def.color behind it. Silhouette-shaped, not a
+## circle, so it reads as the creature glowing rather than as a lamp under it.
+func _draw_body_glow(tex: Texture2D, size: Vector2, strength: float) -> void:
+	if enemy.def == null or strength <= 0.01:
+		return
+	var col := Color(enemy.def.color)
+	var step: float = maxf(2.0, size.x * 0.06)
+	for ring in [2.0, 1.0]:
+		var i: float = float(ring)
+		var grown: Vector2 = size + Vector2.ONE * (step * i * 2.0)
+		var a: float = (0.16 if is_equal_approx(i, 1.0) else 0.09) * strength
+		draw_texture_rect(tex, Rect2(-grown * 0.5, grown), false,
+			Color(col.r, col.g, col.b, a))
 
 func trigger_hit_flash() -> void:
 	_hit_flash_timer = 0.15
 
 func _process(delta: float) -> void:
-	if enemy == null or enemy.dead:
+	if enemy == null:
+		return
+
+	# A dying enemy keeps ticking so its death frames can play; everything else about it
+	# is already switched off by Distraction.dead.
+	if _dying:
+		_death_time += delta
+		queue_redraw()
+		if _death_time >= death_duration():
+			_death_finished = true
+		return
+
+	if enemy.dead:
 		return
 
 	_time += delta
@@ -72,25 +298,108 @@ func _process(delta: float) -> void:
 
 	queue_redraw()
 
+# ---------------------------------------------------------------- death animation
+#
+# Files: `<id>[_variant]_death_frame_N.png`. Optional — a type with no death art dies
+# instantly the way it always did, so this can be filled in one enemy at a time.
+# The variant suffix is inherited from the walk cycle, so a creature dies as the same
+# creature it walked as.
+
+const DEATH_FPS := 12.0
+
+var _death_frames: Array[Texture2D] = []
+var _variant_suffix := ""
+var _dying := false
+var _death_time := 0.0
+var _death_finished := false
+
+func has_death_animation() -> bool:
+	return not _death_frames.is_empty()
+
+func death_duration() -> float:
+	return float(_death_frames.size()) / DEATH_FPS
+
+func is_death_finished() -> bool:
+	return _death_finished
+
+## Switches the body over to the death frames. Called by Distraction._die(), which then
+## waits for is_death_finished() before freeing itself.
+func play_death() -> void:
+	if _dying:
+		return
+	_dying = true
+	_death_time = 0.0
+	_death_finished = _death_frames.is_empty()
+	queue_redraw()
+
+func _load_death_frames(base_id: String, suffix: String) -> void:
+	_death_frames.clear()
+	var key := "death|" + base_id + "|" + suffix
+	if _frame_cache.has(key):
+		_death_frames = _frame_cache[key]
+		return
+	var frames: Array[Texture2D] = []
+	for i in range(1, 33):
+		var p := "res://assets/distractions/%s%s_death_frame_%d.png" % [base_id, suffix, i]
+		if ResourceLoader.exists(p):
+			var tex = load(p)
+			if tex is Texture2D:
+				frames.append(tex)
+		elif FileAccess.file_exists(p):
+			var img := Image.new()
+			if img.load(p) == OK:
+				frames.append(ImageTexture.create_from_image(img))
+		else:
+			break
+	_frame_cache[key] = frames
+	_death_frames = frames
+
+## Death frames play ONCE and hold on the last one — a looping death reads as a glitch.
+func _draw_death_frames(r: float) -> void:
+	var idx: int = mini(int(_death_time * DEATH_FPS), _death_frames.size() - 1)
+	_draw_texture_centred(_death_frames[idx], r)
+
 func _draw() -> void:
 	if enemy == null or enemy.def == null:
 		return
 
 	var r: float = enemy.def.radius
+	# Ground FX and rings wrap the drawn body; r stays the gameplay number.
+	var vr := _visual_radius(r)
 	var is_moving := enemy.current_speed > 0 and not enemy.is_blocked
+
+	# A dying body draws its death frames and nothing else — no status auras, no hit
+	# flash. Those describe a live enemy's state and would keep pulsing over a corpse.
+	if _dying:
+		if not _death_frames.is_empty():
+			var fade := 1.0 - clampf(_death_time / maxf(death_duration(), 0.001), 0.0, 1.0)
+			_draw_type_glow(vr, fade)
+			_draw_contact_shadow(vr, fade)
+			_draw_death_frames(r)
+		return
+
+	_draw_type_glow(vr, 1.0)
+	_draw_contact_shadow(vr, 1.0)
 
 	# Apply Hit Flash modulation tint
 	if _hit_flash_timer > 0.0:
-		draw_circle(Vector2.ZERO, r + 4.0, Color(1, 1, 1, 0.8))
+		draw_circle(Vector2.ZERO, vr + 4.0, Color(1, 1, 1, 0.8))
 
 	# -------------------------------------------------- Status Aura Overlays
 	# Boredom halo
 	if enemy.status_manager != null and enemy.status_manager.has_boredom():
-		draw_circle(Vector2.ZERO, r + 7.0, Color(0.55, 0.58, 0.62, 0.35))
+		draw_circle(Vector2.ZERO, vr + 7.0, Color(0.55, 0.58, 0.62, 0.35))
 
 	# Slow / Calm ring
 	if enemy.status_manager != null and enemy.status_manager.has_slow():
-		draw_arc(Vector2.ZERO, r + 4.0, 0, TAU, 24, Color(0.3, 0.8, 1.0, 0.7), 2.0)
+		draw_arc(Vector2.ZERO, vr + 4.0, 0, TAU, 24, Color(0.3, 0.8, 1.0, 0.7), 2.0)
+
+	# -------------------------------------------------- Hand-authored sprite frames
+	# Art on disk wins over the procedural body. The status auras above still draw, so a
+	# sprited enemy keeps its Boredom halo and Slow ring; only the body is replaced.
+	if not _frame_textures.is_empty():
+		_draw_sprite_frames(r)
+		return
 
 	# -------------------------------------------------- Multi-Part Vector Animations
 	match String(enemy.def.id):
@@ -116,13 +425,13 @@ func _draw() -> void:
 		var seg: float = TAU / 8.0
 		for i in range(4):
 			var a: float = float(i) * seg * 2.0
-			draw_arc(Vector2.ZERO, r + 6.0, a, a + seg, 6, Color(1, 1, 1, 0.9), 2.0)
+			draw_arc(Vector2.ZERO, vr + 6.0, a, a + seg, 6, Color(1, 1, 1, 0.9), 2.0)
 
 	# Denial Shield — the boss ignores every direct hit while this is up, so it has to
 	# be unmissable ON the body, not only a text flash in the corner of the HUD.
 	# Rotating segments over a soft ring read as an active barrier, not a decoration.
 	if enemy is Boss and (enemy as Boss).is_shielded():
-		var sr: float = r + 12.0
+		var sr: float = vr + 12.0
 		draw_arc(Vector2.ZERO, sr, 0, TAU, 40, Color(1.0, 0.83, 0.47, 0.30), 6.0)
 		for i in range(6):
 			var a: float = _time * 2.2 + float(i) * TAU / 6.0

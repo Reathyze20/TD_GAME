@@ -5,8 +5,13 @@
 # Assistant workspace (session-local, not project content)
 .claude/
 
-# Map editor pre-write backups — git IS the history now
-*.tres.bak
+# Pre-write backups (map editor levels, art atlases) — git IS the history now
+*.bak
+*.bak[0-9]
+
+# Python bytecode from the tools/ art pipeline
+__pycache__/
+*.pyc
 
 # Temporary headless test harnesses (always deleted after a run, but just in case)
 /_test_*

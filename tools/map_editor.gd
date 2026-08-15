@@ -19,7 +19,6 @@ extends Node2D
 
 const D = preload("res://scripts/data.gd")   ## GRID is a const, so no autoload needed here.
 const G = preload("res://scripts/game.gd")   ## CORE/ANCHOR_ROUTINE_RADIUS live here.
-const TILESET_PATH := "res://data/terrain/high_ground_tileset.tres"
 
 ## Fired at the end of every _analyze(). The designer dock listens and refreshes its
 ## panel from _report_lines/_last_summary, instead of polling this node.
@@ -77,6 +76,55 @@ signal analysis_updated
 	set(v):
 		if v: _add_spawn_zone()
 		add_spawn_zone = false
+
+# ---------------------------------------------------------------- native editing
+#
+# Maluje se VESTAVĚNÝM editorem dlaždic — žádné razítkovací režimy, žádné přebírání
+# kliků. Vyber vrstvu (HighGroundTiles = zdi, PathTiles = cesty), maluj; spawny, cíl
+# a rekvizity jsou obyčejné uzly a hýbe se s nimi nástrojem výběru. Vlastní razítkovací
+# nástroj s pěti režimy tu byl a byl to omyl: reimplementoval půlku Godotu, hůř.
+#
+# Tenhle skript už jen: staví abstraktní dlaždice vrstev, drží split-view náhled
+# (SubViewport se StylizedRenderer — „samsfacee" workflow), validuje, měří a peče.
+
+## Plná barevná dlaždice pro abstraktní malování. Levá strana split-view má být čitelná
+## jako plán, ne hezká — hezká je pravá strana.
+static func _abstract_tile(fill: Color, edge: Color, cell: int) -> ImageTexture:
+	var img := Image.create_empty(cell, cell, false, Image.FORMAT_RGBA8)
+	img.fill(fill)
+	for i in range(cell):
+		for e in [Vector2i(i, 0), Vector2i(i, cell - 1), Vector2i(0, i), Vector2i(cell - 1, i)]:
+			img.set_pixelv(e, edge)
+	return ImageTexture.create_from_image(img)
+
+func _abstract_tileset(fill: Color, edge: Color) -> TileSet:
+	var cell: int = _tile()
+	var ts := TileSet.new()
+	ts.tile_size = Vector2i(cell, cell)
+	var src := TileSetAtlasSource.new()
+	src.texture = _abstract_tile(fill, edge, cell)
+	src.texture_region_size = Vector2i(cell, cell)
+	src.create_tile(Vector2i.ZERO)
+	ts.add_source(src, 0)
+	return ts
+
+## Přemaluje cizí/staré dlaždice vrstvy na (0, (0,0)) — po výměně tilesetů by jinak
+## buňky odkazovaly na neexistující zdroje a kreslily se prázdné.
+static func _normalize_layer(tm: TileMapLayer) -> void:
+	for c: Vector2i in tm.get_used_cells():
+		if tm.get_cell_source_id(c) != 0 or tm.get_cell_atlas_coords(c) != Vector2i.ZERO:
+			tm.set_cell(c, 0, Vector2i.ZERO)
+
+# ---------------------------------------------------------------- split-view nahled
+#
+# "Samsfacee" workflow: vlevo abstraktni plan, vpravo zive vykresleny level. Pravou
+# pulku (SubViewport + StylizedRenderer, kamera synchronizovana s 2D pohledem) vlastni
+# PLUGIN - pripina ji k pravemu okraji canvas editoru. Tenhle skript jen hlida otisk
+# platna a pri kazde zmene vystreli canvas_changed; plugin na nej prekresli.
+
+signal canvas_changed
+
+var _preview_fp: int = 0
 
 @export_group("Overlays")
 ## Draws the playable bounds, the Focus core's Routine reach, and every spawn zone, so
@@ -155,6 +203,27 @@ func _process(delta: float) -> void:
 	if not Engine.is_editor_hint():
 		return
 	_snap_children()
+
+	# Náhled má VLASTNÍ, levnější otisk a NENÍ debouncovaný — překreslit pravou stranu
+	# nestojí nic vedle pathfindingu, a náhled o 0,8 s za štětcem je horší než žádný.
+	# Otisk pokrývá všechno, co pravá strana kreslí: zdi, cesty, rekvizity, zóny, cíl.
+	var tmp: TileMapLayer = get_node_or_null("HighGroundTiles")
+	var ptl: TileMapLayer = get_node_or_null("PathTiles")
+	var props_sig: Array = []
+	var props_node: Node2D = get_node_or_null("Props")
+	if props_node != null:
+		for ch in props_node.get_children():
+			var s := ch as Sprite2D
+			if s != null:
+				props_sig.append([s.texture, s.position, s.flip_h])
+	var pfp: int = hash([
+		tmp.get_used_cells() if tmp != null else [],
+		ptl.get_used_cells() if ptl != null else [],
+		props_sig, _read_zones(), _read_objective()])
+	if pfp != _preview_fp:
+		_preview_fp = pfp
+		canvas_changed.emit()
+
 	if not live_analyze or target_level == null:
 		return
 	_recheck_accum += delta
@@ -242,20 +311,41 @@ func _enter_tree() -> void:
 	if not Engine.is_editor_hint():
 		return
 
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+
 	var tm := _get_or_create("HighGroundTiles", "TileMapLayer") as TileMapLayer
+	var pt := _get_or_create("PathTiles", "TileMapLayer") as TileMapLayer
 	var obj := _get_or_create("Objective", "Sprite2D") as Sprite2D
 	_get_or_create("SpawnZones", "Node2D")
+	_get_or_create("Props", "Node2D")
+
+	# Pozůstatky starých verzí: náhled býval TileMapLayer ve scéně, pak SubViewport ve
+	# scéně. Teď ho vlastní plugin — kdyby tu uzly zůstaly, kreslily by zastaralý obraz.
+	for stale_name in ["TerrainPreview", "PreviewPane"]:
+		var stale := get_node_or_null(stale_name)
+		if stale != null:
+			stale.queue_free()
 
 	# Everything the game renders is offset by origin_y. Applying the same offset here is
 	# what makes the editor's picture and the running game agree.
 	var oy: int = int(_grid().origin_y)
 	tm.position = Vector2(int(_grid().origin_x), oy)
+	pt.position = tm.position
+	# Stará verze tlumila malovací vrstvu pod náhledem na 22 % — teď je náhled vedle,
+	# takže se maluje v plné síle. Bez resetu by hodnota přežila v .tscn.
+	tm.modulate = Color.WHITE
 
-	if tm.tile_set == null:
-		if ResourceLoader.exists(TILESET_PATH):
-			tm.tile_set = load(TILESET_PATH)
-		else:
-			push_warning("MapEditor: %s missing — run tools/build_terrain_tileset.gd" % TILESET_PATH)
+	# Abstraktní dlaždice: levá strana je PLÁN, ne umění — barvy volené jako legenda
+	# (sytá fialová = zeď, sytá oranžová = cesta), ať se čtou i přes overlay a mřížku.
+	# Herní paletu nese pravá strana náhledu. Cesty pod zdmi, ať malování zdí přes
+	# cestu nechá cestu vidět jen tam, kde zeď není.
+	tm.tile_set = _abstract_tileset(Color("8b3fd6"), Color("4e1f66"))
+	pt.tile_set = _abstract_tileset(Color("f08c28"), Color("a85a10"))
+	move_child(pt, mini(tm.get_index(), pt.get_index()))
+	_normalize_layer(tm)
+	_normalize_layer(pt)
+	for layer in [tm, pt]:
+		layer.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 
 	if obj.texture == null:
 		var t: int = _tile()
@@ -263,6 +353,7 @@ func _enter_tree() -> void:
 		img.fill(Color(0.2, 1.0, 0.2, 0.8))
 		obj.texture = ImageTexture.create_from_image(img)
 		obj.centered = false
+	canvas_changed.emit()
 	queue_redraw()
 
 # ---------------------------------------------------------------- validation
@@ -849,6 +940,16 @@ func _bake_to_level() -> bool:
 	# map into the file — both halves have to pass.
 	var problems := _validate(cells, objective, zones)
 	problems.append_array(_validate_settings())
+
+	# Wipe guard. Bake replaces geometry outright, so opening the editor on an EMPTY
+	# canvas and baking silently throws the target level's map away — which is exactly
+	# what happened to level 1: one stamped 5x5 chamber overwrote 170 cells, because
+	# Load had never been pressed. The .bak saved it, but a backup you have to know about
+	# is not a safety net. Refuse instead, and say which button fixes it.
+	var had: int = target_level.high_ground.size()
+	if had >= 20 and cells.size() < had / 4:
+		var wipe_msg := "canvas has %d cells but %s already holds %d — baking would delete most of the map. Press Load first to bring it onto the canvas, or clear Target Level's high_ground by hand if wiping is what you want."
+		problems.append(wipe_msg % [cells.size(), target_level.resource_path.get_file(), had])
 	if not problems.is_empty():
 		print("\nMapEditor: BAKE REFUSED — %d problem(s):" % problems.size())
 		for p in problems:
@@ -865,16 +966,33 @@ func _bake_to_level() -> bool:
 	target_level.objective = objective
 	target_level.spawn_zones = zones
 
-	# Tile identity, so the game can render the painted art instead of vector walls.
-	var tiles := {}
-	if tm != null:
-		for c in cells:
-			var src: int = tm.get_cell_source_id(c)
-			if src < 0:
+	# Cesty z vlastní vrstvy, seřazené (y, x). Na pořadí záleží: hra losuje variantu
+	# dlaždice po prvcích pole, takže deterministické pořadí = stejná mapa v editoru,
+	# ve hře i po každém dalším Bake.
+	var lanes: Array[Vector2i] = []
+	var ptl: TileMapLayer = get_node_or_null("PathTiles")
+	if ptl != null:
+		for c: Vector2i in ptl.get_used_cells():
+			lanes.append(c)
+		lanes.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+			return a.y < b.y or (a.y == b.y and a.x < b.x))
+	target_level.path_cells = lanes
+
+	# Rekvizity z uzlů: id = jméno souboru textury. Duplikuj sprite (Ctrl+D), přesuň,
+	# hotovo — Bake si je posbírá.
+	var dec: Array[Dictionary] = []
+	var props_node: Node2D = get_node_or_null("Props")
+	if props_node != null:
+		for ch in props_node.get_children():
+			var s := ch as Sprite2D
+			if s == null or s.texture == null or s.texture.resource_path == "":
 				continue
-			var atlas: Vector2i = tm.get_cell_atlas_coords(c)
-			tiles[c] = Vector3i(src, atlas.x, atlas.y)
-	target_level.terrain_tiles = tiles
+			dec.append({"id": s.texture.resource_path.get_file().get_basename(),
+				"pos": s.position, "flip": s.flip_h})
+	target_level.decor = dec
+
+	# Abstraktní vrstva už nenese art identitu — tvar dělá rohové vykreslení ve hře.
+	target_level.terrain_tiles = {}
 
 	var err := ResourceSaver.save(target_level, target_level.resource_path)
 	if err != OK:
@@ -882,8 +1000,8 @@ func _bake_to_level() -> bool:
 		return false
 	# Named loudly: the scene ships pointing at level_1, and overwriting the wrong level
 	# is silent and unrecoverable without VCS.
-	print("MapEditor: baked %d cells, %d painted tiles, %d zones → %s"
-		% [cells.size(), tiles.size(), zones.size(), target_level.resource_path])
+	print("MapEditor: baked %d cells, %d lane cells, %d props, %d zones → %s"
+		% [cells.size(), lanes.size(), dec.size(), zones.size(), target_level.resource_path])
 	last_action = "Baked → %s · %s" % [target_level.resource_path.get_file(), _clock()]
 	_analyze()
 	return true
@@ -893,14 +1011,24 @@ func _bake_to_level() -> bool:
 ## Copies the level file to <path>.bak before any overwrite. Returns false when the copy
 ## failed — on a VCS-less project a write that cannot secure the previous version must
 ## not happen. A path with no existing file has nothing to lose, so that passes.
+## Keeps TWO generations, not one.
+##
+## A single rolling .bak is no protection against the failure that actually happens: bake
+## a wrecked map, notice nothing, bake again — and the second backup overwrites the good
+## one with the wreck. That is exactly how level 1's 170-cell backup became a 15-cell
+## backup within half an hour, leaving git as the only surviving copy.
+##
+## So .bak holds the previous version and .bak2 the one before it, and .bak2 is only
+## refreshed when .bak is about to be replaced.
 func _secure_backup(level_path: String) -> bool:
 	if level_path == "" or not FileAccess.file_exists(level_path):
 		return true
 	var abs_src := ProjectSettings.globalize_path(level_path)
+	if FileAccess.file_exists(level_path + ".bak"):
+		DirAccess.copy_absolute(abs_src + ".bak", abs_src + ".bak2")
 	if DirAccess.copy_absolute(abs_src, abs_src + ".bak") != OK:
 		return false
-	print("MapEditor: previous version secured at %s.bak — restore = copy it back over the .tres"
-		% level_path)
+	print("MapEditor: previous version secured at %s.bak (older one at .bak2)" % level_path)
 	return true
 
 ## Persists Inspector edits to the level's function half (waves, economy, boss, drafts)
@@ -1036,21 +1164,39 @@ func _load_from_level() -> void:
 		return
 
 	var tm: TileMapLayer = get_node_or_null("HighGroundTiles")
+	var pt: TileMapLayer = get_node_or_null("PathTiles")
 	var obj: Node2D = get_node_or_null("Objective")
 	var sz: Node2D = get_node_or_null("SpawnZones")
+	var props: Node2D = get_node_or_null("Props")
 	var t: float = float(_tile())
 
+	# Abstraktní vrstvy: jedna plná dlaždice na buňku, žádné autotilování — tvar dělá
+	# až pravá strana split-view a hra.
 	if tm != null:
 		tm.clear()
-		var painted: Dictionary = target_level.terrain_tiles
 		for cell in target_level.high_ground:
-			if painted.has(cell):
-				var v: Vector3i = painted[cell]
-				tm.set_cell(cell, v.x, Vector2i(v.y, v.z))
-			else:
-				# No art authored for this cell yet: drop in the isolated-pillar slot so
-				# the cell is visible and paintable rather than silently absent.
-				tm.set_cell(cell, 0, Vector2i.ZERO)
+			tm.set_cell(cell, 0, Vector2i.ZERO)
+	if pt != null:
+		pt.clear()
+		for cell in target_level.path_cells:
+			pt.set_cell(cell, 0, Vector2i.ZERO)
+
+	if props != null:
+		for child in props.get_children():
+			child.queue_free()
+		for entry in target_level.decor:
+			var tex := DecorLayer._texture_named(String(entry.get("id", "")))
+			if tex == null:
+				continue
+			var s := Sprite2D.new()
+			s.name = String(entry.get("id", "prop")).capitalize()
+			s.texture = tex
+			s.position = entry.get("pos", Vector2.ZERO)
+			s.flip_h = bool(entry.get("flip", false))
+			s.scale = Vector2.ONE * DecorLayer.ZOOM
+			s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			props.add_child(s)
+			_adopt(s)
 
 	if obj != null:
 		obj.position = Vector2(target_level.objective.x * t, target_level.objective.y * t)
@@ -1072,6 +1218,7 @@ func _load_from_level() -> void:
 
 	print("MapEditor: loaded %s" % target_level.resource_path)
 	last_action = "Loaded %s · %s" % [target_level.resource_path.get_file(), _clock()]
+	canvas_changed.emit()
 	queue_redraw()
 	_analyze()
 
@@ -1201,7 +1348,8 @@ func _draw() -> void:
 	if show_legend:
 		var lx := px + 1312.0
 		var entries := [
-			[Color(0.75, 0.78, 0.82, 1.0), "gray tiles — high ground: walls AND the only build spots"],
+			[Color(0.55, 0.25, 0.84, 1.0), "fialové dlaždice — zdi (HighGroundTiles): překážka i stavební místa"],
+			[Color(0.94, 0.55, 0.16, 1.0), "oranžové dlaždice — cesty (PathTiles): nepřátelé je preferují"],
 			[Color(1.0, 0.45, 0.15, 0.8), "orange→red cells — enemy traffic: how many routes cross"],
 			[Color(1.0, 0.35, 0.4, 0.9), "red lines — sampled enemy routes · dot = spawn end"],
 			[Color(1.0, 0.2, 0.2, 0.9), "red frame — spawn zone (drag to move/resize, snaps)"],

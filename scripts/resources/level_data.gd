@@ -35,6 +35,31 @@ class_name LevelData extends Resource
 ## becoming a pathfinding bug.
 @export var terrain_tiles: Dictionary = {}
 
+## Hand-placed scenery: [{"id": "mug", "pos": Vector2(x, y), "flip": bool}, ...] in field
+## pixels. Purely decorative — nothing here affects pathing, building or targeting.
+##
+## Empty means "nobody has dressed this level yet", and DecorLayer falls back to its
+## seeded scatter. Same reasoning as terrain_tiles: art being unfinished must never make a
+## level unplayable, and a level someone HAS dressed must never be re-scattered on top.
+@export var decor: Array[Dictionary] = []
+
+## Hand-painted lanes. Two jobs at once:
+##
+##  * They get their own floor texture, so the route the designer intends is VISIBLE.
+##  * A* charges `path_off_lane_cost` for every step off them, so distractions genuinely
+##    prefer them.
+##
+## Deliberately a preference, not a wall. Blocking everything off-lane would turn the
+## open maze into a fixed corridor and break the design pillar in docs/core/00_overview.md
+## ("open maze pathfinding … enemies route around fixed high ground"), and any lane the
+## player walls off would make the level unsolvable. Weighting steers without lying: the
+## horde takes the lane when it can and spills around when it cannot.
+@export var path_cells: Array[Vector2i] = []
+
+## How much dearer an off-lane step is. 1.0 = lanes are purely cosmetic; 4.0 keeps the
+## horde on the lane unless the detour is over four times longer.
+@export_range(1.0, 12.0, 0.5) var path_off_lane_cost: float = 4.0
+
 @export_category("Horde curve")
 ## Total number of waves. The last one is the finale — the boss (if set) spawns there.
 @export var wave_count: int = 12
