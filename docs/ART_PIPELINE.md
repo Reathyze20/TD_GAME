@@ -26,11 +26,20 @@ Herní buňka je **48 px**. Art se kreslí malý a zvětšuje **celočíselně, 
 | vrstva | autorská velikost | zvětšení | px na obrazovce / art px |
 |---|---|---|---|
 | pozadí | 384×216 | ×5 | 5 (hrubší = hloubka, záměr) |
-| terén, věže | 16 px / dlaždici | ×3 | 3 |
-| nepřátelé | 16×16 | ×2 (z radiusu) | 2 |
+| terén | 16 px / dlaždici | ×3 | 3 |
+| věže | 24×24 | ×2 | 2 |
+| nepřátelé (běžní) | **32×32** | ×2 | 2 |
+| nepřátelé (boss) | **64×64** | ×2 | 2 |
 | efekty (kód) | — | bloky 3 px | 3 |
 
-- Autorská velikost **musí dělit 48**: 16 ✓, 24 ✓, 48 ✓. **32 a 64 NIKDY** (48/32=1,5 → rozmazání).
+- **Co se vejde do buňky, musí dělit 48**: 16 ✓, 24 ✓, 48 ✓ (48/32 = 1,5 → rozmazání).
+  Platí na terén a věže.
+- **Nepřátelé jsou z tohohle pravidla vyjmutí schválně.** Nesedí v buňce — kreslí se na
+  64 px, tedy 4/3 buňky, aby přerostli mřížku a bylo vidět, že po ní nepatří. 32 × 2 = 64
+  vychází celočíselně, což je jediné, na čem záleží. Bestiář byl půl dne na 16 px
+  a vrátil se nahoru: na 32 px obrazovky nepřežila srst ani zuby, kvůli kterým ty potvory
+  stojí za podívání (`distraction_animator.gd:224`). PixelLab pod 32×32 negeneruje vůbec,
+  takže se generuje na 64 a jednou se půlí (`sprite_16.halve()`).
 - Mísit hustoty na jednom objektu = „hrozně ostrý proti zbytku" (opakovaná zpětná vazba).
 - Projekt kreslí s `CanvasItem.TEXTURE_FILTER_NEAREST` (nastavuje se per-node v `_ready`).
 
@@ -91,6 +100,108 @@ zmenšit → `create_image_pixflux` s `init_image_url` (data URL; strength ~50�
 NEAREST na cílový rastr. Koncept řídí kompozici, pixflux drží mřížku. Barvy brát
 z `def.color` v datech, ať sprite ladí s aurami a HUDem.
 
+## 3b. Rodina příšer — vizuální bible (junk food, od 2026-08-15)
+
+**Tohle je závazný vzhled distrakcí.** Nahrazuje „grungy zombie v obvazech" z 14. 8.
+Zdroj: tři MJ koncepty uživatele (viz „Předlohy" níž). Píšu to slovy proto, že koncepty
+jsou obrázky a prompt potřebuje věty — ale **předloha vždycky přebije text**, takže když
+je obrázek po ruce, dávej ho.
+
+### Proč zrovna junk food
+
+Není to jen „hezký styl". Hra učí o *digital obesity* — přejídání se levnou digitální
+stimulací (`docs/core/00_overview.md`). Distrakce jako sladkosti a fastfood, které
+zezelenaly a obživly, dělají tu metaforu **doslovnou bez jediného slova textu**, což je
+přesně pilíř „teach through MECHANICS, not text". Každá distrakce dostane vlastní jídlo:
+notifikace = donut, doomscroll = nekonečná pizza, autoplay = kýbl popcornu.
+
+### Anatomie (tohle je ta neměnná část)
+
+1. **Jedna velká masa, končetiny jako dodatek.** Tělo je vejce / klín / kopec — široké
+   dole, zaoblené nahoře, **bez krku**. Tvoří ~80 % siluety. Nohy jsou krátké pahýly úplně
+   dole, ruce visí nízko po stranách. Ve 32 px přežije jedině tenhle jasný obrys.
+2. **Dvě sloučené hmoty.** Každá příšera je jídlo přivařené k tvorovi:
+   - **skořápka z jídla** — těsto, sušenka, sýr, poleva. Teplá: zlatá, béžová, máslově
+     žlutá, oranžová. Posypaná ovesnými vločkami, sprinkles, drobky, dírkami po vzduchu.
+   - **tělo tvora** — studené: petrolejová, modrozelená, šeříkově fialová. Chlupaté nebo
+     bradavičnaté, s opravdovými prsty, drápy a kopýtky.
+3. **Šev mezi nimi teče.** Jídlo se **rozpouští a stéká přes** tvora — ne čistý předěl.
+   (Koncept 1: petrolejová lebka teče přes sušenkové břicho. Koncept 3: sýrová čepice
+   teče přes petrolejovou srst.) Poleva visí v rampouších, kape v samostatných kapkách,
+   dělá na zemi kaluž. **Kapání je podpis rodiny** — bez něj to nejsou tyhle příšery.
+4. **Oči nikdy symetricky.** Jedno dominantní obří oko mimo osu, lesklé, syté — plus
+   jedno až dvě malá nesourodá jinde. Duhovka je obrovská vůči bělmu, zornička maličká
+   a horká (magenta, červená).
+5. **Tlama je tmavá jeskyně** nízko na těle. Tři ověřené varianty: široká rána
+   s nepravidelnými hranatými zuby / díra s dlouhým svěšeným růžovým jazykem / **donut
+   použitý jako tlama** s tesáky uvnitř.
+6. **Zapíchané rekvizity.** Růžově polité donuty vtlačené do těla jako salám, oplatkové
+   a churros tyčky trčící po obvodu, marshmallow pupínky, odlétávající drobky.
+
+### Paleta
+
+Kontrast teplé jídlo × studené maso, a **jediný horký akcent** navíc:
+
+```
+teplé jídlo:   #d9a441 zlatá kůrka, #e8cf8a bledé těsto, #f0a02c roztavený sýr
+studené maso:  #5e9a9c petrolejová, #3f6d78 hluboká modrozelená, #4a3b5c šeříkově tmavá
+horký akcent:  #e86a9b magenta poleva (donuty, jazyk, zorničky, pupínky)
+stín na zemi:  #6b2038 vínová kaluž — NE šedá
+```
+
+Magenta je vzácná schválně: je to jediná barva, která na 32 px prořízne, takže nese
+identitu. Barva těla se pořád bere z `def.color` (§4), ať sprite ladí s aurou a HUDem.
+
+### Čára a stínování
+
+Silný tmavý nepravidelný obrys s viditelným ručním chvěním. Převážně ploché cel výplně,
+jen pár měkkých přechodů na velkých plochách. Nálada je **kreslená groteska** — *Aaahh!!!
+Real Monsters*, nechutné a vtipné. **Ne roztomilé, ne chibi, ne 3D render, ne fotoreal.**
+
+Staging konceptu: jedna postava, plochý jednobarevný podklad, kaluž stínu pod ní, žádné
+prostředí.
+
+### Předlohy
+
+Ulož si ty tři MJ koncepty do `assets/src/concepts/` jako
+`_mj_creature_1_cookie.png`, `_mj_creature_2_pizza.png`, `_mj_creature_3_cheese.png`.
+**Bez nich je celá tahle sekce jen text**, a text v tomhle projektu opakovaně prohrál
+s obrázkem (§9 v `ART_PROMPTS.md`, past s prasklinami).
+
+### Prompt — popis do `create_character`
+
+```
+a grotesque junk-food monster, one large rounded body like an egg with no neck, tiny stubby
+legs and small low-hanging arms, the upper body is a cool teal-green warty creature hide and
+the lower body is golden baked cookie dough speckled with oats and sprinkles, thick icing
+melting and running down over the seam between them in long drips, one huge glossy off-centre
+eyeball with an oversized iris and a tiny hot magenta pupil plus one small mismatched eye, a
+dark cavernous mouth low on the body with irregular blocky teeth, pink-frosted donuts pressed
+into the body like salami, wafer sticks poking out around the edge, thick dark hand-drawn
+outline, flat cel shading, cartoon gross-out style, not cute, plain flat background
+```
+
+Negativy do promptu: `no cute, no chibi, no symmetric face, no 3D render, no photorealistic,
+no armour, no background scenery, no text`.
+
+### Prompt — nové koncepty v Midjourney
+
+Pro další jídla (pizza, popcorn, energy drink…) vyměň jen tu potravinu:
+
+```
+character concept sheet, a single grotesque junk-food monster standing alone, one massive rounded
+body with no neck and tiny stubby legs, upper half is teal-green warty creature flesh and lower
+half is <JÍDLO>, melted glaze dripping heavily down over the seam and pooling on the ground, one
+huge glossy asymmetric eyeball with a tiny magenta pupil, a dark toothy cavern of a mouth,
+pink-frosted donuts and wafer sticks embedded in the body, warm gold and butter yellow against
+cool teal and slate purple, one hot magenta accent, deep wine-red shadow puddle, thick dark
+hand-drawn outline, flat shaded stylized 2D game art, bold readable silhouette, cartoon gross-out
+--style raw --s 150 --v 7 --no photorealistic, 3d render, isometric, pixel art, cute, chibi,
+kawaii, symmetric face, armour, weapons, background scenery, environment, text, watermark
+```
+
+`--no pixel art` tam musí zůstat: MJ dělá koncept, pixelizaci dělá až pixflux (§3).
+
 ## 4. Kam co patří a co si to samo načte
 
 ```
@@ -129,12 +240,25 @@ assets/src/pixel/                      zdroje/zálohy (anim32/ = původní 32px 
   **Záře**: pod každým nepřítelem se kreslí kaluž jeho `def.color`. Není to dekorace —
   na 32-64 px se identita příšery z kresby přečíst nedá, barva a velikost ano.
 
-**Rodina příšer (styl od 2026-08-14):** grungy zombie v obvazech podle MJ konceptu
-uživatele. Nové příšery dělej `create_character` **mode="pro" + style_character_id**
-= `7ba5d829-5a10-4ed9-b038-52978ec20782` (uživatelova jednooká scrollerka) — drží styl
-napříč rodinou líp než jakýkoli textový popis. Pak `animate_character` se šablonami
-**sad-walk** (chůze) a **falling-back-death** (smrt), `directions:["south"]` (hra směry
-neumí, 8 směrů = 8× cena). 64px → ÷2 na 32. Cena: ~20-40 generací/postava, animace levné.
+**Rodina příšer — jak ji generovat.** Jak má vypadat, je v **§3b** (junk food, od
+15. 8. 2026; nahradilo „grungy zombie v obvazech" ze 14. 8.).
+
+Nové příšery dělej `create_character` **mode="pro" + style_character_id**. Reference drží
+styl napříč rodinou líp než jakýkoli textový popis, takže tenhle parametr je ta hlavní
+věc na celém volání.
+
+> ⚠️ **Kotva se musí přegenerovat.** Dosavadní `7ba5d829-5a10-4ed9-b038-52978ec20782`
+> (jednooká scrollerka) je ve **starém** obvazovém stylu — s ním dostaneš starou rodinu.
+> Nejdřív vyrob jednu junk-food příšeru podle §3b, tu si odsouhlas, a **její** id pak
+> zapiš sem a používej jako kotvu pro všechny další.
+
+Pak `animate_character` se šablonami **sad-walk** (chůze) a **falling-back-death** (smrt).
+64px → ÷2 na 32. Cena: ~20-40 generací/postava, animace levné.
+
+Směry: generuj **south + north + east** (4 směry, ne 8 — osm stojí dvojnásob a čtyři
+z nich se nikdy nenačtou). Západ si `distraction_animator.gd` zrcadlí z východu sám.
+*(Dřív tu stálo `directions:["south"]` s odůvodněním „hra směry neumí" — to už neplatí,
+`distraction_animator.gd:190` čte všechny čtyři osy.)*
 - Animace věží **zamrzá, když věž nepracuje** (pauza/mimo Routine/disrupt) — záměr,
   stav se čte ze spritu. Neopravovat jako bug.
 
