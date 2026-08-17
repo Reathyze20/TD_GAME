@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="AnimTuning" format=3]
+[gd_resource type="Resource" script_class="AnimTuning" format=3 uid="uid://blvm4ro303xaj"]
 
-[ext_resource type="Script" path="res://scripts/resources/anim_tuning.gd" id="1_ov2d5"]
+[ext_resource type="Script" uid="uid://bn3iaspl1eh3o" path="res://scripts/resources/anim_tuning.gd" id="1_ov2d5"]
 
 [resource]
 script = ExtResource("1_ov2d5")
@@ -24,4 +24,7 @@ offsets = {
 "notification_north": [Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1)],
 "phantom_buzz_death": [Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2)],
 "phantom_buzz_east": [Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1)]
+}
+holds = {
+"energy_drink_attack": [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
 }

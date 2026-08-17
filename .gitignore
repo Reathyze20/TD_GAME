@@ -18,3 +18,7 @@ __pycache__/
 
 # Náhledy a mezivýsledky nástrojů (sprite_cleanup) — do hry se kopíruje přes --apply
 /build/
+
+# Váhy modelů pro tools/gen.py — ~10 GB, stahuje se, do gitu nikdy nepatří
+/models/
+.gstack/

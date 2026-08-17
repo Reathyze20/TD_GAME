@@ -246,7 +246,11 @@ func _draw_sprite_frames(r: float) -> void:
 		return
 	var mirror: bool = pick[1]
 	var key := _set_key(pick[2])
-	var idx: int = int(_time * tuning().fps_for(key, SPRITE_FPS)) % frames.size()
+	# The clock counts base SLOTS, not frames — a frame held 3x simply occupies three of
+	# them. Frame choice therefore lives entirely in AnimTuning, and a set with no authored
+	# holds comes back out as the plain modulo this used to do.
+	var slot: int = int(_time * tuning().fps_for(key, SPRITE_FPS))
+	var idx: int = tuning().frame_at(key, frames.size(), slot, true)
 	var tex: Texture2D = frames[idx]
 	var off := tuning().offset_for(key, idx)
 	if mirror:
@@ -370,8 +374,11 @@ func has_death_animation() -> bool:
 ## Reads the tuned rate, not the constant: Distraction._die() waits on this number before
 ## freeing the corpse, so a death slowed down in the Animation Lab would otherwise be cut
 ## off partway through.
+## Counts held slots, not frames: a death whose last frame is held 4x has to keep the
+## corpse alive for all four, or Distraction._die() frees it mid-collapse.
 func death_duration() -> float:
-	return float(_death_frames.size()) / tuning().fps_for(_set_key("_death"), DEATH_FPS)
+	var key := _set_key("_death")
+	return float(tuning().hold_total(key, _death_frames.size())) / tuning().fps_for(key, DEATH_FPS)
 
 func is_death_finished() -> bool:
 	return _death_finished
@@ -411,8 +418,8 @@ func _load_death_frames(base_id: String, suffix: String) -> void:
 ## Death frames play ONCE and hold on the last one — a looping death reads as a glitch.
 func _draw_death_frames(r: float) -> void:
 	var key := _set_key("_death")
-	var idx: int = mini(int(_death_time * tuning().fps_for(key, DEATH_FPS)),
-		_death_frames.size() - 1)
+	var slot: int = int(_death_time * tuning().fps_for(key, DEATH_FPS))
+	var idx: int = tuning().frame_at(key, _death_frames.size(), slot, false)
 	_draw_texture_centred(_death_frames[idx], r, 1.0, tuning().offset_for(key, idx))
 
 func _draw() -> void:

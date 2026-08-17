@@ -31,6 +31,77 @@ const PATH := "res://data/anim_tuning.tres"
 ## the saved file only ever contains sets somebody actually tuned.
 @export var offsets: Dictionary = {}
 
+## Filename stem -> Array[int], how many base slots each frame is held. 1 = normal.
+##
+## This is the timing half of the animation, and it matters more than the frame count.
+## A five-frame attack held 1-1-3-2-1 reads as wind-up, IMPACT, recovery; the same five
+## frames held evenly read as a shrug. Shipped games get their weight from uneven holds,
+## not from extra drawings — and every drawing this saves is one fewer frame for a
+## generator to draw inconsistently.
+##
+## Whole multiples of the set's own rate, not milliseconds. Milliseconds would drift out
+## of step with fps the moment somebody retuned the rate, and "hold this one three times
+## as long" is the actual authoring thought. A set with nothing but 1s is erased rather
+## than stored, so an untouched animation stays absent from the file and costs nothing.
+@export var holds: Dictionary = {}
+
+
+## How long frame `i` is held, in base slots. Never below 1: a zero-length frame would be
+## skipped entirely and a negative one would corrupt the running total below it.
+static func _hold_at(arr: Array, i: int) -> int:
+	if i < 0 or i >= arr.size():
+		return 1
+	return maxi(1, int(arr[i]))
+
+
+func holds_for(key: String, frame_count: int) -> Array:
+	var arr: Array = holds.get(key, [])
+	var out: Array = []
+	for i in range(frame_count):
+		out.append(_hold_at(arr, i))
+	return out
+
+
+## Total length of one cycle in base slots — the number the playback clock wraps around,
+## and what death timing must wait for instead of the raw frame count.
+func hold_total(key: String, frame_count: int) -> int:
+	if frame_count <= 0:
+		return 0
+	var arr: Array = holds.get(key, [])
+	var total := 0
+	for i in range(frame_count):
+		total += _hold_at(arr, i)
+	return total
+
+
+## Which frame is on screen at `slot` (elapsed time × fps, floored).
+##
+## The untuned case returns before touching the dictionary — every creature in the game
+## goes through here every frame, and an animation nobody has tuned must cost exactly what
+## the plain modulo cost before holds existed.
+func frame_at(key: String, frame_count: int, slot: int, loop: bool) -> int:
+	if frame_count <= 0:
+		return 0
+	var arr: Array = holds.get(key, [])
+	if arr.is_empty():
+		return posmod(slot, frame_count) if loop else clampi(slot, 0, frame_count - 1)
+	var total := hold_total(key, frame_count)
+	var s: int = posmod(slot, total) if loop else clampi(slot, 0, total - 1)
+	var acc := 0
+	for i in range(frame_count):
+		acc += _hold_at(arr, i)
+		if s < acc:
+			return i
+	return frame_count - 1
+
+
+func set_holds(key: String, arr: Array) -> void:
+	for v in arr:
+		if int(v) != 1:
+			holds[key] = arr
+			return
+	holds.erase(key)
+
 
 func fps_for(key: String, fallback: float) -> float:
 	var v: float = float(fps.get(key, 0.0))

@@ -64,6 +64,7 @@ var _fps_label: Label
 var _frame_label: Label
 var _off_x: SpinBox
 var _off_y: SpinBox
+var _hold: SpinBox
 var _save_btn: Button
 var _status: Label
 
@@ -289,7 +290,11 @@ func _frame_index(suffix: String) -> int:
 		return 0
 	if not _playing:
 		return _frame % fr.size()
-	return int(_time * _tuning.fps_for(_key(suffix), DEFAULT_FPS)) % fr.size()
+	# Přes frame_at, ne přes modulo — jinak by náhled běžel rovnoměrně, zatímco hra by
+	# držela framy, a laděný rytmus by šlo posoudit až po spuštění hry.
+	var key := _key(suffix)
+	var slot: int = int(_time * _tuning.fps_for(key, DEFAULT_FPS))
+	return _tuning.frame_at(key, fr.size(), slot, true)
 
 
 # ---------------------------------------------------------------- UI
@@ -408,6 +413,16 @@ func _build_ui() -> void:
 	_off_y = _spin()
 	_off_y.value_changed.connect(func(v: float): _set_offset(int(_off_x.value), int(v)))
 	row2.add_child(_off_y)
+	row2.add_child(_lbl("   drží"))
+	_hold = SpinBox.new()
+	_hold.min_value = 1
+	_hold.max_value = 8
+	_hold.step = 1
+	_hold.custom_minimum_size.x = 52
+	_hold.tooltip_text = "Kolikrát déle drží TENHLE frame než ostatní.\n" \
+		+ "Tohle je ta veličina, ze které mají animace váhu — ne počet framů."
+	_hold.value_changed.connect(func(v: float): _set_hold(int(v)))
+	row2.add_child(_hold)
 
 	var row3 := HBoxContainer.new()
 	body.add_child(row3)
@@ -418,6 +433,15 @@ func _build_ui() -> void:
 	_btn(row3, "Pohledy na south", "Posune KAŽDÝ pohled jako celek tak, aby stál na stejné\n"
 		+ "lince jako south. Lék na 'při zatáčení se scvrkne'.", _align_views)
 	_btn(row3, "Vynulovat", "Zahodí posuny této sady.", _clear_offsets)
+
+	var row3b := HBoxContainer.new()
+	body.add_child(row3b)
+	row3b.add_child(_lbl("rytmus"))
+	_btn(row3b, "Náraz", "Nápřah krátce, ZÁSAH dlouho, doznění středně.\n"
+		+ "Tohle dělá z pěti framů úder — ne pět dalších framů.", _rhythm_impact)
+	_btn(row3b, "Na dvojky", "Každý frame drží 2×. Oko dostane čas si pózu přečíst\n"
+		+ "a pohyb zváží. Klasika kreslených seriálů.", _rhythm_twos)
+	_btn(row3b, "Rovnoměrně", "Zahodí držení — všechny framy stejně dlouho.", _rhythm_even)
 
 	var row4 := HBoxContainer.new()
 	body.add_child(row4)
@@ -560,6 +584,85 @@ func _step(d: int) -> void:
 	_stage.queue_redraw()
 
 
+func _set_hold(n: int) -> void:
+	var fr := _frames_of(_sel)
+	if fr.is_empty():
+		return
+	var key := _key(_sel)
+	var arr := _tuning.holds_for(key, fr.size())
+	var idx := _frame % fr.size()
+	if int(arr[idx]) == n:
+		return
+	arr[idx] = n
+	_tuning.set_holds(key, arr)
+	_after_offset_change()
+
+
+## Nápřah krátce, zásah dlouho, doznění středně — rozložené přes délku sady, ať to sedí
+## na pět framů i na šestnáct.
+##
+## Kam zásah patří, se neháda: bere se frame, který se od svého předchůdce liší nejvíc.
+## U útoku je to skoro vždy ten, kde ruka dopadne, a je to poznatelné ze siluety, takže
+## to funguje i na sadu, kterou tenhle kód nikdy neviděl.
+func _rhythm_impact() -> void:
+	var fr := _frames_of(_sel)
+	if fr.size() < 3:
+		return
+	var hit := _biggest_change(fr)
+	var arr: Array = []
+	for i in range(fr.size()):
+		if i == hit:
+			arr.append(3)
+		elif i == hit + 1 or (i == fr.size() - 1 and hit == fr.size() - 1):
+			arr.append(2)
+		else:
+			arr.append(1)
+	_tuning.set_holds(_key(_sel), arr)
+	_after_offset_change()
+
+
+func _rhythm_twos() -> void:
+	var fr := _frames_of(_sel)
+	if fr.is_empty():
+		return
+	var arr: Array = []
+	for i in range(fr.size()):
+		arr.append(2)
+	_tuning.set_holds(_key(_sel), arr)
+	_after_offset_change()
+
+
+func _rhythm_even() -> void:
+	_tuning.holds.erase(_key(_sel))
+	_after_offset_change()
+
+
+## Index framu, který se nejvíc liší od předchozího — měřeno na siluetě, ne na barvách.
+## Silueta proto, že hledáme POHYB; přebarvení celého těla při záblesku by jinak vyhrálo
+## nad skutečným nápřahem ruky.
+func _biggest_change(fr: Array[Texture2D]) -> int:
+	var best := 0
+	var best_d := -1
+	var prev: Image = null
+	for i in range(fr.size()):
+		var img := _image_of(fr[i])
+		if img == null:
+			continue
+		if prev != null and prev.get_size() == img.get_size():
+			var d := 0
+			for y in range(img.get_height()):
+				for x in range(img.get_width()):
+					var a := img.get_pixel(x, y).a > 0.125
+					var b := prev.get_pixel(x, y).a > 0.125
+					if a != b:
+						d += 1
+			if d > best_d:
+				best_d = d
+				best = i
+		prev = img
+	return best
+
+
 func _set_offset(x: int, y: int) -> void:
 	var fr := _frames_of(_sel)
 	if fr.is_empty():
@@ -697,7 +800,17 @@ func _refresh_tuner() -> void:
 		_frame_label.text = "-"
 		return
 	var idx := _frame % fr.size()
+	var key := _key(_sel)
+	# Délka cyklu v držených slotech, ne ve framech — právě ta se s rytmem mění a je to
+	# jediné místo, kde je vidět, že sada držení vůbec má.
+	var total := _tuning.hold_total(key, fr.size())
 	_frame_label.text = "%d/%d" % [idx + 1, fr.size()]
+	if total != fr.size():
+		_frame_label.text += " (%d slotů)" % total
+	_hold.set_block_signals(true)
+	_hold.value = int(_tuning.holds_for(key, fr.size())[idx])
+	_hold.set_block_signals(false)
+	_hold.editable = not _playing
 	_fps_slider.set_block_signals(true)
 	_fps_slider.value = _tuning.fps_for(_key(_sel), DEFAULT_FPS)
 	_fps_slider.set_block_signals(false)
