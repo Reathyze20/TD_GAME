@@ -134,76 +134,83 @@ EntityLayer (Node2D) [y_sort_enabled]
 
 ## Intersection with the prototype
 
-**Built and playable — this doc's prose is now the stale half.** `scripts/ally.gd` exists,
-`accountability` is in `Data.HABIT_TYPES` + `HABIT_ORDER`, `enemy.gd` carries the blocking state,
-and `_build_on()` branches on `def.is_blocker` (skipping the cone-aiming step, since there is no
-cone to aim). What shipped diverges from §1–§3 in five deliberate ways:
+**Rebuilt as the Nutrition Guild (16. 8. 2026) — the healthy-food defender roster.** The
+`accountability` line is now the **Nutrition Guild / Fresh Pantry**: it fields a RECIPE of three
+defender slots instead of training interchangeable Allies. `scripts/ally.gd` is deleted;
+`scripts/defender_unit.gd` (`DefenderUnit`) is the one melee unit class for everything, and
+`scripts/resources/defender_data.gd` + `data/defenders/*.tres` carry the roster:
 
-- **The barracks is a production building, not a fixed squad.** §3's model was "deploy N Allies at
-  build time, each with its own respawn timer." Instead the Habit trains **one Ally every
-  `ally_spawn_cooldown` (3.5s) up to `ally_count` (3) alive**, and losses are refilled on that same
-  timer. There is no per-Ally `respawn_time` — a dead Ally is freed for good and the barracks
-  simply trains its replacement. This reads better on screen (a visible stream of support) and
-  gives the player a real reason to protect the building.
-- **Allies hunt inside a guard zone, they don't wait in one.** §1's interception rule 1 had Allies
-  standing still until something wandered within `aggro_radius` (40px). Instead they **actively
-  intercept the nearest distraction inside `guard_radius` (240px)** and return to their slot when
-  the zone is clear. The radius is measured **from the rally point, never from the Ally's own
-  position** — chaining "nearest to me" would let an Ally creep across the entire map one target at
-  a time, abandoning the chokepoint its barracks was built to hold, dying alone far from support,
-  and halting distractions outside every habit's cone so the ranged synergy this doc's intro
-  describes never happens. The zone is drawn on the barracks (faint always, bright when selected)
-  and previewed while placing, since the building is otherwise impossible to position on purpose.
-- **Multiple Allies gang up on one distraction.** §1's interception rule 2 (`is_blocked == false`,
-  i.e. skip anything already engaged) is deliberately dropped. `Distraction.blockers` is an
-  **Array**, not the single `blocker` reference this doc assumed; `add_blocker()`/`remove_blocker()`
-  keep `is_blocked` true until the last Ally lets go. Without this, tanky distractions could only
-  ever be fought one-on-one and would grind a lone Ally down every time.
-- **Counter-damage is per distraction type.** Each row in `DISTRACTION_TYPES` carries
-  `melee_damage` (notification 3, autoplay 5, doomscroll 7) instead of the flat chip-damage
-  constant an early cut used — a distraction hits back as hard as its own stat block says.
+| unit | role | the one number that defines it |
+|---|---|---|
+| **Broccoli Knight** | Tank | `block_capacity 3`, `damage_reduction 3` — pins crowds, shrugs counters |
+| **Avocado Monk** | Support | `heal_amount 3`/s in 84px — mends every defender near it, never itself |
+| **Chilli Berserker** | Striker | `attack_cooldown 0.28` + `burn_dps 3` — hits keep searing (Boredom channel, per-source) |
+| **Garlic Mage** | Warden | `ward_slow_factor 0.8` in 96px — the reek slows everything shuffling through |
 
-  This produces a **balance result worth preserving deliberately**: an Ally's 6 Willpower is cut to
-  `max(1, 6 - 4) = 2` by Doomscroll's Compulsion, while Doomscroll returns 7 **per blocking Ally**.
-  Measured over a 1.2s melee window, one Ally deals 4 and takes 14 — piling onto a tank is a losing
-  trade, and piling on harder loses faster. Against Notification (14 HP, no Compulsion) the same
-  Ally wins comfortably. So Accountability answers swarms of small pings and *cannot* substitute for
-  Exercise/Mindfulness against the deep feed, which is exactly the lesson `00` wants the mechanics
-  to carry. Do not "fix" this by raising `ally_damage` — it would flatten the distinction.
-- **The state machine is two states, not five.** `SEEKING <-> ENGAGING`. `MOVING_TO_RALLY`, `IDLE`,
-  and `INTERCEPTING` collapse into `SEEKING` (chase a target, else drift back to the slot), and
-  `DEAD` is unnecessary because death frees the node.
+What matters structurally:
 
-Two smaller notes:
+- **The recipe is the slot system.** Three slots, each names a DefenderData id; the panel cycles
+  each slot through `Data.DEFENDER_ORDER`. Changing a slot NEVER touches the live unit — it fights
+  until it dies, and the slot's next respawn (4.0s, `ally_spawn_cooldown`; Fresh Pantry 3.0s)
+  brings the newly named type. The panel marks the pending swap ("next spawn"). Respawn ticks on
+  WALL time deliberately: the units are free and permanent, so wave-gating the clock would only
+  make you enter waves a defender short.
+- **Blocking is WEIGHTED.** `DistractionData.block_weight` (1 light; doomscroll/energy_drink 2;
+  the boss 3) vs `DefenderData.block_capacity` (3/2/1/1). A unit pins a target only while its
+  REMAINING capacity covers the weight — otherwise it fights **on the move** (attacks, follows,
+  never halts it). So the Broccoli Knight holds three pings or one boss; the Chilli harasses the
+  doomscroll it cannot stop. Counters come from EVERYTHING a unit holds, not just the one it is
+  striking — which is what `damage_reduction` is for, and what keeps a triple pin from being free.
+- **The rally point is the guild's aim step.** Panel button → click the map; clamped to
+  `guard_radius` around the tower, refused inside high ground, previewed with the same clamp the
+  commit applies. The leash measures **from the rally, never from the unit** (the old anti-creep
+  rule, kept). Moving the rally re-forms living units mid-wave.
+- **The state machine is the design's five states, mapped honestly:** `MOVE_TO_RALLY → IDLE →
+  ENGAGE → ATTACK` on the unit; `DEAD` is a freed node (death frames play on a lingering corpse
+  that pins nothing); `RESPAWNING` lives in the guild's slot timer, because something has to
+  outlive the body to count the 4 seconds.
+- **The old balance lesson is now a dial, not a constant.** The generic Ally lost to Doomscroll by
+  design ("Accountability answers swarms, not tanks"). That truth survives per-role: the Chilli
+  still loses that trade — but a Broccoli Knight with reduction 3 blunts the 7-damage counters and
+  actually holds. The lesson moved from "this tower cannot answer tanks" to "this tower answers
+  what you STOCK it for", which is the whole point of the recipe.
+- **Raw summons kept the old contract.** `DefenderUnit.setup()` has Ally.setup's exact signature;
+  `call_a_friend` and card bursts spawn capacity-1, ability-less temporaries with lifetimes, same
+  as ever. One class, two employers — two melee implementations would drift on the rules that
+  matter (leash, prune, counters).
+- **Cleanup is still double-guarded.** `_exit_tree()` releases every pin (sell/upgrade mid-fight);
+  `_die()` releases them BEFORE the corpse plays its death frames; `Distraction._prune_blockers()`
+  remains the second line of defence. A weighted pin that leaks is worse than the old bug — it
+  also eats capacity the unit thinks it has spent, hence `_prune_pins()` every frame.
+- **Upgrade carries the player's decisions.** `BuildSpot.upgrade_habit()` moves the recipe and the
+  rally to the Fresh Pantry and re-fields the roster immediately at the new tier's
+  `defender_hp_mult`/`defender_damage_mult` (1.3/1.25).
 
-- **Knockback tweens the Distraction node itself**, not `distraction.sprite` as §1's snippet shows —
-  entities are `_draw()` shapes with no child sprite node. It is safe because `is_blocked` has
-  already halted the cell-path movement that would otherwise fight the tween.
-- **Cleanup has a single owner.** `Ally._exit_tree()` releases the melee hold *and* drops the Ally
-  from `game.allies`, so every removal path is covered — lifetime expiry, death in melee, and a
-  barracks sold or upgraded mid-fight. An Ally freed while engaged would otherwise leave a stale
-  entry in `blockers` and pin that distraction as halted **permanently**; `Distraction._prune_blockers()`
-  is a second line of defence against exactly that.
-
-**Reused by `12`.** `call_a_friend` summons the same `Ally` class with an `ally_lifetime` (14s), so
-temporary Allies expire on their own instead of holding a barracks slot; they render a draining
-gold ring to show the time left. Their `guard_radius` is anchored to where they land, so the click
-point is the position they hold. That ability was blocked on this doc and is now implemented.
+**Art pipeline (PixelLab, per `PIXELLAB.md` §5d):** all four defenders exist as web-created
+characters; animations are template-generated (`walking-6-frames` S/N/E, `breathing-idle`,
+per-role attacks — uppercut/cross-punch/lead-jab/fireball — `taking-punch`, `falling-back-death`),
+downloaded 64px, halved to 32, installed as `assets/defenders/<id>_<set>_frame_N.png`. The
+`DefenderUnit` loader falls back: missing west = flipped east, missing any set = the next best,
+no art at all = vector body with a role glyph. Enemies gained an optional `_attack` frame set in
+`distraction_animator.gd`, played while `is_blocked` — ship those per-creature whenever.
 
 ---
 
 ## Implementation checklist
 
-- [x] Rally Point snapping to `AStarGrid2D` cell centers — the barracks occupies a high-ground
-      build spot, whose position is already a cell centre; formation slots are offsets from it.
-      The rally point doubles as the anchor for `guard_radius`.
-- [x] V-formation coordinate math around the rally point — triangle offsets, with `_next_free_slot()`
-      handing a replacement the slot its predecessor vacated rather than stacking it on a survivor.
-- [x] ~~Strict `MOVING -> IDLE -> INTERCEPTING -> ENGAGING -> DEAD` state machine~~ — superseded by
-      `SEEKING <-> ENGAGING`; see the divergence note above.
-- [x] "Clash" visual knockback tween on intercept — on the Distraction node, not a child sprite.
-- [x] Allies parented to a Y-sorted container — landed with `01`'s `Entities` node. Not a separate
-      `Allies` child container, deliberately: per-type containers cannot interleave, and an Ally
-      standing below a distraction has to be able to draw in front of it.
-- [x] Ensure flying Distractions ignore blockers entirely — `_find_target()` filters `is_flying`
-      (no flying distraction type exists yet, so this is untested in play).
+- [x] Three-slot recipe with per-slot cycling, pending-swap labels, and
+      respawn-as-current-slot-type (4.0s / 3.0s tier 2).
+- [x] Player-set rally point: panel button, clamped placement, live preview, leash re-anchoring,
+      formation re-forming mid-wave.
+- [x] Weighted blocking: `block_weight` vs `block_capacity`, fight-on-the-move for overweight
+      targets, counters from every pinned body, `damage_reduction` on the tank.
+- [x] Heal aura (others-only), searing DoT (shared Boredom channel), pungent ward
+      (strongest-wins slow floor) — each on exactly one role.
+- [x] `MOVE_TO_RALLY → IDLE → ENGAGE → ATTACK` unit state machine; slot-side `RESPAWNING`;
+      death frames on a lingering, non-pinning corpse.
+- [x] Sprite loader: directional walk (S/N/E + flipped W), one-shot attack/hurt, idle, death;
+      vector fallback per role. Enemy-side `_attack` sets wired, art to be shipped per creature.
+- [x] Covered by `scripts/_test_nutrition_guild.gd` (31 checks) + the reworked barracks section
+      of `_test_phase4.gd`.
+- [ ] Enemy `_attack` frame sets generated for the melee-relevant creatures (loader is live,
+      files not yet on disk).

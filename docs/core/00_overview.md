@@ -95,10 +95,19 @@ single source of truth for the player-facing layer):
 2. **Tolerance + "Quick Hit."** An optional button grants instant dopamine but raises a
    **Tolerance** meter; higher tolerance = smaller future rewards (downregulation). Lesson:
    *cheap, instant dopamine is borrowed — you pay it back with tolerance.* Introduced on level 2.
-3. **Maze of habits.** Enemies pathfind around **fixed high ground**, and that high ground is the
+3. **Burnout.** Every distraction that reaches the core raises a **Burnout** meter by
+   `3 × focus_damage`, so the size of the leak is what counts, not the count. Past 50 the
+   picture trembles; past 75 habits start losing ticks to *procrastination* (they get the
+   disruptor's `disrupt()` treatment, named on-screen so it isn't mistaken for an enemy
+   ping). It decays slowly during play. Lesson: *attention debt compounds — being
+   overwhelmed is what makes you worse at not being overwhelmed.*
+   Deliberately a **second meter** rather than more Tolerance: Tolerance is the price of
+   *taking* rewards, Burnout the price of *letting things through*, and one number could
+   not teach either.
+4. **Maze of habits.** Enemies pathfind around **fixed high ground**, and that high ground is the
    **only** place towers can be built. Structure and boundaries are what let habits actually
    defend your attention.
-4. **Insight cards between levels.** After each level, one short card ties a real concept
+5. **Insight cards between levels.** After each level, one short card ties a real concept
    (variable-ratio reinforcement, the attention economy, digital "obesity"/tolerance) to what the
    player just did.
 
@@ -141,6 +150,7 @@ flat `_draw()` shapes are the pilot's art style, and `01` is what the remaining 
 | `11_meta_progression_and_save` | **Growth Tree** + save | Clarity Stars, permanent upgrades, `SaveGame` resource | **Done** — save file genuinely persists across runs |
 | `12_player_abilities` | active **interventions** | Screen Break, Deep Breath, Call a Friend | **Done** — all three work; Call a Friend summons temporary `06` Allies |
 | `13_hud_and_ui` | extended UI (draft, abilities, tree) | DraftScreen, intervention buttons, Growth Tree UI | **Mostly done** — buttons, draft screen, and Growth Tree screen all work |
+| `14_brain_fog_and_bandwidth` | **Brain Fog** + build capacity | darkness = unexamined day, light = Routine, Attention Bandwidth cap, Moment of Clarity | **Done** — fog shader + lit-cell rule, Routine build gate, Bandwidth economy, 5th intervention; balance sweep pending |
 
 > **The one hard reconciliation:** the raw drafts assumed a **fixed `Path2D` curve**. We do
 > **open maze pathfinding with `AStarGrid2D`** instead (enemies route around fixed high ground).

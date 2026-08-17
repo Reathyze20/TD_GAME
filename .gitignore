@@ -15,3 +15,6 @@ __pycache__/
 
 # Temporary headless test harnesses (always deleted after a run, but just in case)
 /_test_*
+
+# Náhledy a mezivýsledky nástrojů (sprite_cleanup) — do hry se kopíruje přes --apply
+/build/

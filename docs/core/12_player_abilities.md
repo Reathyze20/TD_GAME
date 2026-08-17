@@ -191,6 +191,36 @@ of functions + an `intervention_cooldowns: Dictionary` field on `Game` itself):
   intervention code doesn't actually use `get_tree().get_nodes_in_group(...)` — it iterates
   `game.distractions` directly. The group tag is there and correct, just not yet load-bearing here.
 
+## Airplane Mode + the Rush currency (added 15. 8. 2026)
+
+A fourth ability, `data/interventions/airplane_mode.tres`, hotkey **R**. It is the first one
+that costs a resource rather than only time.
+
+- **`type = "freeze_field"`** — a fourth arm in `_trigger_intervention_impact()`. It ignores
+  `radius` entirely and freezes every live distraction on the board for `freeze_duration`
+  (3.0s). Because it is not targeted, `_cast_intervention()` overwrites `target_pos` with
+  `objective_pos` so the strike, the ring and the popup all land on the core, and the armed
+  preview draws a frame around the whole field instead of a disc at the cursor — a disc
+  would promise a placement decision the player does not get to make.
+- **`rush_cost = 3`**, charged through `GameState.spend_rush()` as a **gate placed before the
+  cooldown is committed**, so a refused cast leaves the ability ready. The same check also
+  runs in `_select_intervention()`, which historically validated *nothing*: a hotkey could
+  arm an ability that was on cooldown and then swallow the next left-click on the field.
+- `InterventionData.rush_cost` defaults to **0**, because `screen_break.tres` and its
+  siblings author almost nothing and inherit the rest of that file — a nonzero default would
+  silently price all three.
+
+**Rush** (`GameState.rush`) is the third currency, alongside Dopamine (structure) and Insight
+(permanence). It is earned **only** by defeating a distraction within `RUSH_CLOSE_RADIUS`
+(160px, roughly three cells) of the core — i.e. by nearly losing. It is paid above the
+lean-wave short-circuit, like Insight and unlike Dopamine: a lean wave withholds the feed's
+reward, but the risk the player took was real either way. It does not persist between levels.
+
+> **"Freeze" means movement only.** `apply_slow(0.0, dur)` stops pathing and nothing else, so
+> under Airplane Mode a Group Chat still disrupts habits, an Energy Drink still pulses its
+> haste aura, and the boss still cycles its shield and spawns minions. This is stated in the
+> ability's own description so it does not read as a bug.
+
 ## Implementation checklist
 
 - [ ] `InterventionData.gd` as a Resource with `InterventionType` enum and themed fields — real data

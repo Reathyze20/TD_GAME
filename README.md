@@ -44,7 +44,7 @@ godot --headless --path . --quit
 | `shaders/`  | Shader code.                                                              |
 | `addons/`   | `td_level_designer` — an in-editor dock for authoring levels.              |
 | `tools/`    | Python and GDScript helpers for the art/tileset pipeline.                 |
-| `docs/`     | Design docs. **Start with [`docs/core/00_overview.md`](docs/core/00_overview.md)** — it defines *what* and *why*; everything else describes *how*. |
+| `docs/`     | Design docs. **Start with [`docs/core/00_overview.md`](docs/core/00_overview.md)** — it defines *what* and *why*; everything else describes *how*. [`docs/ROSTER.md`](docs/ROSTER.md) lists what actually ships, generated from `data/` by `tools/roster.py`. |
 
 ## Data-driven by design
 

@@ -466,6 +466,85 @@ Prompt drží materiál mapy (nervová tkáň), **ne kámen** — slova `stone` 
 přes ni. A `tools/stylized_renderer.gd` musí kopírovat i volbu varianty podle buňky,
 jinak náhled v editoru ukáže jiný rozpis stěn než hra.
 
+## 5d. Hotová postava z webu → nepřítel ve hře (ověřeno 15. 8. 2026)
+
+Když příšeru vyrobí uživatel v prohlížeči, přijde jen URL
+`pixellab.ai/create-character/<uuid>` — a to `<uuid>` **je** `character_id`. Celý zbytek
+jede přes `animate_character`, žádný `create_character` už není potřeba.
+
+```
+get_character  →  animate_character (template ×2)  →  stáhnout snímky  →  halve() 64→32
+               →  assets/distractions/<id>[_b][_north|_east|_death]_frame_N.png
+```
+
+1. **`animate_character` v template režimu stojí 1 generaci na směr.** Dvě volání na
+   postavu: `sad-walk` s `directions:["south","north","east"]` a `falling-back-death`
+   s `directions:["south"]` — smrt je ve hře jen jedna sada, `_load_death_frames()` směr
+   nečte. Celkem **4 generace na příšeru**, hotovo do ~4 minut.
+2. `animation_name` si nastav sám (`junk_walk` / `junk_death`) — podle něj se pak snímky
+   v odpovědi hledají. Bez něj se skupina jmenuje po šabloně.
+3. **Snímky nejsou v žádném strukturovaném poli.** `get_character` je vrací jako text:
+   `  <animation_name> — 3 dir (...)` a pod tím `    <direction>: url, url, …`.
+   Parsuje se to regexem (`fetch_anim.py` ve scratchpadu). URL jsou **backblaze**, takže
+   `Authorization` nepotřebují — ale curl ano, urllib dostane 403.
+4. Chůze vrací **8 snímků**, `falling-back-death` **7**. Index 0 je první snímek animace
+   (u smrti ještě stojící postava), pořadí je tedy rovnou pořadí `_frame_1..N`.
+5. **`sprite_16.halve(im, 32)` je celý downscale.** 64px výstup po zmenšení drží siluetu
+   i magentové oko; ruční 16px kreslení (§5) tady není potřeba, protože cíl je 32 px.
+6. Metriky z §5b po půlení klesnou zhruba o 15 % — měř je na **půlených** snímcích, jinak
+   porovnáváš jiná čísla než ta v §5b. Naměřeno na clickbaitu: chůze south 7,0 / 10,7,
+   east 9,0 / 7,7, north 5,2 / 6,8 (sever je nízký vždycky), smrt 14,2 / 19,7.
+
+**Šablony vyšly na první pokus jako skutečná chůze**, žádné idle — to je proti
+`animate_object` (§5b) zásadní rozdíl a je to důvod, proč u rodiny příšer jedeme přes
+`create_character` + `animate_character` a ne přes volné sprity.
+
+### Když animace vyrobil uživatel ve webu (ověřeno 15. 8. 2026)
+
+Postavy, které si uživatel naklikal sám, přijdou s animacemi, které tvůj skript nečekal.
+Tři věci, které tiše zkazí stažení:
+
+- **Jméno skupiny může být celá věta.** Vlastní (v3) animace se jmenuje třeba
+  `custom-64x64 pixel art 8-direction running animation. The`. Regex `\s{2}(\S+) — `
+  na takový řádek nesedne, parser zůstane u předchozí skupiny a **všechny směry se uloží
+  pod cizí jméno** (u nás skončila celá chůze ve složce `junk_death`). Ber `(.+?) — \d+ dir`.
+- **Jeden směr se ve skupině může opakovat.** Přišlo `6 dir (south, south, north, south,
+  north, east)` — tři pokusy o jih. Bez počítadla se všechny zapíšou do stejné složky
+  a **zůstane poslední**, tedy ne nutně ten dobrý. U nás byly jižní sady 8,06 / 8,41 / 3,36
+  (poslední = stojí na místě).
+- **Snímků nemusí být 8.** Vlastní animace měly 16. `SPRITE_FPS` je pevných 12, takže
+  16snímkový cyklus trvá dvakrát déle, potvora ujede stejnou vzdálenost a **měsíčkuje**.
+  Ber každý druhý snímek (`[::2]`), ne celou sadu.
+
+### Automatizace celého rosteru (ověřeno 17. 8. 2026 na deseti příšerách)
+
+Pět pastí, které stály čas při hromadném přegenerování distrakcí:
+
+- **Limit je 10 souběžných jobů, natvrdo.** Jedenáctý spadne na
+  `error: need 1 job slots but only 0 available (10/10 used)` — a vrátí to jako *text
+  odpovědi*, ne jako výjimku, takže si toho skript nemusí všimnout. Před každým zadáním
+  čti `list_jobs` a odečítej: chůze na tři směry = 3 sloty, smrt = 1, attack = 1.
+- **Skupina se jmenuje podle `animation_name`, ne podle šablony.** Zadáš
+  `template_animation_id:"sad-walk"` + `animation_name:"td_walk"` a `get_character` ukáže
+  `td_walk — 3 dir (…) [type=sad-walk]`. Hledat skupinu podle slugu šablony nikdy nesedne.
+- **Nad 64 px si `animate_character` sám zvolí `pro` režim** (20–40 generací/směr), i když
+  jsi poslal jen `action_description`. U bosse (128 px) se tak spustil pro job, který nikdo
+  nechtěl. Posílej **`mode:"v3"` explicitně**, kdykoli je postava větší než 64.
+- **Cache stahování musí být klíčovaná URL, ne logickým jménem.** Když se příšera
+  pregeneruje jako v2 a cache je pod `<id>_<smer>_<i>.png`, vrátí se snímky v1 a na disk
+  se zapíše stará podoba, zatímco na PixelLabu je nová. Tvářilo se to jako selhání
+  generátoru; byla to cache. Ber `sha1(url bez query)`.
+- **Maž až ve chvíli, kdy máš čím nahradit.** První verze instalátoru nejdřív smazala
+  `<id>*_frame_*.png` a teprve pak zjišťovala, co zapíše — u tří příšer smazala všechno
+  a nezapsala nic. Nejdřív najdi sady, pak teprve `cleanup()`.
+
+A `failed jobs` v `get_character` čti — jeden směr se může nepovést (u automatu vypadl
+sever) a v seznamu animací pak prostě není, aniž by cokoli zahlásilo chybu.
+`Generation failed: Worker hiccup, please try again` je přesně to, co říká: stejné volání
+znovu (klidně pod stejným `animation_name`) prošlo napodruhé beze změny čehokoli. Selhaný
+záznam ve `failed jobs` zůstane i po úspěšném retry — čti ho jako historii, ne jako stav;
+o stavu vypovídá jen seznam `animations`.
+
 ## 6. Kam to patří
 
 ```
@@ -510,6 +589,155 @@ terén −20, dekorace −10, jednotky 0. Pozadí **nesmí** zpátky do `Game._d
 
 `for dx in (-1, 1):` je **parse error** — GDScript nemá tuple literály, patří tam
 `for dx in [-1, 1]:`. Chyba se hlásí jako „Expected closing ')' after grouping expression".
+
+## 5e. Věže na 32 px + mechanická animace (Zen Pulsar, 16. 8. 2026)
+
+### Strop 24 px padl — hlava smí přesahovat buňku
+
+§5b tvrdilo, že věže mají 24 px, protože `zoom = floor(48 / tex_width)` a 32px art by
+spadl na ×1 (jeden art pixel na jeden obrazovkový = zakázané). To byl důsledek
+**zaklínění hlavy do buňky**, ne nutnost. Nepřátelé se do buňky nikdy nevešli — 32px art
+kreslí na 64 px, tedy 4/3 buňky.
+
+`tower.gd` má teď `HEAD_ART_SPAN := 2.0` a hlava kreslí **vždy ×2**, ať měří cokoli:
+
+| art | dřív (`floor(48/w)`) | teď (×2) |
+|---|---|---|
+| 16 px | ×3 → 48 px | ×2 → 32 px ⚠ |
+| **24 px** | **×2 → 48 px** | **×2 → 48 px** (beze změny) |
+| **32 px** | ×1 → 32 px, hustota 1:1 ⚠ | **×2 → 64 px, přesah 8 px** |
+
+Všechny hlavy v repu jsou 24px, takže je změna zpětně kompatibilní. **Kdyby se někdy
+vracel 16px art, tenhle vzorec ho zmenší** — 16px hlavy se musí zvětšit, ne obejít.
+
+Nové hlavy: generovat **64×64** → `sprite_16.halve(im, 32)`.
+
+### Větvící se upgrade linie rozbila fallback na art
+
+`_head_art_key()` dělal `type_key.trim_suffix("_2")`, což fungovalo jen dokud každá linie
+měla přesně jeden upgrade `<root>_2`. Zen Pulsar má dva (`_2a` / `_2b`), trim je nechal
+beze změny → hlava bez artu. Opraveno na **`Data.habit_family(type_key)`**, což chodí po
+skutečných `upgrades` hranách a zvládne libovolnou hloubku i větvení.
+
+### `animate_image` tuhle animaci neudrží — a proč to nevadí
+
+Nabíjecí cyklus (kameny se rozjedou, secvaknou) selhal třikrát:
+
+1. **Vstup byl 24px snímek zvětšený zpátky na 48.** Model dostal mush a překreslil věž na
+   **oranžového panáčka**. Lekce: `animate_image` krmit **nativním rozlišením**, nikdy ne
+   zvětšeným downscalem. (§5b říká zvětšovat LANCZOS u *pixfluxu*; tady je to jinak —
+   pixflux z init obrazu maluje, animátor z něj odvozuje pohyb a mush ho pustí od zdroje.)
+2. **Nativní 48px + `last_frame_url` s ručně poskládanou rozevřenou pózou** siluetu udržel
+   a je to obecně **ten trik na mechanický pohyb**: rozřež zdroj na pásy, posuň je, pošli
+   jako koncovou pózu. Ale poslední třetina snímků stejně roztekla kámen do žluté kaše.
+3. **Rozevřít víc (`growth` 6 místo 3) je nezlepšilo** — oranžová jen sežrala kámen.
+
+Řešení je **`tools/pulse_anim.py`**: posouvá pásy *zdrojových pixelů*, negeneruje nic.
+Kámen se nemůže rozpadnout, smyčka sedí na pixel, paleta neuteče. Je to stejný princip
+jako `build_wall_atlas.py` — **post-processuj to, co generátor neudrží**.
+
+Dvě pasti, obě stály jeden pokus:
+
+- **Neease-uj float a nezaokrouhluj ho na pixel.** `round(6 * t**0.75)` vyrobilo dva
+  identické snímky uprostřed nabíjení = viditelné škubnutí při `HEAD_FPS = 8`. Kroky se
+  píšou explicitně (`GROWTH_STEPS`), monotónně, a jediná prodleva patří na vrchol.
+- **Headroom neměř jen podle prázdných řádků.** Zúžená špička (krystal) je pár pixelů na
+  řádek a utratit ji je přesně to, co kupuje pohyb; přísný clamp srazil růst 5 → 2 px a
+  animace zplihla (metrika 8,9 → 5,0). Rozpočet = prázdné řádky **+ vedoucí řádky pod
+  ~15 % nejširšího**.
+
+### Animace vázaná na cooldown místo na wall-clock
+
+`HEAD_FPS` je pevných 8, takže smyčka hlavy běží nezávisle na střelbě — u věže, která
+střílí jednou za 4 s, by to čtlo jako nesmysl. `HabitData.charge_telegraph` přepne hlavu
+na `_advance_charge_anim()`: snímek = postup přebíjení, takže **sprite JE odpočet**.
+
+Pozor: `cooldown` jde do **záporu**, dokud nabitá věž čeká na cíl (resetuje se jen při
+skutečném výstřelu). Bez `clampf` se index přetočí zpátky na výbojový snímek a věž vypadá,
+že pálí do prázdna.
+
+## 5f. Tome of Focus — druhý druh pohybu, a proč zase ne generátorem (16. 8. 2026)
+
+Kniha (`real_hobby` / `real_hobby_2`) nahradila bonsaj. Statika vyšla napoprvé dobře;
+zajímavé je zase jen to, co selhalo na animaci.
+
+### Izometrie, ne bokorys
+
+Otevřená kniha z boku je klín — stránky, celá identita, zmizí. `view: "high top-down"`
+je jediný pohled, ve kterém jsou na 32 px čitelné obě stránky i hřbet.
+
+### img2img neumí eskalovat tier
+
+Tier 2 přes `init_image_url` z tieru 1 se **nezvedl ani na strength 170** — všechny tři
+varianty přišly jako tatáž kniha s jinak zbarveným hřbetem. Prompt sliboval „blazing
+white-hot fire, vortex of runes, burning pages"; init to přebil.
+
+**Opraveno generováním nanovo + posunutím palety.** `color_image_url` se váží plochou,
+takže dokud krém drží většinu pixelů, „blazing" nemá kam přistát. Nová paleta ubrala krému
+a přidala oranžové/zlaté/bílé → tier 2 přišel hned. **Když se nedaří eskalovat, posuň
+paletu, ne přídavná jména.**
+
+### `animate_image`: dvě nastavení, každé zabije to druhé
+
+| | pohyb | smyčka |
+|---|---|---|
+| bez `last_frame_url` | ✔ mean 8–12 | ✘ zlato **vyteklo** do 6. snímku a nevrátilo se |
+| `last_frame_url` = **první snímek** | ✘ mean **1,9** (pod prahem 4 = nehybné) | ✔ šev 0,00, zlato konstantní |
+
+Pinnutí konce na začátek je jinak **správný trik na cykličnost** — model interpoluje zpátky
+do výchozí pózy. Jenže když jsou oba konce identické, nemá co interpolovat a vyjde idle.
+Kompromis mezi tím neexistuje; nasadilo se procedurální řešení.
+
+### `tools/aura_anim.py` — světlo místo geometrie
+
+Sesterský nástroj k `pulse_anim.py`. Ten posouvá tuhé pásy (kameny Zen Pulsaru), tenhle
+nechá sprite na místě a animuje jeho **světlo**: dýchající záře + stoupající runy.
+
+Smyčka je exaktní z konstrukce — každá runa má fázi, poloha je `(fáze + i/frames) % 1`
+a alfa `sin(pi*u)`, takže na obou koncích cesty je neviditelná. Není co ladit ručně.
+
+Tři věci, které stály jeden průchod:
+
+- **Pulz smí jen přidávat.** Symetrický `sin` stáhl záři na 0,78× a hřbet na dva z devíti
+  snímků vizuálně zhasl — čte se to jako výpadek, ne jako dýchání. Vzorec je
+  `1 + pulse * (0.5 + 0.5*sin)`, autorská póza je **podlaha**.
+- **Runy musí být minimálně 2×2 zdrojového pixelu.** `halve()` průměruje bloky 2×2, takže
+  jednopixelová runa přežije do 32 px jako čtvrtinově silný šmouh — ve hře neviditelný.
+- **Maska záře musí být opravdu úzká.** Naivní „teplý pixel" (`R>150, R−B>55`) chytil i
+  krémový pergamen — 994 z ~2000 neprůhledných pixelů — a runy by odlétaly z celé stránky
+  místo ze hřbetu. Spawn se bere z **horní hrany** úzké masky: runa vzniklá uprostřed
+  stránky čte jako smítko, runa opouštějící hřbet čte jako runa.
+
+### Tier 2 má být TÁŽ kresba, ne jiný objekt
+
+První pokus o tier 2 popsal hořící knihu a dostal ji — plamen, jiná silueta, jiné čtení.
+Špatně: upgrade se má poznat jako **povýšená tatáž věc**, ne jako výměna.
+
+Druhý pokus popisoval jen **rozdíl** (tmavší desky, zlaté kování, levitace, žádný oheň)
+s tierem 1 jako initem — a kniha zůstala pixelově prakticky táž, což bylo přesně to,
+co se chtělo. **Ale kování nepřišlo ani na jedné ze čtyř variant** (strength 170–230).
+
+**Detail o velikosti 2×3 pixelů generátor spolehlivě neumístí**, zatímco kódem se dá dát
+přesně tam, kam patří. `aura_anim.gild_corners()` ztmaví „tělo" (co není světlo ani
+pergamen = kůže) a orazítkuje levý, pravý a přední roh. Čtvrtý roh je schovaný za
+stránkami — orazítkovaný by dal zlatou značku doprostřed hřbetu.
+
+**Základ tieru 2 je přímo sprite tieru 1**, ne přegenerovaná varianta. Zaručí to, že úhel
+i kresba jsou identické, a celý tier 2 je pak reprodukovatelný z repa jedním příkazem.
+
+### Oběžná dráha potřebuje místo — a hloubku
+
+`aura_anim.py --orbit` nechá sprite na místě a **obtočí ho runami**. Dvě věci, bez kterých
+to nefunguje:
+
+- **Runy musí střídat vrstvu.** Na vzdálené půlce elipsy (`sin(úhel) < 0` v téhle
+  izometrii) se kreslí **pod** sprite a ztlumené, na blízké **nad** něj. Nakresleno jako
+  jeden plochý prstenec to po knize klouže jako nálepky a celé to čte jako dekal.
+- **Plátno se musí zvětšit, ne kniha zmenšit.** Kniha zabírá ~27 z 32 art px, takže
+  prstenec o poloměru sprite se jen lepí na siluetu a čte jako zlatý lem. `--pad 8`
+  (zdrojových px) dá 40×40 art místo 32×32; `tower.gd` kreslí hlavu ×2 vystředěně, takže
+  **kresba zůstane přesně stejně velká** a přibude jen prázdno kolem. Ne každá hlava
+  v `assets/towers/` je tedy stejně velká — a nesmí být.
 
 Viz `ART_PIPELINE.md` (co kreslit), `ART_DIRECTION.md` (proč tak) a paměť
 `project-art-direction-mapa`.

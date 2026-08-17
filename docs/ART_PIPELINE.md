@@ -100,12 +100,247 @@ zmenšit → `create_image_pixflux` s `init_image_url` (data URL; strength ~50�
 NEAREST na cílový rastr. Koncept řídí kompozici, pixflux drží mřížku. Barvy brát
 z `def.color` v datech, ať sprite ladí s aurami a HUDem.
 
-## 3b. Rodina příšer — vizuální bible (junk food, od 2026-08-15)
+## 3b. Rodina příšer — vizuální bible
 
-**Tohle je závazný vzhled distrakcí.** Nahrazuje „grungy zombie v obvazech" z 14. 8.
-Zdroj: tři MJ koncepty uživatele (viz „Předlohy" níž). Píšu to slovy proto, že koncepty
-jsou obrázky a prompt potřebuje věty — ale **předloha vždycky přebije text**, takže když
-je obrázek po ruce, dávej ho.
+> ⚠️ **SMĚR SE MĚNÍ (17. 8. 2026 večer, rozpracované).** Junk food je **odpískaný** —
+> uživatel: „ty postavy nemusí mít vzhled jako junk food, to to jen kazí". Sekce níž
+> ho ještě popisuje; než se dopíše, drž se tohohle:
+>
+> **Tvor + zařízení, ne potravina.** Tělo je bytost v `def.color`, identitu nese
+> hardware nebo prvek rozhraní sražený do masa. Ověřené příklady, které fungují:
+> uživatelův boss (fialový digitální titán, hlava = telefonní vizor, obrazovky jako
+> pancíř, notifikační pupeny na zádech) a incognito (kapuce + svítící panel).
+> Uživatel dál označil za povedený **původní čtyřdílný bestiář notifikací** ze zálohy —
+> hrbatí tvorové s jedním velkým okem a rohem, bohatě stínovaní. Ti mají oči, takže
+> pravidlo „bez obličeje" platí jako *doporučení*, ne jako zákaz: rozhoduje, že se
+> identita čte, ne čím se čte.
+>
+> **Nepřegenerovávej roster, dokud tenhle bod nemá potvrzenou předlohu.** Pokus
+> přepsat clickbait na „thumbnail panel místo hlavy" selhal (drátěný obdélník plovoucí
+> mimo tělo, 23 generací pryč) — viz „Co selhalo" níž.
+
+**Historie směru:** kreslená groteska (15. 8.) → junk food ve stylu obránců (17. 8. ráno,
+nasazeno na 10 příšer) → tvor + zařízení (17. 8. večer, probíhá).
+
+### Trasa Midjourney → hra (od 17. 8. 2026 nejlevnější i nejlepší)
+
+Čtyři pokusy popsat příšeru textem do `create_character` selhaly na tom, že generátor
+zahodí buď tell, nebo tělo. MJ koncept to vyřešil napoprvé — a je **dvacetkrát levnější**:
+
+| cesta | cena | výsledek |
+|---|---|---|
+| `create_character` `mode:"pro"` z textu | **20 generací** | 4 pokusy, 3 nepoužitelné |
+| MJ koncept → `mode:"v3"` + `reference_image_base64` | **1 generace** | sedlo napoprvé |
+
+```
+MJ (--style raw --s 150 --v 7, --no pixel art)  →  upscale, stáhnout 1024×1024
+  →  flood-fill pozadí od okrajů na alfu (tolerance ~78)
+  →  DRUHÝ flood na zapečenou kaluž stínu (nedotýká se okraje, první ji nechytí!)
+  →  čtvercový ořez ×1,04  →  složit v 128 a jednou halve() na 64
+  →  cut_floor (uříznout zem)  →  kvantizace na 24 barev  →  1px tmavý obrys
+  →  create_character mode:"v3", size:64, reference_image_base64
+  →  animate_character, lokomoce ŠABLONOU, attack a smrt v3 s identity-lockem
+  →  halve() 64→32  →  restore_outline jedním koeficientem na celou animaci
+```
+Celý ten řetěz je `tools/mj_to_sprite.py`; brány, na kterých se instalace zastaví,
+jsou v `GATES` tamtéž.
+
+> 🔴 **Generuj v 64 px a půl PRÁVĚ JEDNOU.**
+> Toto je dvakrát opravená kapitola, tak pozor na obě strany:
+>
+> **Chyba A (ráno):** MJ malba → 64 → animace → *druhé* půlení na 32. `halve()` je dobrý
+> na **jedno** zmenšení; nativní pixel art z PixelLabu druhé půlení snese, ale zmenšená
+> malba ne — z notifikace bylo lízátko, z clickbaita růžová hromada.
+>
+> **Chyba B (moje přestřelená oprava):** předloha rovnou v 32 px. V 32 px **nemá
+> generátor kam nakreslit obrys** a postava vyjde jako drobek: notifikace 95 px hmoty
+> a rozdíl tělo/obrys 2,9 proti 451 px a 21,0 u brokolice. Vypadalo to hůř než chyba A.
+>
+> **Správně:** předloha 64 px, postava 64 px, animace 64 px, a **jedno** půlení až na
+> hotové snímky. Přesně tak vznikl roster obránců, na který se ptáš, když se ti něco
+> nelíbí.
+
+> ⚠️ **Předlohu posílej rovnou v cílovém rastru (64×64). `size` se s referencí ignoruje.**
+> Schéma tvrdí „defaults to the reference's own dimensions unless size is set", ale
+> `size:64` se s 256px předlohou **neprojevil** — postava vznikla 256×256. A protože cena
+> v3 animace je `ceil(šířka·výška·snímky / 65536)` na směr, vyskočila z 1 generace na
+> **8 na směr**: chůze na tři směry by stála 24 místo 3. Odhaleno až v UI PixelLabu.
+> Postup: `961px výřez → LANCZOS na 128 → sprite_16.halve(128→64)`. Dvoukrokově proto,
+> že jednorázový LANCZOS na 64 rozmaže; `halve()` srovná paletu a vytáhne salientní pixel.
+
+- `reference_image_base64` má strop **256×256**, ale 64px PNG je jen ~7 kB base64
+  a je to zároveň správný vstup (viz výš).
+- **Dvě flood-fill kola, ne jedno.** MJ pod postavu maluje stín/kámen, který se nedotýká
+  okraje plátna, takže ho okrajový flood minie. Druhý seed hledej jako medián
+  nízkosytých středně jasných pixelů v dolní čtvrtině.
+- `size:64` nastav explicitně — jinak výstup zdědí rozměr předlohy (256).
+
+**Skripty v repu** (potřebují `PIXELLAB_TOKEN` v proměnných prostředí, do repa nepatří):
+
+| skript | co dělá |
+|---|---|
+| `tools/mj_to_sprite.py` | koncept → předloha 64 px; `--test` vypíše čísla bran |
+| `tools/install_pixellab.py` | postava → snímky v `assets/distractions/`, se všemi branami |
+| `tools/pixellab_client.py` | přímý JSON-RPC klient (MCP se do session nenačte, viz §3) |
+
+```
+python tools/mj_to_sprite.py koncept.png ref64.png --test
+```
+
+### Čím se pixel art liší od zmenšené malby (měřitelně)
+
+Když si stěžuješ, že něco vypadá rozbitě, tohle jsou čísla, která ten rozdíl popisují.
+Měř **na 32 px**, tedy na tom, co jde do hry:
+
+| | bbox | hmota | barev | tělo − obrys | částí |
+|---|---|---|---|---|---|
+| **broccoli_knight** (laťka) | 23 × 30 | 451 px | 25 | **21,0** | 1 |
+| clickbait z MJ, jen LANCZOS | 27 × 28 | 540 px | **57** | 37,2 | 1 |
+| notifikace generovaná v 32 px | **9 × 12** | **83 px** | 33 | **2,9** | 1 |
+
+Dvě nezávislé vady, které se snadno spletou dohromady:
+- **57 barev** = spojité přechody z malby. Vypadá to jako rozmazaná fotka mezi pixel-art
+  sousedy. Léčí adaptivní paleta na 24 barev.
+- **rozdíl tělo−obrys 2,9** = silueta nemá hranu a rozteče se do pozadí. Léčí 1px tmavý
+  prstenec kolem siluety.
+
+Brány, na kterých se má instalace zastavit, jsou v `mj_to_sprite.GATES`:
+`barev ≤ 32`, `tělo−obrys ≥ 15`, `částí = 1`, `segmentů < 2 px nejvýš 2`, `výška ≥ 26`.
+**Krytí mezi ně schválně nepatří** — škáluje s `def.radius` té příšery (clickbait
+radius 14 → 48 %, notifikace radius 9 → 28,5 % a obojí je správně).
+
+> ⚠️ **`strip_panel()` zapínej jen tam, kdes ten panel viděl.**
+> Odstraňuje tmavou plochu zapečenou za postavou tak, že floodne od okraje plátna přes
+> tmavé pixely — na clickbaitově smrti to sundalo 44 % nesmyslu a postavu nechalo být.
+> Na notifikaci je ale **destruktivní**: ta má tmavé *tělo* a v rozkročené běžecké póze
+> se okraje plátna dotýká, takže flood pokračoval do ní a v několika snímcích zbyla
+> jenom hlava. Proto je ve `install64.process` vypnuté defaultně.
+> Obecné pravidlo: filtr odvozený z jedné příšery ověř na druhé, než ho zapneš plošně.
+
+> **Chybí-li směr, nechej ho chybět.** Engine spadne zpátky na jih
+> (`_facing_frames`, „degrades to *always faces the camera* instead of vanishing"), což
+> je **lepší než horší profil**. Clickbait dostal `sad-walk` jen na jih právě proto:
+> sever i východ z něj udělaly jinou postavu (14×21 a 15×24 px proti 20×27 zepředu),
+> a jedna konzistentní příšera čelem ke kameře je čitelnější než tři různé.
+
+> **Obrys po půlení obnov, ale jednou barvou a jedním koeficientem na celou animaci.**
+> PixelLab kreslí v 64 px tenčí obrys než roster obránců a `halve()` ho smíchá s tělem:
+> naměřeno 12,9 (clickbait) a 13,5 (notifikace) proti 21,0 u brokolice.
+> `restore_outline()` přebarví krajní pixely — **nedilatuje**, na 32 px by 1 px navíc byl
+> vidět. A ztmavovat každý pixel zvlášť nejde: obrys sice sedne, ale paleta vyskočí
+> (23 → 38 barev) a sprite zase vypadá jako malba. Koeficient počítej **jednou** z jedné
+> referenční snímky (`outline_color()`), jinak obrys mezi snímky bliká.
+
+### Test životaschopnosti konceptu (zadarmo, dělej ho VŽDY před generováním)
+
+Zmenši koncept na 32 px a změř. Ověřeno na čtyřech konceptech notifikace:
+
+| koncept | krytí | segmentů < 2 px | výsledek |
+|---|---|---|---|
+| pavoučí, 4 tenké nohy, měkká záře | 26,6 % | většina | nohy se rozpadly na tečky |
+| ikona aplikace + badge na anténě | 21,2 % | 30 z 63 | nejhorší, číslo i badge zmizely |
+| hranatá obrazovka + 2 tlusté nohy | 37,1 % | **0 z 43** | drží, ale čte jako monitor |
+| **velký kruhový badge + 2 tlusté nohy** | 28,5 % | 13 z 50 | **✅ kruh přežil dokonale** |
+
+- **Tvrdé kritérium je počet segmentů užších než 2 px**, ne krytí. Jednopixelová noha
+  při chůzi bliká a láme se na čárky.
+- **Krytí NENÍ absolutní práh — škáluje s `def.radius`.** Clickbait (radius 14) sedl na
+  48 %, notifikace (radius 9) na 28,5 % a je to správně: engine kreslí všechny regulérní
+  stejným ×2, takže rozdíl velikosti musí být v artu. Nafouknout drobnou příšeru na 48 %
+  je horší chyba než nízké krytí.
+- **Co zmenšení nikdy nepřežije:** vlákna tenčí než 2 px, měkká záře a bloom, text a
+  číslice menší než ~6 px, malý akcent v rohu. Co přežije vždy: **velká plná kruhová
+  nebo obdélníková plocha** v kontrastní barvě.
+- Zachránit tenký koncept dilatací **nejde** — zkoušeno, metrika se zlepší (30 → 6 úzkých
+  segmentů), ale z nohou jsou chapadla a postava čte jako medúza.
+
+### Chůze podle rychlosti — a proč na ni ber ŠABLONU, ne v3
+
+Silueta má říkat, jak se to chová. Mapování na `speed` z `DistractionData`:
+
+| rychlost | čím to udělat |
+|---|---|
+| 140 (`notification`) | **`running-8-frames`** — skutečný běh s letovou fází |
+| 105–110 (`autoplay`, `energy_drink`) | `walking-8-frames`, svižný krok |
+| 50–68 (tanky, `adult_content`… ) | `sad-walk`, těžké šourání |
+| boss 50 | `walking-8-frames` (na `sad-walk` byl v profilu hrouda) |
+| letci (`phantom_buzz`) | neplatí, vznáší se — nohy nemá |
+
+> ⚠️ **Běh nepiš jako custom v3.** Zkoušeno 17. 8.: osmisnímkový sprint popsaný po
+> framech („Frame 4: FLIGHT, both feet clear of the ground") **rozpustil postavu** —
+> kulatá hlava se rozpadla na dvě skvrny, tělo se rozmazalo, nohy na šum. Je to stejný
+> mechanismus jako u attacku (doomscrollu se roztekl telefon): **čím extrémnější pohyb
+> předepíšeš, tím víc model pustí identitu.** Šablony jedou po kostře a identitu drží,
+> takže na lokomoci ber vždycky je. v3 si nech na attack a smrt, kde je deformace
+> částečně žádoucí.
+
+> ✅ **Kotva stylu: `fa8294b1-c3ec-4ae5-92fb-39570ced0f65`** — Broccoli Knight. Tohle id
+> patří do `style_character_id` u **každé** nové příšery. Junk-foodové kotvy z 15. 8.
+> (`62772f73…`, `0ef2d964…`) jsou v kreslené grotesce a **už se nepoužívají**.
+
+### Věta, ze které se skládá popis
+
+Přesně ta, kterou má roster obránců — drž její pořadí, generátor na ni reaguje:
+
+```
+64x64 pixel art character sprite, <adj> <Jméno> <role> unit. <stavba těla z jídla>.
+<oblečení / výstroj>. <rekvizita>. <postoj>, strictly front-facing low top-down RPG
+perspective (aligned straight to square grid, zero 45-degree isometric tilt). Gritty
+pixel dithering, high contrast <paleta>, crisp dark outline. Clean transparent background.
+```
+
+### Čitelnost je tvrdá podmínka: rodina × tell × barva
+
+Hráč musí z podoby poznat, co příšera představuje. Tři vrstvy:
+
+1. **Rodina** — junk-foodové tělo vykreslené stylem kotvy. Nese „patří k sobě".
+2. **Tell** — *jeden* ikonický tvar, který nese identitu (zvonek, telefon, páka automatu).
+3. **Barva** — `def.color`, protože engine kreslí pod příšerou kaluž té barvy a stejnou
+   má legenda vln. **Sprite musí tu barvu obsahovat**, jinak si tělo a aura odporují.
+
+**Test siluety:** vyplň sprite načerno. Když tell zmizí, není to tell.
+
+> ⚠️ **Tell musí být VELKÝ TVAR, ne symbol otištěný na povrch.** Ověřeno 17. 8. na třech
+> postavách naráz: „a bold solid triangular play button symbol stamped across the front"
+> vyrobilo kýbl popcornu **bez trojúhelníku**, „lightning bolt stamped across the can"
+> plechovku bez blesku a „four screens orbiting on tendrils" bosse bez obrazovek. Na 64 px
+> generátor malý znak spolehlivě zahodí. Opravené znění, které funguje: *„its entire chest
+> is one huge glowing screen panel filling most of the torso, and a single enormous solid
+> black play-button triangle is cut into that screen, taking up the whole panel"*.
+
+### Kontrast proti podlaze — měřitelné, ne od oka
+
+Mapa Deep Focus má **průměrný jas 20**. Sprite, který se od něj neodliší, zmizí, i když
+je sám o sobě krásný. Ověřený práh: **kontrast +30 a výš, a míň než ~25 % pixelů tmavších
+než pozadí**. Celý roster se drží mezi +38 a +159.
+
+Past, na kterou to našlo: uživatelova incognito postava (černý trenčkot) měla kontrast
+**+5,9 a 58 % pixelů pod pozadím** — na mapě z ní byla černá skvrna a jediné, co ji
+prozradilo, byla barevná kaluž pod ní. Desetinásobně horší než druhá nejtmavší příšera.
+
+Oprava bez přegenerování, když návrh sedí a jen je tmavý: **gama na V v HSV, jen na
+vnitřek, obrys nech být.** Obrys = neprůhledné pixely sousedící s průhledným (dilatace
+alfa); ty se nesmí rozjasnit, jinak se ztratí ostrá silueta, která drží celý styl.
+
+```python
+body = (alpha > 128) & ~outline_mask(alpha)
+hsv[..., 2][body] = (hsv[..., 2][body] / 255) ** GAMMA * 255   # H a S beze změny
+```
+
+Gamu doťukej ve smyčce, dokud kontrast nepřeleze 30 — clickbait sedl na 0,44,
+incognito na 0,36.
+
+> ⚠️ **Nepoužívej posun černého bodu v RGB** (`LIFT + rgb*(255-LIFT)/255`). Vypadá to
+> v číslech nejlíp (incognito +38,9), ale **sebere sytost**: 0,664 → **0,226**, tedy dvě
+> třetiny barvy, a z postavy je šedivá šmouha. Odhalilo se to až měřením sytosti vedle
+> kontrastu — v samotném čísle kontrastu to není vidět. Gama na V drží sytost na desetinu
+> přesně (clickbait 0,716 → 0,714).
+
+### Teplí nepřátelé, chladní obránci
+
+Vyšlo to samo a **stojí za udržení**: nepřátelé mají zlatou, oranžovou, červenou a pink;
+obránci zelenou, ivory a dřevo. Hráč rozezná svoje od cizího bez jediného prvku UI.
+Když děláš novou příšeru, drž ji teplou.
 
 ### Proč zrovna junk food
 
@@ -117,72 +352,126 @@ notifikace = donut, doomscroll = nekonečná pizza, autoplay = kýbl popcornu.
 
 ### Anatomie (tohle je ta neměnná část)
 
-1. **Jedna velká masa, končetiny jako dodatek.** Tělo je vejce / klín / kopec — široké
-   dole, zaoblené nahoře, **bez krku**. Tvoří ~80 % siluety. Nohy jsou krátké pahýly úplně
-   dole, ruce visí nízko po stranách. Ve 32 px přežije jedině tenhle jasný obrys.
-2. **Dvě sloučené hmoty.** Každá příšera je jídlo přivařené k tvorovi:
-   - **skořápka z jídla** — těsto, sušenka, sýr, poleva. Teplá: zlatá, béžová, máslově
-     žlutá, oranžová. Posypaná ovesnými vločkami, sprinkles, drobky, dírkami po vzduchu.
-   - **tělo tvora** — studené: petrolejová, modrozelená, šeříkově fialová. Chlupaté nebo
-     bradavičnaté, s opravdovými prsty, drápy a kopýtky.
-3. **Šev mezi nimi teče.** Jídlo se **rozpouští a stéká přes** tvora — ne čistý předěl.
-   (Koncept 1: petrolejová lebka teče přes sušenkové břicho. Koncept 3: sýrová čepice
-   teče přes petrolejovou srst.) Poleva visí v rampouších, kape v samostatných kapkách,
-   dělá na zemi kaluž. **Kapání je podpis rodiny** — bez něj to nejsou tyhle příšery.
-4. **Oči nikdy symetricky.** Jedno dominantní obří oko mimo osu, lesklé, syté — plus
-   jedno až dvě malá nesourodá jinde. Duhovka je obrovská vůči bělmu, zornička maličká
-   a horká (magenta, červená).
-5. **Tlama je tmavá jeskyně** nízko na těle. Tři ověřené varianty: široká rána
-   s nepravidelnými hranatými zuby / díra s dlouhým svěšeným růžovým jazykem / **donut
-   použitý jako tlama** s tesáky uvnitř.
-6. **Zapíchané rekvizity.** Růžově polité donuty vtlačené do těla jako salám, oplatkové
-   a churros tyčky trčící po obvodu, marshmallow pupínky, odlétávající drobky.
+Od 17. 8. 2026 je to **humanoid**, ne beztvará hmota — stejná stavba jako zeleninoví
+obránci, aby obě strany patřily do jedné hry:
+
+1. **Podsaditá humanoidní silueta.** Trup, dvě krátké nohy, dvě ruce. Žádný krk —
+   „hlava" je buď jídlo samo (kýbl popcornu, plechovka), nebo rekvizita nasazená na
+   ramena (zvonek, kelímek).
+2. **Trup JE to jídlo.** Ne tvor s jídlem v ruce: burger je trup, plechovka je trup,
+   skleněná koule automatu je břicho. Tohle nese metaforu.
+3. **Jeden tell, velký.** Viz „Čitelnost" výš. Buď je z něj hlava, nebo zabírá půlku
+   trupu. Nikdy odznak.
+4. **Výstroj drží rodinu pohromadě.** `tattered dark cloth wrappings`, řemínky, plátování
+   — přesně to, co mají obránci. Bez nich vypadá příšera jako předmět, ne postava.
+5. **Obličej NEPOTŘEBUJE.** Žádné oči, žádná ústa. Identitu nese **předmět**, ne tvář —
+   telefonní vizor místo hlavy, kýbl popcornu, plechovka. Kde se hodí „pohled", udělej
+   z něj kus rozhraní: buffering kolečko, notifikační badge, displej. Tvář na 32 px
+   stejně nepřečteš a odvádí místo od tellu.
+   *(Do 17. 8. tu stálo „jedno dominantní obří oko mimo osu" ze staré junk-food bible.
+   Uživatelův boss ukázal, že bez očí je čitelnost lepší, ne horší.)*
+
+*(Do 15.–17. 8. tu stálo „jedna velká masa bez končetin, poleva kape v rampouších" —
+to byla kreslená groteska, kterou nahradil styl obránců. Kapání a beztvarost se navíc
+ukázaly jako aktivní problém: v3 z nich při smrti dělá nečitelnou kaši, viz níž
+`doomscroll` a `group_chat`.)*
 
 ### Paleta
 
-Kontrast teplé jídlo × studené maso, a **jediný horký akcent** navíc:
+Barvu těla ber z `def.color` (§4), ať sprite ladí s aurou pod sebou i s legendou vln.
+Nad tím platí **teplí nepřátelé × chladní obránci** (výš).
 
-```
-teplé jídlo:   #d9a441 zlatá kůrka, #e8cf8a bledé těsto, #f0a02c roztavený sýr
-studené maso:  #5e9a9c petrolejová, #3f6d78 hluboká modrozelená, #4a3b5c šeříkově tmavá
-horký akcent:  #e86a9b magenta poleva (donuty, jazyk, zorničky, pupínky)
-stín na zemi:  #6b2038 vínová kaluž — NE šedá
-```
-
-Magenta je vzácná schválně: je to jediná barva, která na 32 px prořízne, takže nese
-identitu. Barva těla se pořád bere z `def.color` (§4), ať sprite ladí s aurou a HUDem.
+Kotva používá tuhle sadu slov a funguje: `high contrast <dvě až tři barvy jídla>,
+<jedna studená barva těla>, crisp dark outline`. Konkrétní hexy nepředepisuj —
+`style_character_id` je drží líp než text.
 
 ### Čára a stínování
 
-Silný tmavý nepravidelný obrys s viditelným ručním chvěním. Převážně ploché cel výplně,
-jen pár měkkých přechodů na velkých plochách. Nálada je **kreslená groteska** — *Aaahh!!!
-Real Monsters*, nechutné a vtipné. **Ne roztomilé, ne chibi, ne 3D render, ne fotoreal.**
+`Gritty pixel dithering, crisp dark outline, high contrast` — doslova ta slova z rosteru
+obránců. Výrazné stíny, sytá lokální barva, čitelná silueta. **Ne kreslená groteska,
+ne ploché cel výplně, ne roztomilé, ne chibi, ne 3D render, ne fotoreal.**
 
-Staging konceptu: jedna postava, plochý jednobarevný podklad, kaluž stínu pod ní, žádné
-prostředí.
+Staging: jedna postava, plochý jednobarevný podklad, žádné prostředí. **Nepeč do spritu
+stín** — engine si kreslí vlastní kontaktní elipsu i barevnou kaluž
+(`distraction_animator.gd:149-179`).
 
-### Předlohy
+### Šablona promptu, která se osvědčila (od uživatele, 17. 8. 2026)
 
-Ulož si ty tři MJ koncepty do `assets/src/concepts/` jako
-`_mj_creature_1_cookie.png`, `_mj_creature_2_pizza.png`, `_mj_creature_3_cheese.png`.
-**Bez nich je celá tahle sekce jen text**, a text v tomhle projektu opakovaně prohrál
-s obrázkem (§9 v `ART_PROMPTS.md`, past s prasklinami).
+Přesnější než dřívější znění. Sedm bloků v tomhle pořadí, na bossovi ověřeno:
 
-### Prompt — popis do `create_character`
+1. `64x64 pixel art character sprite,` + **role a co ztělesňuje** („colossal Social Media
+   Binge final boss enemy … embodying endless scrolling and attention addiction")
+2. **Hlava = předmět**, ne tvář („Head is a monolithic dark smartphone screen visor")
+3. **Tell jako pevná konstrukce** s explicitním „rigidly fused directly into the flesh
+   as heavy armor plates" + kde přesně („two on wide shoulders, two on hips")
+4. **Druhotný detail, který nese mechaniku** („back covered in glowing red notification
+   cyst pods" ← boss rodí Notifications)
+5. **Postoj + kolik pixelů plátna zabírá** („filling 48x54 pixels of canvas") — tohle
+   drží měřítko napříč postavami líp než cokoli jiného
+6. `Strictly front-facing low top-down RPG perspective (aligned straight to square grid,
+   zero isometric tilt)`
+7. `Gritty pixel dithering, high contrast <hexy>, crisp dark outline.`
+   **`No floor shadow, no baked ground shadow.`** `Clean transparent background.`
+
+Hexy piš přímo do promptu (`violet (#b07dff)`), ať sprite sedí s `def.color`.
+
+**Univerzální text do reference (`How should this image be used?`)** — jeden pro všechny
+animace té postavy:
 
 ```
-a grotesque junk-food monster, one large rounded body like an egg with no neck, tiny stubby
-legs and small low-hanging arms, the upper body is a cool teal-green warty creature hide and
-the lower body is golden baked cookie dough speckled with oats and sprinkles, thick icing
-melting and running down over the seam between them in long drips, one huge glossy off-centre
-eyeball with an oversized iris and a tiny hot magenta pupil plus one small mismatched eye, a
-dark cavernous mouth low on the body with irregular blocky teeth, pink-frosted donuts pressed
-into the body like salami, wafer sticks poking out around the edge, thick dark hand-drawn
-outline, flat cel shading, cartoon gross-out style, not cute, plain flat background
+Use this exact <Jméno> sprite. Maintain strict character scale, <postoj>, and <barva>
+body color across all directions (South, East, West, North). The <tell> must remain
+rigidly fused flush into the body with zero morphing. Keep the <hlava> and <druhotný
+detail> strictly consistent in all views without perspective shrinking.
+No baked ground shadows.
 ```
 
-Negativy do promptu: `no cute, no chibi, no symmetric face, no 3D render, no photorealistic,
-no armour, no background scenery, no text`.
+> 🔑 **Ten referenční text MUSÍ být na začátku každého `action_description`.**
+> `animate_character` nemá zvláštní pole pro referenci — ve webu to pole je, přes API ne.
+> Když pošleš jen pohyb, animace driftuje: takhle přišel doomscroll o zelený displej
+> (zezelenal → zmodral), autoplay o ▶ a energy drink o blesk. Uživatelův boss měl
+> identity-lock v každém volání a nedriftoval ani jednou. Skládej to jako
+> `action_description = REF + " " + POHYB`.
+
+**Animace pak popisuj po snímcích**, ne jednou větou — `Frame 1-2: … Frame 3-4: …` plus
+úvodní řádek o tom, co se hýbat NESMÍ („Rigid Armor & Stance: fused cyan screens stay
+flat and anchored to flesh"). Tenhle „co zůstává pevné" řádek je to, co drží rekvizity;
+bez něj se rozpouštějí (viz past u v3 níž).
+
+### Prompt — popis do `create_character` (aktuální znění, 17. 8. 2026)
+
+Vzor je `notification`. Vyměň jídlo a tell, zbytek věty nech být:
+
+```
+64x64 pixel art character sprite, hostile Notification enemy unit. Hunched stocky humanoid
+body made of glazed pink donut dough with a torn ring-shaped hole through its torso. The head
+is a heavy dark cast-iron bell fused straight onto the shoulders with a swinging clapper
+hanging inside its open mouth. A solid round red alert badge disc is riveted to its chest like
+a warning plate. Wearing tattered dark cloth wrappings around the waist and forearms.
+Aggressive forward-leaning charging stance, strictly front-facing low top-down RPG perspective
+(aligned straight to square grid, zero 45-degree isometric tilt). Gritty pixel dithering, high
+contrast glazed pink, charcoal iron, and hot red alert accents, crisp dark outline. Clean
+transparent background.
+```
+
+Volání: `mode:"pro"`, `style_character_id:"fa8294b1-…"`, `size:64` (boss `128`),
+`view:"low top-down"`. Stojí **20 generací** (boss 40).
+
+Kompletní roster deseti popisů, které jsou nasazené, je ve scratchpadu session
+(`roster.py`); mapování jídlo → tell → `def.color` je v tabulce níž.
+
+| id | jídlo (tělo) | tell v siluetě | `def.color` |
+|---|---|---|---|
+| `notification` | donut | zvonek místo hlavy + rudý badge | `ff5566` |
+| `doomscroll` | role pizzy | svislý telefon vrostlý do hrudi | `33cc77` |
+| `autoplay` | kýbl popcornu | celá hruď = obrazovka s obřím ▶ | `ffaa33` |
+| `adult_content` | rozteklý pohár | cenzurní mozaikový pruh přes oči | `ff7700` |
+| `clickbait` | burger | obří oko + špičatý banner | `e86a9b` |
+| `energy_drink` | plechovka | blesk přes celou plechovku | `20c9b4` |
+| `group_chat` | kýbl křidýlek | tři bubliny místo hlavy | `42c86a` |
+| `jackpot` | automat na žvýkačky | páka + okénko 777 | `d92b3c` |
+| `phantom_buzz` | sodovkový duch | telefon prosvítající tělem | `5ec8ff` |
+| `social_media_binge` | věž z fastfoodu | čtyři obrazovky v rukou | `b07dff` |
 
 ### Prompt — nové koncepty v Midjourney
 
@@ -247,13 +536,120 @@ Nové příšery dělej `create_character` **mode="pro" + style_character_id**. 
 styl napříč rodinou líp než jakýkoli textový popis, takže tenhle parametr je ta hlavní
 věc na celém volání.
 
-> ⚠️ **Kotva se musí přegenerovat.** Dosavadní `7ba5d829-5a10-4ed9-b038-52978ec20782`
-> (jednooká scrollerka) je ve **starém** obvazovém stylu — s ním dostaneš starou rodinu.
-> Nejdřív vyrob jednu junk-food příšeru podle §3b, tu si odsouhlas, a **její** id pak
-> zapiš sem a používej jako kotvu pro všechny další.
+> ✅ **Kotva rodiny (od 15. 8. 2026): `62772f73-28d8-442b-add6-f33684f16415`** — burger
+> s jedním obřím magentovým okem, `clickbait` varianta A. Je to první junk-food příšera
+> podle §3b, uživatelem odsouhlasená, takže tohle id patří do `style_character_id`
+> u všech dalších. Sesterská `0ef2d964-dd67-4132-97b9-39083228db14` (`clickbait_b`,
+> shluk malých očí) je ze stejného promptu a jde použít jako druhá reference.
+> Staré `7ba5d829-5a10-4ed9-b038-52978ec20782` (jednooká scrollerka) je v **obvazovém**
+> stylu — s ním dostaneš starou rodinu. Nepoužívat.
 
-Pak `animate_character` se šablonami **sad-walk** (chůze) a **falling-back-death** (smrt).
-64px → ÷2 na 32. Cena: ~20-40 generací/postava, animace levné.
+Pak `animate_character` se šablonou chůze. 64px → ÷2 na 32. Cena: ~20-40 generací/postava,
+animace levné (1 generace na směr).
+
+**Šablon je 47, ne jedna.** Seznam nikde není — vytáhne se tak, že pošleš neexistující
+`template_animation_id` a server vypíše platné:
+
+```
+backflip, breathing-idle, cross-punch, crouched-walking, crouching, drinking,
+falling-back-death, fight-stance-idle-8-frames, fireball, flying-kick, front-flip,
+getting-up, high-kick, hurricane-kick, jumping-1, jumping-2, lead-jab, leg-sweep,
+picking-up, pull-heavy-object, pushing, roundhouse-kick, running-4-frames,
+running-6-frames, running-8-frames, running-jump, running-slide, sad-walk, scary-walk,
+surprise-uppercut, taking-punch, throw-object, two-footed-jump, walk, walk-1, walk-2,
+walking, walking-2..walking-10, walking-4-frames, walking-6-frames, walking-8-frames
+```
+
+Nasazené: regulérní distrakce **`sad-walk`** (šouravá chůze sedí k distrakci),
+boss **`walking-8-frames`**, notifikace **`running-8-frames`**.
+
+> 🔴 **`ai_freedom: 0` znamená „přetvaruj postavu na kostru šablony".**
+> Parametr se jmenuje matoucně: 0 = rigidní následování šablony, a to **postavu
+> překreslí do proporcí té kostry**. Všechny šablony jsou humanoidní, takže:
+> - **notifikace** (hubený běhoun, blízko humanoidu) prošla na `ai_freedom: 0` bez
+>   ztráty — hlava, rudá čočka i anténa drží přes všech 8 snímků;
+> - **clickbait** (zavalitý grázl) se na témže nastavení **zúžil z 27 na 16 px** a
+>   přišel o desku s ▶ v hlavě. Na `ai_freedom: 500` si objem udržel (369 px místo
+>   314), ale `sad-walk` se skoro nehýbe.
+>
+> Pravidlo: **čím dál je silueta od humanoida, tím vyšší `ai_freedom`.** A počítej
+> s tím, že tell, který je jen *otištěný symbol na povrchu* (▶ na desce), animaci
+> nepřežije — musí to být velký tvar, jak stojí výš v téhle kapitole.
+
+> ⚠️ **`ai_freedom` není součástí klíče, podle kterého server pozná duplicitu.**
+> Druhé volání téže šablony na tentýž směr vrátí `status: already complete` a novou
+> variantu nevyrobí, ať dáš jakékoli `ai_freedom`. Chceš-li porovnat dvě nastavení,
+> musíš buď zvolit jinou šablonu, nebo starou skupinu smazat — a to až **poté**, co
+> máš náhradu na disku (viz PIXELLAB.md 5d).
+
+**Šablona rozhoduje o siluetě víc, než by člověk čekal** — a je to nejlevnější knob,
+co máš. Boss prošel na stejné postavě třemi:
+
+| šablona | výsledek na bossovi (východ) |
+|---|---|
+| `sad-walk` | nafouklá hrouda, v profilu nevypadá jako táž postava co zepředu |
+| `scary-walk` | zepředu dobrý, v profilu se v druhé půlce cyklu kroutí |
+| `walk` | jen 6 snímků, modrá deska spolkne celý trup |
+| **`walking-8-frames`** | **stabilní tvar přes všech 8 snímků, jídlo i obrazovka čitelné** |
+
+Takže když směr vyjde divně, **vyzkoušej dvě tři jiné šablony** (1 generace za směr) dřív,
+než začneš přepisovat popis postavy nebo ji pregenerovávat.
+
+**Profil je nejtěžší směr.** Cokoli, co má identitu vepředu (obří oko, displej na hrudi),
+z boku zmizí. Bossovi to dělalo největší potíž, protože „věž naskládaná z jídla" je
+v profilu jen hrbolatý sloup. Když se východ nepovede ani po výměně šablony, jde ho
+**prostě nedodat** — `_facing_frames()` spadne na jižní sadu, takže postava bude vždycky
+čelem ke kameře. U jednoho pomalého bosse je to legitimní volba, ne dluh.
+
+**Attack sada** (`<id>_attack_frame_N.png`) šablonu nemá, jede přes `action_description`.
+Generuj **jen východní směr** — `distraction_animator.gd:212` ji hraje pro všechny směry
+a na západ ji zrcadlí. A **hraje ji ve smyčce**, dokud obránce příšeru drží, takže poslední
+snímek musí navazovat na první („…returning to the starting pose so the motion loops
+seamlessly" v popisu funguje).
+
+> ⚠️ **v3 na attack nestačí.** Jemný popis dá sotva viditelný pohyb; když se přitvrdí
+> („violently winding far back… extreme exaggerated poses"), **rozpustí se rekvizita** —
+> doomscrollu se telefon roztekl do zelené kaše. Ověřeno 17. 8.: použij `mode:"pro"`
+> (20 generací na příšeru, `confirm_cost:true` až po schválení uživatelem).
+> **Výjimka boss:** v `pro` je počet snímků svázaný s velikostí postavy (≤64 px → 16,
+> >64 px → **4**), takže 128px boss by si pohoršil proti sedmi snímkům z v3. Boss zůstává
+> na v3.
+
+Dvě věci, které u `pro` attacku hlídej (ověřeno 17. 8. na osmi příšerách):
+
+- **Server deduplikuje podle `action_description` + směru.** Když už existuje v3 sada se
+  stejným popisem, vrátí `status: already complete` a **nic nespustí** — jiný `mode`
+  ani jiný `animation_name` to neobejde. Nejdřív `delete_animation` na starou skupinu.
+- **Tell v `pro` sadě driftuje.** Ze čtyř z osmi zmizela nebo se přebarvila identita:
+  doomscrollu zezelenalý displej zmodral (`41,226,2` → `14,242,231`), autoplay přišel
+  o oranžový panel s ▶, adult_content celý zesvětlal. Kontroluj to skriptem, ne okem —
+  porovnej množinu sytých barev chůze a attacku a hlas, co zmizelo. Oprava: buď přebarvit
+  v postprocesu (levné, když jde o čistý swap), nebo znovu s **tellem zopakovaným
+  v `action_description`** („…the huge glowing orange screen panel with the big black
+  play-button triangle staying fully visible the whole time").
+
+Attack má po `pro` **16 snímků**; při `SPRITE_FPS` 12 je to smyčka 1,33 s. U chůze by to
+vadilo (příšera by měsíčkovala, viz `PIXELLAB.md` §5d), u attacku ne — příšera při
+blokování stojí.
+
+**Smrt: šablonu nepoužívej, piš ji.** `falling-back-death` umí jen „spadne dozadu" a je to
+na všech deseti příšerách stejné. Tematická smrt (donut se rozdrobí, automat vysype
+bonbony, plechovka se zmáčkne) je custom **v3, `directions:["south"]`** — engine jinou
+sadu nečte — a stojí ~1 generaci, takže re-roll je zdarma. Dvě pravidla, která rozhodují:
+
+- **Konec popiš jako tvrdý objekt, ne jako proces.** v3 rozpustí tělo do beztvaré kaše,
+  když je proměna složitá („role pizzy se rozvine a plácne naplocho" → zlatá šmouha).
+  Funguje: *„the last frames are a flat slumped body lying face down with one clearly
+  outlined dark rectangular slab next to it, sharp edges, completely still"*.
+- **Poslední snímek je to, co zůstane ležet.** `_draw_death_frames` přehraje sadu jednou
+  a **drží poslední snímek** (`distraction_animator.gd:366`), takže půlka pohybu na konci
+  zůstane na obrazovce jako chyba.
+
+Custom smrt vrací 10 snímků + referenční = **11**, tj. 0,92 s při `DEATH_FPS` 12.
+
+**Ověřeno 15. 8. 2026 na obou clickbait postavách** (postup i pasti: `PIXELLAB.md` §5d):
+šablony stojí **1 generaci na směr**, takže celá potvora (3 směry chůze + smrt) je
+**4 generace**. Chůze vrací 8 snímků, `falling-back-death` 7.
 
 Směry: generuj **south + north + east** (4 směry, ne 8 — osm stojí dvojnásob a čtyři
 z nich se nikdy nenačtou). Západ si `distraction_animator.gd` zrcadlí z východu sám.
