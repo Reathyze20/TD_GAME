@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="DistractionData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/distraction_data.gd" id="1_clkbt"]
+
+[resource]
+script = ExtResource("1_clkbt")
+id = &"clickbait"
+display_name = "Clickbait"
+description = "Empty calories with a headline. Rapid clicking bounces off it; it only gives way to something with weight behind it."
+max_health = 70
+speed = 55.0
+compulsion = 4
+rationalization = 2
+dopamine_reward = 9
+focus_damage = 3
+melee_damage = 8
+color = "e86a9b"
+radius = 14.0
+shape = "rect"
+fast_shot_threshold = 0.25
+fast_shot_damage_mult = 0.5
+aoe_damage_mult = 1.5
+dot_damage_mult = 1.5

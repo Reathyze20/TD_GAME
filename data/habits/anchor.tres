@@ -8,6 +8,7 @@ id = &"anchor"
 name = "Anchor"
 short = "Anchor"
 build_cost = 20
+bandwidth_cost = 3
 color = "33e6f2"
 projectile_color = "33e6f2"
 willpower_damage = 0

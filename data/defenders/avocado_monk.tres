@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="DefenderData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/defender_data.gd" id="1_avoc"]
+
+[resource]
+script = ExtResource("1_avoc")
+id = &"avocado_monk"
+display_name = "Avocado Monk"
+role = "Support"
+description = "Wrapped fists and a stone-pit core. Trades honest blunt hits, and its calm keeps the defenders around it mending between blows — everyone but itself."
+max_health = 45
+damage = 7
+attack_cooldown = 0.7
+block_capacity = 2
+move_speed = 90.0
+chase_speed = 190.0
+heal_amount = 3
+heal_interval = 1.0
+heal_radius = 84.0
+color = "a9c94f"

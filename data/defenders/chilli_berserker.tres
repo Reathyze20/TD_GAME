@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="DefenderData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/defender_data.gd" id="1_chil"]
+
+[resource]
+script = ExtResource("1_chil")
+id = &"chilli_berserker"
+display_name = "Chilli Berserker"
+role = "Striker"
+description = "Two burning knives and no patience. Melts under a real hit, but each slash keeps searing after it lands — and nothing it cannot pin down escapes the harassment either."
+max_health = 22
+damage = 4
+attack_cooldown = 0.28
+block_capacity = 1
+move_speed = 100.0
+chase_speed = 240.0
+burn_dps = 3.0
+burn_duration = 2.0
+color = "ff5533"

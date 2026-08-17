@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="AnimTuning" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/anim_tuning.gd" id="1_ov2d5"]
+
+[resource]
+script = ExtResource("1_ov2d5")
+offsets = {
+"autoplay_death": [Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1)],
+"autoplay_east": [Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1)],
+"autoplay_north": [Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1)],
+"clickbait_death": [Vector2i(0, 4), Vector2i(0, 4), Vector2i(0, 4), Vector2i(0, 4), Vector2i(0, 4), Vector2i(0, 4), Vector2i(0, 4), Vector2i(0, 4), Vector2i(0, 4), Vector2i(0, 4), Vector2i(0, 4)],
+"doomscroll_death": [Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1)],
+"doomscroll_east": [Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1)],
+"doomscroll_north": [Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1)],
+"energy_drink_attack": [Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1)],
+"energy_drink_death": [Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2)],
+"group_chat_attack": [Vector2i(0, -3), Vector2i(0, -3), Vector2i(0, -3), Vector2i(0, -3), Vector2i(0, -3), Vector2i(0, -3), Vector2i(0, -3), Vector2i(0, -3), Vector2i(0, -3), Vector2i(0, -3), Vector2i(0, -3), Vector2i(0, -3), Vector2i(0, -3), Vector2i(0, -3), Vector2i(0, -3), Vector2i(0, -3)],
+"group_chat_death": [Vector2i(0, -3), Vector2i(0, -3), Vector2i(0, -3), Vector2i(0, -3), Vector2i(0, -3), Vector2i(0, -3), Vector2i(0, -3), Vector2i(0, -3), Vector2i(0, -3), Vector2i(0, -3), Vector2i(0, -3)],
+"group_chat_east": [Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2)],
+"group_chat_north": [Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2)],
+"jackpot_death": [Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1)],
+"jackpot_north": [Vector2i(0, 1), Vector2i(0, 1), Vector2i(0, 1), Vector2i(0, 1), Vector2i(0, 1), Vector2i(0, 1), Vector2i(0, 1), Vector2i(0, 1)],
+"notification_death": [Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1)],
+"notification_north": [Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1)],
+"phantom_buzz_death": [Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2), Vector2i(0, -2)],
+"phantom_buzz_east": [Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1), Vector2i(0, -1)]
+}

@@ -57,6 +57,8 @@ data = {
 [sub_resource type="ImageTexture" id="ImageTexture_y6um0"]
 image = SubResource("Image_sa2v6")
 
+[sub_resource type="Curve2D" id="Curve2D_uxhdd"]
+
 [node name="MapEditor" type="Node2D" unique_id=1616005932]
 texture_filter = 1
 script = ExtResource("1_script")
@@ -75,7 +77,7 @@ tile_map_data = PackedByteArray("AAAaAAcAAAAAAAAAAAAZAAcAAAAAAAAAAAAYAAcAAAAAAAA
 tile_set = SubResource("TileSet_cio15")
 
 [node name="Objective" type="Sprite2D" parent="." unique_id=1955551334]
-position = Vector2(1728, 528)
+position = Vector2(1728, 480)
 scale = Vector2(0.66666645, 0.6666663)
 texture = SubResource("ImageTexture_y6um0")
 centered = false
@@ -91,3 +93,8 @@ border_width = 4.0
 editor_only = false
 
 [node name="Props" type="Node2D" parent="." unique_id=1721705804]
+position = Vector2(1, -1)
+
+[node name="Path2D" type="Path2D" parent="." unique_id=1192656707]
+position = Vector2(3, 18)
+curve = SubResource("Curve2D_uxhdd")

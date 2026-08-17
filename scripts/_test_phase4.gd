@@ -24,12 +24,33 @@ func _check(cond: bool, msg: String) -> bool:
 	print(("PASS " if cond else "FAIL ") + msg)
 	return cond
 
+## First build spot with several clear cells to its west, so a wedge pointed that way
+## isn't shaded by terrain. Falls back to the first spot rather than failing outright —
+## a level with no such spot is a level-design problem, and it should show up as the
+## cone assertions failing with an explanation, not as a crash in the setup.
+func _spot_with_clear_west(game: Node, spots: Array) -> BuildSpot:
+	for s in spots:
+		var clear := true
+		for i in range(1, 5):
+			if game.high_ground.has(s.grid_cell + Vector2i(-i, 0)):
+				clear = false
+				break
+		if clear:
+			return s
+	print("NOTE: no build spot has open ground to its west; cone checks may misreport")
+	return spots[0]
+
 func _run() -> void:
 	var ok := true
 
 	GameState.current_level_index = 0
 	var game: Node = load("res://scenes/Game.tscn").instantiate()
 	add_child(game)
+	# Milestone isolation: this harness predates the Brain Fog and the Routine build
+	# gate and exercises OTHER systems — both new gates are switched off wholesale.
+	# Their own coverage lives in _test_fog_bandwidth.gd.
+	game.fog_enabled = false
+	game.routine_gates_enabled = false
 	await get_tree().process_frame
 	await get_tree().process_frame
 
@@ -45,8 +66,14 @@ func _run() -> void:
 	game.between_waves = true
 	
 	var spots: Array = game.build_spots.values()
-	var spot0: BuildSpot = spots[0]
-	var spot1: BuildSpot = spots[1]
+	# The cone-math section below fires WEST and checks that points to the west are in
+	# cone, so the spot it uses has to have open ground to its west — is_point_in_cone
+	# also casts for line of sight, and a wall shades the wedge exactly like a range
+	# limit. Taking spots[0] blindly used to work and then quietly stopped when level_1
+	# was re-laid out: the first build spot became (26,7) with four solid cells to its
+	# left, and the cone math looked broken while it was doing precisely its job.
+	var spot0: BuildSpot = _spot_with_clear_west(game, spots)
+	var spot1: BuildSpot = spots[0] if spots[0] != spot0 else spots[1]
 
 	# 1. Build ranged habit subclass
 	GameState.dopamine = 9999
@@ -69,7 +96,9 @@ func _run() -> void:
 	game._build_on(spot1.grid_cell)
 	var h2 = spot1.current_habit
 	ok = _check(h2 is Barracks, "barracks is class Barracks") and ok
-	ok = _check(h2.owned_allies.size() == 1, "barracks spawns initial ally") and ok
+	# The Nutrition Guild fields its whole three-slot recipe at once — a fresh guild
+	# is never a lone unit slowly training up to strength.
+	ok = _check(h2.owned_allies.size() == 3, "guild fields full recipe on build (got %d)" % h2.owned_allies.size()) and ok
 	
 	# 3. Cone math verification
 	# h1 is at game.spots[0]. h1 is facing PI (left), 90 degree cone (45 each way)
@@ -91,13 +120,11 @@ func _run() -> void:
 	game.between_waves = false
 	var d = game.spawn_distraction(&"notification", spot0.grid_cell + Vector2i.LEFT)
 	d.global_position = h1_pos + Vector2.LEFT * 50.0
-	# Two gates added after this harness was written are out of scope here and get
-	# satisfied up front, so the check stays about WAVE gating alone:
-	#   in_routine   — Routine chaining (pilot Phase 2b) would idle a habit outside it
-	#   _aim         — the barrel-alignment gate (AIM_TOLERANCE_DEG) blocks a shot
-	#                  until the barrel has slewed onto the target
+	# Routine chaining (pilot Phase 2b) would idle a habit outside it, and that gate is
+	# out of scope here — satisfied up front so the check stays about WAVE gating alone.
+	# The barrel no longer gates anything: a habit fires into its sector whether or not
+	# anything is standing in it, so long as the board has something live on it at all.
 	h1.in_routine = true
-	h1._aim = PI
 	h1.cooldown = 0.0
 	h1._process(0.1)
 	ok = _check(game.projectile_pool._active > active_proj, "wave-active gate: fires when active") and ok
@@ -132,16 +159,19 @@ func _run() -> void:
 	game._do_sell(spot1.grid_cell, 15)
 	ok = _check(GameState.dopamine == 100 - 30 + 15, "economy: sell refunds 15 (got %d)" % (GameState.dopamine - (100 - 30))) and ok
 
-	# 8. Barracks spawning on timer
+	# 8. A fallen slot respawns on its timer — as whatever the slot names by then.
 	GameState.selected_habit = "accountability"
 	game._build_on(spot1.grid_cell)
 	var h3 = spot1.current_habit
-	# It has 1 ally initially. Set timer to 0 so it spawns next frame
-	h3._ally_spawn_timer = 0.0
-	game.between_waves = false
-	for i in range(5):
-		h3._process(0.1)
-	ok = _check(h3.owned_allies.size() == 2, "barracks timer spawns new ally (got %d)" % h3.owned_allies.size()) and ok
+	ok = _check(h3.owned_allies.size() == 3, "guild starts full (got %d)" % h3.owned_allies.size()) and ok
+	var fallen = h3._slot_units[0]
+	fallen.take_damage(999999)
+	await get_tree().process_frame
+	ok = _check(h3.owned_allies.size() == 2, "death empties the slot (got %d)" % h3.owned_allies.size()) and ok
+	ok = _check(h3._slot_timers[0] > 0.0, "and starts its respawn clock") and ok
+	for i in range(45):
+		h3._process(0.1)   # 4.5s of wall time > 4.0s respawn
+	ok = _check(h3.owned_allies.size() == 3, "slot respawns after the cooldown (got %d)" % h3.owned_allies.size()) and ok
 	
 	game.queue_free()
 	completed = ok

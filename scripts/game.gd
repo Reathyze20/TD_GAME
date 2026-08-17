@@ -12,11 +12,12 @@ var _goal_marker_tex: Texture2D = null
 #
 # Build & SWHAOP Aiming flow:
 #   Left-click with habit selected        → build habit & enter Aiming Mode
-#   Aiming Mode (mouse move)              → orientation (facing_angle) & dynamic cone width (arc_angle 10°..125°)
+#   Aiming Mode (mouse move)              → orientation (facing_angle) & dynamic cone width (arc_angle 15°..120°)
 #   Left-click while Aiming               → lock in orientation and complete placement
 #   Right-click while Aiming              → cancel build & refund Dopamine
 #   Left-click with intervention selected → cast intervention at mouse location
 #   Left-click with no selection          → open upgrade/sell/re-aim panel on built cell
+#   Mouse wheel with a habit panel open   → open/close that habit's cone live (see _adjust_arc)
 #   Right-click                           → close any panel/overlay, deselect habit & intervention
 
 var level: LevelData
@@ -40,6 +41,10 @@ const Z_WALL_SHADOW := -25  ## contact shadow the walls cast onto the floor
 const Z_WALL_FACE := -22 ## the wall's front face, standing on the floor below it
 const Z_TERRAIN := -20   ## raised walls
 const Z_DECOR := -10     ## props lying on the floor, above it and below every unit
+## The Brain Fog rect. Above every world child (entities top out at y-sort z 0, the
+## placement overlay claims Z_FOG + 1 deliberately) and still on canvas 0, so the glitch
+## shader (CanvasLayer 5) distorts the darkness together with the field it covers.
+const Z_FOG := 60
 var path_layer: TileMapLayer = null
 
 var _distractions: Array[Distraction] = []
@@ -70,6 +75,14 @@ var _hover_cell := Vector2i(-999, -999)
 var is_aiming := false
 var aiming_habit: Habit = null
 var aiming_spot: BuildSpot = null
+
+## Rally-point placement mode — the Nutrition Guild's version of aiming. Entered from
+## the guild panel; the next left-click plants the rally (clamped to the leash radius),
+## right-click keeps the old one. Deliberately NOT merged with is_aiming: that mode
+## drives a cone preview off a Habit and this one drives a flag off a Barracks, and the
+## two null different references on exit.
+var is_setting_rally := false
+var rally_barracks: Barracks = null
 ## Which kind of aim is in progress. Right-click means "undo this purchase" on a fresh
 ## build (full refund, habit removed) but only "keep what I had" on a re-aim — the two
 ## used to share one branch, so backing out of a re-aim on an upgraded tower DEMOLISHED
@@ -87,7 +100,9 @@ var selected_intervention = null  # String key or null
 var intervention_cooldowns := {
 	"screen_break": 0.0,
 	"deep_breath": 0.0,
-	"call_a_friend": 0.0
+	"call_a_friend": 0.0,
+	"airplane_mode": 0.0,
+	"moment_of_clarity": 0.0
 }
 var _shake_amount: float = 0.0
 
@@ -98,7 +113,10 @@ var _hud_layer: CanvasLayer
 var _hud_root: Control
 var _dopamine_label: Label
 var _insight_label: Label
+var _rush_label: Label
+var _bandwidth_label: Label
 var _focus_meter: UIMeter
+var _burnout_meter: UIMeter
 var _tolerance_meter: UIMeter
 var _wave_label: Label
 var _enemy_stats_label: Label
@@ -110,6 +128,12 @@ var _intervention_buttons := {}
 # Upgrade/sell panel
 var _active_panel: Control = null
 var _panel_cell := Vector2i(-999, -999)
+## The panel's cone-width readout, kept so the mouse wheel can refresh it in place
+## instead of tearing the whole panel down and rebuilding it under the cursor.
+var _panel_arc_label: Label = null
+## Degrees per wheel notch. Twenty-one notches from the tightest beam to the widest fan:
+## coarse enough to cross the range in one flick, fine enough to sit on a wall's edge.
+const ARC_WHEEL_STEP := 5.0
 
 # Draft overlay
 var _draft_overlay: Control = null
@@ -190,9 +214,13 @@ func _ready() -> void:
 	_placement_overlay = PlacementOverlay.new()
 	_placement_overlay.name = "PlacementOverlay"
 	_placement_overlay.game = self
+	# Above the Brain Fog: the build preview is UI, and a marker swallowed by the very
+	# darkness that explains WHY the cell is invalid would leave the refusal unreadable.
+	_placement_overlay.z_index = Z_FOG + 1
 	add_child(_placement_overlay)
 	_init_pools()
 	_build_field()
+	_build_fog_layer()
 	_build_glitch_overlay()
 	_build_hud()
 
@@ -234,6 +262,9 @@ func _build_field() -> void:
 
 	objective_cell = level.objective
 	objective_pos = cell_center(objective_cell)
+	# Valid before the first _update_routine_reach() runs — input can arrive that early,
+	# and the build gate reads this cache.
+	_routine_sources = [objective_pos]
 
 	high_ground = {}
 	build_spots = {}
@@ -755,7 +786,8 @@ func _draw_placement_preview(cv: CanvasItem) -> void:
 		return
 	var g = Data.GRID
 	var tile: int = g.tile
-	var ok: bool = _can_build(_hover_cell) and GameState.can_afford(Data.get_habit(sel).build_cost)
+	var ok: bool = _can_build(_hover_cell) and GameState.can_afford(Data.get_habit(sel).build_cost) \
+		and GameState.can_reserve_bandwidth(Data.get_habit(sel).bandwidth_cost)
 	var tint := Color(0.35, 1.0, 0.55) if ok else Color(1.0, 0.4, 0.4)
 	var r := Rect2(g.origin_x + _hover_cell.x * tile, g.origin_y + _hover_cell.y * tile, tile, tile)
 	_draw_pixel_frame(cv, r, tint)
@@ -839,6 +871,252 @@ func assign_path(d: Distraction) -> void:
 func _random_spawn_cell() -> Vector2i:
 	var zone: Array = spawn_zone_cells[randi() % spawn_zone_cells.size()]
 	return zone[randi() % zone.size()]
+
+# ---------------------------------------------------------------- brain fog
+#
+# The field sits under a purple-black darkness and the player's Routine is the light in
+# it — the SAME circles: the core lights CORE_ROUTINE_RADIUS, an established Anchor
+# lights ANCHOR_ROUTINE_RADIUS, so "where you can build" and "where you can see" are one
+# rule the eye reads directly. Working habits and defenders carry smaller lights of
+# their own; a habit that falls out of Routine goes dark in both senses at once.
+#
+# Two halves, deliberately separate:
+#   VISUAL — _build_fog_layer(): a full-screen rect whose shader erases darkness where
+#     `light_mask` (a SubViewport of additive radial sprites) is bright. Projectiles
+#     glow here too; at up to 500 live shots this is why there is no Light2D anywhere.
+#   GAMEPLAY — _lit_cells: a cell dictionary rebuilt each frame from the SIGHT sources
+#     only (core, Anchors, working habits, defenders — a bullet is light, not eyes).
+#     is_pos_visible() is the O(1) lookup the combat hot paths gate on: is_point_in_cone
+#     (AoE pulses, Pomodoro work check), the projectile hit loop, and board_live.
+
+const TOWER_LIGHT_RADIUS := 150.0     ## a working habit's own lamp — well short of its
+									  ## attack range, which is the point: full reach
+									  ## needs the Routine's light, not the tower's own
+const DEFENDER_LIGHT_RADIUS := 90.0
+const PROJECTILE_LIGHT_RADIUS := 26.0 ## cosmetic only, never grants sight
+
+## Kill switch for harnesses and debugging: with fog off, everything is visible AND the
+## render pipeline actually stops — the setter hides the overlay, freezes the mask
+## viewport and halts the light canvas, so a harness flipping this after add_child()
+## (i.e. after _ready built the layer) is not silently paying for a mask it disowned.
+var fog_enabled := true:
+	set(value):
+		fog_enabled = value
+		_apply_fog_enabled()
+## Companion switch for the milestone's Routine gates — the build restriction in
+## _can_build AND the guild's respawn stall in barracks.gd — for harnesses that test
+## other systems and place buildings wherever is convenient. Ships true, always.
+## (The tower fire stall on in_routine predates this switch and stays unconditional.)
+var routine_gates_enabled := true
+## Moment of Clarity: while > 0 the whole field counts as lit (and the shader eases the
+## darkness out). Wave time, not wall time — a reveal spent during a frozen build phase
+## would be a reveal wasted on an empty board.
+var fog_reveal_left := 0.0
+var _fog_reveal_vis := 0.0
+var _lit_cells := {}                  # Vector2i -> true, rebuilt in _update_fog()
+var _fog_rect: ColorRect = null
+var _fog_mat: ShaderMaterial = null
+var _light_viewport: SubViewport = null
+var _light_canvas: LightMaskCanvas = null
+## Established Routine sources (core + chained Anchors), cached by _update_routine_reach
+## so the build gate and the fog share one per-frame computation.
+var _routine_sources: Array = []
+
+## Draws every light as one additive radial sprite into the mask viewport. One node, one
+## _draw() pass per frame — hundreds of lights are hundreds of draw_texture_rect calls,
+## not hundreds of nodes.
+class LightMaskCanvas extends Node2D:
+	var game
+	static var _light_tex: ImageTexture = null
+
+	static func light_tex() -> ImageTexture:
+		if _light_tex == null:
+			var n := 128
+			var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+			var half := (n - 1) / 2.0
+			for y in range(n):
+				for x in range(n):
+					var d := Vector2(x - half, y - half).length() / half
+					# Flat core, falling rim: full brightness out to ~62% of the radius,
+					# then a smooth drop to black at the edge. A linear falloff read as a
+					# lamp half the size the gameplay circle actually grants (the shader
+					# clears only where the mask is bright), and the two must agree.
+					var v := 1.0 - smoothstep(0.62, 1.0, d)
+					img.set_pixel(x, y, Color(v, v, v, 1.0))
+			_light_tex = ImageTexture.create_from_image(img)
+		return _light_tex
+
+	func _process(_dt: float) -> void:
+		queue_redraw()
+
+	func _draw() -> void:
+		if game == null or not game.fog_enabled:
+			return
+		var tex := light_tex()
+		for l: Vector3 in game.collect_fog_lights():
+			draw_texture_rect(tex,
+				Rect2(Vector2(l.x - l.z, l.y - l.z), Vector2(l.z * 2.0, l.z * 2.0)), false)
+
+## Turns the built pipeline on/off in place. Safe to call before _ready (nodes are all
+## null then) and idempotent — the setter calls it on every flip.
+func _apply_fog_enabled() -> void:
+	if _fog_rect != null:
+		_fog_rect.visible = fog_enabled
+	if _light_viewport != null:
+		_light_viewport.render_target_update_mode = \
+			SubViewport.UPDATE_ALWAYS if fog_enabled else SubViewport.UPDATE_DISABLED
+	if _light_canvas != null:
+		_light_canvas.set_process(fog_enabled)
+
+func _build_fog_layer() -> void:
+	if not fog_enabled:
+		return
+	# Half-res mask: light edges are soft by nature, and the fog shader samples linearly.
+	_light_viewport = SubViewport.new()
+	_light_viewport.name = "FogLightMask"
+	_light_viewport.size = Vector2i(960, 540)
+	_light_viewport.disable_3d = true
+	_light_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	_light_viewport.render_target_clear_mode = SubViewport.CLEAR_MODE_ALWAYS
+	add_child(_light_viewport)
+
+	# Explicit black floor — the viewport clears to the project's clear colour, which is
+	# not black, and any non-black floor would read as "everything slightly lit".
+	var floor_rect := ColorRect.new()
+	floor_rect.color = Color.BLACK
+	floor_rect.size = Vector2(960, 540)
+	_light_viewport.add_child(floor_rect)
+
+	_light_canvas = LightMaskCanvas.new()
+	_light_canvas.game = self
+	_light_canvas.scale = Vector2(0.5, 0.5)   # world px -> half-res mask px
+	var add_mat := CanvasItemMaterial.new()
+	add_mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	_light_canvas.material = add_mat
+	_light_viewport.add_child(_light_canvas)
+
+	_fog_mat = ShaderMaterial.new()
+	_fog_mat.shader = load("res://shaders/brain_fog.gdshader")
+	_fog_mat.set_shader_parameter("light_mask", _light_viewport.get_texture())
+
+	_fog_rect = ColorRect.new()
+	_fog_rect.name = "BrainFog"
+	_fog_rect.material = _fog_mat
+	# Oversized by the maximum screen-shake amplitude, so a lurching frame never shows a
+	# clean strip of world at the edge of the darkness.
+	_fog_rect.position = Vector2(-24, -24)
+	_fog_rect.size = Vector2(1920 + 48, 1080 + 48)
+	_fog_rect.z_index = Z_FOG
+	_fog_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_fog_rect)
+
+## The mask's light list, assembled ONCE per frame by _update_fog (the sight sources are
+## shared with the lit-cell grid — walking build_spots and the defenders group twice a
+## frame was the first thing review flagged). LightMaskCanvas._draw just reads this.
+var _frame_lights: Array = []
+
+func collect_fog_lights() -> Array:
+	return _frame_lights
+
+## Shots currently in flight, kept for the fog mask — ObjectPool only counts its actives,
+## it does not list them. Appended on spawn, erased by _on_projectile_finished.
+var _live_projectiles: Array = []
+
+## Lights that buildings project — shared by the mask (via collect_fog_lights) and the
+## gameplay grid (via _update_fog). An Anchor's light IS its Routine radius; any other
+## working habit carries the small tower lamp. Out of Routine = dark, literally.
+func _building_sight_lights() -> Array:
+	var out: Array = []
+	for spot in build_spots.values():
+		if not is_instance_valid(spot) or spot.state != BuildSpot.State.BUILT \
+				or not is_instance_valid(spot.current_habit):
+			continue
+		var h = spot.current_habit
+		if not h.in_routine:
+			continue
+		var r: float = ANCHOR_ROUTINE_RADIUS if h.type_key == ANCHOR_HABIT else TOWER_LIGHT_RADIUS
+		out.append(Vector3(h.global_position.x, h.global_position.y, r))
+	return out
+
+## Rebuilds the lit-cell grid from the SIGHT sources. Runs right after
+## _update_routine_reach() so in_routine is fresh — a habit cut off this frame goes
+## dark this frame, not next.
+func _update_fog(delta: float) -> void:
+	if fog_reveal_left > 0.0 and started and not between_waves:
+		fog_reveal_left = maxf(0.0, fog_reveal_left - delta)
+	if _fog_mat != null:
+		var target := 1.0 if fog_reveal_left > 0.0 else 0.0
+		# The uniform write is guarded — at rest the value is pinned and re-sending an
+		# identical parameter every frame is free-ish but not free.
+		if not is_equal_approx(_fog_reveal_vis, target):
+			_fog_reveal_vis = move_toward(_fog_reveal_vis, target, delta * 3.0)
+			_fog_mat.set_shader_parameter("reveal", _fog_reveal_vis)
+	if not fog_enabled:
+		return
+	# The core lives in game-LOCAL coordinates; every other source is sampled via
+	# global_position, which carries the screen-shake offset this node's own position
+	# applies. Shifting the core into the same shaken space keeps its light glued to
+	# the world during impacts instead of jittering against its own glow.
+	var core_pos := objective_pos + position
+	var sight: Array = _building_sight_lights()
+	for u in get_tree().get_nodes_in_group("defenders"):
+		if is_instance_valid(u) and not u._dying:
+			sight.append(Vector3(u.global_position.x, u.global_position.y, DEFENDER_LIGHT_RADIUS))
+
+	_lit_cells.clear()
+	_mark_lit_circle(core_pos, CORE_ROUTINE_RADIUS)
+	for l: Vector3 in sight:
+		_mark_lit_circle(Vector2(l.x, l.y), l.z)
+
+	# The mask gets the same list plus the two cosmetic extras: the core breathes a
+	# little, and projectiles glow (shine, not sight).
+	var t := Time.get_ticks_msec() / 1000.0
+	_frame_lights = [Vector3(core_pos.x, core_pos.y,
+		CORE_ROUTINE_RADIUS * (1.0 + sin(t * 2.0) * 0.025))]
+	_frame_lights.append_array(sight)
+	for p in _live_projectiles:
+		if is_instance_valid(p) and not p.dead:
+			_frame_lights.append(Vector3(p.global_position.x, p.global_position.y,
+				PROJECTILE_LIGHT_RADIUS))
+
+func _mark_lit_circle(center: Vector2, r: float) -> void:
+	var min_c := world_to_cell(center - Vector2(r, r))
+	var max_c := world_to_cell(center + Vector2(r, r))
+	var r2 := r * r
+	for cy in range(min_c.y, max_c.y + 1):
+		for cx in range(min_c.x, max_c.x + 1):
+			var cell := Vector2i(cx, cy)
+			if _lit_cells.has(cell):
+				continue
+			if center.distance_squared_to(cell_center(cell)) <= r2:
+				_lit_cells[cell] = true
+
+## THE gameplay visibility test — O(1), because the projectile hit loop calls it
+## projectiles x enemies times per frame. Cell resolution, not per-pixel: a body is
+## visible when the cell under it is lit, which errs slightly generous at light edges
+## (the penumbra) and never hides something standing in plain light.
+func is_pos_visible(pos: Vector2) -> bool:
+	if not fog_enabled or fog_reveal_left > 0.0:
+		return true
+	return _lit_cells.has(world_to_cell(pos))
+
+## Whether anything alive can currently be seen at all — the fog half of every tower's
+## board_live gate. Memoised per frame; N towers each asking would otherwise re-walk the
+## horde N times.
+var _vis_cache_frame := -1
+var _vis_cache := false
+
+func has_visible_distraction() -> bool:
+	var f := Engine.get_process_frames()
+	if f == _vis_cache_frame:
+		return _vis_cache
+	_vis_cache_frame = f
+	_vis_cache = false
+	for d in _distractions:
+		if is_instance_valid(d) and not d.dead and is_pos_visible(d.global_position):
+			_vis_cache = true
+			break
+	return _vis_cache
 
 # ---------------------------------------------------------------- drawing
 
@@ -994,10 +1272,19 @@ func _draw() -> void:
 	# Intervention targeting preview
 	if selected_intervention != null and Data.get_intervention(selected_intervention) != null:
 		var idef := Data.get_intervention(selected_intervention)
-		var mouse_pos = get_global_mouse_position()
 		var tint = Color(idef.color)
-		draw_circle(mouse_pos, idef.radius, Color(tint.r, tint.g, tint.b, 0.2))
-		PixelDraw.arc(self, mouse_pos, idef.radius, tint)
+		if idef.type == "freeze_field" or idef.type == "reveal_field":
+			# A field ability has no target, so a disc at the cursor would promise a
+			# placement decision the player does not get to make. Frame the whole board
+			# instead — it says "everywhere" without pretending to be aimable.
+			var field := Rect2(Data.GRID.origin_x, Data.GRID.origin_y,
+				Data.GRID.cols * Data.GRID.tile, Data.GRID.rows * Data.GRID.tile)
+			draw_rect(field, Color(tint.r, tint.g, tint.b, 0.07), true)
+			draw_rect(field, Color(tint.r, tint.g, tint.b, 0.55), false, 3.0)
+		else:
+			var mouse_pos = get_global_mouse_position()
+			draw_circle(mouse_pos, idef.radius, Color(tint.r, tint.g, tint.b, 0.2))
+			PixelDraw.arc(self, mouse_pos, idef.radius, tint)
 
 	# SWHAOP Aiming mode: Sniper crosshair reticle & laser sight
 	if is_aiming and aiming_habit != null and is_instance_valid(aiming_habit):
@@ -1021,6 +1308,25 @@ func _draw() -> void:
 		# Dynamic cone angle tag next to reticle
 		var arc_text := "%d°" % int(aiming_habit.arc_angle)
 		draw_string(ThemeDB.fallback_font, mouse_pos + Vector2(16, 5), arc_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("ffd479"))
+
+	# Rally placement preview — the same clamp set_rally_point() will apply, drawn live,
+	# so the flag the player sees is the flag they get (never past the leash, never in a
+	# wall). The zone circle previews around the CANDIDATE, because that is where the
+	# defenders would actually fight.
+	if is_setting_rally and rally_barracks != null and is_instance_valid(rally_barracks):
+		var g_pos: Vector2 = rally_barracks.global_position
+		var cand: Vector2 = get_global_mouse_position()
+		var reach: float = rally_barracks.def.guard_radius
+		if (cand - g_pos).length() > reach:
+			cand = g_pos + (cand - g_pos).normalized() * reach
+		var blocked_cell: bool = high_ground.has(world_to_cell(cand))
+		var col := Color("ff6b6b") if blocked_cell else Color("2bd6c0")
+		PixelDraw.line(self, g_pos, cand, Color(col.r, col.g, col.b, 0.5), 1.0, 2.0)
+		draw_line(cand + Vector2(0, -14), cand, Color("e8e4d8"), 2.0)
+		var flag := PackedVector2Array([cand + Vector2(0, -14), cand + Vector2(9, -10), cand + Vector2(0, -6)])
+		draw_colored_polygon(flag, col)
+		PixelDraw.arc(self, cand, reach, Color(col.r, col.g, col.b, 0.5), 1.0, 2.0)
+		draw_circle(cand, reach, Color(col.r, col.g, col.b, 0.05))
 
 # ---------------------------------------------------------------- render utils
 
@@ -1075,6 +1381,20 @@ func _unhandled_input(event: InputEvent) -> void:
 		# _process(), so a fast flick-and-click acted on the previous frame's cell.
 		var click_cell := world_to_cell(get_global_mouse_position())
 
+		if is_setting_rally:
+			if event.button_index == MOUSE_BUTTON_LEFT:
+				if rally_barracks != null and is_instance_valid(rally_barracks):
+					rally_barracks.set_rally_point(get_global_mouse_position())
+					_flash("Rally set — defenders re-forming", Color("2bd6c0"))
+				_end_rally_mode()
+				queue_redraw()
+				return
+			elif event.button_index == MOUSE_BUTTON_RIGHT:
+				_end_rally_mode()
+				_flash("Rally unchanged", Color("9bd0ff"))
+				queue_redraw()
+				return
+
 		if is_aiming:
 			if event.button_index == MOUSE_BUTTON_LEFT:
 				# Lock in directional cone aim!
@@ -1087,9 +1407,11 @@ func _unhandled_input(event: InputEvent) -> void:
 					# Undoing a purchase, so a FULL refund — unlike selling a committed
 					# habit (50%); nothing was ever fired. sell_habit() runs purely for
 					# its teardown and its own 50% return is intentionally discarded.
+					# Bandwidth is released in full too — it mirrors reserve, not spend.
 					if aiming_habit and aiming_spot:
-						var cost: int = Data.get_habit(aiming_habit.type_key).build_cost
-						GameState.add_dopamine(cost)
+						var undone := Data.get_habit(aiming_habit.type_key)
+						GameState.add_dopamine(undone.build_cost)
+						GameState.release_bandwidth(undone.bandwidth_cost)
 						aiming_spot.sell_habit()
 					SignalBus.build_canceled.emit()
 					_end_aiming()
@@ -1101,6 +1423,17 @@ func _unhandled_input(event: InputEvent) -> void:
 					_flash("Re-aim canceled", Color("9bd0ff"))
 				queue_redraw()
 				return
+
+		# Wheel = cone width on whichever habit has its panel open. Checked before the
+		# left/right handling below because a wheel event carries neither, and after the
+		# aiming block because there the cursor DISTANCE is already the width control —
+		# two live inputs for one value would fight each other on every mouse move.
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP and _adjust_arc(ARC_WHEEL_STEP):
+			get_viewport().set_input_as_handled()
+			return
+		if event.button_index == MOUSE_BUTTON_WHEEL_DOWN and _adjust_arc(-ARC_WHEEL_STEP):
+			get_viewport().set_input_as_handled()
+			return
 
 		if event.button_index == MOUSE_BUTTON_RIGHT:
 			_close_panel()
@@ -1176,7 +1509,10 @@ func _handle_hotkey() -> bool:
 		# One key that always means "back out", whatever mode you're in — and when there
 		# is nothing left to back out of, it opens the pause menu. (Resume-while-paused
 		# is handled by PauseMenu itself: this node is PAUSABLE and deaf while paused.)
-		if is_aiming:
+		if is_setting_rally:
+			_end_rally_mode()
+			_flash("Rally unchanged", Color("9bd0ff"))
+		elif is_aiming:
 			_cancel_aiming()
 			_flash("Aim canceled", Color("9bd0ff"))
 		elif _active_panel != null or GameState.selected_habit != null \
@@ -1282,6 +1618,19 @@ func _designer_clear_wave() -> void:
 			d.take_direct_damage(999999)
 	_flash("Designer: cleared %d distractions" % alive.size(), Color("ffb454"))
 
+func _begin_rally_mode(guild: Barracks) -> void:
+	_close_panel()
+	is_setting_rally = true
+	rally_barracks = guild
+	guild.show_range_indicator = true
+	_flash("Click where the guild should hold — Right Click keeps the current rally")
+
+func _end_rally_mode() -> void:
+	if rally_barracks != null and is_instance_valid(rally_barracks):
+		rally_barracks.show_range_indicator = false
+	is_setting_rally = false
+	rally_barracks = null
+
 ## Leaves aiming mode without touching the habit's angle — the caller decides whether the
 ## current aim is committed (left-click lock) or rolled back first (_restore_pre_aim).
 func _end_aiming() -> void:
@@ -1306,14 +1655,24 @@ func _build_on(cell: Vector2i) -> void:
 	if bs.state == BuildSpot.State.BUILT:
 		_flash_error("Already built — right-click to deselect, then click to manage")
 		return
+	if not _can_build(cell):
+		# The spot exists and is empty, so the one remaining reason is the dark.
+		_flash_error("Outside your Routine — chain Anchors out to reach this spot")
+		return
 	var type_key = GameState.selected_habit
 	var def := Data.get_habit(type_key)
-	# Affordability is a GATE, not a reaction: it has to be able to abort the build
+	# Both costs are GATES, not reactions: they have to be able to abort the build
 	# before anything is created. This is why habit_built below is notification-only
-	# and never the thing that triggers the payment.
+	# and never the thing that triggers the payment. Bandwidth is CHECKED before
+	# Dopamine is spent and RESERVED after, so a refusal on either leaves both intact.
+	if not GameState.can_reserve_bandwidth(def.bandwidth_cost):
+		_flash_error("Not enough Bandwidth (%d needed) — sell a habit, or grow the cap" \
+			% def.bandwidth_cost)
+		return
 	if not GameState.spend_dopamine(def.build_cost):
 		_flash_error("Not enough Dopamine")
 		return
+	GameState.reserve_bandwidth(def.bandwidth_cost)
 
 	var default_arc: float = def.arc_angle
 	var habit := bs.build_habit(type_key, 0.0, default_arc)
@@ -1322,9 +1681,10 @@ func _build_on(cell: Vector2i) -> void:
 		_hints.show_hint("first_build")
 
 	if def.is_blocker:
-		# No cone to aim — Allies deploy immediately around the rally point. The habit
-		# stays selected so several can be placed in a row (see _build_on's caller).
-		_flash("Allies deployed!", Color("2bd6c0"))
+		# No cone to aim — the default recipe walks out around the tower at once. The
+		# habit stays selected so several can be placed in a row (see _build_on's
+		# caller); the rally and the recipe are re-tuned later from the guild's panel.
+		_flash("Guild founded — click it to set the recipe and rally point", Color("2bd6c0"))
 		return
 
 	if def.is_support():
@@ -1351,8 +1711,20 @@ func _begin_aiming(habit: Habit, spot: BuildSpot, fresh_build: bool) -> void:
 	if fresh_build and _hints != null:
 		_hints.show_hint("first_aim")
 
+## Placement validity — the same predicate the preview tint and _build_on() share, so
+## what shows green is exactly what a click will accept. Affordability (Dopamine,
+## Bandwidth) deliberately stays OUT of it: an unaffordable spot is still a valid spot,
+## and the two refusals need different error messages.
 func _can_build(cell: Vector2i) -> bool:
-	return build_spots.has(cell) and build_spots[cell].state == BuildSpot.State.EMPTY
+	if not build_spots.has(cell) or build_spots[cell].state != BuildSpot.State.EMPTY:
+		return false
+	# Only inside the Routine's light. This used to be allowed ("place, extend the
+	# Routine, move on") and the freedom taught nothing: a stalled tower in the dark
+	# read as a bug, not a lesson. Refusing at placement puts the Anchor decision
+	# BEFORE the money is spent, where a decision belongs.
+	if not routine_gates_enabled:
+		return true
+	return is_position_in_routine(cell_center(cell), _routine_sources)
 
 ## Radius previewed at the hover cell before a habit is bought. Attack habits go
 ## through ModifierManager so the circle matches what the tower will ACTUALLY get with
@@ -1366,12 +1738,28 @@ func _preview_radius(def: HabitData) -> float:
 
 # ---------------------------------------------------------------- interventions
 
+## Arming an ability used to check nothing at all, so a hotkey could arm one that was on
+## cooldown and then eat the next left-click on the field. With a Rush price that bug
+## would also read as "the ability did nothing and my Rush is gone", so the check moved
+## here — refuse to arm what cannot be cast, and say why.
 func _select_intervention(key) -> void:
 	_close_panel()
 	_cancel_aiming()
 	if selected_intervention == key:
 		selected_intervention = null
 	else:
+		if key != null:
+			var idef := Data.get_intervention(String(key))
+			if idef != null:
+				if intervention_cooldowns.get(String(key), 0.0) > 0.0:
+					_flash_error("Ability on cooldown!")
+					return
+				if idef.rush_cost > 0 and not GameState.can_afford_rush(idef.rush_cost):
+					_flash_error("Not enough Rush (need %d)" % idef.rush_cost)
+					return
+				if idef.insight_cost > 0 and not GameState.can_afford_insight(idef.insight_cost):
+					_flash_error("Not enough Insight (need %d ◆)" % idef.insight_cost)
+					return
 		selected_intervention = key
 		GameState.select_habit(null)
 	_update_intervention_buttons()
@@ -1384,6 +1772,24 @@ func _cast_intervention(key: String, target_pos: Vector2) -> void:
 	if intervention_cooldowns.get(key, 0.0) > 0.0:
 		_flash_error("Ability on cooldown!")
 		return
+	# Charged as a GATE, before the cooldown is committed: a refused cast must leave the
+	# ability ready, the way a refused build leaves the Dopamine unspent. Insight is
+	# checked BEFORE Rush is spent so a double-costed ability can never take one
+	# currency and then refuse on the other.
+	if idef.insight_cost > 0 and not GameState.can_afford_insight(idef.insight_cost):
+		_flash_error("Not enough Insight (need %d ◆)" % idef.insight_cost)
+		return
+	if idef.rush_cost > 0 and not GameState.spend_rush(idef.rush_cost):
+		_flash_error("Not enough Rush (need %d)" % idef.rush_cost)
+		return
+	if idef.insight_cost > 0:
+		GameState.spend_insight(idef.insight_cost)
+
+	# A field ability ignores where the player clicked. Anchoring its whole presentation
+	# on the core keeps the strike, the ring and the popup in one place instead of
+	# wherever the mouse happened to be.
+	if idef.type == "freeze_field" or idef.type == "reveal_field":
+		target_pos = objective_pos
 
 	intervention_cooldowns[key] = idef.cooldown * _intervention_cooldown_scale
 	selected_intervention = null
@@ -1468,12 +1874,33 @@ func _trigger_intervention_impact(idef: InterventionData, target_pos: Vector2) -
 					count += 1
 		_pop_text(target_pos, "PAUSE! (%d frozen)" % count, col)
 		_flash("%s triggered! Distractions paused." % idef.name, col)
+	elif idef.type == "freeze_field":
+		# No radius test: this one is the whole board, which is the entire reason it costs
+		# Rush. Freeze here means apply_slow(0.0, …) — MOVEMENT only. A Group Chat still
+		# disrupts your habits under Airplane Mode and the boss still cycles its shield;
+		# that is deliberate and the ability description says so.
+		var frozen := 0
+		for d in _distractions:
+			if is_instance_valid(d) and not d.dead:
+				d.apply_slow(0.0, idef.freeze_duration)
+				frozen += 1
+		add_shake(10.0)
+		_pop_text(objective_pos, "SIGNAL CUT! (%d frozen)" % frozen, col)
+		_flash("%s — the whole field goes quiet for %.0fs." % [idef.name, idef.freeze_duration], col)
+	elif idef.type == "reveal_field":
+		# The Brain Fog lifts everywhere for the duration — is_pos_visible() short-circuits
+		# on fog_reveal_left, so towers immediately fight at their full geometry. The
+		# timer runs on WAVE time (see _update_fog), so casting between waves holds the
+		# lifted fog until the fight actually starts.
+		fog_reveal_left = idef.reveal_duration
+		_pop_text(objective_pos, "CLARITY — the fog lifts!", col)
+		_flash("%s — the whole field is visible for %.0fs." % [idef.name, idef.reveal_duration], col)
 	elif idef.type == "summon_allies":
 		# Temporary Allies — same unit as the Accountability barracks (06), but they
 		# expire on ally_lifetime instead of holding a rally slot.
 		var count: int = idef.ally_count
 		for i: int in range(count):
-			var a := Ally.new()
+			var a := DefenderUnit.new()
 			entities.add_child(a)
 			var angle: float = TAU * float(i) / float(count)
 			a.setup(self, target_pos + Vector2.RIGHT.rotated(angle) * radius,
@@ -1509,6 +1936,18 @@ func _update_intervention_buttons() -> void:
 		var tint := Color(idef.color)
 		if cd > 0.0:
 			btn.text = "%s\n%.1fs" % [idef.short, cd]
+			btn.disabled = true
+			btn.remove_theme_stylebox_override("normal")
+			btn.remove_theme_color_override("font_color")
+		elif idef.rush_cost > 0 and not GameState.can_afford_rush(idef.rush_cost):
+			# Off cooldown but unaffordable reads differently from recharging: the button
+			# names the missing resource instead of counting down to nothing.
+			btn.text = "%s\n%d Rush" % [idef.short, idef.rush_cost]
+			btn.disabled = true
+			btn.remove_theme_stylebox_override("normal")
+			btn.remove_theme_color_override("font_color")
+		elif idef.insight_cost > 0 and not GameState.can_afford_insight(idef.insight_cost):
+			btn.text = "%s\n%d ◆" % [idef.short, idef.insight_cost]
 			btn.disabled = true
 			btn.remove_theme_stylebox_override("normal")
 			btn.remove_theme_color_override("font_color")
@@ -1584,20 +2023,45 @@ func _open_panel(cell: Vector2i, bs: BuildSpot) -> void:
 
 	box.add_child(HSeparator.new())
 
-	# Targeting mode — the panel's only cycling control. Attack habits only: barracks
-	# hold ground and support fires nothing, so a mode would be a lie on both.
+	# Cone width — what the targeting-mode button used to be, and a far more honest
+	# control: this habit has no targeting mode, it has a shape. The label is a live
+	# readout rather than a button because the wheel is the input (see _adjust_arc).
 	if bs.current_habit is Habit and not def.is_support() and not def.is_blocker:
 		var habit_ref: Habit = bs.current_habit
-		var tgt := UI.button("Target: %s" % habit_ref.target_mode_name(), UI.FS_SMALL)
-		tgt.tooltip_text = ("Which distraction the barrel picks inside its cone:\n"
-			+ "Nearest — closest to the tower (default)\n"
-			+ "First — furthest along its route toward your Focus\n"
-			+ "Strongest — highest health (breaks the tank first)\n"
-			+ "Weakest — lowest health (finishes wounded ones off)")
-		tgt.pressed.connect(func():
-			habit_ref.cycle_target_mode()
-			tgt.text = "Target: %s" % habit_ref.target_mode_name())
-		box.add_child(tgt)
+		var arc_row := UI.label(_arc_line(habit_ref), UI.FS_SMALL, UI.ACCENT)
+		arc_row.tooltip_text = ("Scroll the mouse wheel over this tower to open or close "
+			+ "its cone.\nThe habit always fires the same energy into the sector — the "
+			+ "angle only decides\nwhat shape it arrives in. Narrow: fewer, harder, "
+			+ "piercing shots that shove.\nWide: a faster, softer, fatter wall that "
+			+ "staggers.")
+		_panel_arc_label = arc_row
+		box.add_child(arc_row)
+
+	# Nutrition Guild controls: one cycling button per defender slot, plus the rally.
+	# The slot button is the recipe — pressing it never touches the live unit, it only
+	# renames what the slot respawns as, and the label says so while a swap is pending.
+	if bs.current_habit is Barracks:
+		var guild: Barracks = bs.current_habit
+		for i in range(guild.slots.size()):
+			var slot_btn := UI.button("Slot %d: %s" % [i + 1, guild.slot_label(i)], UI.FS_SMALL)
+			if guild.slot_pending_change(i):
+				slot_btn.text += "  (next spawn)"
+			slot_btn.tooltip_text = _defender_tooltip(guild.slots[i])
+			var idx := i
+			slot_btn.pressed.connect(func():
+				guild.cycle_slot(idx)
+				slot_btn.text = "Slot %d: %s" % [idx + 1, guild.slot_label(idx)]
+				if guild.slot_pending_change(idx):
+					slot_btn.text += "  (next spawn)"
+				slot_btn.tooltip_text = _defender_tooltip(guild.slots[idx]))
+			box.add_child(slot_btn)
+
+		var rally_btn := UI.button("Set rally point", UI.FS_SMALL)
+		rally_btn.tooltip_text = ("Where the three defenders form up and hold.\n"
+			+ "They chase anything inside the guard circle around the rally and\n"
+			+ "walk back to formation the moment it dies or slips out of reach.")
+		rally_btn.pressed.connect(_begin_rally_mode.bind(guild))
+		box.add_child(rally_btn)
 
 	# Pomodoro rest button — a short break now instead of a long burnout later.
 	if def.has_work_cycle and bs.current_habit:
@@ -1619,7 +2083,9 @@ func _open_panel(cell: Vector2i, bs: BuildSpot) -> void:
 
 	for up_key: StringName in def.upgrades:
 		var up_def := Data.get_habit(up_key)
-		var affordable := GameState.can_afford(up_def.build_cost)
+		var up_bw: int = up_def.bandwidth_cost - def.bandwidth_cost
+		var affordable := GameState.can_afford(up_def.build_cost) \
+			and (up_bw <= 0 or GameState.can_reserve_bandwidth(up_bw))
 		var btn := UI.primary_button("↑ %s — %d ◆" % [up_def.name, up_def.build_cost],
 			UI.DOPAMINE, UI.FS_SMALL) if affordable \
 			else UI.button("↑ %s — %d ◆" % [up_def.name, up_def.build_cost], UI.FS_SMALL)
@@ -1654,14 +2120,86 @@ func _close_panel() -> void:
 	if _active_panel != null and is_instance_valid(_active_panel):
 		_active_panel.queue_free()
 	_active_panel = null
+	_panel_arc_label = null
 	_panel_cell = Vector2i(-999, -999)
 
+## Slot-button tooltip: the defender's role, its own description, and the numbers that
+## decide the pick — HP, damage cadence, and what it can pin.
+func _defender_tooltip(id: StringName) -> String:
+	var d := Data.get_defender(id)
+	if d == null:
+		return ""
+	var lines: Array[String] = ["%s — %s" % [d.role, d.display_name], d.description,
+		"%d HP · %d %s every %.2fs · pins %d weight" % [d.max_health, d.damage,
+			Data.TERM.damage, d.attack_cooldown, d.block_capacity]]
+	if d.damage_reduction > 0:
+		lines.append("Soaks %d off every counter-hit." % d.damage_reduction)
+	if d.heal_amount > 0:
+		lines.append("Mends nearby defenders %d HP/s (not itself)." % d.heal_amount)
+	if d.burn_dps > 0.0:
+		lines.append("Hits keep searing: %s %s/s for %ss." % [Data.TERM.dot,
+			String.num(d.burn_dps, 1), String.num(d.burn_duration, 1)])
+	return "\n".join(lines)
+
+## The cone's live numbers as one line: the width, and what that width is currently
+## buying. Percentages against the habit's own home angle, because "×1.6 damage" only
+## means something relative to the tower's own .tres — see ArcProfile.
+func _arc_line(h: Habit) -> String:
+	var p := h.arc_profile()
+	var shape := "focused" if p.ratio > 1.02 else ("spread" if p.ratio < 0.98 else "default")
+	var parts: Array[String] = ["Cone %d° (%s)" % [int(h.arc_angle), shape]]
+	parts.append("%d%% dmg" % roundi(p.damage_mult * 100.0))
+	if h.def.aoe:
+		parts.append("%d targets" % p.aoe_targets)
+	else:
+		parts.append("pierce %d" % p.pierce)
+	parts.append("%.2fs" % h.shot_interval())
+	if p.knockback > 0.0:
+		parts.append("knockback")
+	elif p.stagger_factor < 1.0:
+		parts.append("stagger")
+	return "  ·  ".join(parts)
+
+## Mouse wheel over an open habit panel opens or closes its cone, live, mid-wave. The
+## angle is the only combat decision the player can still make once a tower is placed,
+## so it needs to be reachable at the speed the wave is arriving — a re-aim mode you
+## have to enter, drag through and click out of is a between-waves tool.
+func _adjust_arc(step: float) -> bool:
+	if _active_panel == null or not build_spots.has(_panel_cell):
+		return false
+	var bs: BuildSpot = build_spots[_panel_cell]
+	if not (bs.current_habit is Habit):
+		return false
+	var h: Habit = bs.current_habit
+	if h.def.is_support() or h.def.is_blocker:
+		return false
+	var before: float = h.arc_angle
+	h.set_arc_angle(h.arc_angle + step)
+	if is_equal_approx(before, h.arc_angle):
+		return true   # already at a limit; still consumed, so the wheel can't scroll past
+	h.queue_redraw()
+	if _panel_arc_label != null and is_instance_valid(_panel_arc_label):
+		_panel_arc_label.text = _arc_line(h)
+	return true
+
 func _do_upgrade(cell: Vector2i, new_type_key: String, cost: int) -> void:
-	# Same gate-not-reaction rule as _build_on(): pay first, or nothing happens.
+	var spot: BuildSpot = build_spots[cell]
+	# A tier swap re-prices the Bandwidth hold: only the DELTA moves, since the old
+	# tier's reservation transfers to the new node. Checked before Dopamine is spent —
+	# same gate-not-reaction rule as _build_on(): pay first, or nothing happens.
+	var cur_def := Data.get_habit(spot.get_current_type_key())
+	var bw_delta: int = Data.get_habit(new_type_key).bandwidth_cost \
+		- (cur_def.bandwidth_cost if cur_def != null else 0)
+	if bw_delta > 0 and not GameState.can_reserve_bandwidth(bw_delta):
+		_flash_error("Not enough Bandwidth (+%d needed)" % bw_delta)
+		return
 	if not GameState.spend_dopamine(cost):
 		_flash_error("Not enough Dopamine")
 		return
-	var spot: BuildSpot = build_spots[cell]
+	if bw_delta > 0:
+		GameState.reserve_bandwidth(bw_delta)
+	elif bw_delta < 0:
+		GameState.release_bandwidth(-bw_delta)
 	var habit := spot.upgrade_habit(new_type_key)
 	SignalBus.habit_upgraded.emit(habit, cost)
 	_close_panel()
@@ -1671,6 +2209,11 @@ func _do_upgrade(cell: Vector2i, new_type_key: String, cost: int) -> void:
 ## Contrast the aiming-cancel path in _unhandled_input(), which refunds 100%.
 func _do_sell(cell: Vector2i, refund: int) -> void:
 	var spot: BuildSpot = build_spots[cell]
+	# Bandwidth comes back IN FULL where Dopamine comes back at 50% — it was held, not
+	# spent, and a partial release would slowly leak the cap into nothing.
+	var sold_def := Data.get_habit(spot.get_current_type_key())
+	if sold_def != null:
+		GameState.release_bandwidth(sold_def.bandwidth_cost)
 	spot.sell_habit()
 	GameState.add_dopamine(refund)
 	SignalBus.habit_sold.emit(spot, refund)
@@ -1739,6 +2282,7 @@ func _process(delta: float) -> void:
 	_update_glitch(delta)
 	_update_kill_feedback(delta)
 	_update_routine_reach()
+	_update_fog(delta)
 	_check_wave_progress()
 	queue_redraw()
 	_update_hover()
@@ -1765,7 +2309,7 @@ func _update_aiming_process() -> void:
 		# Closer cursor (dist near 20px) -> Wide cone (125.0°)
 		# Farther cursor (dist near max_r) -> Tight sniper cone (10.0°)
 		var norm_dist: float = clampf((dist - 20.0) / (max_r - 20.0), 0.0, 1.0)
-		var calc_arc: float = lerpf(125.0, 10.0, norm_dist)
+		var calc_arc: float = lerpf(ArcProfile.ARC_MAX, ArcProfile.ARC_MIN, norm_dist)
 		aiming_habit.set_arc_angle(calc_arc)
 		aiming_habit.queue_redraw()
 		queue_redraw()
@@ -1785,6 +2329,9 @@ func _update_routine_reach() -> void:
 				anchor_habits.append(h)
 
 	var anchor_positions := compute_routine_sources(anchor_habits)
+	# Cached for the build gate (_can_build/_build_on) and anyone else asking between
+	# frames — recomputing the chain per click would be the drift bug waiting to happen.
+	_routine_sources = anchor_positions
 
 	var any_stalled := false
 	for h in habits:
@@ -2075,11 +2622,16 @@ func spawn_distraction(type_key: String, spawn_cell: Vector2i) -> Distraction:
 	return d
 
 func spawn_directional_projectile(pos: Vector2, dir_angle: float, max_dist: float,
-		wp: int, aw: int, color: Color, source: Object = null) -> void:
+		wp: int, aw: int, color: Color, source: Object = null,
+		dot: float = 0.0, dot_duration: float = 0.0, spin: float = 0.0,
+		pierce: int = 2, padding: float = ArcProfile.BASE_HIT_PADDING,
+		knock: float = 0.0, stagger: float = 1.0) -> void:
 	var p: Projectile = projectile_pool.acquire()
 	if p != null:
 		p.global_position = pos
-		p.setup_directional(self, dir_angle, max_dist, wp, aw, color, source)
+		p.setup_directional(self, dir_angle, max_dist, wp, aw, color, source,
+			dot, dot_duration, spin, pierce, padding, knock, stagger)
+		_live_projectiles.append(p)
 
 ## Presentation half of a defeat. The economy half (tolerance-scaled reward, card
 ## bonuses, kill count) lives in GameState, driven by SignalBus.distraction_defeated
@@ -2154,6 +2706,79 @@ func _update_tolerance(delta: float) -> void:
 	if _quick_hit_cd > 0.0:
 		_quick_hit_cd = maxf(0.0, _quick_hit_cd - delta)
 		_update_quick_hit_button()
+	_update_burnout(delta)
+
+# ---------------------------------------------------------------- burnout
+#
+# Burnout is the only stat that reads back OUT of the scoreboard and into the field. Two
+# thresholds, both deliberately visible before they bite:
+#
+#   STRAIN  the picture starts trembling — no mechanical cost, pure warning
+#   FAIL    habits start losing ticks to procrastination
+#
+# The failure effect reuses the disruptor's disrupt() rather than the Pomodoro burnout
+# flag: burned_out belongs to the work cycle and clearing it refills work_left, which
+# would hand the player a free reset every time the meter bit.
+
+const BURNOUT_STRAIN := 50.0     ## trembling starts
+const BURNOUT_FAIL := 75.0       ## habits start dropping ticks
+const BURNOUT_DECAY_PER_SEC := 1.5
+const BURNOUT_SHAKE_INTERVAL := 0.2
+const BURNOUT_ROLL_INTERVAL := 1.0
+const BURNOUT_LAPSE_DURATION := 1.2
+## Chance per habit per roll at burnout 100. At the FAIL threshold it is 0 and it ramps
+## from there, so crossing the line is a warning rather than an instant collapse.
+const BURNOUT_LAPSE_CHANCE_MAX := 0.35
+
+var _burnout_shake_cd := 0.0
+var _burnout_roll_cd := 0.0
+var _burnout_was_over_fail := false
+
+func _update_burnout(delta: float) -> void:
+	var b: float = GameState.burnout
+	if b > 0.0:
+		GameState.set_burnout(b - delta * BURNOUT_DECAY_PER_SEC)
+		b = GameState.burnout
+
+	# Announce the threshold once per crossing, not every frame it stays crossed.
+	if b >= BURNOUT_FAIL and not _burnout_was_over_fail:
+		_burnout_was_over_fail = true
+		_flash("Burnout — your habits are starting to slip.", UI.DANGER)
+	elif b < BURNOUT_FAIL - 5.0 and _burnout_was_over_fail:
+		_burnout_was_over_fail = false
+
+	if b < BURNOUT_STRAIN:
+		return
+
+	# Re-arming on an interval instead of every frame: add_shake() takes the max and
+	# _process lerps it down (game.gd:1747), so a per-frame call would pin the amplitude
+	# and the tremble would lose its decay entirely.
+	_burnout_shake_cd -= delta
+	if _burnout_shake_cd <= 0.0:
+		_burnout_shake_cd = BURNOUT_SHAKE_INTERVAL
+		var strain: float = inverse_lerp(BURNOUT_STRAIN, 100.0, b)
+		add_shake(1.5 + 2.5 * strain)
+
+	if b < BURNOUT_FAIL:
+		return
+
+	_burnout_roll_cd -= delta
+	if _burnout_roll_cd > 0.0:
+		return
+	_burnout_roll_cd = BURNOUT_ROLL_INTERVAL
+	var chance: float = inverse_lerp(BURNOUT_FAIL, 100.0, b) * BURNOUT_LAPSE_CHANCE_MAX
+	for spot in build_spots.values():
+		if not is_instance_valid(spot) or spot.state != BuildSpot.State.BUILT:
+			continue
+		var h = spot.current_habit
+		if not (h is Habit) or h.def.is_support() or h.disrupted_left > 0.0:
+			continue
+		if randf() >= chance:
+			continue
+		h.disrupt(BURNOUT_LAPSE_DURATION)
+		# Named on the tower, because a lapse and a Group Chat ping look identical
+		# otherwise and the player would blame the wrong thing.
+		_pop_text(h.global_position + Vector2(-30.0, -46.0), "procrastinating", UI.DANGER)
 
 ## What one Quick Hit would actually pay right now. Same tolerance curve the economy
 ## applies to a defeat, so the two sources shrink together and the player can watch the
@@ -2528,7 +3153,7 @@ func _execute_burst(burst: CardBurstData) -> void:
 func _summon_burst_allies(burst: CardBurstData) -> void:
 	var count: int = maxi(1, burst.ally_count)
 	for i in range(count):
-		var a := Ally.new()
+		var a := DefenderUnit.new()
 		entities.add_child(a)
 		var angle: float = TAU * float(i) / float(count)
 		a.setup(self, objective_pos + Vector2.RIGHT.rotated(angle) * burst.spawn_radius,
@@ -2726,6 +3351,7 @@ func _init_pools() -> void:
 		_BURST_POOL_SIZE, self, 100)
 
 func _on_projectile_finished(p: Projectile) -> void:
+	_live_projectiles.erase(p)
 	projectile_pool.release(p)
 
 func _on_impact_fx_finished(fx: ImpactFX) -> void:
@@ -2912,15 +3538,21 @@ func _build_hud() -> void:
 	GameState.focus_changed.connect(_on_focus_changed)
 	GameState.wave_changed.connect(_on_wave_changed)
 	GameState.tolerance_changed.connect(_on_tolerance_changed)
+	GameState.burnout_changed.connect(_on_burnout_changed)
 	GameState.selected_habit_changed.connect(_on_selected_habit_changed)
 	GameState.run_insight_changed.connect(_on_run_insight_changed)
+	GameState.rush_changed.connect(_on_rush_changed)
 	GameState.insight_dropped.connect(_on_insight_dropped)
+	GameState.bandwidth_changed.connect(_on_bandwidth_changed)
 
 	_on_dopamine_changed(GameState.dopamine)
 	_on_run_insight_changed(GameState.run_insight)
+	_on_rush_changed(GameState.rush)
+	_on_bandwidth_changed(GameState.bandwidth_used, GameState.bandwidth_max)
 	_on_focus_changed(GameState.focus, GameState.max_focus)
 	_on_wave_changed(GameState.wave, GameState.max_wave)
 	_on_tolerance_changed(int(GameState.tolerance))
+	_on_burnout_changed(GameState.burnout)
 	_update_enemy_stats()
 
 func _build_top_bar() -> void:
@@ -2955,6 +3587,22 @@ func _build_top_bar() -> void:
 	row.add_child(UI.stat_chip("Insight", UI.INSIGHT, ins_out))
 	_insight_label = ins_out[0]
 
+	# Rush sits with the currencies rather than with Focus, even though it is earned by
+	# nearly losing: it is something you spend, and the player looks for spendables here.
+	var rush_out: Array = []
+	row.add_child(UI.stat_chip("Rush", UI.DANGER, rush_out))
+	_rush_label = rush_out[0]
+
+	# Bandwidth reads "held / cap", not a spendable number — it sits with the currencies
+	# because building is where the player will look when a build gets refused.
+	var bw_out: Array = []
+	var bw_chip := UI.stat_chip("Bandwidth", UI.ACCENT, bw_out)
+	bw_chip.tooltip_text = ("Attention Bandwidth — how much you can hold at once.\n"
+		+ "Every standing habit occupies part of it and gives it back when sold.\n"
+		+ "It never drains on its own: it counts commitments, not fuel.")
+	row.add_child(bw_chip)
+	_bandwidth_label = bw_out[0]
+
 	row.add_child(UI.spacer(Vector2(8, 0)))
 
 	# --- Focus, the thing you actually lose. A bar, and the widest element in the bar.
@@ -2964,6 +3612,16 @@ func _build_top_bar() -> void:
 	_focus_meter.danger_below = 0.34
 	_focus_meter.custom_minimum_size = Vector2(300, 40)
 	row.add_child(_focus_meter)
+
+	# --- Burnout, right next to Focus, because it is the consequence of the same event.
+	# Narrower on purpose: Focus stays the widest thing in the bar, since Focus is what
+	# ends the run. Hidden at zero so a clean run never carries a scary empty gauge.
+	_burnout_meter = UIMeter.new()
+	_burnout_meter.caption = "Burnout"
+	_burnout_meter.fill_color = UI.DANGER
+	_burnout_meter.custom_minimum_size = Vector2(180, 40)
+	_burnout_meter.visible = false
+	row.add_child(_burnout_meter)
 
 	row.add_child(UI.spacer(Vector2.ZERO, true))
 
@@ -3017,8 +3675,9 @@ func _build_bottom_bar() -> void:
 		var b := UI.button("%s\n%d ◆" % [d.short, d.build_cost], UI.FS_BODY, Vector2(132, 0))
 		# Numbers, not just prose: a tooltip the player can compare against the enemy's
 		# stats is a decision aid; flavor text alone is decoration.
-		b.tooltip_text = "%s — %d Dopamine\n%s\n%s\nHotkey: %d" \
-			% [d.name, d.build_cost, _habit_stats_line(d), d.description, i + 1]
+		b.tooltip_text = "%s — %d Dopamine · holds %d Bandwidth\n%s\n%s\nHotkey: %d" \
+			% [d.name, d.build_cost, d.bandwidth_cost, _habit_stats_line(d),
+				d.description, i + 1]
 		b.autowrap_mode = TextServer.AUTOWRAP_OFF
 		row.add_child(b)
 		b.pressed.connect(_select_habit.bind(key))
@@ -3030,7 +3689,7 @@ func _build_bottom_bar() -> void:
 	row.add_child(sep)
 	row.add_child(UI.spacer(Vector2(18, 0)))
 
-	var intervention_keys: Array[String] = ["Q", "W", "E"]
+	var intervention_keys: Array[String] = ["Q", "W", "E", "R", "T"]
 	for i in range(Data.INTERVENTION_ORDER.size()):
 		var ikey := String(Data.INTERVENTION_ORDER[i])
 		var idef := Data.get_intervention(ikey)
@@ -3093,14 +3752,23 @@ func _hotkey_badge(key_name: String) -> Label:
 ## reads the .tres base — the form the build-bar tooltips use.
 func _habit_stats_line(def: HabitData, habit: Habit = null) -> String:
 	if def.is_blocker:
-		return "%d Allies · %d HP · guards %dpx" % [def.ally_count,
-			def.ally_health, int(def.guard_radius)]
+		# The guild's stats are its roster: three slots whose types the player picks.
+		return "3 defender slots · respawn %.0fs · guards %dpx around the rally" \
+			% [def.ally_spawn_cooldown, int(def.guard_radius)]
 	if def.is_support():
 		return "Extends your Routine %dpx — habits inside it keep working" % int(def.range)
+	# Everything a placed habit shows is post-cone: the player is looking at the tower
+	# they actually have, at the width they actually set it to. The pre-purchase preview
+	# (habit == null) shows the .tres numbers, which are by definition the home angle.
 	var wp: int = habit.current_willpower_damage if habit != null else def.willpower_damage
 	var aw: int = habit.current_awareness_damage if habit != null else def.awareness_damage
 	var rng: float = habit.current_attack_range if habit != null else def.range
 	var cd: float = habit.current_fire_cooldown if habit != null else def.fire_cooldown
+	if habit != null:
+		var prof := habit.arc_profile()
+		wp = prof.scale_damage(wp)
+		aw = prof.scale_damage(aw)
+		cd = habit.shot_interval()
 	var parts: Array[String] = []
 	if wp > 0:
 		parts.append("%d %s" % [wp, Data.TERM.damage])
@@ -3113,6 +3781,13 @@ func _habit_stats_line(def: HabitData, habit: Habit = null) -> String:
 		parts.append("%s/s %s" % [String.num(def.boredom, 1), Data.TERM.dot])
 	if def.slow > 0.0:
 		parts.append("%d%% %s" % [roundi((1.0 - def.slow) * 100.0), Data.TERM.slow])
+	if def.stun_duration > 0.0:
+		parts.append("%ss %s" % [String.num(def.stun_duration, 1), Data.TERM.stun])
+	if def.dispel_haste:
+		parts.append(Data.TERM.dispel)
+	if def.vulnerable_mult > 1.0:
+		parts.append("+%d%% %s for %ss" % [roundi((def.vulnerable_mult - 1.0) * 100.0),
+			Data.TERM.vulnerable, String.num(def.vulnerable_duration, 1)])
 	if cd > 0.0:
 		parts.append(("pulses every %.2fs" if def.aoe else "fires every %.2fs") % cd)
 	parts.append("range %d" % int(rng))
@@ -3125,15 +3800,19 @@ func _habit_stats_line(def: HabitData, habit: Habit = null) -> String:
 func _upgrade_delta_text(cur_def: HabitData, habit: Habit, up_def: HabitData) -> String:
 	var parts: Array[String] = []
 	if up_def.is_blocker:
-		if up_def.ally_count != cur_def.ally_count:
-			parts.append("Allies %d → %d" % [cur_def.ally_count, up_def.ally_count])
-		if up_def.ally_health != cur_def.ally_health:
-			parts.append("Ally HP %d → %d" % [cur_def.ally_health, up_def.ally_health])
-		if up_def.ally_damage != cur_def.ally_damage:
-			parts.append("Ally %s %d → %d" % [Data.TERM.damage,
-				cur_def.ally_damage, up_def.ally_damage])
+		if not is_equal_approx(up_def.defender_hp_mult, cur_def.defender_hp_mult):
+			parts.append("defender HP ×%.2f → ×%.2f"
+				% [cur_def.defender_hp_mult, up_def.defender_hp_mult])
+		if not is_equal_approx(up_def.defender_damage_mult, cur_def.defender_damage_mult):
+			parts.append("defender %s ×%.2f → ×%.2f" % [Data.TERM.damage,
+				cur_def.defender_damage_mult, up_def.defender_damage_mult])
+		if absf(up_def.ally_spawn_cooldown - cur_def.ally_spawn_cooldown) >= 0.05:
+			parts.append("respawn %.1fs → %.1fs"
+				% [cur_def.ally_spawn_cooldown, up_def.ally_spawn_cooldown])
 		if int(up_def.guard_radius) != int(cur_def.guard_radius):
 			parts.append("guards %d → %d" % [int(cur_def.guard_radius), int(up_def.guard_radius)])
+		if up_def.bandwidth_cost != cur_def.bandwidth_cost:
+			parts.append("Bandwidth %d → %d" % [cur_def.bandwidth_cost, up_def.bandwidth_cost])
 		return " · ".join(parts)
 
 	var up_key := String(up_def.id)
@@ -3160,6 +3839,8 @@ func _upgrade_delta_text(cur_def: HabitData, habit: Habit, up_def: HabitData) ->
 	if up_def.boredom != cur_def.boredom and up_def.boredom > 0.0:
 		parts.append("%s %s/s → %s/s" % [Data.TERM.dot,
 			String.num(cur_def.boredom, 1), String.num(up_def.boredom, 1)])
+	if up_def.bandwidth_cost != cur_def.bandwidth_cost:
+		parts.append("Bandwidth %d → %d" % [cur_def.bandwidth_cost, up_def.bandwidth_cost])
 	return " · ".join(parts)
 
 # ---------------------------------------------------------------- HUD readouts
@@ -3174,6 +3855,23 @@ func _on_dopamine_changed(v: int) -> void:
 func _on_run_insight_changed(v: int) -> void:
 	if _insight_label:
 		_insight_label.text = "%d ◆" % v
+	# Moment of Clarity is Insight-priced; its button must notice the balance moving.
+	_update_intervention_buttons()
+
+func _on_rush_changed(v: int) -> void:
+	if _rush_label:
+		_rush_label.text = str(v)
+	# Same reason the Dopamine handler refreshes habit affordability: an ability the
+	# player can suddenly afford should say so without them doing the arithmetic.
+	_update_intervention_buttons()
+
+func _on_bandwidth_changed(used: int, max_value: int) -> void:
+	if _bandwidth_label:
+		_bandwidth_label.text = "%d / %d" % [used, max_value]
+		# The chip turns hot when the next cheapest habit no longer fits — the moment
+		# the cap becomes the thing the player is actually playing against.
+		_bandwidth_label.modulate = UI.DANGER if max_value - used < 8 else Color(1, 1, 1)
+	_refresh_habit_affordability()
 
 func _on_focus_changed(v: int, m: int) -> void:
 	if _focus_meter:
@@ -3189,7 +3887,8 @@ func _refresh_habit_affordability() -> void:
 		if d == null:
 			continue
 		var b: Button = _habit_buttons[key]
-		var affordable: bool = GameState.dopamine >= d.build_cost
+		var affordable: bool = GameState.dopamine >= d.build_cost \
+			and GameState.can_reserve_bandwidth(d.bandwidth_cost)
 		b.modulate = Color(1, 1, 1) if affordable else Color(1, 1, 1, 0.42)
 
 ## Left = not yet dealt with this wave (still queued to spawn, or alive on the field).
@@ -3229,6 +3928,21 @@ func _on_selected_habit_changed(key) -> void:
 ## variable-ratio hook the game is teaching about, aimed at the player.
 func _on_insight_dropped(at_position: Vector2, amount: int) -> void:
 	_pop_text(at_position, "+%d ◆" % amount, Color("7ef2e6"))
+
+## The readout names the STATE, not the number, because the number alone does not tell
+## the player that their habits are about to start missing ticks.
+func _on_burnout_changed(v: float) -> void:
+	if _burnout_meter == null:
+		return
+	_burnout_meter.visible = v > 0.0
+	if not _burnout_meter.visible:
+		return
+	var label := "%d%%" % int(v)
+	if v >= BURNOUT_FAIL:
+		label += "  ·  lapsing"
+	elif v >= BURNOUT_STRAIN:
+		label += "  ·  strained"
+	_burnout_meter.update_meter(v, 100.0, label)
 
 func _on_tolerance_changed(v: int) -> void:
 	# Shown whenever Tolerance can actually move — Quick Hit levels, or any level where a

@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="DistractionData" format=3]
+[gd_resource type="Resource" script_class="DistractionData" format=3 uid="uid://dgleeiqemlmu"]
 
-[ext_resource type="Script" path="res://scripts/resources/distraction_data.gd" id="1_sgkvq"]
+[ext_resource type="Script" uid="uid://bmn4nqrqpioiy" path="res://scripts/resources/distraction_data.gd" id="1_sgkvq"]
 
 [resource]
 script = ExtResource("1_sgkvq")
@@ -13,6 +13,7 @@ compulsion = 4
 dopamine_reward = 5
 focus_damage = 2
 melee_damage = 7
+block_weight = 2
 color = "33cc77"
 radius = 14.0
 shape = "rect"

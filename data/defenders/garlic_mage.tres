@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="DefenderData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/defender_data.gd" id="1_garl"]
+
+[resource]
+script = ExtResource("1_garl")
+id = &"garlic_mage"
+display_name = "Garlic Mage"
+role = "Warden"
+description = "A pale bulb sage with a root staff. Bonks politely, but its pungent air is the point — everything shuffling through the reek slows down, and no distraction wants to linger near it."
+max_health = 30
+damage = 5
+attack_cooldown = 0.9
+block_capacity = 1
+move_speed = 85.0
+chase_speed = 180.0
+ward_slow_factor = 0.8
+ward_duration = 0.6
+ward_interval = 0.5
+ward_radius = 96.0
+color = "e8e2cf"

@@ -19,7 +19,9 @@ const HINTS := {
 		+ "The glowing tether shows what holds each habit up.",
 	"first_aim":
 		"Aim with the mouse: direction sets the cone's facing, DISTANCE sets its width — "
-		+ "close is wide, far is narrow. Left-click locks it, right-click cancels.",
+		+ "close is wide, far is narrow. Left-click locks it, right-click cancels. "
+		+ "Same energy either way: narrow = fewer, harder shots that pierce and shove; "
+		+ "wide = a faster, softer wall. Scroll over the habit's panel to retune it anytime.",
 	"no_routine":
 		"A habit outside your Routine stalls and does nothing. Build an Anchor near it "
 		+ "to extend the Routine, or build closer to your Focus core.",
@@ -83,6 +85,14 @@ func _trait_for(def: DistractionData) -> String:
 		return "◈ Shielded — periodically immune to direct hits"
 	if "disrupt_interval" in def and def.disrupt_interval > 0.0:
 		return "◈ Disruptor — pings your habits and briefly stops them"
+	# Above the plain armour line on purpose: these archetypes all carry high compulsion
+	# too, and "Armored" would be the true-but-useless answer for every one of them.
+	if "haste_interval" in def and def.haste_interval > 0.0:
+		return "◈ Energiser — speeds up everything around it. Kill it first"
+	if "overdrive_hp_pct" in def and def.overdrive_hp_pct > 0.0:
+		return "◈ Overdrive — wounding it makes it faster. Finish what you start"
+	if "fast_shot_damage_mult" in def and def.fast_shot_damage_mult < 1.0:
+		return "◈ Doughy — shrugs off rapid fire, gives way to AoE and boredom"
 	if def.compulsion >= 3:
 		return "◈ Armored — resists %s" % Data.TERM.damage
 	if def.speed >= 110.0:

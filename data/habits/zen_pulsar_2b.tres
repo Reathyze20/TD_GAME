@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="HabitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/habit_data.gd" id="1_zpul2"]
+
+[resource]
+script = ExtResource("1_zpul2")
+id = &"zen_pulsar_2b"
+name = "Overclocked Stillness"
+short = "Overclock"
+description = "Trades the long hold for a faster beat: a shorter freeze, but one that comes around often enough to meter a sprinting wave."
+build_cost = 85
+bandwidth_cost = 14
+range = 300.0
+arc_angle = 120.0
+willpower_damage = 0
+awareness_damage = 14
+fire_cooldown = 2.8
+aoe = true
+stun_duration = 0.7
+dispel_haste = true
+charge_telegraph = true
+color = "5fe4f6"
+projectile_color = "ffc766"
+impulse = 0.0

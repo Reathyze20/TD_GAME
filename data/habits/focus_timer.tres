@@ -12,3 +12,5 @@ break_short = 3.0
 break_long = 6.0
 name = "Focus Timer"
 short = "Timer"
+bandwidth_cost = 8
+impulse = 0.6

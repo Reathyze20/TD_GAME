@@ -1,10 +1,19 @@
 class_name Habit
 extends BaseHabit
 # A placed healthy habit defending attention.
-# Targeting: locks onto the nearest live distraction inside its aim cone, slews the
-# barrel toward it (8 rad/s) and fires directional projectiles along the barrel (_aim)
-# once it is within AIM_TOLERANCE_DEG. AoE habits pulse the whole cone instead.
-# Support habits (Anchor line — no damage, no AoE) never target or fire at all.
+#
+# It does NOT pick targets. A habit is a suppression emitter: it converts a fixed budget
+# of energy per second into shots fired blind into its own sector, and the only thing the
+# player controls is the geometry — where the wedge points and how wide it opens. Narrow
+# it down a corridor and the shots run its whole length, hard and piercing; open it across
+# the mouth of one and they become a wall that touches everything and stops none of it.
+# ArcProfile owns every number that trade moves. AoE habits pulse their cone on the same
+# rules instead of spawning projectiles. Support habits (Anchor line) never fire at all.
+#
+# What this replaced, and why it is worth not going back to: the habit used to lock the
+# nearest distraction in its cone, slew the barrel at 8 rad/s and fire only once aligned.
+# That made the cone a passive filter — the player aimed a region and the tower did the
+# aiming that mattered — and it made the angle a range stat rather than a decision.
 
 var cooldown := 0.0
 var _pulse_progress := 0.0
@@ -29,8 +38,22 @@ func disrupt(duration: float) -> void:
 
 # Directional cone state
 var facing_angle: float = 0.0     # center of cone in radians
-var arc_angle: float = 60.0       # cone width in degrees (10° .. 125°)
+var arc_angle: float = 60.0       # cone width in degrees (ArcProfile.ARC_MIN .. ARC_MAX)
 var _aim: float = 0.0             # current live barrel orientation in radians
+
+## Everything the cone width decides — damage, pierce, rate, hitbox, impulse, lane count.
+## Recomputed on every set_arc_angle() and never per shot; see ArcProfile.
+var _profile := ArcProfile.new()
+
+## Which firing lane the next shot uses, and where the barrel is being dragged. The barrel
+## chases the last shot rather than leading it, so a wide fan visibly rakes across its
+## wedge while a narrow one barely twitches — the sprite reports the spread for free.
+var _shot_index: int = 0
+var _spray_angle: float = 0.0
+
+## Per-habit RNG for the sub-lane jitter. Global randf() would leave two towers of the
+## same type firing in lockstep whenever their cooldowns happened to align.
+var _rng := RandomNumberGenerator.new()
 
 # Base stats (immutable after setup)
 var base_willpower_damage: int
@@ -46,6 +69,8 @@ var current_fire_cooldown: float
 
 func _setup_specific(initial_facing: float, initial_arc: float) -> void:
 	facing_angle = initial_facing
+	_spray_angle = initial_facing
+	_rng.randomize()
 	# def.arc_angle always exists (every habit's data defines it), so the old
 	# def.get("arc_angle", initial_arc) always resolved to def.arc_angle in practice —
 	# the initial_arc param was already dead here before this refactor; preserved as-is.
@@ -65,67 +90,54 @@ func _setup_specific(initial_facing: float, initial_arc: float) -> void:
 	_recalculate_stats()
 	queue_redraw()
 
-## How far off the barrel may be and still fire (degrees). See the gate in _process().
-const AIM_TOLERANCE_DEG := 12.0
-
-# ---------------------------------------------------------------- targeting modes
+# ---------------------------------------------------------------- the cone as a dial
 #
-# The standard TD set. NEAREST is the default and re-picks every frame (the original
-# feel). The other modes HOLD their locked target while it stays alive and in-cone:
-# re-picking each frame thrashes the 8 rad/s barrel slew against the aim-tolerance
-# gate — STRONGEST/WEAKEST would ping-pong between equal-health targets on every hit
-# and the tower would never fire.
-
-enum TargetMode { NEAREST, FIRST, STRONGEST, WEAKEST }
-const TARGET_MODE_NAMES := {
-	TargetMode.NEAREST: "Nearest", TargetMode.FIRST: "First",
-	TargetMode.STRONGEST: "Strongest", TargetMode.WEAKEST: "Weakest",
-}
-
-## Copied to the replacement node by BuildSpot.upgrade_habit(), like the combat record.
-var target_mode: TargetMode = TargetMode.NEAREST
-var _locked_target: Distraction = null
-
-func cycle_target_mode() -> void:
-	target_mode = ((int(target_mode) + 1) % TargetMode.size()) as TargetMode
-	_locked_target = null
-
-func target_mode_name() -> String:
-	return TARGET_MODE_NAMES[target_mode]
-
-func _pick_target() -> Distraction:
-	if target_mode != TargetMode.NEAREST:
-		if is_instance_valid(_locked_target) and not _locked_target.dead \
-				and is_point_in_cone(_locked_target.global_position):
-			return _locked_target
-		_locked_target = null
-	var best: Distraction = null
-	var best_score := INF
-	for d in game.get_live_distractions():
-		if not is_instance_valid(d) or d.dead or not is_point_in_cone(d.global_position):
-			continue
-		var score: float
-		match target_mode:
-			TargetMode.FIRST:
-				# Furthest along its route = least remaining path. Flyers have no
-				# route; distance to the core is the same "closest to hurting you".
-				score = d.distance_to_core() if d.is_flying \
-					else float(d.cell_path.size() - d.path_index) * float(Data.GRID.tile)
-			TargetMode.STRONGEST:
-				score = -float(d.current_health)
-			TargetMode.WEAKEST:
-				score = float(d.current_health)
-			_:
-				score = global_position.distance_squared_to(d.global_position)
-		if score < best_score:
-			best_score = score
-			best = d
-	if target_mode != TargetMode.NEAREST:
-		_locked_target = best
-	return best
+# Setting the width is the whole tactical decision, so it is also the only place the
+# derived combat numbers are computed. Anything that moves `arc_angle` has to come
+# through here — the profile and the angle can then never disagree.
 
 func set_arc_angle(deg: float) -> void:
-	arc_angle = clampf(deg, 10.0, 125.0)
+	arc_angle = clampf(deg, ArcProfile.ARC_MIN, ArcProfile.ARC_MAX)
+	if def != null:
+		_profile.recompute(def, arc_angle)
+
+## Read-only view of the derived stats, for the HUD and for tests. Handing out the live
+## object rather than copying it is safe because nothing outside set_arc_angle() writes
+## to it, and a per-frame copy for a panel readout would be silly.
+func arc_profile() -> ArcProfile:
+	return _profile
+
+## Seconds between shots at the current width — fire_cooldown shaped by the angle.
+func shot_interval() -> float:
+	return _profile.shot_interval(current_fire_cooldown)
+
+## Whether anything is standing in the wedge right now. NOT used to decide whether to
+## fire (the habit fires regardless — that is the point) — only to decide whether the
+## Pomodoro is spending its work interval. A Focus Timer that burned out on schedule
+## whether or not there was anything to focus ON would be a timer, not a habit.
+func has_enemy_in_cone() -> bool:
+	if game == null:
+		return false
+	for d in game.get_live_distractions():
+		if is_instance_valid(d) and not d.dead and is_point_in_cone(d.global_position):
+			return true
+	return false
+
+## has_enemy_in_cone() costs a cone test (with a wall raycast) per live distraction, and
+## the work interval it feeds is measured in SECONDS — polling it every frame would spend
+## per-frame money on a per-second question. Sampled instead, and the result held between
+## samples; the interval drains by full delta either way, so the only thing at stake is
+## how fast the meter notices a change, not how fast it drains.
+const WORK_POLL_INTERVAL := 0.15
+var _work_poll_t := 0.0
+var _work_poll_result := false
+
+func _enemy_in_cone_sampled(delta: float) -> bool:
+	_work_poll_t -= delta
+	if _work_poll_t <= 0.0:
+		_work_poll_t = WORK_POLL_INTERVAL
+		_work_poll_result = has_enemy_in_cone()
+	return _work_poll_result
 
 func has_work_cycle() -> bool:
 	return def.has_work_cycle
@@ -157,6 +169,12 @@ func is_point_in_cone(target_pos: Vector2) -> bool:
 	var angle_diff := absf(facing_dir.angle_to(target_dir))
 	if angle_diff > deg_to_rad(arc_angle / 2.0):
 		return false
+	# The Brain Fog shades the cone the same way walls do: a body standing in the dark is
+	# simply not in it. Suppression has no target selection to filter, so "can't hit what
+	# you can't see" lives here (AoE pulses + the Pomodoro work check) and in the
+	# projectile's hit loop — the two places a hit is actually decided.
+	if game != null and not game.is_pos_visible(target_pos):
+		return false
 	# Walls shade the cone: anything behind high ground is simply not in it. Flyers over
 	# a wall are shaded too — the wedge preview draws the same cast, and a preview that
 	# never lies beats a special case the player cannot see.
@@ -176,6 +194,13 @@ func _recalculate_stats() -> void:
 	current_fire_cooldown = maxf(0.02, ModifierManager.get_modified_stat(
 		base_fire_cooldown, ModifierManager.STAT_FIRE_COOLDOWN, type_key))
 	queue_redraw()
+
+## Idle barrel behaviour for every state that stops the habit firing — rest, a lost
+## Routine, a disruptor ping. It drifts back to the cone's centre and stays there, so a
+## stopped habit reads as stopped rather than merely quiet.
+func _settle_barrel(delta: float) -> void:
+	_spray_angle = facing_angle
+	_aim = lerp_angle(_aim, facing_angle, 5.0 * delta)
 
 func _process(delta: float) -> void:
 	# Support habits (Anchor line) never target or fire — just the head animation and
@@ -202,12 +227,12 @@ func _process(delta: float) -> void:
 				break_left = 0.0
 				burned_out = false
 				work_left = def.work_duration
-		_aim = lerp_angle(_aim, facing_angle, 5.0 * delta)
+		_settle_barrel(delta)
 		queue_redraw()
 		return
 
 	if not in_routine:
-		_aim = lerp_angle(_aim, facing_angle, 5.0 * delta)
+		_settle_barrel(delta)
 		queue_redraw()
 		return
 
@@ -215,13 +240,16 @@ func _process(delta: float) -> void:
 	if disrupted_left > 0.0:
 		if wave_active:
 			disrupted_left = maxf(0.0, disrupted_left - delta)
-		_aim = lerp_angle(_aim, facing_angle, 5.0 * delta)
+		_settle_barrel(delta)
 		queue_redraw()
 		return
 
 	# Past every idle early-return, so rest/no-routine/disruption freeze the head sprite.
 	if not _head_frames.is_empty():
-		_anim_t += delta
+		if def.charge_telegraph:
+			_advance_charge_anim()
+		else:
+			_anim_t += delta
 		queue_redraw()
 
 	if _recoil > 0.001 or _muzzle_flash_alpha > 0.001:
@@ -229,10 +257,24 @@ func _process(delta: float) -> void:
 		_muzzle_flash_alpha = lerpf(_muzzle_flash_alpha, 0.0, 24.0 * delta)
 		queue_redraw()
 
-	var target_enemy: Distraction = _pick_target() if wave_active else null
+	# ------------------------------------------------------------ suppression stream
+	#
+	# There is no target and no alignment gate. The habit converts its energy budget into
+	# shots aimed into the SECTOR, so the shots are already in the air when a distraction
+	# walks into it — which is the entire reason the player is being asked to read the
+	# corridor geometry instead of clicking on enemies.
+	#
+	# The one thing it will not do is fire at an empty board. Between spawns there is
+	# nothing to suppress, and a screenful of bullets travelling at nobody costs pool
+	# slots and per-frame collision passes while telling the player something false about
+	# what the tower is doing. A board where everything alive is hidden in the Brain Fog
+	# counts as empty for the same reason — you cannot suppress what you cannot see.
+	var board_live: bool = wave_active and game.has_visible_distraction()
 
-	# Spend work/ammo duration ONLY when actively targeting/firing at an enemy!
-	if has_work_cycle() and wave_active and target_enemy != null:
+	# The Pomodoro spends its interval on WORK, not on ammunition: the trigger is that
+	# something is in the wedge to be held off, not that the barrel happens to be moving.
+	# Firing into an empty sector is free — it is warming up, not working.
+	if has_work_cycle() and board_live and _enemy_in_cone_sampled(delta):
 		work_left -= delta
 		if work_left <= 0.0:
 			work_left = 0.0
@@ -240,84 +282,131 @@ func _process(delta: float) -> void:
 			queue_redraw()
 			return
 
-	# The barrel slews toward the target rather than snapping, and firing used to be gated
-	# on the cooldown alone — so every time the nearest-target pick flipped (constantly, in
-	# a swarm) the habit dumped its next few shots into empty space. Now a shot also has to
-	# wait for the barrel to actually point at something.
-	var aim_error := TAU
-	if target_enemy != null:
-		var target_angle = (target_enemy.global_position - global_position).angle()
-		_aim = lerp_angle(_aim, target_angle, 8.0 * delta)
-		aim_error = absf(angle_difference(_aim, target_angle))
-	else:
-		_aim = lerp_angle(_aim, facing_angle, 5.0 * delta)
-
 	cooldown -= delta
-	if cooldown <= 0.0:
-		# AoE resolves inside the cone and doesn't care where the barrel points; only the
-		# projectile line does. Tolerant on purpose — with a wider hit window and pierce, a
-		# slightly-off shot still connects, and a gate this could never satisfy would be
-		# worse than the wasted shots it replaces.
-		var aimed: bool = def.aoe or aim_error <= deg_to_rad(AIM_TOLERANCE_DEG)
-		if wave_active and target_enemy != null and aimed:
-			_barrel_side = 1 - _barrel_side
-			_recoil = 1.0   # decays in the block above; drawn as barrel push-back
+	if cooldown <= 0.0 and board_live:
+		_fire()
+		cooldown = shot_interval()
 
-			# Smooth Soft Muzzle Flash Fade
-			_muzzle_flash_alpha = 1.0
-			var tw_f := create_tween()
-			tw_f.tween_property(self, "_muzzle_flash_alpha", 0.0, 0.14).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-
-			if def.aoe:
-				for d in _aoe_targets():
-					# Reframe first, so this pulse's own damage already benefits
-					# from the opening it just made.
-					if def.reframe > 0:
-						d.apply_reframe(def.reframe, def.reframe_duration)
-					d.take_damage(current_willpower_damage, current_awareness_damage, self)
-					if def.slow > 0.0:
-						d.apply_slow(def.slow, def.slow_duration)
-					if def.boredom > 0.0:
-						# `self` as source: each Real Hobby stacks its own dps, but one
-						# habit's overlapping pulses don't stack with themselves.
-						d.apply_boredom(def.boredom, def.boredom_duration, self)
-				_pulse()
-			else:
-				# Continuous firing along _aim barrel orientation alternating left/right!
-				var dir := Vector2.RIGHT.rotated(_aim)
-				var perp := dir.orthogonal()
-				var side_offset := -5.0 if _barrel_side == 0 else 5.0
-				var spawn_pos := global_position + (perp * side_offset) + (dir * 22.0)
-				game.spawn_directional_projectile(spawn_pos, _aim, current_attack_range,
-					current_willpower_damage, current_awareness_damage,
-					Color(def.projectile_color), self)
-			cooldown = current_fire_cooldown
+	# The barrel CHASES the last shot instead of leading it, so the sprite reports the
+	# spread for free: a 120° fan visibly rakes across its wedge, a 15° beam barely
+	# twitches. Faster than the old 8 rad/s slew because at ten shots a second a slow
+	# barrel would just average out to the cone centre and read as static.
+	_aim = lerp_angle(_aim, _spray_angle, 14.0 * delta)
 
 	queue_redraw()
+
+## One shot — or one pulse, for the AoE half of the roster. Split out of _process()
+## because it is the point where the cone width stops being a preview and becomes damage,
+## and because a test wants to call it without arranging a live wave first.
+func _fire() -> void:
+	_recoil = 1.0   # decays in _process; drawn as barrel push-back
+
+	# Smooth soft muzzle flash fade
+	_muzzle_flash_alpha = 1.0
+	var tw_f := create_tween()
+	tw_f.tween_property(self, "_muzzle_flash_alpha", 0.0, 0.14) \
+		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+	if def.aoe:
+		# A pulse has no lane to fire down: the cone IS the shot. The width still pays
+		# for itself on the same curve — a narrowed pulse hits fewer bodies for more each.
+		_spray_angle = facing_angle
+		for d in _aoe_targets():
+			apply_pulse_to(d)
+		_pulse()
+		return
+
+	_barrel_side = 1 - _barrel_side
+	var shot_angle: float = _profile.lane_angle(_shot_index, facing_angle, arc_angle, _rng)
+	_shot_index += 1
+	_spray_angle = shot_angle
+
+	var dir := Vector2.RIGHT.rotated(shot_angle)
+	var perp := dir.orthogonal()
+	var side_offset := -5.0 if _barrel_side == 0 else 5.0
+	var spawn_pos := global_position + (perp * side_offset) + (dir * 22.0)
+
+	# A directional habit may carry a DoT too. Boredom used to be reachable only from the
+	# AoE branch, which quietly forced every DoT habit to be a cone pulse — see
+	# Projectile.boredom.
+	game.spawn_directional_projectile(spawn_pos, shot_angle, current_attack_range,
+		_profile.scale_damage(current_willpower_damage),
+		_profile.scale_damage(current_awareness_damage),
+		Color(def.projectile_color), self,
+		def.boredom, def.boredom_duration, def.projectile_spin,
+		_profile.pierce, _profile.hit_padding,
+		_profile.knockback, _profile.stagger_factor)
+
+## Everything one AoE pulse does to one distraction. Public and split out of _process()
+## because the ORDER here is the whole design and it is invisible from the outside — a
+## test can call this directly instead of trying to catch a live tower mid-shot.
+##
+## The order, and why:
+##  1. Reframe strips resistance FIRST, so this pulse's own damage already gets the
+##     opening it just made — that is what makes Mindfulness a set-up for itself.
+##  2. Damage.
+##  3. Slow, then Stun. apply_slow is strongest-wins and a freeze (0.0) beats anything,
+##     so stunning after a partial slow costs nothing, while the reverse would let the
+##     weaker slow be the one the player sees on a habit carrying both.
+##  4. Dispel — clears Rush, leaves Overdrive (a latched phase change).
+##  5. Vulnerability LAST, after the damage, so the pulse cannot amplify itself. This
+##     debuff buys damage for the rest of the board; Reframe sits before the damage
+##     precisely because it is meant to pay the caster too. The two read alike and do
+##     opposite things, which is exactly why they are ordered on purpose.
+func apply_pulse_to(d: Distraction) -> void:
+	if def.reframe > 0:
+		d.apply_reframe(def.reframe, def.reframe_duration)
+	d.take_damage(_profile.scale_damage(current_willpower_damage),
+		_profile.scale_damage(current_awareness_damage), self)
+	# The physical response, on the same terms the projectile half gets it: a narrowed
+	# pulse shoves outward from the tower, a widened one micro-staggers everything it
+	# washes over. Applied before the authored slow so a real Calm still wins the compare.
+	if _profile.knockback > 0.0:
+		d.apply_knockback((d.global_position - global_position).normalized(),
+			_profile.knockback)
+	if _profile.stagger_factor < 1.0:
+		d.apply_slow(_profile.stagger_factor, ArcProfile.STAGGER_TIME)
+	if def.slow > 0.0:
+		d.apply_slow(def.slow, def.slow_duration)
+	if def.stun_duration > 0.0:
+		d.apply_stun(def.stun_duration)
+	if def.dispel_haste:
+		d.dispel_haste()
+	if def.vulnerable_mult > 1.0:
+		d.apply_vulnerable(def.vulnerable_mult, def.vulnerable_duration)
+	if def.boredom > 0.0:
+		# `self` as source: each Real Hobby stacks its own dps, but one habit's
+		# overlapping pulses don't stack with themselves.
+		d.apply_boredom(def.boredom, def.boredom_duration, self)
 
 # An AoE pulse used to damage EVERY body in the cone with no cap, no falloff and no
 # per-pulse budget, so its damage scaled linearly with how many enemies happened to be
 # standing there — Mindfulness+ into a 20-strong clump out-damaged every single-target
 # habit in the game by an order of magnitude, for less money. Capping it makes the two
 # archetypes distinct rather than one dominating: cone habits are AREA, bounded;
-# projectile habits are LINE, bounded (see Projectile.MAX_PIERCE).
+# projectile habits are LINE, bounded (see ArcProfile.MAX_PIERCE).
 #
 # Nearest-first, because a pulse that spends its budget on the back of the queue while
 # the front walks past would read as broken.
-const AOE_MAX_TARGETS := 6
+#
+# The cap is no longer a constant: it is the AoE mirror of pierce, and it moves with the
+# cone width on the same curve (ArcProfile.aoe_targets). Narrow a Mindfulness down and it
+# stops being area denial — it becomes a single-target armour shredder hitting for more.
+# Same energy, different shape, which is the rule the whole roster now shares.
 
 func _aoe_targets() -> Array:
+	var cap: int = _profile.aoe_targets
 	var in_cone: Array = []
 	for d in game.get_live_distractions():
 		if is_instance_valid(d) and not d.dead and is_point_in_cone(d.global_position):
 			in_cone.append(d)
-	if in_cone.size() <= AOE_MAX_TARGETS:
+	if in_cone.size() <= cap:
 		return in_cone
 	var origin: Vector2 = global_position
 	in_cone.sort_custom(func(a, b):
 		return origin.distance_squared_to(a.global_position) \
 			< origin.distance_squared_to(b.global_position))
-	return in_cone.slice(0, AOE_MAX_TARGETS)
+	return in_cone.slice(0, cap)
 
 func _pulse() -> void:
 	var tw := create_tween()
@@ -382,12 +471,36 @@ func _head_art_key() -> String:
 	if FileAccess.file_exists("res://assets/towers/head_%s.png" % type_key) \
 			or FileAccess.file_exists("res://assets/towers/head_%s_frame_1.png" % type_key):
 		return type_key
-	return type_key.trim_suffix("_2")
+	# Fall back to the tier-1 root of the upgrade line. This used to be
+	# `trim_suffix("_2")`, which only worked while every line had exactly one upgrade
+	# named <root>_2 — a BRANCHING line (zen_pulsar -> _2a / _2b) trimmed to nothing and
+	# the upgraded habit silently lost its sprite. Data.habit_family() walks the actual
+	# `upgrades` edges, so it handles any depth and any branch shape.
+	return String(Data.habit_family(type_key))
+
+## Pins the head animation to the reload instead of letting it free-run, so a telegraphed
+## habit's sprite reads as its countdown: first frame the instant it fires, last frame when
+## it is ready again. Both sides get to plan around the beat — which is the whole point of
+## a habit that hits hard on a long timer instead of chipping continuously.
+##
+## `cooldown` goes NEGATIVE while a charged habit waits for something to walk into its
+## cone (it is only reset on an actual shot), so progress is clamped: past 1.0 the sprite
+## holds the fully-charged frame rather than wrapping back to the discharge.
+func _advance_charge_anim() -> void:
+	var full: float = maxf(0.001, current_fire_cooldown)
+	var progress: float = clampf(1.0 - cooldown / full, 0.0, 1.0)
+	var last: int = _head_frames.size() - 1
+	var idx: int = clampi(int(progress * float(_head_frames.size())), 0, last)
+	_anim_t = float(idx) / HEAD_FPS
+
+## Which animation frame the head clock currently lands on.
+func _frame_index() -> int:
+	return int(_anim_t * HEAD_FPS) % _head_frames.size()
 
 ## Current frame when animated, the static sprite otherwise, null when no art exists.
 func _current_head_tex() -> Texture2D:
 	if not _head_frames.is_empty():
-		return _head_frames[int(_anim_t * HEAD_FPS) % _head_frames.size()]
+		return _head_frames[_frame_index()]
 	return _head_tex
 
 func _ready() -> void:
@@ -411,10 +524,19 @@ func _load_head_art() -> void:
 	if _head_tex == null and not _head_frames.is_empty():
 		_head_tex = _head_frames[0]
 
-## Draws `tex` centred at native size x whole zoom (16px art x3 on a 48px cell).
+## One art pixel always draws as a 2x2 screen block — the same ART_SPAN rule the creatures
+## use — so head art can be authored at whatever size the design needs and the pixel density
+## never changes between a tower and the distraction walking past it.
+##
+## This replaced a fit-to-cell `floor(tile / width)`, which capped useful head art at 24px:
+## 32px art landed on floor(48/32) = 1, i.e. the head would SHRINK to 32 screen px and draw
+## one art pixel per screen pixel — twice as fine as the world around it. 24px art is
+## unaffected (floor(48/24) was already 2); 32px art now draws at 64 px and overhangs its
+## cell by 8 px per side, exactly as a 32px creature overhangs at 64.
+const HEAD_ART_SPAN := 2.0
+
 func _draw_head_sprite(tex: Texture2D, tint: Color, rot: float = 0.0, offset: Vector2 = Vector2.ZERO) -> void:
-	var zoom := maxf(1.0, floorf(float(Data.GRID.tile) / tex.get_width()))
-	var size := Vector2(tex.get_size()) * zoom
+	var size := Vector2(tex.get_size()) * HEAD_ART_SPAN
 	var transformed := rot != 0.0 or offset != Vector2.ZERO
 	if transformed:
 		draw_set_transform(offset, rot, Vector2.ONE)
@@ -473,12 +595,14 @@ func _draw() -> void:
 	var recoil_offset := -_recoil * 6.0
 	var head_tex := _current_head_tex()
 
-	if head_tex != null and not def.aoe:
+	if head_tex != null and not def.aoe and def.head_aims:
 		var head_tint := Color(0.6, 0.6, 0.6, 0.6) if resting else Color.WHITE
 		var art_facing: float = ART_FACING.get(_head_art_key(), -PI / 2.0)
 		_draw_head_sprite(head_tex, head_tint, _aim - art_facing, dir * recoil_offset)
-	elif def.aoe and head_tex != null:
-		# AoE heads do not aim — the sprite sits still and its animation carries the life.
+	elif head_tex != null and (def.aoe or not def.head_aims):
+		# Heads that do not aim: AoE pulses (the sprite's own animation carries the life)
+		# and directional habits whose art would read wrong spinning — the Tome fires its
+		# pages along _aim while the book itself stays open and still.
 		_draw_head_sprite(head_tex, Color(0.6, 0.6, 0.6, 0.6) if resting else Color.WHITE)
 	elif def.aoe: # Mindfulness / Meditation Crystal Orb (vector fallback)
 		var crystal_r := base_r * 0.6

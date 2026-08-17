@@ -18,8 +18,18 @@ const GRID := {
 
 # UI display order — not gameplay balance data, so these stay plain id lists here
 # rather than becoming their own Resource type.
-const HABIT_ORDER: Array[StringName] = [&"focus_timer", &"mindfulness", &"exercise", &"real_hobby", &"accountability", &"anchor"]
-const INTERVENTION_ORDER: Array[StringName] = [&"screen_break", &"deep_breath", &"call_a_friend"]
+## Build-panel order and hotkey assignment (index + 1). Every entry needs a matching
+## `td_habit_<n>` action in project.godot — Input.is_action_just_pressed() on a missing
+## action errors every frame, so the two lists must grow together.
+const HABIT_ORDER: Array[StringName] = [&"focus_timer", &"mindfulness", &"exercise", &"real_hobby", &"zen_pulsar", &"accountability", &"anchor"]
+
+## Slot-cycling order for the Nutrition Guild's recipe buttons, and the default recipe
+## a fresh guild opens with (one of each, in this order). Same contract as HABIT_ORDER:
+## display/UX ordering lives here, balance lives in the .tres files.
+const DEFENDER_ORDER: Array[StringName] = [&"broccoli_knight", &"avocado_monk",
+	&"chilli_berserker", &"garlic_mage"]
+const INTERVENTION_ORDER: Array[StringName] = [&"screen_break", &"deep_breath",
+	&"call_a_friend", &"airplane_mode", &"moment_of_clarity"]
 
 # ---------------------------------------------------------------- draft rarities
 #
@@ -76,6 +86,9 @@ const TERM := {
 	"armor":        "armor",              # was "Compulsion"
 	"slow":         "slow",               # was "Calm"
 	"dot":          "damage over time",   # was "Boredom"
+	"stun":         "freeze",             # hard stun — plainer than "stun" for this game
+	"dispel":       "clears speed boosts",
+	"vulnerable":   "damage taken",
 }
 
 # ---------------------------------------------------------------- growth tree
@@ -93,6 +106,7 @@ const GROWTH_BRANCHES := {
 
 var _distractions: Dictionary = {}       # StringName -> DistractionData
 var _habits: Dictionary = {}             # StringName -> HabitData
+var _defenders: Dictionary = {}          # StringName -> DefenderData
 var _cards: Dictionary = {}              # StringName -> CardData
 var _interventions: Dictionary = {}      # StringName -> InterventionData
 var _growth_nodes: Dictionary = {}       # StringName -> GrowthNodeData
@@ -106,6 +120,7 @@ var _habit_root: Dictionary = {}         # StringName -> StringName (tier-1 id o
 func _ready() -> void:
 	_distractions = _load_indexed("res://data/distractions/")
 	_habits = _load_indexed("res://data/habits/")
+	_defenders = _load_indexed("res://data/defenders/")
 	_cards = _load_indexed("res://data/cards/")
 	_interventions = _load_indexed("res://data/interventions/")
 	_growth_nodes = _load_indexed("res://data/growth/")
@@ -150,6 +165,9 @@ func get_distraction(id: StringName) -> DistractionData:
 
 func get_habit(id: StringName) -> HabitData:
 	return _habits.get(id)
+
+func get_defender(id: StringName) -> DefenderData:
+	return _defenders.get(id)
 
 ## Tier-1 root of a habit's upgrade line ("focus_timer_2" -> "focus_timer"), derived
 ## from the `upgrades` arrays in the .tres data — no separate family table to drift.

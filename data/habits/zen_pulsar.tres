@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="HabitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/habit_data.gd" id="1_zpul0"]
+
+[resource]
+script = ExtResource("1_zpul0")
+id = &"zen_pulsar"
+name = "Zen Pulsar"
+short = "Pulse"
+description = "Charges in silence, then snaps shut. Freezes everything in the wedge for a moment and strips the speed off anything running hot — it buys time rather than dealing it."
+build_cost = 70
+bandwidth_cost = 10
+upgrades = Array[StringName]([&"zen_pulsar_2a", &"zen_pulsar_2b"])
+range = 300.0
+arc_angle = 120.0
+willpower_damage = 0
+awareness_damage = 20
+fire_cooldown = 4.0
+aoe = true
+stun_duration = 1.2
+dispel_haste = true
+charge_telegraph = true
+color = "5fe4f6"
+projectile_color = "ffc766"
+impulse = 0.0

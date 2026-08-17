@@ -38,13 +38,35 @@ var _frames_south: Array[Texture2D] = []
 var _frames_north: Array[Texture2D] = []
 var _frames_east: Array[Texture2D] = []
 var _frames_west: Array[Texture2D] = []
+var _frames_attack: Array[Texture2D] = []
 
-## How fast hand-authored frames cycle. Independent of the procedural animations, which
-## are driven by _time directly.
 ## Sprite width in radii. See _sprite_size().
 const ART_SPAN := 2.0
 
+## Fallback rate for hand-authored frames — used by every set the Animation Lab has not
+## given a rate of its own. Independent of the procedural animations below, which are
+## driven by _time directly.
 const SPRITE_FPS := 12.0
+
+## Per-set timing and frame alignment, authored in the Animation Lab dock.
+##
+## Loaded once per run and shared by every instance: it is two dictionaries and all
+## creatures read the same ones. A missing file yields an empty resource, so the game
+## behaves exactly as it did before tuning existed.
+static var _tuning: AnimTuning = null
+
+static func tuning() -> AnimTuning:
+	if _tuning == null:
+		if ResourceLoader.exists(AnimTuning.PATH):
+			_tuning = load(AnimTuning.PATH) as AnimTuning
+		if _tuning == null:
+			_tuning = AnimTuning.new()
+	return _tuning
+
+## Drops the cached tuning so the next draw re-reads it from disk. The Animation Lab
+## calls this after saving, so a running preview picks the change up.
+static func drop_tuning_cache() -> void:
+	_tuning = null
 
 func _ready() -> void:
 	set_process(true)
@@ -103,6 +125,10 @@ func _load_frame_textures() -> void:
 	# West is east mirrored at draw time unless real west art exists — a walk cycle seen
 	# from the side is symmetric enough that generating it twice buys nothing.
 	_frames_west = _load_set(base_id, suffix, "_west")
+	# Optional melee set, played on loop while a defender holds this creature
+	# (`<id>[_variant]_attack_frame_N.png`). Ships one enemy at a time like death art;
+	# a type without it just keeps walking in place against the blocker, as before.
+	_frames_attack = _load_set(base_id, suffix, "_attack")
 	_frame_textures = _frames_south
 
 func _load_set(base_id: String, suffix: String, dir_suffix: String) -> Array[Texture2D]:
@@ -185,41 +211,63 @@ func _draw_contact_shadow(r: float, strength: float) -> void:
 ##
 ## Returns the frames plus whether to mirror them: with no dedicated west art, west is
 ## the east cycle flipped.
+## Returns the frames, whether to mirror them, and the directional suffix — the suffix so
+## the caller can name the set for AnimTuning without re-deriving which branch won.
 func _facing_frames() -> Array:
 	match enemy.facing:
 		Distraction.Facing.NORTH:
 			if not _frames_north.is_empty():
-				return [_frames_north, false]
+				return [_frames_north, false, "_north"]
 		Distraction.Facing.EAST:
 			if not _frames_east.is_empty():
-				return [_frames_east, false]
+				return [_frames_east, false, "_east"]
 		Distraction.Facing.WEST:
 			if not _frames_west.is_empty():
-				return [_frames_west, false]
+				return [_frames_west, false, "_west"]
 			if not _frames_east.is_empty():
-				return [_frames_east, true]
-	return [_frames_south, false]
+				return [_frames_east, true, "_east"]
+	return [_frames_south, false, ""]
+
+## Filename stem of one sprite set — the same string _load_set builds its paths from, and
+## therefore the key AnimTuning stores that set under.
+func _set_key(dir_suffix: String) -> String:
+	if enemy == null or enemy.def == null:
+		return ""
+	return String(enemy.def.id) + _variant_suffix + dir_suffix
 
 func _draw_sprite_frames(r: float) -> void:
 	var pick := _facing_frames()
+	# A held creature fights the thing holding it: the attack set overrides the walk
+	# cycle while is_blocked, mirrored toward WEST with the same rule walking uses.
+	if enemy.is_blocked and not _frames_attack.is_empty():
+		pick = [_frames_attack, enemy.facing == Distraction.Facing.WEST, "_attack"]
 	var frames: Array[Texture2D] = pick[0]
 	if frames.is_empty():
 		return
 	var mirror: bool = pick[1]
-	var tex: Texture2D = frames[int(_time * SPRITE_FPS) % frames.size()]
+	var key := _set_key(pick[2])
+	var idx: int = int(_time * tuning().fps_for(key, SPRITE_FPS)) % frames.size()
+	var tex: Texture2D = frames[idx]
+	var off := tuning().offset_for(key, idx)
 	if mirror:
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2(-1.0, 1.0))
-		_draw_texture_centred(tex, r)
+		_draw_texture_centred(tex, r, 1.0, off)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	else:
-		_draw_texture_centred(tex, r)
+		_draw_texture_centred(tex, r, 1.0, off)
 
-func _draw_texture_centred(tex: Texture2D, r: float, glow: float = 1.0) -> void:
+func _draw_texture_centred(tex: Texture2D, r: float, glow: float = 1.0,
+		off: Vector2i = Vector2i.ZERO) -> void:
 	var size := _sprite_size(tex, r)
 	if size == Vector2.ZERO:
 		return
-	_draw_body_glow(tex, size, glow)
-	draw_texture_rect(tex, Rect2(-size * 0.5, size), false)
+	# The nudge is authored in art pixels, so it is scaled the same way the sprite is:
+	# one step stays exactly one source pixel and the frame never lands on a half pixel.
+	# Under the mirrored transform above it flips with the art, which is what a mirrored
+	# set wants — its alignment is mirrored too.
+	var shift := Vector2(off) * (size.x / float(tex.get_width()))
+	_draw_body_glow(tex, size, glow, shift)
+	draw_texture_rect(tex, Rect2(-size * 0.5 + shift, size), false)
 
 ## On-screen size of one frame, deliberately NOT derived from radius alone.
 ##
@@ -260,7 +308,8 @@ func _visual_radius(r: float) -> float:
 ## something is, but the body itself still needs to separate from the background — so the
 ## same frame is stamped a step larger in def.color behind it. Silhouette-shaped, not a
 ## circle, so it reads as the creature glowing rather than as a lamp under it.
-func _draw_body_glow(tex: Texture2D, size: Vector2, strength: float) -> void:
+func _draw_body_glow(tex: Texture2D, size: Vector2, strength: float,
+		shift: Vector2 = Vector2.ZERO) -> void:
 	if enemy.def == null or strength <= 0.01:
 		return
 	var col := Color(enemy.def.color)
@@ -269,7 +318,9 @@ func _draw_body_glow(tex: Texture2D, size: Vector2, strength: float) -> void:
 		var i: float = float(ring)
 		var grown: Vector2 = size + Vector2.ONE * (step * i * 2.0)
 		var a: float = (0.16 if is_equal_approx(i, 1.0) else 0.09) * strength
-		draw_texture_rect(tex, Rect2(-grown * 0.5, grown), false,
+		# Follows the nudged body — a halo left behind at the untuned position would
+		# read as a second, misaligned creature.
+		draw_texture_rect(tex, Rect2(-grown * 0.5 + shift, grown), false,
 			Color(col.r, col.g, col.b, a))
 
 func trigger_hit_flash() -> void:
@@ -316,8 +367,11 @@ var _death_finished := false
 func has_death_animation() -> bool:
 	return not _death_frames.is_empty()
 
+## Reads the tuned rate, not the constant: Distraction._die() waits on this number before
+## freeing the corpse, so a death slowed down in the Animation Lab would otherwise be cut
+## off partway through.
 func death_duration() -> float:
-	return float(_death_frames.size()) / DEATH_FPS
+	return float(_death_frames.size()) / tuning().fps_for(_set_key("_death"), DEATH_FPS)
 
 func is_death_finished() -> bool:
 	return _death_finished
@@ -356,8 +410,10 @@ func _load_death_frames(base_id: String, suffix: String) -> void:
 
 ## Death frames play ONCE and hold on the last one — a looping death reads as a glitch.
 func _draw_death_frames(r: float) -> void:
-	var idx: int = mini(int(_death_time * DEATH_FPS), _death_frames.size() - 1)
-	_draw_texture_centred(_death_frames[idx], r)
+	var key := _set_key("_death")
+	var idx: int = mini(int(_death_time * tuning().fps_for(key, DEATH_FPS)),
+		_death_frames.size() - 1)
+	_draw_texture_centred(_death_frames[idx], r, 1.0, tuning().offset_for(key, idx))
 
 func _draw() -> void:
 	if enemy == null or enemy.def == null:
@@ -393,6 +449,33 @@ func _draw() -> void:
 	# Slow / Calm ring
 	if enemy.status_manager != null and enemy.status_manager.has_slow():
 		draw_arc(Vector2.ZERO, vr + 4.0, 0, TAU, 24, Color(0.3, 0.8, 1.0, 0.7), 2.0)
+
+	# Rush chevrons — a hurried distraction has to be legible in a crowd, and it is the
+	# crowd that carries the tell: a solid ring like Calm's would just read as another
+	# aura. Two arrowheads trailing the body point the way it is being pushed, so a
+	# hasted pack visibly leans in one direction. Sits behind the sprite frames below.
+	# Overdrive borrows the same chevrons but burns them red: it is the same statement
+	# ("this one is moving faster than you think") and a second, unrelated symbol for it
+	# would just cost the player another thing to learn.
+	var overdriven: bool = enemy.status_manager != null and enemy.status_manager.extra_factor > 1.0
+	if enemy.status_manager != null and (enemy.status_manager.has_haste() or overdriven):
+		var back := Vector2(-1.0, 0.0)
+		match enemy.facing:
+			Distraction.Facing.WEST:
+				back = Vector2(1.0, 0.0)
+			Distraction.Facing.NORTH:
+				back = Vector2(0.0, 1.0)
+			Distraction.Facing.SOUTH:
+				back = Vector2(0.0, -1.0)
+		var side := Vector2(-back.y, back.x)
+		var pulse: float = 0.55 + 0.45 * sin(_time * (26.0 if overdriven else 18.0))
+		var tint := Color(1.0, 0.30, 0.24) if overdriven else Color(1.0, 0.86, 0.32)
+		for i in range(2):
+			var root: Vector2 = back * (vr * (0.85 + 0.42 * float(i)))
+			var a: float = (0.85 - 0.3 * float(i)) * pulse
+			var col := Color(tint.r, tint.g, tint.b, a)
+			draw_line(root + side * vr * 0.42, root - back * vr * 0.34, col, 2.0)
+			draw_line(root - side * vr * 0.42, root - back * vr * 0.34, col, 2.0)
 
 	# -------------------------------------------------- Hand-authored sprite frames
 	# Art on disk wins over the procedural body. The status auras above still draw, so a

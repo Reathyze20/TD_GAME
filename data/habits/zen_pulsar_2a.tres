@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="HabitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/habit_data.gd" id="1_zpul1"]
+
+[resource]
+script = ExtResource("1_zpul1")
+id = &"zen_pulsar_2a"
+name = "Resonance Wave"
+short = "Resonance"
+description = "A wider, heavier pulse. Everything it catches stays open for 3s, taking 25% more damage from every other habit — this one sets the table."
+build_cost = 90
+bandwidth_cost = 14
+range = 420.0
+arc_angle = 120.0
+willpower_damage = 0
+awareness_damage = 30
+fire_cooldown = 4.0
+aoe = true
+stun_duration = 1.2
+dispel_haste = true
+vulnerable_mult = 1.25
+vulnerable_duration = 3.0
+charge_telegraph = true
+color = "5fe4f6"
+projectile_color = "ffc766"
+impulse = 0.0

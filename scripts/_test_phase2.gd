@@ -33,6 +33,11 @@ func _check(label: String, ok: bool, detail: String = "") -> void:
 func _run() -> void:
 	var game: Game = load("res://scenes/Game.tscn").instantiate()
 	add_child(game)
+	# Milestone isolation: this harness predates the Brain Fog and the Routine build
+	# gate and exercises OTHER systems — both new gates are switched off wholesale.
+	# Their own coverage lives in _test_fog_bandwidth.gd.
+	game.fog_enabled = false
+	game.routine_gates_enabled = false
 	await get_tree().process_frame
 	# Any harness that lets distractions reach the core without defenses will trip
 	# _game_over(), whose change_scene_to_file() frees this harness and its watchdog.

@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="DistractionData" format=3]
+[gd_resource type="Resource" script_class="DistractionData" format=3 uid="uid://ckum75qqup48o"]
 
-[ext_resource type="Script" path="res://scripts/resources/distraction_data.gd" id="1"]
+[ext_resource type="Script" uid="uid://bmn4nqrqpioiy" path="res://scripts/resources/distraction_data.gd" id="1"]
 [ext_resource type="Resource" path="res://data/distractions/notification.tres" id="2"]
 
 [resource]
@@ -15,6 +15,7 @@ rationalization = 4
 dopamine_reward = 40
 focus_damage = 15
 melee_damage = 20
+block_weight = 3
 color = "b07dff"
 radius = 30.0
 shape = "rect"

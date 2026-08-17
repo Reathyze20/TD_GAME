@@ -22,6 +22,28 @@ extends Node
 var slow_factor := 1.0
 var _slow_left := 0.0
 
+## Set by a distraction that has earned a permanent exemption from Calm — the Energy
+## Drink's Overdrive. A FULL freeze (factor 0.0) still lands: "ignores slows" and "cannot
+## be stopped" are different promises, and the second one would make Airplane Mode read
+## as broken against the one enemy the player most wants to stop.
+var slow_immune := false
+
+# --- Rush (haste) ----------------------------------------------------------------
+## 1.0 = normal pace, >1.0 = sped up. The mirror image of Calm, and it multiplies with
+## it rather than cancelling it: a distraction can be both wired and half-interrupted,
+## and the player should see the slow still doing its job.
+##
+## Applied by an energiser distraction's pulse (see DistractionData.haste_interval), so
+## unlike every other status here the source is an ENEMY buffing its own side.
+var haste_factor := 1.0
+var _haste_left := 0.0
+
+## A permanent, timer-less speed multiplier — a phase change the creature does not come
+## back from (Overdrive). Kept separate from `haste_factor` on purpose: that one is
+## strongest-wins and expires, so an Overdrive routed through apply_haste() would SWALLOW
+## the Energy Drink's own 1.35 aura instead of compounding with it, then wear off.
+var extra_factor := 1.0
+
 # --- Reframe (resistance strip) -------------------------------------------------
 ## Strips this many points of both Compulsion AND Rationalization while active.
 ## Naming the hook loosens its grip — Mindfulness opens the target for heavy hitters.
@@ -54,15 +76,65 @@ signal reframe_changed(amount: int)
 ## _process(), BEFORE any early returns (blocked, unrouted, dead-check, etc.).
 func tick(delta: float) -> void:
 	_tick_slow(delta)
+	_tick_haste(delta)
+	_tick_vulnerable(delta)
 	_tick_reframe(delta)
 	_tick_boredom(delta)
 
 ## Strongest Calm wins: a weaker pulse cannot dilute or cut short a stronger one
 ## (lower factor = stronger). Re-applying the same or stronger slow refreshes its timer.
 func apply_slow(factor: float, duration: float) -> void:
+	if slow_immune and factor > 0.0:
+		return
 	if _slow_left <= 0.0 or factor <= slow_factor:
 		slow_factor = factor
 		_slow_left = maxf(_slow_left, duration)
+
+## Drops any Calm currently on the target. Separate from apply_slow(1.0, 0.0) because
+## that one is a no-op by the strongest-wins rule — a weaker value can never dilute a
+## running slow, which is exactly the behaviour this needs to bypass.
+func clear_slow() -> void:
+	slow_factor = 1.0
+	_slow_left = 0.0
+
+## Strongest Rush wins (higher factor = stronger), duration never truncated — the same
+## rule as Calm, with the comparison flipped. Two energisers overlapping therefore do
+## not stack into a runaway sprint; the stronger one simply governs.
+func apply_haste(factor: float, duration: float) -> void:
+	if factor <= 1.0 or duration <= 0.0:
+		return
+	if _haste_left <= 0.0 or factor >= haste_factor:
+		haste_factor = factor
+		_haste_left = maxf(_haste_left, duration)
+
+## Drops any Rush currently on the target — the Zen Pulsar's momentum reset. Separate
+## from apply_haste(1.0, 0.0) for the same reason clear_slow() is separate from
+## apply_slow(): strongest-wins means a weak value can never dilute a running one.
+##
+## Deliberately leaves `extra_factor` alone. That is Overdrive, a latched phase change
+## the design says a creature "does not come back from" — dispelling it would let one
+## habit undo a wounded Energy Drink's whole second act. The stun still lands on it
+## regardless, because a full freeze pierces slow_immune.
+func clear_haste() -> void:
+	haste_factor = 1.0
+	_haste_left = 0.0
+
+# --- Vulnerable (damage amplification) -------------------------------------------
+## Multiplies incoming habit damage while active — the Resonance Wave's debuff. 1.0 = off.
+## Read by Distraction._shape_damage(), so it amplifies what habits do and deliberately
+## not what Boredom does: Boredom already bypasses both resistance channels, and stacking
+## an amplifier on top of the one damage type nothing mitigates compounds too hard.
+var vulnerable_mult := 1.0
+var _vulnerable_left := 0.0
+
+## Strongest Vulnerable wins (higher multiplier = stronger), duration never truncated —
+## the same rule as Calm, Rush and Reframe.
+func apply_vulnerable(mult: float, duration: float) -> void:
+	if mult <= 1.0 or duration <= 0.0:
+		return
+	if _vulnerable_left <= 0.0 or mult >= vulnerable_mult:
+		vulnerable_mult = mult
+		_vulnerable_left = maxf(_vulnerable_left, duration)
 
 ## Strongest Reframe wins. One rule governs all three statuses: strongest wins, and
 ## duration is never truncated.
@@ -90,9 +162,24 @@ func apply_boredom(dps: float, duration: float, source: Object = null) -> void:
 		_boredom_sources[key] = {"dps": dps, "left": duration, "accum": 0.0}
 	_sum_boredom()
 
+## The single multiplier the parent applies to its movement each frame. Calm and Rush
+## multiply rather than override, so a slowed-and-hurried distraction lands between the
+## two instead of one status silently winning — and a Calm pulse keeps visibly paying
+## off even while an energiser is shouting at the same crowd.
+func move_scale() -> float:
+	return slow_factor * haste_factor * extra_factor
+
 ## Whether a slow effect is currently active.
 func has_slow() -> bool:
 	return slow_factor < 1.0
+
+## Whether a rush effect is currently active.
+func has_haste() -> bool:
+	return haste_factor > 1.0
+
+## Whether a vulnerability effect is currently active.
+func has_vulnerable() -> bool:
+	return vulnerable_mult > 1.0
 
 ## Whether a reframe effect is currently active.
 func has_reframe() -> bool:
@@ -106,6 +193,12 @@ func has_boredom() -> bool:
 func reset() -> void:
 	slow_factor = 1.0
 	_slow_left = 0.0
+	slow_immune = false
+	haste_factor = 1.0
+	_haste_left = 0.0
+	extra_factor = 1.0
+	vulnerable_mult = 1.0
+	_vulnerable_left = 0.0
 	reframe_amount = 0
 	_reframe_left = 0.0
 	boredom_dps = 0.0
@@ -118,6 +211,18 @@ func _tick_slow(delta: float) -> void:
 		_slow_left -= delta
 		if _slow_left <= 0.0:
 			slow_factor = 1.0
+
+func _tick_haste(delta: float) -> void:
+	if _haste_left > 0.0:
+		_haste_left -= delta
+		if _haste_left <= 0.0:
+			haste_factor = 1.0
+
+func _tick_vulnerable(delta: float) -> void:
+	if _vulnerable_left > 0.0:
+		_vulnerable_left -= delta
+		if _vulnerable_left <= 0.0:
+			vulnerable_mult = 1.0
 
 func _tick_reframe(delta: float) -> void:
 	if _reframe_left > 0.0:

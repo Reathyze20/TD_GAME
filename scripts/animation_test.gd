@@ -10,6 +10,9 @@ var _distraction_keys: Array[String] = [
 	"autoplay",
 	"doomscroll",
 	"adult_content",
+	"clickbait",
+	"energy_drink",
+	"jackpot",
 	"social_media_binge"
 ]
 

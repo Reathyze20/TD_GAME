@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="DefenderData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/defender_data.gd" id="1_brocc"]
+
+[resource]
+script = ExtResource("1_brocc")
+id = &"broccoli_knight"
+display_name = "Broccoli Knight"
+role = "Tank"
+description = "A florets-first wall in riveted armor. Soaks hits, shrugs most of each one off, and pins whole clumps in place — or one heavy thing that nothing else can stop."
+max_health = 70
+damage = 5
+attack_cooldown = 0.8
+damage_reduction = 3
+block_capacity = 3
+move_speed = 85.0
+chase_speed = 170.0
+color = "6fca3a"

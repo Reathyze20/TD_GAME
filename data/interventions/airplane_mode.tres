@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="InterventionData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/intervention_data.gd" id="1_arpln"]
+
+[resource]
+script = ExtResource("1_arpln")
+id = &"airplane_mode"
+name = "Airplane Mode"
+short = "Airplane"
+description = "Cut the signal. Every distraction on the field stops moving for 3s. Costs 3 Rush — you only get it by letting them get close."
+type = "freeze_field"
+cooldown = 45.0
+radius = 0.0
+rush_cost = 3
+freeze_duration = 3.0
+color = "ff6b6b"

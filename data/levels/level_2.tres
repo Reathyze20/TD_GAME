@@ -9,6 +9,7 @@
 [ext_resource type="Resource" path="res://data/distractions/adult_content.tres" id="7_adult"]
 [ext_resource type="Resource" path="res://data/distractions/group_chat.tres" id="8_gchat"]
 [ext_resource type="Resource" path="res://data/distractions/social_media_binge.tres" id="9_boss"]
+[ext_resource type="Resource" path="res://data/distractions/clickbait.tres" id="10_clkbt"]
 
 [sub_resource type="Resource" id="Resource_r6nyh"]
 script = ExtResource("2_nvlcu")
@@ -40,6 +41,14 @@ from_wave = 7
 base_count = 3
 growth_per_wave = 0.9
 spacing = 1.2
+
+[sub_resource type="Resource" id="Resource_clkbt"]
+script = ExtResource("2_nvlcu")
+distraction = ExtResource("10_clkbt")
+from_wave = 4
+base_count = 3
+growth_per_wave = 0.7
+spacing = 1.1
 
 [sub_resource type="Resource" id="Resource_adult"]
 script = ExtResource("2_nvlcu")
@@ -88,6 +97,6 @@ Vector2i(33, 7): Vector3i(0, 0, 0),
 Vector2i(33, 12): Vector3i(0, 0, 0)
 }
 wave_count = 15
-wave_curve = Array[ExtResource("2_nvlcu")]([SubResource("Resource_r6nyh"), SubResource("Resource_fg383"), SubResource("Resource_7m04u"), SubResource("Resource_qbcda"), SubResource("Resource_adult"), SubResource("Resource_gchat")])
+wave_curve = Array[ExtResource("2_nvlcu")]([SubResource("Resource_r6nyh"), SubResource("Resource_fg383"), SubResource("Resource_7m04u"), SubResource("Resource_qbcda"), SubResource("Resource_clkbt"), SubResource("Resource_adult"), SubResource("Resource_gchat")])
 lean_waves = Array[int]([6, 13])
 boss = ExtResource("9_boss")

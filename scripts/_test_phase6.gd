@@ -6,6 +6,11 @@ var game: Game
 func _ready() -> void:
 	game = preload("res://scenes/Game.tscn").instantiate()
 	add_child(game)
+	# Milestone isolation: this harness predates the Brain Fog and the Routine build
+	# gate and exercises OTHER systems — both new gates are switched off wholesale.
+	# Their own coverage lives in _test_fog_bandwidth.gd.
+	game.fog_enabled = false
+	game.routine_gates_enabled = false
 	call_deferred("_run")
 
 func _check(condition: bool, msg: String) -> bool:

@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="DistractionData" format=3 uid="uid://b0qp5dywh2a27"]
+
+[ext_resource type="Script" uid="uid://bmn4nqrqpioiy" path="res://scripts/resources/distraction_data.gd" id="1_endrk"]
+
+[resource]
+script = ExtResource("1_endrk")
+id = &"energy_drink"
+display_name = "Energy Drink"
+description = "Doesn't want your attention for itself — it just makes everything else arrive faster. Borrowed alertness, paid back with interest."
+max_health = 30
+speed = 105.0
+compulsion = 1
+dopamine_reward = 6
+focus_damage = 2
+melee_damage = 4
+block_weight = 2
+color = "20c9b4"
+radius = 11.0
+overdrive_hp_pct = 0.5
+overdrive_speed_mult = 1.8
+overdrive_slow_immune = true
+haste_interval = 5.0
+haste_duration = 3.0
+haste_radius = 170.0
+haste_factor = 1.35

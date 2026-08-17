@@ -5,20 +5,19 @@
 [resource]
 script = ExtResource("1_acc2")
 id = &"accountability_2"
-name = "Support Circle"
-short = "Support+"
-description = "More people holding you to it. Trains up to 4 tougher Allies and guards a wider stretch."
+name = "Fresh Pantry"
+short = "Pantry"
+description = "A stocked pantry keeps the guild fed: every defender hits harder and takes more, the fallen return faster, and the formation guards a wider stretch."
 build_cost = 85
+bandwidth_cost = 16
 range = 0.0
 arc_angle = 0.0
 willpower_damage = 0
 fire_cooldown = 0.0
 is_blocker = true
-ally_count = 4
-ally_health = 60
-ally_damage = 8
-ally_attack_cooldown = 0.55
 ally_spawn_cooldown = 3.0
-guard_radius = 260.0
+guard_radius = 280.0
+defender_hp_mult = 1.3
+defender_damage_mult = 1.25
 color = "45f0d8"
 projectile_color = "45f0d8"

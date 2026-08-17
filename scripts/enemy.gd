@@ -51,6 +51,11 @@ var _disrupt_timer := 0.0
 var _ping_flash := 0.0        # brief visual of the ping line, drawn in _draw()
 var _ping_target := Vector2.ZERO
 
+# Energiser (support archetype, def.haste_interval > 0): periodically washes a wave of
+# speed over every distraction in radius, itself included. See _tick_haste().
+var _haste_timer := 0.0
+var _wave_time := -1.0        # >= 0 while a wave is expanding; drives the ring in _draw()
+
 func setup(_game, _type_key: String) -> void:
 	game = _game
 	type_key = _type_key
@@ -65,6 +70,10 @@ func setup(_game, _type_key: String) -> void:
 	current_rationalization = def.rationalization
 	is_flying = def.is_flying
 	_disrupt_timer = def.disrupt_interval
+	# Staggered start, unlike the disruptor's fixed one: a wave that spawns with the
+	# batch would have every energiser in it pulsing on the same frame, which reads as
+	# one big scripted event instead of several creatures each doing their own thing.
+	_haste_timer = def.haste_interval * randf_range(0.4, 1.0)
 	_color = Color(def.color)
 	var s: float = Data.GRID.tile * 0.16
 	_scatter = Vector2(randf_range(-s, s), randf_range(-s, s))
@@ -118,10 +127,23 @@ func _process(delta: float) -> void:
 	status_manager.tick(delta)
 	if dead:
 		return  # Boredom can finish it off mid-tick
+	# Knockback budget refills on the same clock as everything else, and deliberately
+	# before the blocked/no-path early returns: a distraction held by Allies is still
+	# shedding the shove it took, so releasing it doesn't hand the tower a free stunlock.
+	if _knock_left < KNOCK_BUDGET:
+		_knock_left = minf(KNOCK_BUDGET, _knock_left + KNOCK_REGEN * delta)
 	# The disruptor ticks BEFORE the blocked early-return on purpose: a pinned phone
 	# still buzzes. Wave-time gated like every combat effect.
 	if def.disrupt_interval > 0.0 and game != null and game.started and not game.between_waves:
 		_tick_disrupt(delta)
+	# Same gating, same reason: a blocked energiser still pushes the ones behind it.
+	if def.haste_interval > 0.0 and game != null and game.started and not game.between_waves:
+		_tick_haste(delta)
+	if _wave_time >= 0.0:
+		_wave_time += delta
+		if _wave_time > WAVE_FX_TIME:
+			_wave_time = -1.0
+		queue_redraw()
 	if _ping_flash > 0.0:
 		_ping_flash = maxf(0.0, _ping_flash - delta)
 		queue_redraw()
@@ -140,7 +162,7 @@ func _process(delta: float) -> void:
 	var target: Vector2 = game.cell_center(cell_path[path_index]) + _scatter
 	var to: Vector2 = target - position
 	var dist: float = to.length()
-	var step: float = current_speed * status_manager.slow_factor * delta
+	var step: float = current_speed * status_manager.move_scale() * delta
 	if dist <= step:
 		position = target
 		path_index += 1
@@ -180,7 +202,31 @@ func take_damage(willpower: int, awareness: int, source: Object = null) -> void:
 		return
 	var wp := maxi(1, willpower - effective_compulsion()) if willpower > 0 else 0
 	var aw := maxi(1, awareness - effective_rationalization()) if awareness > 0 else 0
-	take_direct_damage(wp + aw, source)
+	take_direct_damage(_shape_damage(wp + aw, source), source)
+
+## Scales an incoming hit by WHAT FIRED IT, after the flat resistances and before the
+## health is touched. Lives here rather than in projectile.gd because this is the one
+## funnel every direct hit already passes through, and projectile.gd's pooled setup would
+## have to reset any new field on every shot or leak it into the next one.
+##
+## Reads the habit's DATA cooldown, not its live one: a fire-rate card must not be able to
+## push a habit across the "chip damage" line and quietly halve its own upgrade.
+func _shape_damage(amount: int, source: Object) -> int:
+	if amount <= 0 or not (source is Habit) or not is_instance_valid(source):
+		return amount
+	var mult := 1.0
+	if source.def.aoe:
+		mult = def.aoe_damage_mult
+	elif def.fast_shot_threshold > 0.0 and source.def.fire_cooldown <= def.fast_shot_threshold:
+		mult = def.fast_shot_damage_mult
+	# Vulnerability multiplies on top of the archetype shaping rather than replacing it:
+	# the Resonance Wave is supposed to make a target softer to whatever the player already
+	# built, not to flatten that habit's own strength or weakness against it.
+	mult *= status_manager.vulnerable_mult
+	if is_equal_approx(mult, 1.0):
+		return amount
+	# Floored at 1 like every other mitigation: no armour in this game makes a hit free.
+	return maxi(1, int(round(float(amount) * mult)))
 
 ## Health loss that skips both mitigation channels entirely — Boredom's damage, and the
 ## single place death is resolved. Attribution happens here so every damage path (direct
@@ -191,6 +237,7 @@ func take_direct_damage(amount: int, source: Object = null) -> void:
 		return
 	var applied: int = mini(amount, maxi(0, current_health))
 	current_health -= amount
+	_check_overdrive()
 	if source is BaseHabit and is_instance_valid(source):
 		source.record_damage(applied)
 		if current_health <= 0:
@@ -200,6 +247,35 @@ func take_direct_damage(amount: int, source: Object = null) -> void:
 	queue_redraw()
 	if current_health <= 0:
 		_die()
+
+## Overdrive: the wounded phase. Latched, not polled — checked once per damage event
+## (health changes nowhere else) and never re-evaluated, so healing or a rounding wobble
+## cannot switch it back off. A creature does not calm down again after this.
+##
+## The speed goes through StatusManager.extra_factor rather than apply_haste() or
+## current_speed: haste is strongest-wins and would SWALLOW this creature's own 1.35 aura
+## instead of compounding with it, and current_speed is invisible to move_scale().
+var _overdrive := false
+
+func _check_overdrive() -> void:
+	if _overdrive or def.overdrive_hp_pct <= 0.0 or max_health <= 0:
+		return
+	if float(current_health) / float(max_health) > def.overdrive_hp_pct:
+		return
+	_overdrive = true
+	status_manager.extra_factor *= def.overdrive_speed_mult
+	if def.overdrive_slow_immune:
+		status_manager.slow_immune = true
+		# Shed the Calm it is standing in. Without this the creature keeps the slow it
+		# was carrying when it crossed the threshold, and "ignores slows" reads as a lie
+		# for as long as that pulse lasts.
+		status_manager.clear_slow()
+	if game != null:
+		game.add_shake(4.0)
+	queue_redraw()
+
+func is_overdriven() -> bool:
+	return _overdrive
 
 ## The disruptor's whole job: every def.disrupt_interval seconds, stop the nearest
 ## habit within def.disrupt_radius for def.disrupt_duration. Only habits that are
@@ -232,6 +308,35 @@ func _tick_disrupt(delta: float) -> void:
 		_ping_target = best.global_position
 		queue_redraw()
 
+## How long the expanding wave ring is drawn for. Purely cosmetic: the speed is granted
+## the instant the wave fires, so the ring is a readout of what already happened rather
+## than a travelling hitbox. A ring that had to reach you first would make the buff feel
+## dodgeable when it isn't.
+const WAVE_FX_TIME := 0.45
+
+## The energiser's whole job: every def.haste_interval seconds, wash def.haste_factor
+## speed over every living distraction within def.haste_radius, itself included.
+##
+## Deliberately NOT limited to one target the way the disruptor is — an energy drink
+## that hurried a single neighbour would be invisible in a crowd. Hitting the whole
+## group is what makes the emitter worth shooting first, and the ring in _draw() is
+## how the player finds out which one to shoot.
+func _tick_haste(delta: float) -> void:
+	_haste_timer -= delta
+	if _haste_timer > 0.0:
+		return
+	_haste_timer = def.haste_interval
+	_wave_time = 0.0
+	var r_sq: float = def.haste_radius * def.haste_radius
+	for d in get_tree().get_nodes_in_group("distractions"):
+		if not is_instance_valid(d) or d.dead or d.status_manager == null:
+			continue
+		if global_position.distance_squared_to(d.global_position) > r_sq:
+			continue
+		d.status_manager.apply_haste(def.haste_factor, def.haste_duration)
+		d.queue_redraw()
+	queue_redraw()
+
 ## Flyers ignore the maze completely — no cell path, straight line to the Focus core.
 ## That *is* the point: an urge from inside doesn't route around your structure, and no
 ## barricade or Ally stands between it and your attention.
@@ -239,7 +344,7 @@ func _fly(delta: float) -> void:
 	var target: Vector2 = game.objective_pos + _scatter
 	var to: Vector2 = target - position
 	var dist: float = to.length()
-	var step: float = current_speed * status_manager.slow_factor * delta
+	var step: float = current_speed * status_manager.move_scale() * delta
 	if dist <= step:
 		_reach_core()
 		return
@@ -252,8 +357,14 @@ func _fly(delta: float) -> void:
 ## mid-tick kill check is preserved. The source may have been sold/freed since it
 ## applied the dot; the BaseHabit check plus take_direct_damage's own
 ## is_instance_valid guard cover that.
+## The dot multiplier is applied HERE and not in take_direct_damage(), which is also the
+## boss's shield bypass and the F4 clear-the-field path — scaling it there would quietly
+## reshape both.
 func _on_boredom_damage(amount: int, source: Object) -> void:
-	take_direct_damage(amount, source if source is BaseHabit else null)
+	var dealt: int = amount
+	if not is_equal_approx(def.dot_damage_mult, 1.0):
+		dealt = maxi(1, int(round(float(amount) * def.dot_damage_mult)))
+	take_direct_damage(dealt, source if source is BaseHabit else null)
 
 # --- Status delegating wrappers -----------------------------------------------
 # tower.gd's AoE pulse calls these in a specific order (Reframe before damage).
@@ -275,6 +386,67 @@ func apply_boredom(dps: float, duration: float, source: Object = null) -> void:
 func apply_reframe(amount: int, duration: float) -> void:
 	status_manager.apply_reframe(amount, duration)
 	queue_redraw()
+
+## Freezes the distraction outright for `duration`. Routed through apply_slow(0.0, ...)
+## because a factor of 0.0 already means "stopped" to move_scale() AND is the one value
+## apply_slow lets through slow_immune — so a stun needs no parallel timer, just a name
+## the call sites can read.
+func apply_stun(duration: float) -> void:
+	if duration <= 0.0:
+		return
+	status_manager.apply_slow(0.0, duration)
+	queue_redraw()
+
+## Wipes the Rush aura (not Overdrive). See StatusManager.clear_haste().
+func dispel_haste() -> void:
+	status_manager.clear_haste()
+	queue_redraw()
+
+## Marks the distraction to take amplified habit damage for `duration`.
+func apply_vulnerable(mult: float, duration: float) -> void:
+	status_manager.apply_vulnerable(mult, duration)
+	queue_redraw()
+
+# --- Knockback -----------------------------------------------------------------------
+#
+# The narrow-cone half of the impulse rule (ArcProfile): concentrated fire pushes bodies
+# back down the corridor they came from. Two things keep it from becoming a stunlock, and
+# both matter more than the push itself:
+#
+#  * A BUDGET. A machine gun landing ten hits a second would otherwise out-push any
+#    walking speed in the game and pin its target on the spot forever — a hard crowd
+#    control the player bought by accident. The budget refills over time, so a burst of
+#    fire shoves hard and then stops mattering until the target has walked some of it off.
+#  * A WALL CHECK. Movement here is a walk toward the next cell centre, not a physics
+#    body, so nothing else would stop a push from parking a distraction inside high
+#    ground — where it is unreachable, unkillable and visibly wrong.
+#
+# Deliberately NOT resisted by anything: `slow_immune` (Overdrive) says "ignores slows",
+# and being shoved is not a slow. A tower narrowed to a beam is supposed to be the answer
+# to the thing that cannot be slowed.
+
+const KNOCK_BUDGET := 26.0     ## px of push available at once
+const KNOCK_REGEN := 34.0      ## px/s the budget refills
+
+var _knock_left: float = KNOCK_BUDGET
+
+## Shoves this distraction `px` pixels along `dir`, spending from its budget. `dir` is
+## the shot's flight direction (or, for a pulse, outward from the tower) — already
+## normalized by the caller.
+func apply_knockback(dir: Vector2, px: float) -> void:
+	if dead or px <= 0.0 or _knock_left <= 0.0:
+		return
+	var amount: float = minf(px, _knock_left)
+	_knock_left -= amount
+	var target: Vector2 = position + dir * amount
+	# Flyers are over the terrain, so nothing down there can catch them. Everything else
+	# has to land somewhere it could have walked to.
+	# `position`, not `global_position`: world_to_cell and cell_center are both pure grid
+	# math in the Game node's own space, which is the space this node walks its path in.
+	if not is_flying and game != null:
+		if game.high_ground.has(game.world_to_cell(target)):
+			return
+	position = target
 
 func effective_compulsion() -> int:
 	return maxi(0, current_compulsion - status_manager.reframe_amount)
@@ -332,6 +504,23 @@ func _draw() -> void:
 			var a: float = _ping_flash / 0.35
 			PixelDraw.line(self, Vector2.ZERO, to_local(_ping_target), Color(0.4, 1.0, 0.55, a * 0.9), 1.0, 2.0)
 			draw_circle(to_local(_ping_target), 8.0 * a, Color(0.4, 1.0, 0.55, a * 0.5))
+
+	# Energiser tells, drawn on the enemy layer for the same reason as the disruptor's:
+	# a buff nobody can see reads as "the game sped up on its own". The ring expands to
+	# the real haste_radius, so the player can measure who is inside it.
+	if def.haste_interval > 0.0:
+		if _wave_time >= 0.0:
+			var t: float = clampf(_wave_time / WAVE_FX_TIME, 0.0, 1.0)
+			var col := Color(_color.r, _color.g, _color.b, (1.0 - t) * 0.75)
+			PixelDraw.arc(self, Vector2.ZERO, def.haste_radius * t, col, 1.0, 3.0)
+			PixelDraw.arc(self, Vector2.ZERO, def.haste_radius * t * 0.62,
+				Color(col.r, col.g, col.b, col.a * 0.5), 1.0, 2.0)
+		else:
+			# Between waves: a faint charge ring so the emitter is identifiable at rest.
+			var charge: float = 1.0 - clampf(_haste_timer / maxf(def.haste_interval, 0.001), 0.0, 1.0)
+			if charge > 0.55:
+				PixelDraw.arc(self, Vector2.ZERO, def.haste_radius,
+					Color(_color.r, _color.g, _color.b, (charge - 0.55) * 0.5), 1.0, 2.0)
 
 	# Fallback drawing if animator component is not attached
 	if animator == null:

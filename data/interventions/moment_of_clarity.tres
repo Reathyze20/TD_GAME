@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="InterventionData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/intervention_data.gd" id="1_mocla"]
+
+[resource]
+script = ExtResource("1_mocla")
+id = &"moment_of_clarity"
+name = "Moment of Clarity"
+short = "Clarity"
+description = "Step back and see the whole picture: the Brain Fog lifts off the entire field for 6s and every habit fights at its full reach. Costs 6 Insight — understanding spent for advantage now instead of banked for later."
+type = "reveal_field"
+cooldown = 40.0
+radius = 0.0
+insight_cost = 6
+reveal_duration = 6.0
+color = "7ef2e6"

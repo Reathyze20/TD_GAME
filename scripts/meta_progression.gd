@@ -27,6 +27,8 @@ const PERK_INTERVENTION_COOLDOWN := &"intervention_cooldown"
 const PERK_TOLERANCE_DECAY := &"tolerance_decay"
 ## Fraction added to all Insight earned. 0.1 = +10%.
 const PERK_INSIGHT_GAIN := &"insight_gain"
+## Flat Attention Bandwidth added to the global build cap (GameState.BASE_BANDWIDTH).
+const PERK_MAX_BANDWIDTH := &"max_bandwidth"
 
 ## Prefix for per-rarity draft odds perks: PERK_RARITY_ODDS + "diamond" bumps the
 ## Breakthrough weight in every draft roll. Built from the rarity id rather than

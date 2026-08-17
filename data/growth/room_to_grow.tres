@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="GrowthNodeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/growth_node_data.gd" id="1_rtgrw"]
+
+[resource]
+script = ExtResource("1_rtgrw")
+id = &"room_to_grow"
+name = "Room to Grow"
+description = "Make space in your day before you promise it away. +25 Attention Bandwidth, per rank."
+branch = &"awareness"
+tier = 1
+max_rank = 2
+costs = Array[int]([30, 60])
+perk_key = &"max_bandwidth"
+perk_value = 25.0

@@ -39,7 +39,14 @@ func upgrade_habit(new_type_key: String) -> BaseHabit:
 	# carried across by hand or it silently resets on every upgrade.
 	var old_kills: int = current_habit.kills
 	var old_damage: int = current_habit.damage_dealt
-	var old_mode: int = current_habit.target_mode if current_habit is Habit else 0
+	# The guild's player-made decisions survive the upgrade like a habit's cone does:
+	# the recipe and the rally are settings, not progress, and the Fresh Pantry must
+	# arrive holding the same ground with the same plan.
+	var old_slots: Array[StringName] = []
+	var old_rally := Vector2.ZERO
+	if current_habit is Barracks:
+		old_slots = (current_habit as Barracks).slots.duplicate()
+		old_rally = (current_habit as Barracks).rally_point
 
 	current_habit.queue_free()
 	current_habit = null
@@ -54,8 +61,24 @@ func upgrade_habit(new_type_key: String) -> BaseHabit:
 	h.setup(game, new_type_key, grid_cell.x, grid_cell.y, old_facing, old_arc)
 	h.kills = old_kills
 	h.damage_dealt = old_damage
-	if h is Habit:
-		h.target_mode = old_mode as Habit.TargetMode
+	# The cone width rides across on `old_arc` above, through setup() — and it matters
+	# more after an upgrade than before it: the new tier brings its own home angle, so
+	# the same width the player set can mean a different trade on the tower they paid for.
+	if h is Barracks and not old_slots.is_empty():
+		var g := h as Barracks
+		g.slots = old_slots
+		g.set_rally_point(old_rally)
+		# The fresh tier walks its full roster out immediately (setup spawned the default
+		# recipe; the recipe swap above only renames what future respawns bring). Replace
+		# the just-spawned defaults so the paid-for tier fields the PLAYER's recipe now,
+		# not after three deaths.
+		for i in range(g.slots.size()):
+			var live = g._slot_units[i]
+			if live != null and is_instance_valid(live) and live.type_key != g.slots[i]:
+				live.queue_free()
+				g.owned_allies.erase(live)
+				g._slot_units[i] = null
+				g._spawn_slot(i)
 	current_habit = h
 	# state stays BUILT
 	return h
