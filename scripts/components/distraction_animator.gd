@@ -169,12 +169,12 @@ func _draw_type_glow(r: float, strength: float) -> void:
 	if strength <= 0.01 or enemy.def == null:
 		return
 	var col := Color(enemy.def.color)
-	# Squashed vertically: a flat pool on the floor, not a halo around the body.
+	# Squashed vertically in 2:1 ground projection anchored at feet
 	var steps := 4
 	for i in range(steps):
 		var t := float(i) / float(steps)
 		var rad := r * (1.75 - t * 0.95)
-		draw_set_transform(Vector2(0.0, r * 0.55), 0.0, Vector2(1.0, 0.45))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.5))
 		draw_circle(Vector2.ZERO, rad, Color(col.r, col.g, col.b, 0.10 * strength))
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
@@ -305,9 +305,7 @@ func _draw_body_glow(tex: Texture2D, size: Vector2, strength: float,
 		var i: float = float(ring)
 		var grown: Vector2 = size + Vector2.ONE * (step * i * 2.0)
 		var a: float = (0.16 if is_equal_approx(i, 1.0) else 0.09) * strength
-		# Follows the nudged body — a halo left behind at the untuned position would
-		# read as a second, misaligned creature.
-		draw_texture_rect(tex, Rect2(-grown * 0.5 + shift, grown), false,
+		draw_texture_rect(tex, Rect2(Vector2(-grown.x * 0.5, -grown.y) + shift + Vector2(0, step * i), grown), false,
 			Color(col.r, col.g, col.b, a))
 
 func trigger_hit_flash() -> void:
@@ -434,11 +432,13 @@ func _draw() -> void:
 	# -------------------------------------------------- Status Aura Overlays
 	# Boredom halo
 	if enemy.status_manager != null and enemy.status_manager.has_boredom():
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.5))
 		draw_circle(Vector2.ZERO, vr + 7.0, Color(0.55, 0.58, 0.62, 0.35))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 	# Slow / Calm ring
 	if enemy.status_manager != null and enemy.status_manager.has_slow():
-		draw_arc(Vector2.ZERO, vr + 4.0, 0, TAU, 24, Color(0.3, 0.8, 1.0, 0.7), 2.0)
+		PixelDraw.ellipse(self, Vector2.ZERO, vr + 6.0, (vr + 6.0) * 0.5, Color(0.3, 0.8, 1.0, 0.7), 1.0, 1.5)
 
 	# Rush chevrons — a hurried distraction has to be legible in a crowd, and it is the
 	# crowd that carries the tell: a solid ring like Calm's would just read as another

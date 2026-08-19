@@ -1177,18 +1177,20 @@ func cast_to_wall(from: Vector2, dir: Vector2, max_dist: float) -> float:
 	var own := platform_at(from)
 	var d := 6.0
 	while d < max_dist:
-		var c := world_to_cell(from + dir * d)
+		var c := world_to_cell(from + Vector2(dir.x, dir.y * 0.5) * d)
 		if high_ground.has(c) and _platform_id.get(c, -1) != own:
 			return d
 		d += 6.0
 	return max_dist
 
 func has_line_of_sight(from: Vector2, to: Vector2) -> bool:
-	var delta := to - from
-	var dist := delta.length()
+	var dx := to.x - from.x
+	var dy := (to.y - from.y) * 2.0
+	var dist := sqrt(dx * dx + dy * dy)
 	if dist < 0.001:
 		return true
-	return cast_to_wall(from, delta / dist, dist) >= dist
+	var dir := Vector2(dx, dy) / dist
+	return cast_to_wall(from, dir, dist) >= dist
 
 func assign_path(d: Distraction) -> void:
 	if d.is_flying:
@@ -1989,28 +1991,26 @@ func _draw() -> void:
 			draw_circle(mouse_pos, idef.radius, Color(tint.r, tint.g, tint.b, 0.2))
 			PixelDraw.arc(self, mouse_pos, idef.radius, tint)
 
-	# SWHAOP Aiming mode: Sniper crosshair reticle & laser sight
+	# SWHAOP Aiming mode: Sniper crosshair reticle & laser sight in 2:1 ground space
 	if is_aiming and aiming_habit != null and is_instance_valid(aiming_habit):
 		var mouse_pos: Vector2 = get_global_mouse_position()
 		var habit_pos: Vector2 = aiming_habit.global_position
 
-		# Laser sight as a dashed pixel trail, denser than the Routine tether so it still
-		# reads as a straight beam.
-		PixelDraw.line(self, habit_pos, mouse_pos, Color(1.0, 0.3, 0.3, 0.6), 1.0, 2.0)
+		# Laser sight as a dashed pixel trail
+		PixelDraw.line(self, habit_pos, mouse_pos, Color(1.0, 0.35, 0.35, 0.7), 1.0, 2.0)
 
-		# Sniper crosshair reticle in raster blocks
-		var r_size := 12.0
+		# Ground-projected reticle at cursor (2:1 ellipse)
+		var r_size := 16.0
 		var r_col := Color("ff4455")
-		draw_rect(Rect2(mouse_pos.x - 3.0, mouse_pos.y - 3.0, 6.0, 6.0), r_col)
-		PixelDraw.arc(self, mouse_pos, r_size, r_col, 1.0, 1.5)
-		PixelDraw.line(self, mouse_pos + Vector2(-r_size - 6, 0), mouse_pos + Vector2(-4, 0), r_col, 1.0, 1.5)
-		PixelDraw.line(self, mouse_pos + Vector2(4, 0), mouse_pos + Vector2(r_size + 6, 0), r_col, 1.0, 1.5)
-		PixelDraw.line(self, mouse_pos + Vector2(0, -r_size - 6), mouse_pos + Vector2(0, -4), r_col, 1.0, 1.5)
-		PixelDraw.line(self, mouse_pos + Vector2(0, 4), mouse_pos + Vector2(0, r_size + 6), r_col, 1.0, 1.5)
+		PixelDraw.ellipse(self, mouse_pos, r_size, r_size * 0.5, r_col, 1.0, 1.5)
+		PixelDraw.line(self, mouse_pos + Vector2(-r_size - 4, 0), mouse_pos + Vector2(-4, 0), r_col, 1.0, 1.5)
+		PixelDraw.line(self, mouse_pos + Vector2(4, 0), mouse_pos + Vector2(r_size + 4, 0), r_col, 1.0, 1.5)
+		PixelDraw.line(self, mouse_pos + Vector2(0, (-r_size - 4) * 0.5), mouse_pos + Vector2(0, -2), r_col, 1.0, 1.5)
+		PixelDraw.line(self, mouse_pos + Vector2(0, 2), mouse_pos + Vector2(0, (r_size + 4) * 0.5), r_col, 1.0, 1.5)
 
 		# Dynamic cone angle tag next to reticle
 		var arc_text := "%d°" % int(aiming_habit.arc_angle)
-		draw_string(ThemeDB.fallback_font, mouse_pos + Vector2(16, 5), arc_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("ffd479"))
+		draw_string(ThemeDB.fallback_font, mouse_pos + Vector2(18, -8), arc_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("ffd479"))
 
 	# Rally placement preview — the same clamp set_rally_point() will apply, drawn live,
 	# so the flag the player sees is the flag they get (never past the leash, never in a
@@ -2100,7 +2100,19 @@ func _unhandled_input(event: InputEvent) -> void:
 				return
 
 		if is_aiming:
-			if event.button_index == MOUSE_BUTTON_LEFT:
+			if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+				aiming_habit.set_arc_angle(clampf(aiming_habit.arc_angle + 10.0, ArcProfile.ARC_MIN, ArcProfile.ARC_MAX))
+				aiming_habit.queue_redraw()
+				queue_redraw()
+				get_viewport().set_input_as_handled()
+				return
+			elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+				aiming_habit.set_arc_angle(clampf(aiming_habit.arc_angle - 10.0, ArcProfile.ARC_MIN, ArcProfile.ARC_MAX))
+				aiming_habit.queue_redraw()
+				queue_redraw()
+				get_viewport().set_input_as_handled()
+				return
+			elif event.button_index == MOUSE_BUTTON_LEFT:
 				# Lock in directional cone aim!
 				_end_aiming()
 				_flash("Direction set!", Color("7cffb2"))
@@ -2400,7 +2412,7 @@ func _build_on(cell: Vector2i) -> void:
 	# Enter Aiming Mode for SWHAOP Directional Cone setup
 	_begin_aiming(habit, bs, true)
 	SignalBus.build_requested.emit(bs)
-	_flash("Aim cone with mouse (distance = arc width) — Left Click to lock, Right Click to cancel")
+	_flash("Aim cone with mouse (distance / wheel = cone width) — Left Click: Lock, Right Click: Cancel", Color("2bd6c0"))
 
 ## Shared entry point for both aim paths, so the rollback snapshot can never be forgotten
 ## by one of them. `fresh_build` decides what a right-click means (see _aiming_is_fresh_build).
@@ -3005,15 +3017,15 @@ func _update_aiming_process() -> void:
 		return
 	var mouse_pos: Vector2 = get_global_mouse_position()
 	var habit_pos: Vector2 = aiming_habit.global_position
-	var dir_vec: Vector2 = mouse_pos - habit_pos
-	if dir_vec.length_squared() > 1.0:
-		aiming_habit.facing_angle = dir_vec.angle()
-		var dist: float = dir_vec.length()
+	var dx: float = mouse_pos.x - habit_pos.x
+	var dy: float = (mouse_pos.y - habit_pos.y) * 2.0
+	var ground_vec := Vector2(dx, dy)
+	if ground_vec.length_squared() > 1.0:
+		aiming_habit.facing_angle = ground_vec.angle()
+		var dist: float = ground_vec.length()
 		var max_r: float = aiming_habit.current_attack_range
-		# Sniper distance mapping:
-		# Closer cursor (dist near 20px) -> Wide cone (125.0°)
-		# Farther cursor (dist near max_r) -> Tight sniper cone (10.0°)
-		var norm_dist: float = clampf((dist - 20.0) / (max_r - 20.0), 0.0, 1.0)
+		# Closer cursor -> Wide cone (125.0°), Farther cursor -> Tight sniper cone (10.0°)
+		var norm_dist: float = clampf((dist - 30.0) / maxf(1.0, max_r - 30.0), 0.0, 1.0)
 		var calc_arc: float = lerpf(ArcProfile.ARC_MAX, ArcProfile.ARC_MIN, norm_dist)
 		aiming_habit.set_arc_angle(calc_arc)
 		aiming_habit.queue_redraw()

@@ -604,7 +604,8 @@ func _draw() -> void:
 	if head_tex != null and not def.aoe and def.head_aims:
 		var head_tint := Color(0.6, 0.6, 0.6, 0.6) if resting else Color.WHITE
 		var art_facing: float = ART_FACING.get(_head_art_key(), -PI / 2.0)
-		_draw_head_sprite(head_tex, head_tint, _aim - art_facing, dir * recoil_offset)
+		var screen_aim: float = Vector2(cos(_aim), sin(_aim) * 0.5).angle()
+		_draw_head_sprite(head_tex, head_tint, screen_aim - art_facing, Vector2(dir.x, dir.y * 0.5) * recoil_offset)
 	elif head_tex != null and (def.aoe or not def.head_aims):
 		# Heads that do not aim: AoE pulses (the sprite's own animation carries the life)
 		# and directional habits whose art would read wrong spinning — the Tome fires its
@@ -721,3 +722,9 @@ func _draw_wedge(radius: float, center_angle: float, fov_degrees: float, fill_co
 		if fov_degrees < 359.0:
 			PixelDraw.line(self, Vector2.ZERO, pts[1], line_color, 1.0, 2.5)
 			PixelDraw.line(self, Vector2.ZERO, pts[pts.size() - 1], line_color, 1.0, 2.5)
+			# Center aiming axis line
+			var center_dirv := Vector2(cos(center_angle), sin(center_angle) * 0.5)
+			var center_r := radius
+			if game != null:
+				center_r = game.cast_to_wall(global_position, Vector2.RIGHT.rotated(center_angle), radius)
+			PixelDraw.line(self, Vector2.ZERO, center_dirv * center_r, Color(line_color.r, line_color.g, line_color.b, 0.45), 1.0, 1.5)
