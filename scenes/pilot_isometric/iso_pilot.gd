@@ -30,11 +30,12 @@ const TILE_SIZE := Vector2i(64, 32)  ## art px, matches floor_tile.png exactly (
 const GRID_W := 8
 const GRID_H := 8
 const WALL_HEIGHT := 48.0  ## 1.5x tile height — tall enough to read as a wall, not a curb
+const STEP_HEIGHT := 16.0  ## one terrace step — half the wall, reads as a rise you could still see over
 
 const Z_FLOOR := -10   ## flat plane, never y-sorted — see 01_rendering_and_depth.md
+const Z_FOG := -9      ## ground fog: above the floor, below everything that stands in it
 const Z_ENTITIES := 0  ## walls + tower + enemy, y-sorted against each other
 
-const FLOOR_TEX := "res://assets/iso_pilot/floor_tile.png"
 const PILLAR_TEX := "res://assets/iso_pilot/wall.png"  ## round-1 leftover, kept as an optional corner accent
 const TOWER_TEX := "res://assets/iso_pilot/tower_focus_pillar.png"
 const ENEMY_TEX := "res://assets/iso_pilot/enemy_energy_drink.png"
@@ -43,6 +44,21 @@ const ENEMY_TEX := "res://assets/iso_pilot/enemy_energy_drink.png"
 ## placeholder swatch if art-direction's real one isn't on disk yet.
 const WALL_MATERIAL_TEX := "res://assets/iso_pilot/wall_material.png"
 const WALL_MATERIAL_FALLBACK := "res://assets/iso_pilot/wall_material_placeholder.png"
+
+## Round 2: three MidJourney-sourced (--tile, then diamond-cut per tools/iso_diamond_cut.py)
+## floor variants instead of one repeated tile — round 1 exposed a visible wallpaper grid
+## on an 8x8 field with a single tile (see docs/core/16_isometric_slice.md §2). Falls back
+## to the single original tile if the variants aren't on disk (older checkout).
+const FLOOR_VARIANTS := [
+	"res://assets/iso_pilot/floor_organic_1.png",
+	"res://assets/iso_pilot/floor_organic_2.png",
+	"res://assets/iso_pilot/floor_organic_3.png",
+]
+const FLOOR_FALLBACK := "res://assets/iso_pilot/floor_tile.png"
+
+## A raised terrace, purely to demonstrate the thing top-down literally cannot show at
+## all: a height change. Kept well clear of the tower/enemy/pillar cells below.
+const RAISED_RECT := Rect2i(5, 4, 3, 4)
 
 var floor_layer: TileMapLayer
 var entities: Node2D
@@ -78,6 +94,7 @@ class IsoWallSegment extends Node2D:
 
 func _ready() -> void:
 	_build_floor()
+	_build_ground_fog()
 	_build_entities()
 	_build_camera()
 
@@ -88,12 +105,15 @@ func _build_floor() -> void:
 	ts.tile_layout = TileSet.TILE_LAYOUT_DIAMOND_DOWN
 	ts.tile_size = TILE_SIZE
 
-	var tex := load(FLOOR_TEX) as Texture2D
-	var source := TileSetAtlasSource.new()
-	source.texture = tex
-	source.texture_region_size = TILE_SIZE
-	source.create_tile(Vector2i(0, 0))
-	ts.add_source(source, 0)
+	var paths: Array = FLOOR_VARIANTS.filter(func(p): return ResourceLoader.exists(p))
+	if paths.is_empty():
+		paths = [FLOOR_FALLBACK]
+	for i in range(paths.size()):
+		var source := TileSetAtlasSource.new()
+		source.texture = load(paths[i]) as Texture2D
+		source.texture_region_size = TILE_SIZE
+		source.create_tile(Vector2i(0, 0))
+		ts.add_source(source, i)
 
 	floor_layer = TileMapLayer.new()
 	floor_layer.name = "Floor"
@@ -103,9 +123,72 @@ func _build_floor() -> void:
 	floor_layer.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	add_child(floor_layer)
 
+	# Same convention as the real game's corner terrain / wall-face variant pick
+	# (game.gd: rng.seed = hash(block) ^ seed_val) — deterministic per cell, not a
+	# fresh dice roll every load.
+	var rng := RandomNumberGenerator.new()
 	for x in range(GRID_W):
 		for y in range(GRID_H):
-			floor_layer.set_cell(Vector2i(x, y), 0, Vector2i(0, 0))
+			rng.seed = hash(Vector2i(x, y))
+			floor_layer.set_cell(Vector2i(x, y), rng.randi() % paths.size(), Vector2i(0, 0))
+
+
+## Fog that pools on the ground and recedes near raised terrain — a small proof-of-concept
+## for what "world of the brain, alive" could mean once terrain has actual elevation
+## (the user's question this round). Not the real Brain Fog system (docs/core/14) — that
+## stays a full-screen gameplay-visibility overlay. This is purely atmospheric set
+## dressing: soft cool-tinted blobs sitting low, generated the same way the real game
+## generates its light cookies (game.gd:_shadow_light_tex) rather than shipping a PNG.
+func _build_ground_fog() -> void:
+	var fog_tex := _fog_blob_tex()
+	var layer := Node2D.new()
+	layer.name = "GroundFog"
+	layer.z_index = Z_FOG
+	add_child(layer)
+
+	var rng := RandomNumberGenerator.new()
+	for x in range(GRID_W):
+		for y in range(GRID_H):
+			var cell := Vector2i(x, y)
+			# Thin out near/over raised ground — fog is a low-lying gas, it doesn't
+			# climb the terrace. Skip the raised cells themselves and their immediate
+			# rim so the recession reads clearly instead of stopping exactly on the edge.
+			var dist_to_raised := _dist_to_rect(cell, RAISED_RECT)
+			if dist_to_raised <= 0:
+				continue
+			rng.seed = hash(cell) ^ 0x5A17
+			if rng.randf() > 0.55:
+				continue
+			var fog := Sprite2D.new()
+			fog.texture = fog_tex
+			fog.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			fog.modulate = Color(0.55, 0.85, 0.95, clampf(0.30 - dist_to_raised * 0.04, 0.06, 0.30))
+			fog.position = floor_layer.map_to_local(cell) + Vector2(rng.randf_range(-6, 6), rng.randf_range(-3, 3))
+			fog.scale = Vector2.ONE * rng.randf_range(0.85, 1.25)
+			layer.add_child(fog)
+
+
+func _dist_to_rect(cell: Vector2i, r: Rect2i) -> int:
+	var dx := maxi(maxi(r.position.x - cell.x, cell.x - (r.position.x + r.size.x - 1)), 0)
+	var dy := maxi(maxi(r.position.y - cell.y, cell.y - (r.position.y + r.size.y - 1)), 0)
+	return maxi(dx, dy)
+
+
+## Soft radial falloff, same shape family as game.gd's light cookies: bright core,
+## smoothstep falloff to transparent. Squashed 2:1 so it pools like a flat gas layer on
+## the iso ground plane instead of reading as a sphere.
+func _fog_blob_tex() -> ImageTexture:
+	var w := 56
+	var h := 28
+	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	var center := Vector2(w / 2.0, h / 2.0)
+	for y in range(h):
+		for x in range(w):
+			var d := Vector2(x, y) - center
+			var n := (d / center).length()
+			var v: float = 1.0 - smoothstep(0.35, 1.0, n)
+			img.set_pixel(x, y, Color(1, 1, 1, v))
+	return ImageTexture.create_from_image(img)
 
 
 func _build_entities() -> void:
@@ -116,6 +199,7 @@ func _build_entities() -> void:
 	add_child(entities)
 
 	_build_walls()
+	_build_terrace()
 
 	# Two round-1 pillars kept as optional decoration at the room's outer corners —
 	# the user explicitly said this stepped-totem look can stay ALONGSIDE a real wall,
@@ -159,11 +243,11 @@ func _corner_offset(corner: String) -> Vector2:
 	return Vector2.ZERO
 
 
-func _spawn_wall_segment(cell: Vector2i, corner_a: String, corner_b: String, tex: Texture2D, shade: float) -> void:
+func _spawn_wall_segment(cell: Vector2i, corner_a: String, corner_b: String, tex: Texture2D, shade: float, height: float = WALL_HEIGHT) -> void:
 	var oa := _corner_offset(corner_a)
 	var ob := _corner_offset(corner_b)
 	var seg := IsoWallSegment.new()
-	seg.pts = PackedVector2Array([oa, ob, ob - Vector2(0, WALL_HEIGHT), oa - Vector2(0, WALL_HEIGHT)])
+	seg.pts = PackedVector2Array([oa, ob, ob - Vector2(0, height), oa - Vector2(0, height)])
 	seg.tex = tex
 	seg.shade = shade
 	seg.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -171,6 +255,41 @@ func _spawn_wall_segment(cell: Vector2i, corner_a: String, corner_b: String, tex
 	# y-sort key consistent with what a unit standing on the same tile would use.
 	seg.position = floor_layer.map_to_local(cell)
 	entities.add_child(seg)
+
+
+## The one thing top-down literally cannot show: a height change. A short riser (half the
+## wall height, so it reads as a step you could see over, not a room boundary) plus the
+## raised cells' own floor sprites redrawn STEP_HEIGHT higher. Risers only go on the two
+## edges that face the camera — same corner-pair logic as _build_walls, mirrored: a wall's
+## N-E/N-W edges face AWAY from the viewer (the room's back), so a terrace's visible front
+## edges are the opposite pair, E-S and S-W (see the edge/neighbor mapping comment above
+## _build_walls). Only drawn where the neighbor in that direction is NOT part of the
+## raised block, i.e. only where the drop is real.
+const STONE_TOP_TEX := "res://assets/iso_pilot/floor_stone_top.png"  ## wall_material.png, diamond-cut via tools/iso_diamond_cut.py — a flat SQUARE material swatch would draw as a square blob here, not a diamond, so it must go through the same cut as the organic floor tiles.
+
+
+func _build_terrace() -> void:
+	var wall_tex := load(WALL_MATERIAL_TEX if ResourceLoader.exists(WALL_MATERIAL_TEX) else WALL_MATERIAL_FALLBACK) as Texture2D
+	# Deliberately the STONE material, not another organic floor variant: the height
+	# change alone reads as subtle at this zoom (one 16px step), but a material change on
+	# top of it — built stone vs. the organic ground below — makes "this ground was
+	# raised and built on" unmistakable at a glance, not just on close inspection.
+	var top_tex := load(STONE_TOP_TEX if ResourceLoader.exists(STONE_TOP_TEX) else FLOOR_FALLBACK) as Texture2D
+
+	for x in range(RAISED_RECT.position.x, RAISED_RECT.position.x + RAISED_RECT.size.x):
+		for y in range(RAISED_RECT.position.y, RAISED_RECT.position.y + RAISED_RECT.size.y):
+			var cell := Vector2i(x, y)
+			if not RAISED_RECT.has_point(Vector2i(x + 1, y)):
+				_spawn_wall_segment(cell, "E", "S", wall_tex, 0.85, STEP_HEIGHT)
+			if not RAISED_RECT.has_point(Vector2i(x, y + 1)):
+				_spawn_wall_segment(cell, "S", "W", wall_tex, 0.62, STEP_HEIGHT)
+
+			var top := Sprite2D.new()
+			top.texture = top_tex
+			top.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+			top.centered = true
+			top.position = floor_layer.map_to_local(cell) + Vector2(0, -STEP_HEIGHT)
+			entities.add_child(top)
 
 
 ## Places a sprite so the LOWEST non-transparent pixel of its own art (the actual
