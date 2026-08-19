@@ -153,13 +153,108 @@ def build_palette(counts: Counter, k: int, weight_exp: float = 0.5) -> np.ndarra
     return np.array(out, dtype=np.int64)
 
 
-def remap(rgb: np.ndarray, mask: np.ndarray, pal: np.ndarray, pal_lab: np.ndarray) -> np.ndarray:
+def load_palette_file(path: str) -> np.ndarray:
+    """.hex (jeden RRGGBB na radek, prazdne radky a # se ignoruji) -> pole barev.
+
+    Format sdileny s Aseprite a Lospec, takze tataz paleta plati pro nastroj i pro ruku.
+    """
+    cols = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            s = line.strip().lstrip("#")
+            if not s or s.startswith("//"):
+                continue
+            if len(s) != 6:
+                raise ValueError(f"{path}: necekany radek {line.strip()!r} (cekam RRGGBB)")
+            cols.append([int(s[0:2], 16), int(s[2:4], 16), int(s[4:6], 16)])
+    if not cols:
+        raise ValueError(f"{path}: zadne barvy")
+    return np.array(cols, dtype=np.int64)
+
+
+def master_palette(pools: dict, k: int, weight_exp: float = 0.5) -> np.ndarray:
+    """Jedna paleta pres VSECHNY prisery.
+
+    Kazda prisera vazi stejne, at uz ma osm framu nebo osmdesat. Bez toho by paletu
+    urcil ten, kdo ma nejvic artu — sto snimku chuze jednoho ducha by prehlasilo
+    priseru, ktera ma jen chuzi a smrt, a ta by pak dostala cizi barvy.
+    """
+    pool = Counter()
+    for p in pools.values():
+        tot = sum(p.values()) or 1
+        for c, n in p.items():
+            pool[c] += n / tot
+    return build_palette(pool, k, weight_exp)
+
+
+def palette_error(pool: Counter, pal: np.ndarray, chroma_w: float = 1.0) -> float:
+    """Prumerna vzdalenost pixelu od barvy, kterou dostane, v Oklabu.
+
+    Tohle je CENA palety. Nad ~0.03 zacina byt posun videt, kolem 0.06 uz prisera
+    meni barvu. Meri se vazene plochou, takze posun velke plochy tela vazi vic nez
+    posun tri pixelu odlesku — presne jak to vnima oko.
+    """
+    if not pool:
+        return 0.0
+    cols = np.array(list(pool.keys()), dtype=np.int64)
+    w = np.array([pool[tuple(c)] for c in cols], dtype=np.float64)
+    a = lab_metric(to_oklab(cols), chroma_w)
+    b = lab_metric(to_oklab(pal), chroma_w)
+    d = np.sqrt(((a[:, None, :] - b[None, :, :]) ** 2).sum(-1)).min(1)
+    return float((d * w).sum() / w.sum())
+
+
+def palette_used(pool: Counter, pal: np.ndarray, chroma_w: float = 1.0) -> int:
+    """Kolik barev master palety prisera doopravdy pouzije.
+
+    Master paleta neni rozpocet na priseru — je to zasoba, ze ktere si kazda vezme svuj
+    kout. Cervena plechovka nesahne na zelene odstiny brokolice. Kdyz tohle cislo vyjde
+    hodne nizke (pod ~8), znamena to, ze se prisera do spolecneho sveta nevesla a
+    zplostla."""
+    if not pool:
+        return 0
+    cols = np.array(list(pool.keys()), dtype=np.int64)
+    a = lab_metric(to_oklab(cols), chroma_w)
+    b = lab_metric(to_oklab(pal), chroma_w)
+    idx = ((a[:, None, :] - b[None, :, :]) ** 2).sum(-1).argmin(1)
+    return len(set(idx.tolist()))
+
+
+# Kolikrat vic vazi barevne osy (a, b) nez jas (L) pri hledani nejblizsi barvy.
+#
+# Pri palete NA PRISERU je 1.0 spravne: paleta vznikla z jejich vlastnich barev, takze
+# kazdy pixel ma kam sednout a obycejna vzdalenost staci.
+#
+# Pri SDILENE palete to prestane platit. Sedy pixel ma chroma skoro nulovou, takze v
+# Oklabu lezi blizko stredu — a od stredu je stejne daleko na vsechny strany. Jestli v
+# palete zadna sed neni, rozhodne jas a pixel spadne na nejblizsi SYTOU barvu, klidne
+# tyrkysovou z uplne jine prisery. Presne to se stalo: ruzovy clickbait dostal na telo
+# zelene flicky.
+#
+# Zduraznenim barevnych os se to obrati. Pridat barvu neutralnimu pixelu je pak drahe,
+# takze sed hleda sed a sytou barvu si vybira jen tehdy, kdyz sytá doopravdy byla.
+# 2.5 je namerena hodnota, ne odhad — viz --chroma-weight a srovnani v build/.
+CHROMA_WEIGHT = 2.5
+
+
+def lab_metric(lab: np.ndarray, chroma_w: float) -> np.ndarray:
+    """Oklab pro MERENI vzdalenosti. Nikdy ne pro zpetny prevod na barvu."""
+    if chroma_w == 1.0:
+        return lab
+    out = lab.copy()
+    out[..., 1:] *= chroma_w
+    return out
+
+
+def remap(rgb: np.ndarray, mask: np.ndarray, pal: np.ndarray, pal_lab: np.ndarray,
+          chroma_w: float = 1.0) -> np.ndarray:
     """Kazdy neprusvitny pixel na nejblizsi barvu palety v Oklabu. Bez ditheringu."""
     out = rgb.copy()
     if not mask.any():
         return out
-    px = to_oklab(rgb[mask])
-    idx = ((px[:, None, :] - pal_lab[None, :, :]) ** 2).sum(2).argmin(1)
+    px = lab_metric(to_oklab(rgb[mask]), chroma_w)
+    pl = lab_metric(pal_lab, chroma_w)
+    idx = ((px[:, None, :] - pl[None, :, :]) ** 2).sum(2).argmin(1)
     out[mask] = pal[idx]
     return out
 
@@ -354,9 +449,21 @@ def main():
                     help="jak kontrastni musi osamoceny pixel byt, aby se bral jako "
                          "zamer (oko, odlesk) a necistil se; vzdalenost v Oklabu, "
                          "0 = cistit vsechno (default 0.12)")
+    ap.add_argument("--chroma-weight", type=float, default=None, metavar="W",
+                    help="jak draho stoji zmena BARVY proti zmene jasu pri hledani nejblizsi "
+                         f"barvy palety. 1.0 = klasicky Oklab, {CHROMA_WEIGHT} = vychozi pro "
+                         "--master (brani tomu, aby sedy pixel spadl na cizi sytou barvu)")
+    ap.add_argument("--master", metavar="N|SOUBOR.hex",
+                    help="jedna paleta pro CELY projekt misto palety na priseru. Bud cislo "
+                         "(spocita se z prave zpracovavanych priser), nebo cesta k .hex "
+                         "— typicky docs/art/palette_32.hex ze style_audit.py")
     ap.add_argument("--apply", action="store_true",
                     help="prepsat assets/distractions/ misto zapisu do build/")
     args = ap.parse_args()
+
+    # Sdilena paleta potrebuje duraz na barevnost, vlastni ne — viz CHROMA_WEIGHT.
+    cw = args.chroma_weight if args.chroma_weight is not None else (
+        CHROMA_WEIGHT if args.master else 1.0)
 
     groups = collect()
     if args.only:
@@ -369,16 +476,11 @@ def main():
     if not args.apply:
         os.makedirs(PREVIEW, exist_ok=True)
 
-    print(f"paleta: {args.colors} barev/prisera (vaha plochy {args.weight_exp})   "
-          f"despeckle: {'vyp' if args.despeckle >= 9 else args.despeckle}"
-          f"   prah detailu: {args.detail}")
-    print(f"cil: {os.path.relpath(dest, PROJ)}\n")
-    print(f"{'prisera':<20}{'barev':>14}{'osamocenych':>18}{'blikajicich':>16}"
-          f"{'cisteno':>9}{'detail':>8}")
-
-    tot_changed = 0
+    # Nacteni je oddelene od cisteni, protoze master paleta potrebuje videt vsechny
+    # prisery drive, nez se zpracuje prvni z nich.
+    print("ctu framy…", flush=True)
+    loaded_all, pools = {}, {}
     for base, anims in sorted(groups.items()):
-        # --- 1. jeden pytel barev pres uplne vsechny framy prisery
         pool = Counter()
         loaded = {}
         for suffix, files in anims.items():
@@ -387,8 +489,50 @@ def main():
             for rgb, al in fr:
                 for c in map(tuple, rgb[al > 32]):
                     pool[c] += 1
+        loaded_all[base] = loaded
+        pools[base] = pool
 
-        pal = build_palette(pool, args.colors, args.weight_exp)
+    master = None
+    if args.master:
+        if args.master.strip().isdigit():
+            master = master_palette(pools, int(args.master), args.weight_exp)
+            src_note = f"spocitana z {len(pools)} priser"
+        else:
+            p = args.master if os.path.isabs(args.master) else os.path.join(PROJ, args.master)
+            master = load_palette_file(p)
+            src_note = os.path.relpath(p, PROJ)
+        print(f"MASTER PALETA: {len(master)} barev ({src_note}) — sdilena vsemi priserami")
+    else:
+        print(f"paleta: {args.colors} barev/prisera (vaha plochy {args.weight_exp})")
+    print(f"despeckle: {'vyp' if args.despeckle >= 9 else args.despeckle}"
+          f"   prah detailu: {args.detail}   duraz na barvu: {cw}")
+    print(f"cil: {os.path.relpath(dest, PROJ)}\n")
+    if master is None:
+        print(f"{'prisera':<20}{'barev':>14}{'osamocenych':>18}{'blikajicich':>16}"
+              f"{'cisteno':>9}{'detail':>8}")
+    else:
+        # V master rezimu je zajimave neco jineho: kolik barev si prisera ze spolecne
+        # zasoby vzala a JAK MOC se kvuli tomu posunula proti sve vlastni palete.
+        print(f"{'prisera':<20}{'barev':>14}{'osamocenych':>18}{'blikajicich':>16}"
+              f"{'odchylka':>20}")
+
+    tot_changed = 0
+    for base, anims in sorted(groups.items()):
+        loaded = loaded_all[base]
+        pool = pools[base]
+
+        if master is None:
+            pal = build_palette(pool, args.colors, args.weight_exp)
+        else:
+            # Prisera dostane jen tu CAST master palety, na kterou skutecne dosahne.
+            # Zuzeni nic nemeni na vysledku remapu (nepouzita barva by stejne nikdy
+            # nevyhrala), ale drzi despeckle poctivy: ten porovnava proti barvam, ktere
+            # v obrazku existuji, a cizi zelene odstiny by mu rozhodovani jen sumely.
+            cols = np.array(list(pool.keys()), dtype=np.int64)
+            _a = lab_metric(to_oklab(cols), cw)
+            _b = lab_metric(to_oklab(master), cw)
+            idx = sorted(set(((_a[:, None, :] - _b[None, :, :]) ** 2).sum(-1).argmin(1).tolist()))
+            pal = master[idx]
         pal_lab = to_oklab(pal)
 
         b_cols, b_iso, b_flick = measure(loaded)
@@ -400,7 +544,7 @@ def main():
 
         cleaned, changed, kept = {}, 0, 0
         for suffix, fr in loaded.items():
-            step = [(remap(rgb, al > 32, pal, pal_lab), al) for rgb, al in fr]
+            step = [(remap(rgb, al > 32, pal, pal_lab, cw), al) for rgb, al in fr]
             if args.despeckle < 9:
                 out = []
                 for rgb, al in step:
@@ -414,8 +558,20 @@ def main():
         a_cols, a_iso, a_flick = measure(cleaned)
         tot_changed += changed
 
-        print(f"{base:<20}{b_cols:>6} -> {a_cols:<5}{b_iso:>10.0f}% -> {a_iso:<4.0f}%"
-              f"{b_flick:>9.1f}% -> {a_flick:<4.1f}%{changed:>9}{kept:>8}")
+        if master is None:
+            print(f"{base:<20}{b_cols:>6} -> {a_cols:<5}{b_iso:>10.0f}% -> {a_iso:<4.0f}%"
+                  f"{b_flick:>9.1f}% -> {a_flick:<4.1f}%{changed:>9}{kept:>8}")
+        else:
+            # Cena sdilene palety = o kolik hur sedi nez ta nejlepsi mozna vlastni.
+            # Samotne cislo odchylky nic nerika; rozdil proti vlastni palete rika vsechno.
+            own = build_palette(pool, args.colors, args.weight_exp)
+            e_master = palette_error(pool, master, cw)
+            e_own = palette_error(pool, own, cw)
+            used = palette_used(pool, master, cw)
+            flag = "  <<" if e_master - e_own > 0.020 else ""
+            print(f"{base:<20}{b_cols:>6} -> {a_cols:<5}{b_iso:>10.0f}% -> {a_iso:<4.0f}%"
+                  f"{b_flick:>9.1f}% -> {a_flick:<4.1f}%"
+                  f"{used:>8} barev{e_master:>7.3f} (vlastni {e_own:.3f}){flag}")
 
         # --- 3. zapis
         for suffix, files in anims.items():

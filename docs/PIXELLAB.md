@@ -5,6 +5,46 @@ výtvarná pravidla (co kreslit a proč) jsou v `ART_PIPELINE.md` a `ART_DIRECTI
 
 ---
 
+## 0. Jak neplýtvat kredity (vymáháno kódem, ne kázní)
+
+Znalosti o tom, kde mizí generace, byly v tomhle souboru rozeseté po kapitolách — a
+dokumentace, kterou musíš mít v hlavě, nikoho neochrání. Od 18. 8. 2026 to hlídá
+`tools/pixellab.py`.
+
+```bash
+python tools/pixellab.py new "<prompt>" --name "Broccoli Knight"   # 1 generace
+python tools/pixellab.py check <id>                                # 0 generací — BRÁNA
+python tools/pixellab.py anim <id>                                 # 4 generace
+python tools/pixellab.py ucet                                      # co se utratilo
+```
+
+**Postava stojí 1 generaci, animace čtyři.** Chůze je 1 generace na směr (jih, sever,
+východ), smrt jednu. Proto je mezi `new` a `anim` brána: `anim` **odmítne** postavu, která
+neprošla přes `check`. Není to buzerace — je to nejdražší způsob, jak přijít o kredity:
+špatný základ tě stojí čtyři generace naráz, ne jednu.
+
+`check` nerozhoduje za tebe. Stáhne rotace, oznámkuje je stejným měřítkem jako lokální
+generátor a **udělá kontaktní list, na který se musíš podívat**. Verdikt zapíše do účtu.
+
+Co se vymáhá automaticky:
+
+| past | co s tím dělá kód |
+|---|---|
+| nad 64 px si animace zvolí režim `pro` = **20–40 generací na směr** | posílá `mode:"v3"` natvrdo a upozorní |
+| západ si hra zrcadlí sama | není ve výchozích směrech; když ho vynutíš, ozve se |
+| jedenáctý souběžný job se vrátí **jako text, ne jako chyba** | přečte `list_jobs` a raději nezadá |
+| zaplatíš podruhé za totéž | účet v `build/pixellab/_ucet.json` |
+
+Před každým utracením se to zeptá; `--yes` to přeskočí, `--dry` ukáže, co by se poslalo,
+a nepošle nic.
+
+**Prompty ber z `tools/prompt_assist.py`.** Drží pětiblokovou strukturu ve dvou podobách
+z jednoho zdroje: `PIXELLAB_TEMPLATES` je plná (sem sahej při zadávání do PixelLabu),
+`RULE_TEMPLATES` krátká pro lokální náhled — ta se **musí** vejít do 77 tokenů CLIPu.
+Dřív se nevešla o 43 až 89 tokenů a náhledy tiše vznikaly z půlky promptu.
+
+---
+
 ## 1. Přístup — a co dělat, když nástroje nejsou v session
 
 MCP server je v lokálním configu:
@@ -441,7 +481,11 @@ blok 3×3 jako všude jinde ve světě.
 Prompt drží materiál mapy (nervová tkáň), **ne kámen** — slova `stone` / `rock` /
 `concrete` jsou ta, co kdysi vyrobila béžovou skálu (§ART_PROMPTS). Klíčové fráze:
 `vertical cliff face cross-section`, `horizontal strata layers`, `downward hanging fibers`,
-`lit from above`, `seamless left to right`, `flat side view, no perspective`.
+`lit from above`, `seamless left to right`, `flat side view, no perspective`,
+**`shadow tones shift toward cool blue/violet, never a flat black falloff`** — bez
+téhle fráze generátor stín jen ztmaví do černé (změřeno: `terrain/path/*.png` 2–4°
+posunu odstínu proti cíli 20°+, viz `style_bible.md` §2). Stejná fráze patří i do
+popisu podlahy (`lower_description`) o pár řádků výš.
 
 ### Postprocess je povinný (`tools/build_wall_face.py`)
 
@@ -741,3 +785,9 @@ to nefunguje:
 
 Viz `ART_PIPELINE.md` (co kreslit), `ART_DIRECTION.md` (proč tak) a paměť
 `project-art-direction-mapa`.
+
+**Sochařská forma věží (19. 8. 2026) — plné znění a prompt fráze jsou v
+`ART_PIPELINE.md` §3c, ne tady.** Tenhle soubor je API povrch, ne výtvarné pravidlo
+(řečeno hned v úvodu). Zkratka: kuželovitá forma odstupňovaná do pásů (základna → dřík →
+koruna), jeden zdroj světla shora, zaoblené hrany, kontaktní AO u paty — jiná osa než
+hue-shift stínu z §5c výš, obě platí zároveň.

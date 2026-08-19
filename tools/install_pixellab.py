@@ -28,7 +28,10 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import sprite_16
 import mj_to_sprite as M
-import pixellab_client as pl
+# Jediny klient v projektu. Drive tu byl vlastni pixellab_client.py; slouceno,
+# protoze dva klienty tehoz API se rozejdou (jeden dostal opravu strankovani,
+# ktera tise usekavala seznam postav na 28 z 38, druhy ne).
+import pixellab as pl
 
 DEST = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                     "assets", "distractions")

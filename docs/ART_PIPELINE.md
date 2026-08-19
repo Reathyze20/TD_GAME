@@ -491,6 +491,48 @@ kawaii, symmetric face, armour, weapons, background scenery, environment, text, 
 
 `--no pixel art` tam musí zůstat: MJ dělá koncept, pixelizaci dělá až pixflux (§3).
 
+## 3c. Věže — sochařská forma, ne plochá silueta (19. 8. 2026)
+
+Uživatel poslal referenční obrázek (mobilní TD hra, watermark stablediffusionweb.com) a
+řekl, že se mu líbí — po vyjasnění: **jen prostorovost/tvarovanost věží**, ne celý styl
+obrázku. Explicitně NECHCE teplou/veselou paletu, malovaný/hladký rendering, opuštění
+pixel artu. Deep Focus zůstává; mění se jen to, jak moc věž vypadá sochařsky/objemově.
+
+Co dělá referenci sochařskou: kuželovité/kopulovité věže odstupňované do **pásů podle
+formy** (základna → střední prstenec → koruna), každý pás vlastní tón podle natočení ke
+světlu, **jeden konzistentní zdroj světla shora** (vršek nejsvětlejší, boky tmavší,
+spodek skoro ve stínu), zaoblené/zkosené hrany místo pravých úhlů, měkký kontaktní
+stín/AO u paty, drobný rim-light na osvětlené horní hraně.
+
+Tohle je **jiná osa** než hue-shift stínu (`PIXELLAB.md` §5c, `style_bible.md` „Tvar
+stínu je jiná osa"): hue shift říká *jaký odstín* má stín mít, tenhle odstavec říká
+*podle jakého tvaru* se po objektu rozkládá. Obě pravidla platí zároveň, jedno
+nenahrazuje druhé.
+
+**Fráze do promptu** (řaď za popis objektu, před `shadow tones shift toward cool
+blue/violet…` — obě věty patří vedle sebe):
+
+```
+sculptural stepped massing divided into distinct tiers — wide base, mid shaft, capping
+crown — each tier a separate plane with its own tone. Single consistent light source
+from directly above: top-facing surfaces brightest, side faces darker, undersides
+near-black. Rounded, chamfered edges, no sharp right angles. Soft contact shadow /
+ambient occlusion where the base meets the ground, thin rim-light along the lit top
+edge. Pixel art on a hard grid — no smooth painted gradients, no anti-aliased curves.
+```
+
+**Co si z reference NEBRAT** — dopiš to vedle, ne mlčky spoléhej, že se to samo
+vyfiltruje: `keep the dark cool Deep Focus palette, not warm bright grass/dirt tones;
+keep crisp pixel edges, not a painted/vector look; keep grounded proportions, not
+cartoonish`.
+
+**Kde to už funguje**: `assets/src/pixel/towers/tower_01_FOCUS_final.png` (dnešní
+obelisk, 64×64, mimo `SHIPPED`) — stupňovitá základna, dřík, tyrkysové jádro, koruna,
+měřeno horní třetina spritu medián jasu 95,7 proti spodní 63,8. **Kde ne**:
+`assets/towers/head_focus_timer.png`, `head_mindfulness.png` — jedna zaoblená hmota bez
+odstupňovaných pásů (baňka / drahokam na soklu). Nepřegenerovávat teď — je to kandidát
+na příště, ne dluh k dořešení hned.
+
 ## 4. Kam co patří a co si to samo načte
 
 ```

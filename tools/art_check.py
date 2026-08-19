@@ -38,6 +38,9 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 PROJ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import game_raster                                   # noqa: E402
+
 ASSETS = os.path.join(PROJ, "assets")
 DATA = os.path.join(PROJ, "data")
 REPORT = os.path.join(PROJ, "build", "art_report.html")
@@ -47,17 +50,44 @@ ID_RE = re.compile(r'^id\s*=\s*&?"([^"]+)"', re.M)
 
 # Cilova velikost pixelu na obrazovce. Vsechen art by mel po vykresleni mit stejne velky
 # pixel - jinak jedna prisera cte jako jemnejsi kresba nez svet, ve kterem stoji.
-TARGET_SCREEN_PIXEL = 3
+TARGET_SCREEN_PIXEL = game_raster.SCALE
 
 # Kolik barev je jeste v poradku.
 #
 # Rozpocet se odviji od MNOZSTVI ARTU (neprusvitnych pixelu), ne od velikosti platna.
 # Prvni verze pocitala z delsi strany a oznacila high_ground_atlas.png za chybu: je to
 # 192x576, tedy "velky obrazek", ale je v nem patnact dlazdic, ktere spolu paletu sdileji.
-# 81 barev je tam v poradku. Odmocnina proto, ze paleta neroste s plochou linearne —
-# dvakrat vetsi sprite nepotrebuje dvakrat vic odstinu, jen o neco vic.
+# 81 barev je tam v poradku.
+#
+# PREPOCITANO PROTI LATCE. Do teto chvile to bylo `12 + sqrt(plocha) * 0.35`, cili
+# krivka odvozena z uvahy, ne z dat -- a uvaha byla spatne. Zmereno na 1623 originalech
+# z PixelLabu (build/pixellab), coz je latka, kterou jsme si sami zvolili:
+#
+#   pasmo    ks    med. plocha   med. barev   p90 barev   stary rozpocet
+#   32-47     39       234           44           52            17
+#   48-79   1022      1414           38           53            25
+#   80+      562      1776           45           56            26
+#
+# Dve veci z toho plynou:
+#   1. Pocet barev na LATCE skoro NEZAVISI na velikosti spritu -- 38 az 45 napric
+#      vsemi pasmy. Odmocninova krivka tedy nesedi na nic; spravny tvar je plochy.
+#   2. Stary rozpocet byl pod latkou 1,5x (median pomeru skutecnost/rozpocet 1,54,
+#      p90 2,21) a 88 % originalu z PixelLabu by neproslo. Kontrola tedy netrestala
+#      sum, ale BOHATOST -- a tim tlacila vlastni art k plochosti.
+#
+# Prah je nastaveny na p90 latky, ne na jeji median: kontrola ma hlasit, co je
+# neobvykle i na latce, ne vsechno barevne. Pri 56 propadne asi desetina originalu,
+# coz je presne ta desetina, kterou chceme videt.
+#
+# Pod 120 pixelu artu latka MLCI -- v celych 1623 originalech neni jediny sprite pod
+# 32 px, takze pro dlazdice zadna data nemame. Cislo 24 je proto vedomy odhad, ne
+# mereni, a je oznaceny jako takovy. Az budou dlazdice v PixelLabu, premeri se.
+PALETTE_BUDGET_SMALL = 24     # ODHAD (latka nema data pod 32 px)
+PALETTE_BUDGET = 56           # p90 latky, zmereno
+
+
 def palette_budget(opaque_px):
-    return int(min(96, max(12, 12 + (opaque_px ** 0.5) * 0.35)))
+    return PALETTE_BUDGET_SMALL if opaque_px < 120 else PALETTE_BUDGET
 
 
 ERROR, WARN, INFO = "CHYBA", "VAROVANI", "INFO"

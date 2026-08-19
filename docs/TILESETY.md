@@ -35,7 +35,7 @@ kdy horní okraj vypadá dál než spodní.
 
 Piš **anglicky** — model je na tom trénovaný a česky si vymýšlí.
 
-Tři pravidla, každé vykoupené jedním nepovedeným pokusem:
+Čtyři pravidla, každé vykoupené jedním nepovedeným pokusem:
 
 1. **Jiný materiál, ne jiná varianta téhož.** „Soft tissue" a „soft membrane" skončily jednou
    šedou kaší, protože to je popis téhož. Kámen vs. tkáň, kov vs. látka, kost vs. sliz.
@@ -43,6 +43,11 @@ Tři pravidla, každé vykoupené jedním nepovedeným pokusem:
    Když to nenapíšeš, vyjdou oba terény v půltónu a mapa nemá hloubku.
 3. **Podlaha musí být nudná.** Je jí 60 % obrazovky. Napiš `matte`, `muted`, `low contrast`,
    `almost plain`. Detailní podlaha spolkne nepřátele.
+4. **Stín musí měnit odstín, ne jen tmavnout.** Přidej `shadow shifts cool blue/violet,
+   not a flat black falloff`. Bez týhle věty vyjde stín šedý přechod do černé — přesně
+   tohle na `path_*.png` naměřil `style_audit.py` (2–4° místo cílových 20°+, `style_bible.md`
+   §2). „Nudná" z pravidla 3 znamená málo detailu a nízký kontrast, ne barevně mrtvý stín —
+   obojí jde dohromady, jedno není omluva pro druhé.
 
 Tři páry k vyzkoušení:
 

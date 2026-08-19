@@ -7,11 +7,23 @@
 #   python tools/tiles.py nahled                        # vykresli zkusebni mapu ke kontrole
 #
 # JEDNO CISLO SI PAMATUJ: 16.
-# Herni bunka je 48 px. PixelLab umi tilesety jen v 16, 32 nebo 64 a jedine 16 deli 48
-# beze zbytku (16 x 3 = 48). Pri 32 nebo 64 by se dlazdice musela zvetsovat necelym
-# cislem, coz pixel art rozmaze i s nearest filtrem.
+# Herni bunka je 16 px obrazovky a 16 px artu, cili meritko x1 -- jeden pixel artu je
+# jeden pixel obrazovky. PixelLab tilesety v 16 UMI, takze se nic nedotahuje rucne;
+# staci "tile size = 16" a export "Tileset 15".
 #
-# V PixelLabu tedy: tile size = 16, a pri exportu vyber layout "Tileset 15".
+# HISTORIE, at se to nezkousi potreti: 16 px artu na x3 (bunka 48) -> "24 na x2"
+# (18. 8. 2026 zmereno, ze to nikdy neplatilo, atlas zustal 16) -> 16 px artu na x1
+# (bunka 16, mrizka 120x57). Deska na obrazovce je porad 1920x912 a rozhrani se nehnulo;
+# zmenila se jen jemnost rastru.
+#
+# POZOR, ATLAS SE UKLADA V PIXELECH OBRAZOVKY, NE ARTU.
+# 4 dlazdice na sirku krat CELL, cili 192 px pri bunce 48. Neni to totez jako sprity,
+# ktere lezi v pixelech artu a engine je zvetsuje sam. Kdo bude atlas hromadne
+# preskalovavat s ostatnim artem, prepocita ho spatne -- prave na tomhle se pri
+# prechodu na 64px rastr rozsypal teren a vypadalo to jako chyba enginu.
+#
+# V PixelLabu tedy: tile size = 32 a dotahni na 24, nebo kresli rovnou. Pri exportu
+# vyber layout "Tileset 15".
 # "Tileset 15" je proste mrizka 4x4 s maskami 0..15 za sebou - presne to, co hra chce,
 # jen v jinem poradi bitu. Prevod resi tenhle skript, ty se o nej nemusis starat.
 import os
@@ -20,6 +32,8 @@ import sys
 
 from PIL import Image
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 PROJ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ATLAS = os.path.join(PROJ, "assets", "terrain", "high_ground_atlas.png")
 BG = os.path.join(PROJ, "assets", "background.png")
@@ -27,9 +41,15 @@ PATH_DIR = os.path.join(PROJ, "assets", "terrain", "path")
 EDIT = os.path.join(PROJ, "assets", "src", "pixel", "atlas_edit.png")
 PREVIEW = os.path.join(PROJ, "assets", "src", "pixel", "_kontrola_mapy.png")
 
-CELL = 48   # herni bunka
-ART = 16    # v cem se kresli; CELL / ART musi byt cele cislo
-ZOOM = CELL // ART
+# Rastr se CTE ze scripts/data.gd, neopisuje se. Presne tady se to uz jednou rozeslo:
+# data.gd se 17. 8. 2026 presunulo na 24 px artu, tenhle soubor to mel prepsane taky,
+# ale ATLAS NA DISKU zustal 16px -- takze cislo v kodu a obrazek v assets/ tvrdily
+# kazdy neco jineho a teren cely mesic bezel na jinem meritku nez sprity.
+import game_raster                                             # noqa: E402
+
+CELL = game_raster.TILE       # herni bunka v pixelech obrazovky (Data.GRID.tile)
+ART = game_raster.ART_PX      # v cem se kresli (Data.TERRAIN_ART_PX)
+ZOOM = game_raster.SCALE      # CELL / ART, cele cislo
 
 
 # Nase maska: bit 1 = SZ bunka je zed, 2 = SV, 4 = JZ, 8 = JV. Atlas je mrizka 4x4,

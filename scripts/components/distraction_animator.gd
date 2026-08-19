@@ -40,8 +40,6 @@ var _frames_east: Array[Texture2D] = []
 var _frames_west: Array[Texture2D] = []
 var _frames_attack: Array[Texture2D] = []
 
-## Sprite width in radii. See _sprite_size().
-const ART_SPAN := 2.0
 
 ## Fallback rate for hand-authored frames — used by every set the Animation Lab has not
 ## given a rate of its own. Independent of the procedural animations below, which are
@@ -186,33 +184,23 @@ func _draw_type_glow(r: float, strength: float) -> void:
 ## clash on paper, but it is the standard convention for 2D games (Zelda, Stardew) and it
 ## reads fine — provided the character is anchored. Without a shadow the sprite floats and
 ## looks pasted on, which is exactly what "the style doesn't fit the map" turns out to be.
-## Tried and rejected first: extruding the walls into 2.5D, which measurably looked worse.
 ##
 ## Flyers get theirs pushed further down and softer, so the gap reads as altitude.
 func _draw_contact_shadow(r: float, strength: float) -> void:
 	if strength <= 0.01:
 		return
 	var drop: float = r * (1.45 if enemy.is_flying else 0.72)
-	var alpha: float = (0.22 if enemy.is_flying else 0.38) * strength
-	draw_set_transform(Vector2(0.0, drop), 0.0, Vector2(1.0, 0.4))
-	draw_circle(Vector2.ZERO, r * 0.95, Color(0.02, 0.02, 0.06, alpha))
-	draw_circle(Vector2.ZERO, r * 0.62, Color(0.02, 0.02, 0.06, alpha * 0.8))
+	var alpha: float = (0.22 if enemy.is_flying else 0.42) * strength
+	# Dynamic bobbing: shadow gently tightens on upward steps for physical ground anchor
+	var bob: float = 1.0 - absf(sin(_time * 6.0)) * (0.06 if enemy.is_flying else 0.12)
+	draw_set_transform(Vector2(0.0, drop), 0.0, Vector2(bob, 0.42 * bob))
+	# 3-tier soft shadow (core, mid-body, soft rim)
+	draw_circle(Vector2.ZERO, r * 1.15, Color(0.01, 0.01, 0.04, alpha * 0.25))
+	draw_circle(Vector2.ZERO, r * 0.85, Color(0.01, 0.01, 0.04, alpha * 0.65))
+	draw_circle(Vector2.ZERO, r * 0.50, Color(0.01, 0.01, 0.04, alpha * 0.95))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 ## Draws the current frame centred on the enemy.
-##
-## The scale is a whole number on purpose: pixel art drawn at 1.4x lands on fractions of a
-## pixel and the whole sprite shimmers as it walks. Rounding to an integer keeps every
-## source pixel a clean square, at the cost of the sprite not matching `radius` exactly —
-## which is the right trade, since radius is a gameplay number and this is art.
-## Chooses the walk cycle matching the enemy's heading, falling back to south whenever a
-## facing has no art — so a half-finished set degrades to "always faces the camera"
-## instead of vanishing.
-##
-## Returns the frames plus whether to mirror them: with no dedicated west art, west is
-## the east cycle flipped.
-## Returns the frames, whether to mirror them, and the directional suffix — the suffix so
-## the caller can name the set for AnimTuning without re-deriving which branch won.
 func _facing_frames() -> Array:
 	match enemy.facing:
 		Distraction.Facing.NORTH:
@@ -237,8 +225,6 @@ func _set_key(dir_suffix: String) -> String:
 
 func _draw_sprite_frames(r: float) -> void:
 	var pick := _facing_frames()
-	# A held creature fights the thing holding it: the attack set overrides the walk
-	# cycle while is_blocked, mirrored toward WEST with the same rule walking uses.
 	if enemy.is_blocked and not _frames_attack.is_empty():
 		pick = [_frames_attack, enemy.facing == Distraction.Facing.WEST, "_attack"]
 	var frames: Array[Texture2D] = pick[0]
@@ -246,9 +232,6 @@ func _draw_sprite_frames(r: float) -> void:
 		return
 	var mirror: bool = pick[1]
 	var key := _set_key(pick[2])
-	# The clock counts base SLOTS, not frames — a frame held 3x simply occupies three of
-	# them. Frame choice therefore lives entirely in AnimTuning, and a set with no authored
-	# holds comes back out as the plain modulo this used to do.
 	var slot: int = int(_time * tuning().fps_for(key, SPRITE_FPS))
 	var idx: int = tuning().frame_at(key, frames.size(), slot, true)
 	var tex: Texture2D = frames[idx]
@@ -262,36 +245,36 @@ func _draw_sprite_frames(r: float) -> void:
 
 func _draw_texture_centred(tex: Texture2D, r: float, glow: float = 1.0,
 		off: Vector2i = Vector2i.ZERO) -> void:
-	var size := _sprite_size(tex, r)
+	var size := _sprite_size(tex)
 	if size == Vector2.ZERO:
 		return
-	# The nudge is authored in art pixels, so it is scaled the same way the sprite is:
-	# one step stays exactly one source pixel and the frame never lands on a half pixel.
-	# Under the mirrored transform above it flips with the art, which is what a mirrored
-	# set wants — its alignment is mirrored too.
 	var shift := Vector2(off) * (size.x / float(tex.get_width()))
 	_draw_body_glow(tex, size, glow, shift)
-	draw_texture_rect(tex, Rect2(-size * 0.5 + shift, size), false)
+	
+	# Crisp overbright stencil hit flash
+	var tint := Color.WHITE
+	if _hit_flash_timer > 0.0:
+		var flash_intensity: float = clampf(_hit_flash_timer / 0.15, 0.0, 1.0)
+		tint = Color(1.0 + flash_intensity * 2.5, 1.0 + flash_intensity * 2.5, 1.0 + flash_intensity * 2.5, 1.0)
+	
+	draw_texture_rect(tex, Rect2(-size * 0.5 + shift, size), false, tint)
 
-## On-screen size of one frame, deliberately NOT derived from radius alone.
+## On-screen size of one frame. NOT derived from radius, and no longer from anything local.
 ##
-## radius is a gameplay number — projectile.gd hits against it — so it cannot be changed to
-## resize the art. ART_SPAN is the art side of that split. In practice every current
-## creature lands on the floor of 2, so the working rule is: a sprite draws at twice its
-## art size, and size differences are authored into the art itself — regulars ship 32px
-## art (64 on screen, 4/3 of a cell), the boss ships 64px art and comes out at 128.
-## The bestiary was 16px art for half a day; it went back up because at 32 screen px the
-## fur and teeth that make these creatures worth looking at didn't survive.
+## radius is a gameplay number — projectile.gd hits against it — so it never had any
+## business setting the art scale, and the old formula only pretended otherwise: with
+## radii from 8 to 30 against 32px art it rounded to the floor for EVERY creature in the
+## game, boss included. So the real behaviour was a flat x2 while the ground ran at x3,
+## and the creatures were half a pixel finer than the world they walked on.
 ##
-## The scale is a whole number on purpose: pixel art drawn at 1.4x lands on fractions of a
-## pixel and the whole sprite shimmers as it walks. The floor is 2, not 1 — one art pixel
-## must never be one screen pixel, or the creature reads twice as fine as the world it
-## stands in.
-func _sprite_size(tex: Texture2D, r: float) -> Vector2:
+## The scale now comes from the map (Data.pixel_scale), which is the only thing entitled
+## to decide it. Size differences stay authored into the art itself: regulars ship 32px
+## art and draw at 96, the boss ships 64px and draws at 192 — four cells, as a boss should.
+func _sprite_size(tex: Texture2D) -> Vector2:
 	var src := Vector2(tex.get_width(), tex.get_height())
 	if src.x <= 0.0:
 		return Vector2.ZERO
-	return src * maxf(2.0, roundf(r * ART_SPAN / src.x))
+	return src * Data.pixel_scale()
 
 ## Half of what the body actually covers on screen — as opposed to `radius`, which is the
 ## hitbox. Ground FX and status rings must wrap THIS: the art is now wider than the
@@ -302,7 +285,7 @@ func _visual_radius(r: float) -> float:
 	var frames: Array[Texture2D] = _death_frames if _dying else _frame_textures
 	if frames.is_empty():
 		return r
-	return _sprite_size(frames[0], r).x * 0.5
+	return _sprite_size(frames[0]).x * 0.5
 
 ## A halo of the creature's own colour behind its silhouette.
 ##

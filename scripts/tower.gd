@@ -80,6 +80,11 @@ func _setup_specific(initial_facing: float, initial_arc: float) -> void:
 	# Head art must load HERE, not in _ready(): build_habit() add_child()s first and
 	# calls setup() after, so at _ready() time type_key is still empty.
 	_load_head_art()
+	# Same trap as above: skip the shared disc for heads that sculpt their own plinth
+	# (see HabitData.has_own_pedestal) — a monument head centers past the small shared
+	# disc and pokes it out through its own middle instead of sitting on top of it.
+	if not def.has_own_pedestal and FileAccess.file_exists("res://assets/towers/tower_base.png"):
+		_base_tex = load("res://assets/towers/tower_base.png")
 
 	base_willpower_damage = def.willpower_damage
 	base_awareness_damage = def.awareness_damage
@@ -506,8 +511,9 @@ func _current_head_tex() -> Texture2D:
 func _ready() -> void:
 	# Tower sprites are pixel art now; anything but whole-multiple nearest scaling mushes.
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	if FileAccess.file_exists("res://assets/towers/tower_base.png"):
-		_base_tex = load("res://assets/towers/tower_base.png")
+	# The shared pedestal is loaded in _setup_specific(), not here: it now depends on
+	# def.has_own_pedestal, and def is still null at _ready() time (see the comment on
+	# _load_head_art() below for why — same trap, same fix).
 
 func _load_head_art() -> void:
 	_head_tex = null
@@ -524,19 +530,17 @@ func _load_head_art() -> void:
 	if _head_tex == null and not _head_frames.is_empty():
 		_head_tex = _head_frames[0]
 
-## One art pixel always draws as a 2x2 screen block — the same ART_SPAN rule the creatures
-## use — so head art can be authored at whatever size the design needs and the pixel density
-## never changes between a tower and the distraction walking past it.
+## One art pixel draws as the same screen block as everything else on the map, so head art
+## can be authored at whatever size the design needs and the pixel density never changes
+## between a tower and the distraction walking past it.
 ##
 ## This replaced a fit-to-cell `floor(tile / width)`, which capped useful head art at 24px:
-## 32px art landed on floor(48/32) = 1, i.e. the head would SHRINK to 32 screen px and draw
-## one art pixel per screen pixel — twice as fine as the world around it. 24px art is
-## unaffected (floor(48/24) was already 2); 32px art now draws at 64 px and overhangs its
-## cell by 8 px per side, exactly as a 32px creature overhangs at 64.
-const HEAD_ART_SPAN := 2.0
+## 32px art landed on floor(48/32) = 1, i.e. the head would SHRINK and draw one art pixel
+## per screen pixel. Fixing that with a hardcoded 2.0 traded one mismatch for a quieter
+## one — the ground was already at 3.0. Data.pixel_scale() is the single source now.
 
 func _draw_head_sprite(tex: Texture2D, tint: Color, rot: float = 0.0, offset: Vector2 = Vector2.ZERO) -> void:
-	var size := Vector2(tex.get_size()) * HEAD_ART_SPAN
+	var size := Vector2(tex.get_size()) * Data.pixel_scale()
 	var transformed := rot != 0.0 or offset != Vector2.ZERO
 	if transformed:
 		draw_set_transform(offset, rot, Vector2.ONE)
@@ -556,8 +560,7 @@ func _draw() -> void:
 	if def.is_support():
 		var support_head := _current_head_tex()
 		if _base_tex != null and support_head != null:
-			var sb_zoom := maxf(1.0, floorf(float(tile) / _base_tex.get_width()))
-			var sb_size := Vector2(_base_tex.get_size()) * sb_zoom
+			var sb_size := Vector2(_base_tex.get_size()) * Data.pixel_scale()
 			draw_texture_rect(_base_tex, Rect2(-sb_size / 2.0, sb_size), false,
 				Color(1, 1, 1, 0.5) if resting else Color.WHITE)
 			_draw_head_sprite(support_head, Color.WHITE if in_routine else Color(0.6, 0.6, 0.6, 0.8))
@@ -578,12 +581,15 @@ func _draw() -> void:
 				HORIZONTAL_ALIGNMENT_CENTER, -1, 13, Color(1.0, 0.8, 0.2, flash_a))
 		return
 
+	# 0. PEDESTAL CONTACT SHADOW (Anchors tower firmly to ground)
+	draw_set_transform(Vector2(0.0, base_r * 0.45), 0.0, Vector2(1.0, 0.45))
+	draw_circle(Vector2.ZERO, base_r * 1.15, Color(0.01, 0.01, 0.04, 0.15))
+	draw_circle(Vector2.ZERO, base_r * 0.85, Color(0.01, 0.01, 0.04, 0.35))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
 	# 1. FIXED PEDESTAL BASE (PNG Sprite or Vector Fallback)
 	if _base_tex != null:
-		# Native size x whole zoom (48px art x1, 16px art x3). The old tile * 1.15 rect
-		# stretched the texture fractionally, which blurs pixel art even under NEAREST.
-		var b_zoom := maxf(1.0, floorf(float(tile) / _base_tex.get_width()))
-		var b_size := Vector2(_base_tex.get_size()) * b_zoom
+		var b_size := Vector2(_base_tex.get_size()) * Data.pixel_scale()
 		draw_texture_rect(_base_tex, Rect2(-b_size / 2.0, b_size), false, Color(1, 1, 1, 0.5) if resting else Color.WHITE)
 	else:
 		_draw_oct_base(base_r, Color("161a26"))

@@ -39,6 +39,7 @@ from PIL import Image
 PROJ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import game_raster                                   # noqa: E402
 from sprite_cleanup import build_palette, to_oklab   # noqa: E402
 
 # Jen to, co jde do hry. assets/src/ je zdrojovy material ve vyssim rozliseni a
@@ -248,6 +249,20 @@ def report(rows, tuning):
     print(f"\n=== STYLOVY AUDIT — {total} shipped PNG ===\n")
 
     # ---------------------------------------------------------- 1 rozliseni
+    print("0) RASTR — sedi vsechno na mrizku?")
+    bad = check_raster(rows)
+    if not bad:
+        print(f"  vse je nasobek {CELL_ART_PX} px (= jedna bunka pri x3). V poradku.\n")
+    else:
+        by_size = defaultdict(list)
+        for rel, w, h in bad:
+            by_size[(w, h)].append(rel)
+        print(f"  {len(bad)} souboru NENI nasobek {CELL_ART_PX} px — kresli se jinym meritkem "
+              f"nez okoli:")
+        for (w, h), fs in sorted(by_size.items(), key=lambda kv: -len(kv[1])):
+            print(f"    {w}x{h}  {len(fs):>3} souboru   napr. {fs[0]}")
+        print()
+
     print("1) ROZLISENI A LOGICKY PIXEL")
     by_group = defaultdict(list)
     for r in rows:
@@ -413,6 +428,38 @@ def write_palette(pal, k):
     pp = os.path.join(out, f"palette_{k}.png")
     img.save(pp)
     return hexes, hp, pp
+
+
+# ------------------------------------------------------- rastr (nasobky bunky)
+
+# Bunka je 48 bodu obrazovky (Data.GRID.tile) a rastr sveta je x3 (Data.pixel_scale),
+# takze jedna bunka je 16 pixelu ARTU. Kazdy sprite proto musi byt nasobkem sestnacti —
+# jinak nesedne na mrizku a jeho pixel vyjde jinak velky nez pixel zeme pod nim.
+CELL_ART_PX = game_raster.ART_PX
+
+
+def check_raster(rows):
+    """Sprity, jejichz strana neni nasobek velikosti bunky v artu.
+
+    Tohle je chyba, kterou nikdo neuvidi v jednom souboru a kazdy uvidi ve hre: 24px art
+    v 48px bunce vyjde na x2, zatimco 16px art na x3, a dve veci vedle sebe pak maji ruzne
+    velky pixel. Presne takhle se rozesly veze (24) s terenem (16) a s podlahou (8).
+    """
+    def ok(side):
+        # Bud cele bunky (16, 32, 64), nebo cisty zlomek bunky (8 = pul, 4 = ctvrt).
+        # Pulena dlazdice je legitimni — face_XX je spodni pul zdi a pri x3 z ni vyjde
+        # 48x24, tedy porad tentyz rastr. Zakazane jsou az cisla jako 24 nebo 40, ktera
+        # nejsou ani nasobek, ani delitel: ta na mrizku nesednou nijak.
+        return side % CELL_ART_PX == 0 or CELL_ART_PX % side == 0
+
+    bad = []
+    for r in rows:
+        w, h = r["canvas"]
+        if w * h > ATLAS_PX:
+            continue                                  # atlasy maji vlastni mrizku uvnitr
+        if not ok(w) or not ok(h):
+            bad.append((r["rel"], w, h))
+    return bad
 
 
 def main():

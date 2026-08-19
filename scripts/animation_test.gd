@@ -41,10 +41,7 @@ func _ready() -> void:
 	set_process(true)
 
 func world_to_cell(pos: Vector2) -> Vector2i:
-	var tile: float = Data.GRID.tile
-	var ox: float = Data.GRID.origin_x
-	var oy: float = Data.GRID.origin_y
-	return Vector2i(int((pos.x - ox) / tile), int((pos.y - oy) / tile))
+	return Data.world_to_cell(pos)
 
 func spawn_distraction(type_key: String, spawn_cell: Vector2i) -> void:
 	var enemy: Distraction = Distraction.new()
@@ -79,7 +76,7 @@ func _setup_ui() -> void:
 	margin.add_child(vbox)
 
 	var title := Label.new()
-	title.text = "🎬 TESTOVACÍ LEVEL VEKTOROVÝCH ANIMACÍ"
+	title.text = "🎬 TESTOVACÍ LEVEL ANIMACÍ & DETAILŮ (PIXEL ART)"
 	title.add_theme_font_size_override("font_size", 18)
 	vbox.add_child(title)
 
@@ -117,15 +114,12 @@ func _setup_ui() -> void:
 	btn_hbox2.add_child(btn_reframe)
 
 	_status_label = Label.new()
-	_status_label.text = "Stav: Zobrazeno 6 nepřátel v klidovém režimu."
+	_status_label.text = "Stav: Zobrazeno 9 nepřátel s kompletním pixel artem a stíny."
 	_status_label.add_theme_font_size_override("font_size", 14)
 	vbox.add_child(_status_label)
 
 func cell_center(cell: Vector2i) -> Vector2:
-	var tile_size: float = Data.GRID.tile
-	var origin_x: float = Data.GRID.origin_x
-	var origin_y: float = Data.GRID.origin_y
-	return Vector2(origin_x + cell.x * tile_size + tile_size * 0.5, origin_y + cell.y * tile_size + tile_size * 0.5)
+	return Data.cell_center(cell)
 
 func _spawn_showcase_line() -> void:
 	# Clear existing
@@ -139,8 +133,8 @@ func _spawn_showcase_line() -> void:
 	var mock_game = self
 	
 	# Position enemies evenly across grid row 9
-	var spacing_cols := 5
-	var start_col := 4
+	var spacing_cols := 4
+	var start_col := 2
 
 	for i in range(_distraction_keys.size()):
 		var key: String = _distraction_keys[i]
@@ -157,7 +151,7 @@ func _spawn_showcase_line() -> void:
 		_spawned_enemies.append(enemy)
 
 	if _status_label != null:
-		_status_label.text = "Stav: 6 typů vyrušení zobrazeno vedle sebe."
+		_status_label.text = "Stav: Všech 9 typů vyrušení zobrazeno vedle sebe."
 
 func _on_toggle_march() -> void:
 	_is_marching = not _is_marching

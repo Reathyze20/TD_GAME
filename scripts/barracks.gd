@@ -163,8 +163,7 @@ func _draw() -> void:
 
 	# Socket base + kiosk body, native size x whole zoom like every other habit.
 	if _base_tex != null:
-		var b_zoom := maxf(1.0, floorf(float(tile) / _base_tex.get_width()))
-		var b_size := Vector2(_base_tex.get_size()) * b_zoom
+		var b_size := Vector2(_base_tex.get_size()) * Data.pixel_scale()
 		draw_texture_rect(_base_tex, Rect2(-b_size / 2.0, b_size), false, Color.WHITE)
 	var body := _body_tex
 	if not _body_frames.is_empty():
@@ -172,8 +171,7 @@ func _draw() -> void:
 	# Dimmed when cut off, same read as a support head out of Routine (tower.gd).
 	var body_tint := Color.WHITE if in_routine else Color(0.6, 0.6, 0.6, 0.8)
 	if body != null:
-		var zoom := maxf(1.0, floorf(float(tile) / body.get_width()))
-		var size := Vector2(body.get_size()) * zoom
+		var size := Vector2(body.get_size()) * Data.pixel_scale()
 		draw_texture_rect(body, Rect2(-size / 2.0, size), false, body_tint)
 	else:
 		draw_circle(Vector2.ZERO, 3.0, body_tint)

@@ -220,7 +220,7 @@ func _draw() -> void:
 	# Rekvizity, seřazené podle y (malíř), ×3 jako DecorLayer.
 	for p in _props:
 		var tex: Texture2D = p.tex
-		var sz := Vector2(tex.get_size()) * DecorLayer.ZOOM
+		var sz: Vector2 = Vector2(tex.get_size()) * Data.pixel_scale()
 		var at: Vector2 = p.pos
 		if bool(p.flip):
 			draw_set_transform(at, 0.0, Vector2(-1.0, 1.0))

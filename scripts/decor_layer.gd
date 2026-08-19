@@ -9,12 +9,14 @@ extends Node2D
 ## space with signs and bones for exactly this reason — clutter is what makes ground read
 ## as ground.
 ##
-## Art: assets/decor/*.png, 16px, drawn at x3 — the terrain is 16px art at x3 (48px cell),
-## so props on the same raster share the same grain. Adding a file is all it takes to
-## widen the pool.
+## Art: assets/decor/*.png, 24px, kreslene v Data.pixel_scale() -- stejnem meritku jako
+## teren a postavy, takze propy sdili zrno se vsim ostatnim. Pridat soubor staci
+## k rozsireni poolu.
+##
+## ZOOM byval natvrdo 3, cili propy bezely na x3, kdyz sprity bezely na x2 -- presne ta
+## nejednotnost rastru, kterou Data.pixel_scale() ma odstranit. Ptame se proto tam.
 
 const DECOR_DIR := "res://assets/decor"
-const ZOOM := 3
 
 ## Share of eligible floor cells that get something.
 ##
@@ -83,7 +85,16 @@ func build(game, level_seed: int) -> void:
 	if free.is_empty():
 		return
 
-	var clusters: int = maxi(1, int(free.size() * DENSITY / 3.0))
+	# DENSITY je podil PLOCHY, ne podil bunek -- proto se pocet volnych bunek deli
+	# velikosti stavebniho bloku na druhou.
+	#
+	# Bez toho se scenerie pri zjemneni mrizky (48 px bunka -> 16 px, 18. 8. 2026) sama
+	# od sebe zdevetinasobila: `free` je seznam bunek a tech je najednou devetkrat vic
+	# pres uplne stejne velkou podlahu. Pole vypadalo presne jako to konfety, proti
+	# kteremu je cely tenhle soubor napsany. Cislo DENSITY se tim NEMENI a znamena
+	# porad totez co drive.
+	var per_block: float = float(Data.BUILD_BLOCK * Data.BUILD_BLOCK)
+	var clusters: int = maxi(1, int(free.size() / per_block * DENSITY / 3.0))
 	for _c in range(clusters):
 		var origin: Vector2i = free[rng.randi() % free.size()]
 		# Two to four pieces per pile, dropped within about a cell of each other, so they
@@ -155,7 +166,7 @@ func _load_pool() -> Array[Texture2D]:
 func _draw() -> void:
 	for item in _items:
 		var tex: Texture2D = item["tex"]
-		var size := Vector2(tex.get_size()) * ZOOM
+		var size := Vector2(tex.get_size()) * Data.pixel_scale()
 		var at: Vector2 = item["pos"] - size * 0.5
 		if item["flip"]:
 			# Mirroring doubles the apparent variety for free. Nothing here carries text

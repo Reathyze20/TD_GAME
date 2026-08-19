@@ -50,16 +50,28 @@ REF_ROOTS = (os.path.join(PROJ, "assets"), os.path.join(PROJ, "build"))
 
 # Velikosti, ktere v tehle hre doopravdy neco znamenaji. UI z toho dela nabidku, aby se
 # nemuselo hadat — cislo mimo seznam jde porad zadat rucne.
+# Velikosti podle rastru hry (game_raster.ART_PX = Data.TERRAIN_ART_PX). Seznam byl do
+# 17. 8. 2026 postaveny na bunce 16 px; data.gd se ten den presunulo na 24 a nabidka
+# zustala stara, takze studio nabizelo velikosti, ktere jeho vlastni brana odmita.
+#
+# PRACOVNI velikosti sedet na rastr nemusi a schvalne nesedi: PixelLab dodava 64 a 128 a
+# instalace je zmensuje na 48 a 96. Retez 64 -> 48 je ten jediny zmereny, ktery kvalitu
+# udrzi (znamka 9,00 na 111 spritech; totez na 32 spadne na 7,8) — viz data.gd.
 TARGET_SIZES = [
-    ("16x16", "dlaždice, dekorace"),
-    ("16x8", "dlaždice cest"),
-    ("24x24", "hlava věže"),
-    ("32x32", "příšera, obránce"),
-    ("40x40", "větší hlava věže"),
-    ("64x64", "boss"),
+    ("24x24", "dlaždice, dekorace, hlava věže (1 buňka)"),
+    ("24x12", "dlaždice cest"),
+    ("48x48", "příšera finální pro hru (2 buňky)"),
+    ("96x96", "boss finální pro hru (4 buňky)"),
+    ("64x64", "PRACOVNÍ postava — instalace ji zmenší na 48"),
+    ("128x128", "PRACOVNÍ boss — instalace ho zmenší na 96"),
 ]
 
-REF_MODES = ("zaklad", "paleta", "oboji")
+#   identita Reference jde do IP-Adapteru, tedy do cross-attention vedle textu. Model
+#            zacina od sumu jako pri normalnim generovani, ale po celou dobu referenci
+#            VIDI. Proti "zaklad" je to jiné MISTO zasahu, ne jina sila: u img2img plati,
+#            ze cim vic ma model zmenit, tim min z reference zbyde (jedna paka na dve
+#            veci), kdezto tady jsou identita a volnost kompozice dve nezavisla cisla.
+REF_MODES = ("zaklad", "paleta", "oboji", "identita")
 
 # SDXL ztraci kompozici, kdyz strana neni delitelna 64.
 RENDER_STEP = 64
@@ -178,10 +190,54 @@ def ref_init(a, rw, rh, bg=(255, 0, 255)):
     return canvas
 
 
+def ref_identity(a, side=512, bg=(255, 0, 255), neutral=True, margin=0.10):
+    """Reference pro IP-Adapter. `neutral` odbarvi SUBJEKT, pozadi nechá.
+
+    Proc odbarvit: IP-Adapter kóduje CELY obrazek, tedy i jeho paletu, a pak ji tlaci do
+    vysledku vedle textu. Zmereno 17. 8. 2026 na azurovem duchovi jako referenci — pri
+    sile 0.6 a 0.8 z promptu zmizela hluboká fialová i neonově žlutá a vysledek byl
+    prebarveny original. Struktura se pritom prenesla vyborne. Odbarvenim se ty dve veci
+    oddeli: tvar prijde z reference, barva z promptu.
+
+    Proc jen subjekt a ne cely obrazek: pozadi musí zustat ta plna magenta, na kterou je
+    model promptovany a na ktere stoji cut_background. Sedé pozadi v referenci uci model
+    kreslit sedé pozadi — a tim by odbarveni rozbilo odstraneni pozadi.
+
+    512 je ctverec pro CLIP, ktery si obrazek stejne zmensi na 224; podstatny je NEAREST
+    a pomer stran, ne rozliseni.
+
+    MARGIN je pojistka, ne oprava. Bez nej ref_init roztahne sprite na celych 512 px a
+    subjekt se dotkne okraje platna — zmereno na phantom_buzz: horni okraj 89,6 % magenty,
+    dolni 91,8 %. cut_background zaplavuje prave od okraje, takze mit tam zarucene pozadi
+    je levna jistota.
+
+    POZOR NA ZAMENU PRICIN. Puvodne to vypadalo, ze prave tohle delalo sedy obdelnik kolem
+    2 ze 6 spritu. Meréni to nepotvrdilo: 6 seedu s okrajem i bez nej dalo shodne 0/6 vad.
+    Skutecnou pricinou bylo skoro jiste USEKNUTI PROMPTU na 77 tokenu — v te sade mel
+    prompt 120 tokenu a odpadlo z nej i "solid magenta background", takze model nevedel,
+    na co ma kreslit. Kratky prompt tu vadu nema.
+
+    Margin tu tedy zustava proto, ze nic nestoji a zaruci zaplave zacatek, ne proto, ze by
+    neco opravil."""
+    a = np.asarray(a)
+    if neutral:
+        a = a.copy()
+        m = a[..., 3] > 32
+        if m.any():
+            lum = a[..., :3][m].astype(np.float64) @ [0.299, 0.587, 0.114]
+            a[..., :3][m] = np.repeat(lum[:, None], 3, 1).round().astype(np.uint8)
+    vnitrek = max(1, int(round(side * (1.0 - 2.0 * max(0.0, margin)))))
+    im = ref_init(a, vnitrek, vnitrek, bg)
+    platno = Image.new("RGB", (side, side), bg)
+    platno.paste(im, ((side - vnitrek) // 2, (side - vnitrek) // 2))
+    return platno
+
+
 def describe(spec, mode, colors=16):
     """Jednoradkovy popis pro log a pro UI, at je videt, co se z reference vzalo."""
     a = load_ref(spec)
     n = len({tuple(c) for c in a[..., :3][a[..., 3] > 32]})
     m = {"zaklad": "kompozice", "paleta": f"paleta ({colors} z {n} barev)",
-         "oboji": f"kompozice + paleta ({colors} z {n} barev)"}.get(mode, mode)
+         "oboji": f"kompozice + paleta ({colors} z {n} barev)",
+         "identita": "identita (IP-Adapter)"}.get(mode, mode)
     return f"{os.path.relpath(resolve_ref(spec), PROJ)} → {m}"

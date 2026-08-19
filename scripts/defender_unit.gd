@@ -507,13 +507,16 @@ func _draw() -> void:
 		var fade := 1.0
 		if _dying and _frames.has("death"):
 			fade = 1.0 - clampf(_anim_t * _FPS / float(_frames["death"].size()), 0.0, 1.0)
-		draw_set_transform(Vector2(0.0, 12.0), 0.0, Vector2(1.0, 0.4))
-		draw_circle(Vector2.ZERO, 13.0, Color(0.02, 0.02, 0.06, 0.38 * fade))
+		var bob: float = 1.0 - absf(sin(_anim_t * 6.0)) * 0.10
+		draw_set_transform(Vector2(0.0, 12.0), 0.0, Vector2(bob, 0.42 * bob))
+		draw_circle(Vector2.ZERO, 15.0, Color(0.01, 0.01, 0.04, 0.12 * fade))
+		draw_circle(Vector2.ZERO, 11.0, Color(0.01, 0.01, 0.04, 0.28 * fade))
+		draw_circle(Vector2.ZERO, 6.5, Color(0.01, 0.01, 0.04, 0.45 * fade))
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
-		# 32px art drawn x2 — the creature ART_SPAN rule, so a defender and the monster
-		# it blocks live on the same pixel raster.
-		var size := Vector2(tex.get_size()) * 2.0
+		# Same raster as the creature it blocks — and as the ground both stand on.
+		# Was a hardcoded 2.0 while the terrain drew at 3.0; see Data.pixel_scale().
+		var size := Vector2(tex.get_size()) * Data.pixel_scale()
 		var flip := -1.0 if pick[1] else 1.0
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2(flip, 1.0))
 		var tint := Color.WHITE

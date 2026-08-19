@@ -9,19 +9,121 @@ extends Node
 ## the chrome. Keep this >= Game._HUD_TOP_H; the grid then ends at 68+912 = 980, just
 ## above the bottom bar at 1080-96 = 984.
 const GRID := {
-	"cols": 40,
-	"rows": 19,
-	"tile": 48,
+	"cols": 120,
+	"rows": 57,
+	"tile": 16,
 	"origin_x": 0,
 	"origin_y": 68,
 }
+
+## Kolik BUNEK ma strana jednoho stavebniho bloku.
+##
+## Mrizka se 18. 8. 2026 zjemnila trikrat (40x19 bunek po 48 px -> 120x57 po 16), aby se
+## pixel dostal na x1. Vez ale nesmi zmenit velikost ani pocet: kdyby kazda nova bunka
+## nesla vlastni stavebni misto, bylo by jich devetkrat vic a level by se rozsypal.
+## Stavi se proto na BLOKY 3x3, ktere presne odpovidaji puvodni bunce -- 48 px na
+## obrazovce, stejny terc pro mys, stejny pocet mist.
+##
+## Klic bloku je jeho PROSTREDNI bunka (3x+1, 3y+1). Diky tomu vraci Game.cell_center()
+## rovnou stred bloku a nic v kodu se nemuselo ucit nove souradnice.
+const BUILD_BLOCK := 3
+
+
+## Prostredni bunka bloku, do ktereho `cell` spada -- klic do Game.build_spots.
+## Kdokoli prevadi pozici mysi na stavebni misto, musi projit tudy.
+static func build_block(cell: Vector2i) -> Vector2i:
+	var b := BUILD_BLOCK
+	return Vector2i(
+		int(floorf(float(cell.x) / b)) * b + b / 2,
+		int(floorf(float(cell.y) / b)) * b + b / 2)
+
+## Canonical grid <-> pixel converters.
+## Unified single source of truth for grid coordinate conversions.
+static func cell_center(cell: Vector2i) -> Vector2:
+	var g = GRID
+	var t: float = float(g.tile)
+	var ox: float = float(g.origin_x)
+	var oy: float = float(g.origin_y)
+	return Vector2(ox + cell.x * t + t * 0.5, oy + cell.y * t + t * 0.5)
+
+static func world_to_cell(pos: Vector2) -> Vector2i:
+	var g = GRID
+	var t: float = float(g.tile)
+	var ox: float = float(g.origin_x)
+	var oy: float = float(g.origin_y)
+	var col := int(floorf((pos.x - ox) / t))
+	var row := int(floorf((pos.y - oy) / t))
+	return Vector2i(clampi(col, 0, int(g.cols) - 1), clampi(row, 0, int(g.rows) - 1))
+
+static func in_bounds(c: Vector2i) -> bool:
+	var g = GRID
+	return c.x >= 0 and c.x < int(g.cols) and c.y >= 0 and c.y < int(g.rows)
+
+## Edge of one terrain tile in ART pixels. The tileset pipeline (tools/tiles.py) is built
+## around this number; changing it means regenerating every tile.
+##
+## HISTORIE A JEDNA DULEZITA OPRAVA
+##
+## 16 (x3) -> 24 (x2) 17. 8. 2026 -> zpet 16 (x1) 18. 8. 2026, tentokrat i s bunkou.
+##
+## Ta prostredni zmena NIKDY NEPLATILA. Cislo se prepsalo na 24, ale nainstalovany
+## `assets/terrain/high_ground_atlas.png` zustal 16px artem (tiles.py atlas uklada
+## v pixelech OBRAZOVKY, takze 16px art lezi v souboru nafouknuty do 48 a na prvni
+## pohled vypada jako 48px art). Teren tedy cely cas bezel na x3, zatimco sprity na x2
+## -- presne ta nejednotnost, kterou tenhle komentar sliboval odstranit. Zmereno
+## 18. 8. 2026: v atlasu je nejvetsi jednolity blok 3x3.
+##
+## PONAUCENI: tohle cislo se neda zmenit editaci teto radky. Musi se pri tom
+## PREGENEROVAT ATLAS (tools/tiles.py instaluj), jinak se rozejde s tim, co je na disku.
+##
+## THE GOAL WAS A SMALLER PIXEL, NOT A BIGGER CREATURE. Measured against the 1623
+## PixelLab originals in build/pixellab: a character there stands 59 art px tall, ours
+## stood 29. But simply doubling the art (16 -> 32 art px per cell) keeps the SCREEN
+## pixel at three physical pixels and makes every creature twice as large instead —
+## the opposite of what was wanted. The screen pixel is what reads as "blocky", and it
+## is GRID.tile / TERRAIN_ART_PX, not the sprite's own size.
+##
+## So the divisor moves and the cell does not:
+##
+##     cell        48 screen px   (unchanged, so the board stays 40x19)
+##     art/cell    16 -> 24
+##     scale       x3 -> x2       (a third finer)
+##     character   2 cells = 48 art px = 96 screen px  (unchanged on screen)
+##     boss        4 cells = 96 art px = 192 screen px (unchanged on screen)
+##
+## Nothing else in the game moves: every range, radius and speed is in screen pixels
+## and the screen did not change. Neither did the HUD.
+##
+## WHY NOT x1.5 (which would have kept 16 art px and doubled nothing): non-integer
+## scaling is the one thing pixel art cannot survive. Between x3 and x2 there is
+## nothing, so x2 is as fine as a 1920px canvas allows without shrinking the board.
+##
+## WHY 48 px OF ART AND NOT 64: PixelLab delivers 64. Measured on 111 sprites, the
+## chain NEAREST -> clean(24) -> outline_sprite takes 64 down to 48 at grade 9.00,
+## noise 0.200 and outline +0.191 — ABOVE the reference bar. The same chain to 32 falls
+## to 7.8. 64 -> 48 is the one reduction that survives, which is why the target is 48.
+const TERRAIN_ART_PX := 16
+
+## Screen pixels per ART pixel — the raster of the whole map, not of any one sprite.
+##
+## THE rule of pixel art, and the one this project was quietly breaking. The terrain draws
+## 16px tiles into 48px cells, so one art pixel is three screen pixels on the ground.
+## Anything drawn at a different scale has FINER pixels than the floor it stands on, and
+## reads as pasted onto the picture instead of being in it — no amount of contact shadow
+## or glow fixes that, because the mismatch is in the raster itself.
+##
+## Every creature, defender and tower head used to hardcode 2.0 in three separate files
+## while the ground ran at 3.0. They all ask here now, so the world cannot drift apart
+## again: move GRID.tile or TERRAIN_ART_PX and the art follows on its own.
+static func pixel_scale() -> float:
+	return maxf(1.0, floorf(float(GRID["tile"]) / float(TERRAIN_ART_PX)))
 
 # UI display order — not gameplay balance data, so these stay plain id lists here
 # rather than becoming their own Resource type.
 ## Build-panel order and hotkey assignment (index + 1). Every entry needs a matching
 ## `td_habit_<n>` action in project.godot — Input.is_action_just_pressed() on a missing
 ## action errors every frame, so the two lists must grow together.
-const HABIT_ORDER: Array[StringName] = [&"focus_timer", &"mindfulness", &"exercise", &"real_hobby", &"zen_pulsar", &"accountability", &"anchor"]
+const HABIT_ORDER: Array[StringName] = [&"focus_timer", &"mindfulness", &"exercise", &"real_hobby", &"zen_pulsar", &"accountability", &"anchor", &"focus_pillar"]
 
 ## Slot-cycling order for the Nutrition Guild's recipe buttons, and the default recipe
 ## a fresh guild opens with (one of each, in this order). Same contract as HABIT_ORDER:

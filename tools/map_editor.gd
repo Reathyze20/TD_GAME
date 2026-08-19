@@ -477,9 +477,7 @@ func _collect_cells(tm: TileMapLayer) -> Array[Vector2i]:
 	return out
 
 func _cell_center(cell: Vector2i) -> Vector2:
-	var g := _grid()
-	var t: float = float(g.tile)
-	return Vector2(cell.x * t + t * 0.5, cell.y * t + t * 0.5 + float(g.origin_y))
+	return D.cell_center(cell)
 
 ## Shortest path length in cells from `from` to `to`, routing around `solid`.
 ## Mirrors the game's AStarGrid2D setup: 4-way movement, high ground is solid.
@@ -1193,7 +1191,7 @@ func _load_from_level() -> void:
 			s.texture = tex
 			s.position = entry.get("pos", Vector2.ZERO)
 			s.flip_h = bool(entry.get("flip", false))
-			s.scale = Vector2.ONE * DecorLayer.ZOOM
+			s.scale = Vector2.ONE * Data.pixel_scale()
 			s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 			props.add_child(s)
 			_adopt(s)

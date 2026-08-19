@@ -151,6 +151,7 @@ flat `_draw()` shapes are the pilot's art style, and `01` is what the remaining 
 | `12_player_abilities` | active **interventions** | Screen Break, Deep Breath, Call a Friend | **Done** — all three work; Call a Friend summons temporary `06` Allies |
 | `13_hud_and_ui` | extended UI (draft, abilities, tree) | DraftScreen, intervention buttons, Growth Tree UI | **Mostly done** — buttons, draft screen, and Growth Tree screen all work |
 | `14_brain_fog_and_bandwidth` | **Brain Fog** + build capacity | darkness = unexamined day, light = Routine, Attention Bandwidth cap, Moment of Clarity | **Done** — fog shader + lit-cell rule, Routine build gate, Bandwidth economy, 5th intervention; balance sweep pending |
+| `15_cast_shadows` | Real `Light2D` + `LightOccluder2D`, separate from Brain Fog | a lamp's glow stopping at a wall — core/Anchors/built habits only, reusing `14`'s radii | **First pass, OFF by default** — `Game.shadow_enabled`; measured cost ≈0.45ms isolated, noise-level under a full horde; not yet reviewed for the shipped look |
 
 > **The one hard reconciliation:** the raw drafts assumed a **fixed `Path2D` curve**. We do
 > **open maze pathfinding with `AStarGrid2D`** instead (enemies route around fixed high ground).

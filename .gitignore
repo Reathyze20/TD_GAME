@@ -22,3 +22,6 @@ __pycache__/
 # Váhy modelů pro tools/gen.py — ~10 GB, stahuje se, do gitu nikdy nepatří
 /models/
 .gstack/
+
+# PixelLab API token — NIKDY do gitu
+.pixellab_token

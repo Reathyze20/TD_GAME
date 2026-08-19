@@ -10,6 +10,8 @@ signal finished(p: Projectile)
 var direction_vec := Vector2.RIGHT
 var max_travel_distance := 300.0
 var distance_traveled := 0.0
+## Slab the shot was fired from; that one wall does not stop it. -2 = not set yet.
+var _origin_platform: int = -2
 
 var willpower: int = 0
 var awareness: int = 0
@@ -76,6 +78,10 @@ func setup_directional(_game: Node, dir_angle: float, max_dist: float, wp: int, 
 		knock: float = 0.0, stagger: float = 1.0) -> void:
 	game = _game
 	source = _source
+	# Captured at spawn, not read per frame: once the shot leaves the platform it was
+	# fired from, "the platform I am over" is no longer "the platform that must not stop
+	# me". -2 means "no game yet", which is neither a slab nor open ground.
+	_origin_platform = -2 if game == null else game.platform_at(global_position)
 	direction_vec = Vector2.RIGHT.rotated(dir_angle)
 	rotation = dir_angle
 	max_travel_distance = max_dist
@@ -157,10 +163,18 @@ func _process(delta: float) -> void:
 				return
 
 	# Walls stop shots. Mirrors the LOS filter in tower targeting and the shaded wedge
-	# preview — all three share game.cast_to_wall / high_ground, so they cannot drift.
-	# The 24px grace lets the shot clear the muzzle of a tower standing on high ground.
-	if game != null and distance_traveled > 24.0 \
-			and game.high_ground.has(game.world_to_cell(global_position)):
+	# preview — all three share game.high_ground and the same slab rule, so they cannot
+	# drift.
+	#
+	# The slab the shot was FIRED FROM does not stop it. This used to be a flat "24px
+	# grace ... to clear the muzzle", which treated the symptom: every habit stands on
+	# high ground, so without it every shot died a half-tile out. A distance grace also
+	# said the wrong thing — it let a shot punch a fixed way into a foreign wall, and it
+	# still killed shots travelling along their own platform past 24px, which is exactly
+	# what the truncated wedge preview was showing the player.
+	if game != null and _origin_platform != -2 \
+			and game.high_ground.has(game.world_to_cell(global_position)) \
+			and game.platform_at(global_position) != _origin_platform:
 		_create_impact_fx()
 		_destroy()
 		return

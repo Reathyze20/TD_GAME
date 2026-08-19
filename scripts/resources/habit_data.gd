@@ -107,6 +107,14 @@ func is_support() -> bool:
 @export var color: String = "4aa3ff"
 @export var projectile_color: String = "9bd0ff"
 
+## True when the head art already sculpts its own plinth (steps, AO, its own footprint)
+## instead of relying on the shared tower_base.png disc. Most heads are toppers drawn to
+## sit ON that disc; a monument-scale head brings more relief of its own than the flat
+## disc does, and the disc is small enough that a tall head centers past it and pokes the
+## disc out through its own middle instead of under its feet. Skipping it here keeps the
+## sculpted plinth as the only base instead of fighting it.
+@export var has_own_pedestal: bool = false
+
 ## Radians/sec the shot tumbles. 0 = the default energy bolt. Nonzero draws it as a flat
 ## sheet turning end over end — Deep Reading fires torn pages, not plasma.
 @export var projectile_spin: float = 0.0

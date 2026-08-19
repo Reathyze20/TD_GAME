@@ -47,9 +47,7 @@ func setup(_game, _type_key: String, _col: int, _row: int, initial_facing: float
 	row = _row
 	_color = Color(def.color)
 
-	var tile: int = Data.GRID.tile
-	position = Vector2(col * tile + tile / 2.0 + Data.GRID.origin_x,
-		row * tile + tile / 2.0 + Data.GRID.origin_y)
+	position = Data.cell_center(Vector2i(col, row))
 
 	_setup_specific(initial_facing, initial_arc)
 

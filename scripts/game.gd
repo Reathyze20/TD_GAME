@@ -175,8 +175,8 @@ func _ready() -> void:
 	# redirecting this boot to the level that was just baked.
 	_consume_playtest_request()
 	# _draw() paints the background and the vector walls on this node itself, so the node's
-	# own filter decides how they scale. The background is authored at 320x152 and blown up
-	# x6 to the 1920x912 field — under the default linear filter that arrives as mush.
+	# own filter decides how they scale. The background is authored at 640x304 and blown up
+	# x3 to the 1920x912 field — under the default linear filter that arrives as mush.
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	var bg_path := "res://assets/background.jpg"
 	if not FileAccess.file_exists(bg_path):
@@ -221,6 +221,7 @@ func _ready() -> void:
 	_init_pools()
 	_build_field()
 	_build_fog_layer()
+	_build_shadow_light_layer()
 	_build_glitch_overlay()
 	_build_hud()
 
@@ -274,11 +275,35 @@ func _build_field() -> void:
 		high_ground[cell] = true
 		if astar.is_in_bounds(cell.x, cell.y):
 			astar.set_point_solid(cell, true)
+
+	# Stavebni mista NEJSOU jedno na bunku. Mrizka se zjemnila trikrat kvuli rastru
+	# (Data.GRID), ale vez ma zustat presne tam a tak velka, jako byla -- takze se stavi
+	# na bloky 3x3, ktere odpovidaji puvodni bunce 48 px. Jedno misto na bunku by jich
+	# udelalo devetkrat vic a level by se rozsypal.
+	#
+	# Blok musi byt CELY vysoka zem: okraj masy, kde by vez visela pulkou nad koridorem,
+	# stavebni misto nedostane. Klicem je prostredni bunka, takze cell_center() vraci
+	# rovnou stred bloku (viz Data.build_block).
+	var b: int = Data.BUILD_BLOCK
+	for cell: Vector2i in high_ground:
+		if cell.x % b != b / 2 or cell.y % b != b / 2:
+			continue
+		var whole := true
+		for dy in range(-(b / 2), b / 2 + 1):
+			for dx in range(-(b / 2), b / 2 + 1):
+				if not high_ground.has(cell + Vector2i(dx, dy)):
+					whole = false
+					break
+			if not whole:
+				break
+		if not whole:
+			continue
 		var bs := BuildSpot.new()
 		add_child(bs)
 		bs.setup(self, cell)
 		build_spots[cell] = bs
 
+	_build_platforms()
 	_apply_path_weights()
 	_build_path_layer()
 	_build_terrain_layer()
@@ -296,8 +321,15 @@ func _build_field() -> void:
 			spawn_zone_cells.append(cells)
 
 	_build_background_layer()
+	if _static_overlay != null and is_instance_valid(_static_overlay):
+		_static_overlay.queue_free()
+	_static_overlay = StaticOverlay.new()
+	_static_overlay.game = self
+	_static_overlay.z_index = Z_DECOR
+	add_child(_static_overlay)
 	_build_wall_shadow_layer()
 	_build_wall_face_layer()
+	_build_shadow_occluders()
 	_build_decor_layer()
 	_compute_path_previews()
 
@@ -350,8 +382,11 @@ func _build_background_layer() -> void:
 	art.texture = bg_texture
 	art.centered = false
 	art.position = Vector2(g.origin_x, g.origin_y)
-	# Authored at 320x152; the field is 1920x912, so this is an exact x6. NEAREST keeps
-	# the art pixels square instead of smearing them.
+	# Authored at 640x304; the field is 1920x912, so this is an exact x3 — the same raster
+	# as the tiles, the units and everything else (Data.pixel_scale). It was 320x152 and
+	# therefore x6: the floor's pixels were twice as coarse as the walls standing on it,
+	# which is why the map never quite looked like one picture. NEAREST keeps the art
+	# pixels square instead of smearing them.
 	art.scale = Vector2(float(w) / bg_texture.get_width(), float(h) / bg_texture.get_height())
 	art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	art.z_index = Z_BACKGROUND
@@ -365,9 +400,12 @@ func _build_background_layer() -> void:
 ##
 ## Length is constant regardless of how tall the wall is. That is a convention, not
 ## physics: a shadow that grew with height would swallow the units standing next to it.
-## How far a wall's front face hangs into the cell below it. 8 art pixels at the x3
-## raster — half a cell, the usual proportion for this view. Shared by WallFace and
-## WallShadow, because the shadow has to start where the face ends.
+## Jak hluboko visi celo zdi do bunky pod ni, v pixelech OBRAZOVKY.
+##
+## 24 px se pri zjemneni mrizky (18. 8. 2026) zamerne NEZMENILO: zed na obrazovce
+## zustava presne tak vysoka, jak byla, meni se jen jemnost rastru. Drive to bylo
+## 8 art px na x3, dnes 24 art px na x1 -- tytez pixely na obrazovce, trikrat vic
+## kresby. Sdileno s WallShadow, protoze stin musi zacinat tam, kde celo konci.
 const WALL_FACE_H := 24
 
 
@@ -406,9 +444,14 @@ class WallFace extends Node2D:
 			var below := cell + Vector2i.DOWN
 			if solid.has(below) or below.y >= rows:
 				continue
-			# One variant per cell, keyed off the cell itself: a long wall picks a mix
-			# instead of repeating one strip every 48 px.
-			rng.seed = hash(Vector2i(cell.x, cell.y)) ^ seed_val
+			# Jedna varianta na BLOK, ne na bunku -- ze stejneho duvodu jako u atlasu
+			# zdi: spodni hrana zdi je siroka tri bunky, takze los na bunku poskladal
+			# tri ruzne pruhy vedle sebe a pod zdi vznikl hreben. Dlouha zed si tak
+			# porad michá varianty, jen po kusech zdi misto po jednotlivych pixelech.
+			var blk: int = Data.BUILD_BLOCK
+			rng.seed = hash(Vector2i(
+				int(floorf(float(cell.x) / blk)),
+				int(floorf(float(cell.y) / blk)))) ^ seed_val
 			var tex: Texture2D = variants[rng.randi() % variants.size()]
 			draw_texture_rect(tex, Rect2(ox + cell.x * tile, oy + below.y * tile,
 				tile, face_h), false)
@@ -429,27 +472,88 @@ class WallShadow extends Node2D:
 	## position it would fall across the face itself and read as a smear on the wall.
 	var face_h := 24
 
+	## Drawn once (nothing calls queue_redraw() on this node after _build_wall_shadow_
+	## layer() adds it), so a real, always-on visual bug was worth a real fix rather
+	## than a per-cell shortcut: this used to draw one south-shadow rect and one
+	## side-AO rect PER SOLID CELL, so a long wall's shadow was many small same-colour
+	## rects only touching at their edges, not one shape. With 2D MSAA at 8x
+	## (project.godot, anti_aliasing/quality/msaa_2d), two separate rects that only
+	## touch can leave a thin, periodic seam exactly where they meet — each rect's
+	## edge is anti-aliased independently, and the coverage does not necessarily add
+	## up to "solid" right on the shared boundary. Measured directly (a one-off
+	## diagnostic script, deleted after use): a repeating bright line every 16px down
+	## a wall's side-AO strip, present even with the whole cast-shadow system OFF —
+	## so this was always here, just too dim to notice until a nearby Light2D
+	## brightened the area enough to make it visible (see
+	## docs/core/15_cast_shadows.md). Same fix as the shadow-occluder geometry above:
+	## run-length merge before drawing, so there is no internal edge for a seam to
+	## appear on.
 	func _draw() -> void:
 		# Cool and translucent, never black: a neutral black shadow reads as a hole,
 		# a blue-shifted one reads as shade.
 		var near := Color(0.016, 0.027, 0.063, 0.62)
 		var far := Color(0.016, 0.027, 0.063, 0.30)
+
+		# South-facing floor shadow: horizontal runs of south-exposed wall cells,
+		# merged per row before drawing.
+		var south_runs := {}   # int (wall cell's row) -> Array[int] (wall cell's x)
 		for cell: Vector2i in solid.keys():
 			var below := cell + Vector2i.DOWN
 			if not solid.has(below) and below.y < rows:
-				var x := ox + cell.x * tile
-				var y := oy + below.y * tile + face_h
-				draw_rect(Rect2(x, y, tile, DEPTH * 0.5), near)
-				draw_rect(Rect2(x, y + DEPTH * 0.5, tile, DEPTH * 0.5), far)
-			for dx in [-1, 1]:
+				if not south_runs.has(cell.y):
+					south_runs[cell.y] = []
+				south_runs[cell.y].append(cell.x)
+		for wy: int in south_runs.keys():
+			var xs: Array = south_runs[wy]
+			xs.sort()
+			var run_start: int = xs[0]
+			var prev: int = xs[0]
+			for i in range(1, xs.size()):
+				var x: int = xs[i]
+				if x == prev + 1:
+					prev = x
+					continue
+				_draw_south_shadow(near, far, run_start, prev, wy)
+				run_start = x
+				prev = x
+			_draw_south_shadow(near, far, run_start, prev, wy)
+
+		# Side ambient occlusion: vertical runs of cells open to the west/east,
+		# merged per column — the strip hugs the wall, so on the wall's left
+		# neighbour it sits against that cell's right edge, and vice versa.
+		for dx in [-1, 1]:
+			var side_runs := {}   # int (side column's x) -> Array[int] (cell's y)
+			for cell: Vector2i in solid.keys():
 				var side := cell + Vector2i(dx, 0)
 				if solid.has(side) or side.x < 0 or side.x >= cols:
 					continue
-				# The strip hugs the wall: on the wall's left neighbour it sits against
-				# that cell's right edge, and vice versa.
-				var inset := tile - SIDE if dx < 0 else 0
-				draw_rect(Rect2(ox + side.x * tile + inset, oy + side.y * tile,
-					SIDE, tile), far)
+				if not side_runs.has(side.x):
+					side_runs[side.x] = []
+				side_runs[side.x].append(cell.y)
+			var inset := tile - SIDE if dx < 0 else 0
+			for sx: int in side_runs.keys():
+				var ys: Array = side_runs[sx]
+				ys.sort()
+				var run_start: int = ys[0]
+				var prev: int = ys[0]
+				for i in range(1, ys.size()):
+					var y: int = ys[i]
+					if y == prev + 1:
+						prev = y
+						continue
+					draw_rect(Rect2(ox + sx * tile + inset, oy + run_start * tile,
+						SIDE, (prev - run_start + 1) * tile), far)
+					run_start = y
+					prev = y
+				draw_rect(Rect2(ox + sx * tile + inset, oy + run_start * tile,
+					SIDE, (prev - run_start + 1) * tile), far)
+
+	func _draw_south_shadow(near: Color, far: Color, x0: int, x1: int, wall_y: int) -> void:
+		var x := ox + x0 * tile
+		var y := oy + (wall_y + 1) * tile + face_h
+		var w := (x1 - x0 + 1) * tile
+		draw_rect(Rect2(x, y, w, DEPTH * 0.5), near)
+		draw_rect(Rect2(x, y + DEPTH * 0.5, w, DEPTH * 0.5), far)
 
 
 ## Built only for the tilemap terrain; the vector fallback paints its own shadow pass.
@@ -522,6 +626,134 @@ func _build_wall_face_layer() -> void:
 		if c != level.objective:
 			wf.solid[c] = true
 	add_child(wf)
+
+
+## Container for the LightOccluder2D geometry _build_shadow_occluders() below builds —
+## the shadow-casting half of the cast-shadow system (see the big block comment above
+## has_visible_distraction for the light-source half and why the two are separate from
+## Brain Fog). Freed-before-rebuilt the same defensive way as _static_overlay: _build_field()
+## only runs once today, but the guard costs nothing and saves a rediscovery later.
+var _shadow_occluder_layer: Node2D = null
+var _shadow_occluder_count := 0
+
+## Occluder geometry for the cast-shadow system. Deliberately built from the SAME solid-cell
+## dictionary WallFace/WallShadow above already read out of level.high_ground — reusing the
+## established "code draws wall geometry from the solid dict" pattern instead of hand-authoring
+## occluders from scratch.
+##
+## One real difference from WallFace/WallShadow, on purpose: those two only care about a wall
+## mass's SOUTH-facing rim, because that is the only side a top-down camera ever sees. A light
+## can sit on ANY side of a wall, so occlusion needs the wall's full footprint, not just its rim
+## — every high-ground cell contributes here, not only the ones with open floor to their south.
+##
+## Two merges on top of "one occluder per solid cell". First, cells are run-length merged
+## along each ROW into horizontal strips. Second — and this part did NOT ship in the first
+## pass, see below — a strip is merged DOWN into the strip below it whenever the two share
+## the exact same (x_start, x_end), so a solid rectangular wall mass becomes ONE occluder
+## no matter how many rows tall it is, not one occluder per row.
+##
+## THE SECOND MERGE IS NOT OPTIONAL POLISH — a real, reproducible bug proved it. The
+## row-only version shipped first and read in `docs/core/15_cast_shadows.md` as "left as a
+## documented option if the measured cost ever demands it". What actually demanded it was
+## correctness, not cost: separate LightOccluder2D polygons that only TOUCH along a shared
+## edge are a known shadow-rendering failure mode. The shadow pass tests each occluder's
+## edges independently, and floating-point/angular quantization at the exact seam between
+## two touching-but-separate polygons can let a sliver of light leak through in the narrow
+## band of angle that lands exactly on the seam. Measured directly (`scripts/
+## _check_occluder_seams.gd`, a one-off diagnostic, deleted after use) against a real
+## 6-row wall on level 1: three ~1px bright spikes, one at EVERY row boundary, not
+## randomly placed — the exact "regular horizontal banding on a tall wall" a live
+## playtest reported as "textures look broken". Merging the rows away removes the seam
+## instead of trying to soften it.
+func _build_shadow_occluders() -> void:
+	if level == null:
+		return
+	if _shadow_occluder_layer != null and is_instance_valid(_shadow_occluder_layer):
+		_shadow_occluder_layer.queue_free()
+	_shadow_occluder_layer = Node2D.new()
+	_shadow_occluder_layer.name = "ShadowOccluders"
+	add_child(_shadow_occluder_layer)
+
+	var g = Data.GRID
+	var ox := int(g.origin_x)
+	var oy := int(g.origin_y)
+	var tile := int(g.tile)
+
+	var rows := {}   # int (cell.y) -> Array[int] (cell.x), sorted below before use
+	var min_y := 999999
+	var max_y := -999999
+	for c: Vector2i in level.high_ground:
+		if c == level.objective:
+			continue
+		if not rows.has(c.y):
+			rows[c.y] = []
+		rows[c.y].append(c.x)
+		min_y = mini(min_y, c.y)
+		max_y = maxi(max_y, c.y)
+
+	var occluder_count := 0
+	# Rectangles still growing downward from an earlier row: [{"span": Vector2i(x0,x1),
+	# "y0": int}, ...]. Walked row by row (including empty rows, which close everything
+	# still open) rather than jumping between `rows.keys()`, or a gap row would silently
+	# let two unrelated wall masses above and below it merge into one tall occluder.
+	var open_rects: Array = []
+	for y in range(min_y, max_y + 1):
+		var strips: Array[Vector2i] = []
+		if rows.has(y):
+			var xs: Array = rows[y]
+			xs.sort()
+			var run_start: int = xs[0]
+			var prev: int = xs[0]
+			for i in range(1, xs.size()):
+				var x: int = xs[i]
+				if x == prev + 1:
+					prev = x
+					continue
+				strips.append(Vector2i(run_start, prev))
+				run_start = x
+				prev = x
+			strips.append(Vector2i(run_start, prev))
+
+		var used := {}
+		var new_open: Array = []
+		for rect in open_rects:
+			var span: Vector2i = rect["span"]
+			var hit := -1
+			for i in range(strips.size()):
+				if not used.has(i) and strips[i] == span:
+					hit = i
+					break
+			if hit >= 0:
+				used[hit] = true
+				new_open.append(rect)   # keeps growing, same span, same y0
+			else:
+				_add_shadow_occluder_rect(ox + span.x * tile, oy + rect["y0"] * tile,
+					(span.y - span.x + 1) * tile, (y - rect["y0"]) * tile)
+				occluder_count += 1
+		for i in range(strips.size()):
+			if not used.has(i):
+				new_open.append({"span": strips[i], "y0": y})
+		open_rects = new_open
+
+	for rect in open_rects:
+		var span: Vector2i = rect["span"]
+		_add_shadow_occluder_rect(ox + span.x * tile, oy + rect["y0"] * tile,
+			(span.y - span.x + 1) * tile, (max_y + 1 - rect["y0"]) * tile)
+		occluder_count += 1
+	_shadow_occluder_count = occluder_count
+
+## One rectangular occluder covering [x, y, w, h] in world pixels. LightOccluder2D wants its
+## polygon CLOSED (a solid loop, not an open line) so a shadow is cast regardless of which side
+## of the rectangle the light sits on.
+func _add_shadow_occluder_rect(x: int, y: int, w: int, h: int) -> void:
+	var occ := LightOccluder2D.new()
+	occ.position = Vector2(x, y)
+	var poly := OccluderPolygon2D.new()
+	poly.closed = true
+	poly.polygon = PackedVector2Array([
+		Vector2(0, 0), Vector2(w, 0), Vector2(w, h), Vector2(0, h)])
+	occ.occluder = poly
+	_shadow_occluder_layer.add_child(occ)
 
 
 func _build_decor_layer() -> void:
@@ -747,8 +979,20 @@ func _build_corner_terrain() -> void:
 
 	# Seeded from the level, like the decor: the same level must look the same on every
 	# load, or the walls would re-texture themselves under the player on each restart.
-	var rng := RandomNumberGenerator.new()
-	rng.seed = hash(level.id) ^ 0x7e44a1
+	var base_seed: int = hash(level.id) ^ 0x7e44a1
+
+	# VARIANTA SE LOSUJE NA BLOK 3x3, NE NA BUNKU.
+	#
+	# Puvodne na bunku, a pri bunce 48 px to bylo spravne: jeden los = jeden kus zdi.
+	# Po zjemneni mrizky (Data.GRID, 18. 8. 2026) ma tentyz kus zdi devet bunek, takze
+	# los na bunku znamenal devet ruznych textur v jedne cihle -- zed prestala byt masa
+	# a zacala sumet jako televizni snih. Los na blok vraci velke plochy zpatky a
+	# variace zustava presne tam, kde ji chceme: mezi sousednimi kusy zdi.
+	#
+	# Neni to sekvencni rng, ale hash souradnic bloku: sekvencni losovani by zaviselo na
+	# poradi pruchodu a cely teren by se prekreslil, kdyby se smycka jednou obratila.
+	var blk: int = Data.BUILD_BLOCK
+	var vrng := RandomNumberGenerator.new()
 
 	# One vertex more than cells in each axis, or the outermost walls lose their rim.
 	for j in range(g.rows + 1):
@@ -759,7 +1003,9 @@ func _build_corner_terrain() -> void:
 			if solid.has(Vector2i(i - 1, j)): m |= 4
 			if solid.has(Vector2i(i, j)): m |= 8
 			if m != 0:
-				var v: int = rng.randi() % variants
+				vrng.seed = hash(Vector2i(
+					int(floorf(float(i) / blk)), int(floorf(float(j) / blk)))) ^ base_seed
+				var v: int = vrng.randi() % variants
 				terrain_layer.set_cell(Vector2i(i, j), 0,
 					Vector2i(m % 4, v * 4 + int(m / 4.0)))
 
@@ -769,6 +1015,24 @@ func _uses_vector_walls() -> bool:
 	return terrain_layer == null
 
 var _placement_overlay: Node2D = null
+var _static_overlay: Node2D = null
+
+
+## Teckovana mrizka a nadech spawn zon. Obojí se za celou hru NEZMENI, takze to ma vlastni
+## uzel, ktery se prekresli jednou pri stavbe pole -- ne v Game._draw().
+##
+## PROC TO NENI V Game._draw(): _process() vola queue_redraw() kazdy snimek (jadro pulzuje),
+## takze cokoli v _draw() se kresli 60x za vterinu. Pri bunce 48 px to bylo 41x20 = 820
+## draw_circle a nikomu to nevadilo. Po zjemneni mrizky na 16 px (18. 8. 2026) to bylo
+## 121x58 = 7018 volani na snimek a hra spadla na 6 FPS I NA PRAZDNEM POLI. Nasobek byl
+## 8,5x, ne 3x, protoze rostou obe osy.
+##
+## Tecka je po BLOKU (Data.BUILD_BLOCK), ne po bunce: znaci, kam se da stavet, a to je
+## porad ctverec 48 px. Tecka na kazdou bunku by krome ceny byla i jina informace.
+class StaticOverlay extends Node2D:
+	var game
+	func _draw() -> void:
+		game._draw_static_field(self)
 
 ## Thin canvas that only paints the build preview. It must be a separate node: Game's own
 ## _draw() renders below every child including the terrain layer, and the overhanging
@@ -780,6 +1044,30 @@ class PlacementOverlay extends Node2D:
 	func _draw() -> void:
 		game._draw_placement_preview(self)
 
+## Kresli se JEDNOU, z _build_field(). Kdyz sem neco pribude, musi to byt taky staticke.
+func _draw_static_field(cv: CanvasItem) -> void:
+	var g = Data.GRID
+	var tile: int = g.tile
+	var ox: int = g.origin_x
+	var oy: int = g.origin_y
+
+	for cells: Array in spawn_zone_cells:
+		for c: Vector2i in cells:
+			cv.draw_rect(Rect2(ox + c.x * tile, oy + c.y * tile, tile, tile),
+				Color(0.9, 0.3, 0.4, 0.12))
+
+	# Tecky po blocich, ne po bunkach — mrizka stavenist, ne rastru.
+	var step: int = tile * Data.BUILD_BLOCK
+	var c := 0
+	while c * step <= int(g.cols) * tile:
+		var r := 0
+		while r * step <= int(g.rows) * tile:
+			cv.draw_circle(Vector2(ox + c * step, oy + r * step), 1.5,
+				Color("1e2333", 0.6))
+			r += 1
+		c += 1
+
+
 func _draw_placement_preview(cv: CanvasItem) -> void:
 	var sel = GameState.selected_habit
 	if sel == null or not _in_bounds(_hover_cell):
@@ -789,7 +1077,13 @@ func _draw_placement_preview(cv: CanvasItem) -> void:
 	var ok: bool = _can_build(_hover_cell) and GameState.can_afford(Data.get_habit(sel).build_cost) \
 		and GameState.can_reserve_bandwidth(Data.get_habit(sel).bandwidth_cost)
 	var tint := Color(0.35, 1.0, 0.55) if ok else Color(1.0, 0.4, 0.4)
-	var r := Rect2(g.origin_x + _hover_cell.x * tile, g.origin_y + _hover_cell.y * tile, tile, tile)
+	# _hover_cell je STRED bloku, takze se ram kresli o pul bloku vlevo nahoru a je
+	# velky cely blok -- tercem mysi je porad ctverec 48 px jako pred zjemnenim mrizky.
+	var b: int = Data.BUILD_BLOCK
+	var r := Rect2(
+		g.origin_x + (_hover_cell.x - b / 2) * tile,
+		g.origin_y + (_hover_cell.y - b / 2) * tile,
+		tile * b, tile * b)
 	_draw_pixel_frame(cv, r, tint)
 	# Every habit previews its reach BEFORE the player pays — attack range, patrol
 	# zone, or Routine radius. It used to be pay-first-see-later for everything but
@@ -819,18 +1113,13 @@ func _draw_pixel_frame(cv: CanvasItem, r: Rect2, tint: Color) -> void:
 	cv.draw_rect(Rect2(r.end.x - 2 * u, r.end.y - 2 * u, u, u), tint)
 
 func cell_center(cell: Vector2i) -> Vector2:
-	var g = Data.GRID
-	return Vector2(cell.x * g.tile + g.tile / 2.0 + g.origin_x, cell.y * g.tile + g.tile / 2.0 + g.origin_y)
+	return Data.cell_center(cell)
 
 func world_to_cell(pos: Vector2) -> Vector2i:
-	var g = Data.GRID
-	var col := int(floor((pos.x - g.origin_x) / float(g.tile)))
-	var row := int(floor((pos.y - g.origin_y) / float(g.tile)))
-	return Vector2i(clampi(col, 0, g.cols - 1), clampi(row, 0, g.rows - 1))
+	return Data.world_to_cell(pos)
 
 func _in_bounds(c: Vector2i) -> bool:
-	var g = Data.GRID
-	return c.x >= 0 and c.x < g.cols and c.y >= 0 and c.y < g.rows
+	return Data.in_bounds(c)
 
 # ---------------------------------------------------------------- line of sight
 #
@@ -838,15 +1127,56 @@ func _in_bounds(c: Vector2i) -> bool:
 # projectile's wall death, so what the player sees shadowed IS what cannot be hit —
 # three separate implementations would drift apart the first time one gets tweaked.
 
-## Distance from `from` along normalized `dir` to the first wall cell, capped at
-## `max_dist`. The cell the ray STARTS in never blocks: towers stand on high ground and
-## shoot outward. 6px sampling; both gameplay and preview use the same granularity.
+## Which contiguous slab of high ground each cell belongs to; -1 for everything else.
+## Cells touching only at a corner count as the same slab, because a ray squeezing
+## diagonally between two corners is not a gap the player can see.
+var _platform_id := {}
+
+## YOUR OWN PLATFORM MUST NOT BLOCK YOU.
+##
+## The exemption used to be a single cell (`c != start_cell`), written for "towers stand
+## on high ground and shoot outward". That is the right intent and the wrong scope: every
+## build spot in the game sits on high ground, and the slabs are 48 cells each, so a
+## habit aiming along the very band it stands on was shadowed by that band. Measured on
+## level 1: the ray died after 24 px against a ~300 px reach, in 7 of 8 directions.
+##
+## It had already been noticed once and patched in the wrong place — projectile.gd carried
+## a "24px grace ... to clear the muzzle", which is this bug seen from the other end. One
+## slab-aware cast now serves both, so the cone and the shot agree again.
+func _build_platforms() -> void:
+	_platform_id.clear()
+	var next_id := 0
+	for start: Vector2i in high_ground:
+		if _platform_id.has(start):
+			continue
+		var stack: Array = [start]
+		_platform_id[start] = next_id
+		while not stack.is_empty():
+			var cur: Vector2i = stack.pop_back()
+			for dy in [-1, 0, 1]:
+				for dx in [-1, 0, 1]:
+					if dx == 0 and dy == 0:
+						continue
+					var n: Vector2i = cur + Vector2i(dx, dy)
+					if high_ground.has(n) and not _platform_id.has(n):
+						_platform_id[n] = next_id
+						stack.push_back(n)
+		next_id += 1
+
+## Slab index under a world position, or -1 when it is not on high ground. Callers hold
+## this to say "the wall I am standing on", which is the only wall that does not stop them.
+func platform_at(pos: Vector2) -> int:
+	return _platform_id.get(world_to_cell(pos), -1)
+
+## Distance from `from` along normalized `dir` to the first blocking wall cell, capped at
+## `max_dist`. High ground belonging to the SAME slab the ray starts on never blocks —
+## see _build_platforms(). 6px sampling; gameplay and preview share the granularity.
 func cast_to_wall(from: Vector2, dir: Vector2, max_dist: float) -> float:
-	var start_cell := world_to_cell(from)
+	var own := platform_at(from)
 	var d := 6.0
 	while d < max_dist:
 		var c := world_to_cell(from + dir * d)
-		if c != start_cell and high_ground.has(c):
+		if high_ground.has(c) and _platform_id.get(c, -1) != own:
 			return d
 		d += 6.0
 	return max_dist
@@ -889,11 +1219,64 @@ func _random_spawn_cell() -> Vector2i:
 #     is_pos_visible() is the O(1) lookup the combat hot paths gate on: is_point_in_cone
 #     (AoE pulses, Pomodoro work check), the projectile hit loop, and board_live.
 
-const TOWER_LIGHT_RADIUS := 150.0     ## a working habit's own lamp — well short of its
-									  ## attack range, which is the point: full reach
-									  ## needs the Routine's light, not the tower's own
+const TOWER_LAMP_RADIUS := 56.0       ## the glow a habit casts on its own tile, so it is
+									  ## not a silhouette standing in its own darkness.
+									  ## Sight down-range comes from the WEDGE below.
 const DEFENDER_LIGHT_RADIUS := 90.0
 const PROJECTILE_LIGHT_RADIUS := 26.0 ## cosmetic only, never grants sight
+
+# A HABIT LIGHTS THE WEDGE IT SHOOTS INTO.
+#
+# This replaces the older rule, which gave every working habit a 150 px circular lamp
+# deliberately shorter than its reach, so that hitting anything far away required the
+# Routine's light rather than the tower's own. That was a real trade, but it was a trade
+# between two circles, and the player could not read it off the board.
+#
+# Lighting the cone instead ties sight to the one control the player already turns. The
+# arc dial (ArcProfile) trades width against damage; now it trades width against how much
+# of the board you can SEE. One dial, two consequences, both visible at a glance:
+#
+#     narrow arc   hard-hitting, sees far down a corridor, blind to the sides
+#     wide arc     softer, sees broadly, no reach into the dark
+#
+# The wedge is the same shape combat already uses (Tower.is_point_in_cone: same centre,
+# same facing, same arc, same range), so what is lit is exactly what can be shot. Keeping
+# those two in step matters more than the shape being pretty — a light that promises reach
+# the tower does not have is worse than no light.
+#
+# One honest gap, inherited rather than introduced: the light does NOT stop at walls,
+# while is_point_in_cone() does (it raycasts). A cell behind high ground can therefore be
+# lit and still unshootable. That was already true of the old circular lamps; fixing it
+# means a raycast per cell per frame, which is a different order of cost than the cell
+# loop below. Left as is, on purpose, and written down so it is not rediscovered as a bug.
+const WEDGE_LIGHT_SCALE := 1.0        ## fraction of attack range the wedge lights
+
+# WHY THE LIGHT IS WIDER THAN THE GUN.
+#
+# A wedge cut exactly at the firing angle ends in a knife edge, which no lamp does. Real
+# light has a penumbra, so the beam is drawn WIDER than the cone and fades across the
+# extra — full brightness out to the firing edge, then down to nothing.
+#
+# The skirt goes OUTSIDE the cone rather than eating into it, and that direction is the
+# whole point. The rule this fog has always kept is:
+#
+#     the tower must never shoot something the player cannot at least glimpse
+#
+# Fading inward would break it — the outermost degrees a habit can hit would go dark.
+# Fading outward keeps sight ⊇ fire, so the penumbra is a place you can see into and not
+# shoot into, which is what seeing more than you can hit looks like anyway.
+const LIGHT_SKIRT := 1.35             ## beam half-angle vs firing half-angle
+
+
+## One light source. Dictionary rather than a packed Vector because five numbers do not
+## fit in a Vector4 and the alternatives (parallel arrays, bit-packing) trade a real cost
+## for an imagined one: there are a handful of towers, while _mark_lit_* below walks
+## hundreds of CELLS per light. The allocation is noise next to the loop it feeds.
+##
+## `half` is the half-angle in radians; PI or more means "all the way round", which is how
+## every non-directional source (core, Anchor, defender, projectile) is expressed.
+static func _light(pos: Vector2, r: float, facing: float = 0.0, half: float = PI) -> Dictionary:
+	return {"pos": pos, "r": r, "facing": facing, "half": half}
 
 ## Kill switch for harnesses and debugging: with fog off, everything is visible AND the
 ## render pipeline actually stops — the setter hides the overlay, freezes the mask
@@ -949,13 +1332,76 @@ class LightMaskCanvas extends Node2D:
 	func _process(_dt: float) -> void:
 		queue_redraw()
 
+	## Fan covering a wedge: apex, then the rim. The falloff ALONG the radius comes from
+	## the lamp texture through the UVs, so a beam dims with distance on exactly the same
+	## curve a circular lamp does. The falloff ACROSS the beam is the vertex colours below.
+	##
+	## Two ways to soften the sides were possible and one of them is wrong: a shader would
+	## have to be told the facing and arc of every light and this canvas draws them all in
+	## one pass, whereas vertex colours ride along with the geometry that already exists.
+	## No uniform, no second material, no per-light draw state.
+	##
+	## THE POINT LIST IS A FAN, AND ONLY THE INDICES SAY SO. Handing these same points to
+	## draw_polygon() looks right and renders wrong: that call triangulates the outline by
+	## ear clipping, which does not have to keep — and does not keep — the apex in every
+	## triangle. The interior triangles it produces span rim vertex to rim vertex, and
+	## every rim UV sits on the DARK edge of the lamp texture, so the middle of the beam
+	## interpolates to black: a lit crescent around a hole, with a hard seam where the
+	## triangulation happened to cut. Measured on the mask itself — brightness along the
+	## beam axis fell to 4% at 0.4r before rising to a ring peak at 0.62r — not guessed.
+	static func wedge_fan(center: Vector2, r: float, facing: float, half: float,
+			steps: int) -> PackedVector2Array:
+		var pts := PackedVector2Array()
+		pts.push_back(center)
+		for i in range(steps + 1):
+			var a := facing - half + (half * 2.0) * float(i) / float(steps)
+			pts.push_back(center + Vector2.RIGHT.rotated(a) * r)
+		return pts
+
 	func _draw() -> void:
 		if game == null or not game.fog_enabled:
 			return
 		var tex := light_tex()
-		for l: Vector3 in game.collect_fog_lights():
-			draw_texture_rect(tex,
-				Rect2(Vector2(l.x - l.z, l.y - l.z), Vector2(l.z * 2.0, l.z * 2.0)), false)
+		# Where the penumbra starts, as a fraction of the drawn half-angle: 1/skirt is
+		# exactly the firing edge, so everything the habit can hit stays at full brightness
+		# and the fade lives entirely in the skirt outside it.
+		var jadro := 1.0 / Game.LIGHT_SKIRT
+		for l: Dictionary in game.collect_fog_lights():
+			var c: Vector2 = l["pos"]
+			var r: float = l["r"]
+			if l["half"] >= PI:
+				draw_texture_rect(tex,
+					Rect2(Vector2(c.x - r, c.y - r), Vector2(r * 2.0, r * 2.0)), false)
+				continue
+			var half: float = l["half"]
+			# Finer than the gameplay grid needs, because this is the edge the eye lands
+			# on — a coarse fan shows as facets along the penumbra.
+			var steps := maxi(12, int(ceil(half * 2.0 / 0.06)))
+			var pts := wedge_fan(c, r, l["facing"], half, steps)
+			var uvs := PackedVector2Array()
+			var cols := PackedColorArray()
+			# The apex sits under the habit's own lamp, so it stays full brightness — a
+			# beam that dims at its own source reads as a hole where the tower stands.
+			uvs.push_back(Vector2(0.5, 0.5))
+			cols.push_back(Color.WHITE)
+			for i in range(steps + 1):
+				var p: Vector2 = pts[i + 1]
+				uvs.push_back((p - c) / (r * 2.0) + Vector2(0.5, 0.5))
+				# 0 at the beam's centre line, 1 at the drawn edge.
+				var t: float = absf(float(i) / float(steps) * 2.0 - 1.0)
+				var v: float = 1.0 - smoothstep(jadro, 1.0, t)
+				cols.push_back(Color(v, v, v, 1.0))
+			# Explicit fan indices, apex in every triangle. Still one canvas command per
+			# wedge, so this costs what draw_polygon cost, minus the triangulator.
+			var idx := PackedInt32Array()
+			idx.resize(steps * 3)
+			for i in range(steps):
+				idx[i * 3] = 0
+				idx[i * 3 + 1] = i + 1
+				idx[i * 3 + 2] = i + 2
+			RenderingServer.canvas_item_add_triangle_array(
+				get_canvas_item(), idx, pts, cols, uvs,
+				PackedInt32Array(), PackedFloat32Array(), tex.get_rid())
 
 ## Turns the built pipeline on/off in place. Safe to call before _ready (nodes are all
 ## null then) and idempotent — the setter calls it on every flip.
@@ -1008,6 +1454,16 @@ func _build_fog_layer() -> void:
 	_fog_rect.size = Vector2(1920 + 48, 1080 + 48)
 	_fog_rect.z_index = Z_FOG
 	_fog_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Explicitly opted OUT of the cast-shadow Light2D system (see the block comment above
+	# has_visible_distraction). This rect's shader already IS the darkness — COLOR.a comes
+	# straight from lit/dark — and a canvas_item shader with no light() override still gets
+	# the engine's default additive light response unless something opts out. Without this,
+	# any Light2D whose range reaches this rect (all of them: same canvas layer, default
+	# range_layer 0..0) would tint its RGB, visible as a faint warm ring right at the edge
+	# of the lit penumbra. Mask 0 matches no light's default range_item_cull_mask (1), so
+	# this rect always renders exactly what its own shader computes — verified in
+	# docs/core/15_cast_shadows.md.
+	_fog_rect.light_mask = 0
 	add_child(_fog_rect)
 
 ## The mask's light list, assembled ONCE per frame by _update_fog (the sight sources are
@@ -1034,8 +1490,27 @@ func _building_sight_lights() -> Array:
 		var h = spot.current_habit
 		if not h.in_routine:
 			continue
-		var r: float = ANCHOR_ROUTINE_RADIUS if h.type_key == ANCHOR_HABIT else TOWER_LIGHT_RADIUS
-		out.append(Vector3(h.global_position.x, h.global_position.y, r))
+		if h.type_key == ANCHOR_HABIT:
+			# The Anchor is the exception and stays a circle on purpose: its light IS its
+			# Routine radius, which is also where you may build. "Where you can build" and
+			# "where you can see" being one shape is the rule the eye reads directly, and
+			# a wedge would break it.
+			out.append(_light(h.global_position, ANCHOR_ROUTINE_RADIUS))
+			continue
+		out.append(_light(h.global_position, TOWER_LAMP_RADIUS))
+		# NOT every building in a spot is a Habit with a cone — Barracks sits in one too
+		# and has no attack range at all. Typed check rather than duck-typing: the harness
+		# caught this as five errors a frame, and a `in h` test would have hidden the next
+		# building type instead of announcing it.
+		if not (h is Habit):
+			continue
+		var reach: float = h.current_attack_range * WEDGE_LIGHT_SCALE
+		if reach > TOWER_LAMP_RADIUS:
+			# Half-angle in radians, from the same degrees the dial writes — read through
+			# the habit rather than recomputed, so turning the dial moves the light in the
+			# same frame it moves the cone. Skirted, see LIGHT_SKIRT.
+			out.append(_light(h.global_position, reach, h.facing_angle,
+				deg_to_rad(h.arc_angle * 0.5) * LIGHT_SKIRT))
 	return out
 
 ## Rebuilds the lit-cell grid from the SIGHT sources. Runs right after
@@ -1061,35 +1536,69 @@ func _update_fog(delta: float) -> void:
 	var sight: Array = _building_sight_lights()
 	for u in get_tree().get_nodes_in_group("defenders"):
 		if is_instance_valid(u) and not u._dying:
-			sight.append(Vector3(u.global_position.x, u.global_position.y, DEFENDER_LIGHT_RADIUS))
+			sight.append(_light(u.global_position, DEFENDER_LIGHT_RADIUS))
 
 	_lit_cells.clear()
-	_mark_lit_circle(core_pos, CORE_ROUTINE_RADIUS)
-	for l: Vector3 in sight:
-		_mark_lit_circle(Vector2(l.x, l.y), l.z)
+	_mark_lit(_light(core_pos, CORE_ROUTINE_RADIUS))
+	for l: Dictionary in sight:
+		_mark_lit(l)
 
 	# The mask gets the same list plus the two cosmetic extras: the core breathes a
 	# little, and projectiles glow (shine, not sight).
 	var t := Time.get_ticks_msec() / 1000.0
-	_frame_lights = [Vector3(core_pos.x, core_pos.y,
-		CORE_ROUTINE_RADIUS * (1.0 + sin(t * 2.0) * 0.025))]
+	_frame_lights = [_light(core_pos, CORE_ROUTINE_RADIUS * (1.0 + sin(t * 2.0) * 0.025))]
 	_frame_lights.append_array(sight)
 	for p in _live_projectiles:
 		if is_instance_valid(p) and not p.dead:
-			_frame_lights.append(Vector3(p.global_position.x, p.global_position.y,
-				PROJECTILE_LIGHT_RADIUS))
+			_frame_lights.append(_light(p.global_position, PROJECTILE_LIGHT_RADIUS))
 
-func _mark_lit_circle(center: Vector2, r: float) -> void:
-	var min_c := world_to_cell(center - Vector2(r, r))
-	var max_c := world_to_cell(center + Vector2(r, r))
+## Marks the cells one light reaches. A full circle and a wedge differ by one dot product,
+## so they share a body — two loops would be two places for the shapes to drift apart.
+##
+## ROZLISENI JE BLOK (48 px), NE BUNKA (16 px), a to je zamer, ne uspora nazdarbuh.
+##
+## Tahle smycka bezi KAZDY SNIMEK pro kazdy zdroj svetla a jeji cena roste s DRUHOU
+## mocninou jemnosti mrizky: po zjemneni na 16px bunku by jedno svetlo o polomeru 330 px
+## proslo 1702 bunek misto 189. Zmereno 18. 8. 2026: prazdne pole se zapnutou mlhou
+## stalo 21,5 ms pred zjemnenim a 29,0 ms po nem, a cely ten rozdil byl tady.
+##
+## Presnost se tim NEZTRACI: 48 px je presne rozliseni, ktere mlha mela pred zjemnenim,
+## a is_pos_visible() je stejne priznane hruby test ("bunka pod telem sviti"). Jemnejsi
+## mrizka mela zjemnit PIXEL, ne dohlednost.
+func _mark_lit(l: Dictionary) -> void:
+	var center: Vector2 = l["pos"]
+	var r: float = l["r"]
+	var half: float = l["half"]
+	var wedge := half < PI
+	# cos() once per light instead of acos() per cell: the cone test is
+	# "angle <= half", which is exactly "cos(angle) >= cos(half)" for angles in [0, PI].
+	var cos_half := cos(half)
+	var dir := Vector2.RIGHT.rotated(l["facing"])
+	var b: int = Data.BUILD_BLOCK
+	var min_c := Data.build_block(world_to_cell(center - Vector2(r, r)))
+	var max_c := Data.build_block(world_to_cell(center + Vector2(r, r)))
 	var r2 := r * r
-	for cy in range(min_c.y, max_c.y + 1):
-		for cx in range(min_c.x, max_c.x + 1):
+	var cy := min_c.y
+	while cy <= max_c.y:
+		var cx := min_c.x
+		while cx <= max_c.x:
 			var cell := Vector2i(cx, cy)
 			if _lit_cells.has(cell):
+				cx += b
 				continue
-			if center.distance_squared_to(cell_center(cell)) <= r2:
-				_lit_cells[cell] = true
+			var d := cell_center(cell) - center
+			var d2 := d.length_squared()
+			if d2 > r2:
+				cx += b
+				continue
+			# Right on top of the source there is no meaningful direction — the cell under
+			# the tower must not flicker in and out as it turns.
+			if wedge and d2 > 1.0 and dir.dot(d / sqrt(d2)) < cos_half:
+				cx += b
+				continue
+			_lit_cells[cell] = true
+			cx += b
+		cy += b
 
 ## THE gameplay visibility test — O(1), because the projectile hit loop calls it
 ## projectiles x enemies times per frame. Cell resolution, not per-pixel: a body is
@@ -1098,7 +1607,9 @@ func _mark_lit_circle(center: Vector2, r: float) -> void:
 func is_pos_visible(pos: Vector2) -> bool:
 	if not fog_enabled or fog_reveal_left > 0.0:
 		return true
-	return _lit_cells.has(world_to_cell(pos))
+	# _lit_cells je klicovane po BLOCICH (viz _mark_lit), takze se pozice musi na blok
+	# srovnat -- syrova bunka by v nem nikdy nesedela a vsechno by bylo v tme.
+	return _lit_cells.has(Data.build_block(world_to_cell(pos)))
 
 ## Whether anything alive can currently be seen at all — the fog half of every tower's
 ## board_live gate. Memoised per frame; N towers each asking would otherwise re-walk the
@@ -1118,6 +1629,233 @@ func has_visible_distraction() -> bool:
 			break
 	return _vis_cache
 
+# ---------------------------------------------------------------- cast shadows (Light2D)
+#
+# Real Light2D + LightOccluder2D — a SEPARATE system from Brain Fog above, not a
+# replacement for it. Fog answers "what can the player see and hit" and has to stay a
+# cheap full-screen mask because it counts every projectile (up to ~500 live shots) as a
+# light; that math is exactly why fog rejected Light2D in the first place (see the block
+# comment above collect_fog_lights, and docs/core/14). This system answers a much
+# smaller question — "which few things in the world carry a physical lamp, and how does
+# its light fall across a wall" — for atmosphere, so it only has to stay cheap for a
+# handful of nodes, not hundreds.
+#
+# The set of lights is deliberately the SAME set that already feeds _lit_cells through
+# _building_sight_lights(): the Focus core, established Anchors, and any other built
+# habit (Guild included) currently in_routine. Same positions, same radii
+# (CORE_ROUTINE_RADIUS / ANCHOR_ROUTINE_RADIUS / TOWER_LAMP_RADIUS) reused, not
+# reinvented — "what casts a shadow" and "what lights the fog" stay one idea instead of
+# two systems that can quietly disagree. Explicitly NOT lights: projectiles (the fog
+# doc's reason applies doubly hard once shadows are involved — up to 500 shadow-casting
+# lights recomputing a shadow map every frame is a different order of cost, not just "the
+# expensive way to say 1 minus a texture"), distractions/defenders, and — for this first
+# pass — small decor. A habit's WEDGE reach-light (the extra light fog gives a long,
+# narrow arc down its firing lane) is also skipped: shaping a Light2D's texture into a
+# rotated, per-tower wedge and keeping it in sync with the arc dial is real extra work for
+# an atmospheric first pass. Left for later if the flat lamp radius reads as too small
+# once seen in motion — see the open items in docs/core/15_cast_shadows.md.
+#
+# What actually shows up on screen: Light2D's default blend mode is ADD, and nothing in
+# this project uses CanvasModulate, so the base art already renders at full authored
+# brightness with zero lights present — adding a Light2D does not darken anything, it
+# only ADDS a warm pool of extra brightness within its texture's radius, cut off wherever
+# a LightOccluder2D sits between it and the pixel being drawn. That reads as "the lamp's
+# glow stops at the wall" — a shadow — without touching the game's always-fully-visible
+# base art or duplicating what the fog's darkness already does.
+
+## Warm, deliberately desaturated — a reading-lamp colour, not a stage light. Full white
+## at any real energy reads as flare against flat vector art.
+const SHADOW_LIGHT_COLOR := Color(1.0, 0.92, 0.78)
+## Conservative on purpose: this is glow ON TOP of art that is already fully lit without
+## it (see block comment above), so it only has to suggest depth, not relight the scene.
+##
+## Measured 2026-08-18 (docs/core/15_cast_shadows.md): the lamp texture is flat (v=1, no
+## falloff at all) out to 55% of its radius, so two lamps whose flat cores overlap — an
+## Anchor built near the core, or two towers a screen-width apart — ADD their full energy
+## with no softening. At 0.45 that measured as real pixels clipped to pure white where
+## three sources (core + Anchor + a tower) overlapped near a start-of-game cluster: a
+## harsh flare, not the "reading lamp" this is supposed to read as. 0.3 keeps a 2-source
+## overlap comfortably under 1.0 (0.6) and a rare 3-source overlap close to it (0.9)
+## without clipping in the common case.
+const SHADOW_LIGHT_ENERGY := 0.3
+
+## Kill switch, same shape as fog_enabled: safe pre-_ready (every use below is
+## null-guarded), idempotent, and the one thing a harness or a future settings screen
+## needs to flip to compare with/without. Back ON (2026-08-18, round 2): the floodlight
+## complaint from the first in-game look is fixed and verified (SHADOW_CURVE_WIDE, see
+## docs/core/15_cast_shadows.md "Playtest round 2"). The banded-texture complaint traced
+## to a real, small, PRE-EXISTING wall/floor rendering quirk unrelated to this feature
+## (present with this flag off too, unchanged by two rounds of occluder/WallShadow
+## fixes) — not blocking, tracked separately in 15.
+var shadow_enabled := true:
+	set(value):
+		shadow_enabled = value
+		_apply_shadow_enabled()
+
+var _shadow_light_layer: Node2D = null
+var _core_shadow_light: Light2D = null
+## BuildSpot -> Light2D, one per currently-built habit/anchor/guild. Kept as a dictionary
+## rather than rebuilt from scratch every frame because towers do not move once placed —
+## only whether a spot is BUILT and whether its habit is in_routine changes frame to
+## frame, so the steady-state cost is a couple of property writes per built spot, not
+## node churn.
+var _shadow_lights: Dictionary = {}
+static var _shadow_tex_cache: Dictionary = {}   # "flat,dark" key -> ImageTexture
+
+## Tower/habit lamp curve — UNCHANGED from the first pass on purpose. Playtest feedback on
+## the first pass called out two problems and this was explicitly NOT one of them: "co
+## funguje dobře a MÁ zůstat: osvícení od jednotlivých věží". Flat to 55% of the light's
+## radius, fully dark by 88% — see _shadow_light_tex for why that shape at all.
+const SHADOW_CURVE_TIGHT := Vector2(0.55, 0.88)
+
+## Core/Anchor curve — the actual fix for the SECOND playtest problem ("stíny nedávají
+## smysl" / core reads as a floodlight, not a lamp). SHADOW_CURVE_TIGHT was being reused
+## at the core's and Anchor's much bigger gameplay radius (330 / 260 vs the tower's 56),
+## and a flat zone that is a FIXED FRACTION of radius does not stay lamp-sized as radius
+## grows: 55% of 330 is 182px of uniformly full brightness — most of the visible circle —
+## followed by a near-instant cliff in the last 12%. On screen that read as a large, hard-
+## edged dome, not a falloff, and was the actual shape behind the "big diagonal hard edge
+## across the screen" a live playtest reported.
+##
+## This is the "shift the curve per-source" fix, not a radius change: the core and Anchor
+## still light and gate build/visibility at their real CORE_ROUTINE_RADIUS/
+## ANCHOR_ROUTINE_RADIUS — nothing about Brain Fog or the Routine build gate moves. Only
+## the VISUAL falloff shape is source-size-aware now. flat_frac=0.17 targets a roughly
+## CONSTANT absolute hot-core size regardless of which of the two big sources is lighting
+## (0.17 * 260 ≈ 44px, 0.17 * 330 ≈ 56px — both in the tower lamp's own ballpark, ~31px,
+## rather than 5x it), and dark_frac=0.90 spends most of the remaining radius on a real
+## gradual taper instead of a near-instant cutoff.
+const SHADOW_CURVE_WIDE := Vector2(0.17, 0.90)
+
+## Same 128px resolution as LightMaskCanvas.light_tex() above (a size already validated
+## for a radial falloff in this exact project) but a DIFFERENT curve and a different
+## channel convention, because it is a different consumer:
+##   - LightMaskCanvas bakes brightness into RGB and pins alpha to 1, because a custom
+##     shader reads its .r channel straight off a SubViewport.
+##   - A real Light2D texture follows Godot's own convention instead — a white cookie
+##     shaped by ALPHA — so this writes the SAME value into every channel and lets
+##     whichever one the engine actually samples carry the falloff.
+## `flat_frac`/`dark_frac` are NOT one shared constant any more (see SHADOW_CURVE_TIGHT vs
+## SHADOW_CURVE_WIDE above and docs/core/15_cast_shadows.md) — cached per distinct pair
+## since only two are ever requested. Both are still tighter than the fog mask's own
+## curve (flat to 62%, soft out to 100%): this texture is drawn straight into the visible
+## scene at NEAREST filtering, not sampled by a shader, so a long soft tail is exactly the
+## "blurry glow that sticks out against flat pixel art" the render-fx brief rules out.
+static func _shadow_light_tex(flat_frac: float, dark_frac: float) -> ImageTexture:
+	var key := "%.3f,%.3f" % [flat_frac, dark_frac]
+	if _shadow_tex_cache.has(key):
+		return _shadow_tex_cache[key]
+	var n := 128
+	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	var half := (n - 1) / 2.0
+	for y in range(n):
+		for x in range(n):
+			var d := Vector2(x - half, y - half).length() / half
+			var v := 1.0 - smoothstep(flat_frac, dark_frac, d)
+			img.set_pixel(x, y, Color(v, v, v, v))
+	var tex := ImageTexture.create_from_image(img)
+	_shadow_tex_cache[key] = tex
+	return tex
+
+## One lamp. `radius` is always one of the fog's own constants, passed in by the caller —
+## see the block comment above — never invented here. `curve` defaults to the tower's
+## tight curve; callers lighting the core or an Anchor pass SHADOW_CURVE_WIDE explicitly.
+func _make_shadow_light(radius: float, curve: Vector2 = SHADOW_CURVE_TIGHT) -> Light2D:
+	var light := PointLight2D.new()   # Light2D itself is abstract; PointLight2D is the
+									   # concrete node — see docs/core/15_cast_shadows.md.
+	var tex := _shadow_light_tex(curve.x, curve.y)
+	light.texture = tex
+	light.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST  ## pixel-art discipline, see 01
+	var tex_half := tex.get_width() / 2.0
+	light.texture_scale = radius / tex_half
+	light.color = SHADOW_LIGHT_COLOR
+	light.energy = SHADOW_LIGHT_ENERGY
+	light.shadow_enabled = true
+	# Hard-edged, not the softer PCF options — same "no soft blur" reasoning as the
+	# texture curve above. (This is also the engine default, written out so it reads as
+	# a decision rather than an oversight.)
+	light.shadow_filter = Light2D.SHADOW_FILTER_NONE
+	return light
+
+## Built once in _ready (alongside the fog layer), independent of shadow_enabled's
+## starting value — construction is one-time and cheap (a container plus one light node),
+## unlike fog's heavier SubViewport pipeline, so there is nothing worth skipping here.
+## shadow_enabled instead gates the ongoing per-frame cost, in _sync_shadow_lights below.
+func _build_shadow_light_layer() -> void:
+	_shadow_light_layer = Node2D.new()
+	_shadow_light_layer.name = "ShadowLights"
+	_shadow_light_layer.visible = shadow_enabled
+	add_child(_shadow_light_layer)
+
+	_core_shadow_light = _make_shadow_light(CORE_ROUTINE_RADIUS, SHADOW_CURVE_WIDE)
+	# Local position under a zero-offset child of Game: ordinary parent-child transform
+	# inheritance already carries Game's own shaken `position` into this light's global
+	# position every frame, for free. _update_fog has to add `position` back in by hand
+	# for the SAME reason fog needs SCREEN_UV realignment at all — its mask lives in a
+	# separate screen-aligned SubViewport that does not inherit scene-tree transforms. A
+	# real scene-tree Light2D never has that problem, so this is set once, not per-frame.
+	_core_shadow_light.position = objective_pos
+	_shadow_light_layer.add_child(_core_shadow_light)
+
+## Mirrors _apply_fog_enabled(): safe before _ready (everything still null), idempotent,
+## and actually stops paying for the feature when off instead of just hiding it — freeing
+## the per-tower lights means a later flip back to true starts _sync_shadow_lights from an
+## empty dictionary instead of diffing a stale one.
+func _apply_shadow_enabled() -> void:
+	if _shadow_light_layer != null:
+		_shadow_light_layer.visible = shadow_enabled
+	if _shadow_occluder_layer != null:
+		_shadow_occluder_layer.visible = shadow_enabled
+	if not shadow_enabled:
+		for l in _shadow_lights.values():
+			if is_instance_valid(l):
+				l.queue_free()
+		_shadow_lights.clear()
+
+## Keeps _shadow_lights in step with build_spots — the same walk _building_sight_lights()
+## already does each frame for the fog mask (see the block comment at the top of this
+## section), kept as a SEPARATE loop on purpose rather than merged into that one: the two
+## systems are meant to be able to change independently (one is a gameplay-critical O(1)
+## visibility grid, the other is atmosphere), and build_spots is small — one entry per 3x3
+## buildable BLOCK, not per fine cell (Data.BUILD_BLOCK) — so walking it twice is noise,
+## not a new order of cost. Measured under load in docs/core/15_cast_shadows.md.
+func _sync_shadow_lights() -> void:
+	if not shadow_enabled or _shadow_light_layer == null:
+		return
+	var seen := {}
+	for spot in build_spots.values():
+		if not is_instance_valid(spot) or spot.state != BuildSpot.State.BUILT \
+				or not is_instance_valid(spot.current_habit):
+			continue
+		var h = spot.current_habit
+		seen[spot] = true
+		# Anchor-ness is re-read every sync instead of cached at creation, so an upgrade
+		# that changes what a spot holds can never leave a stale radius/curve behind —
+		# the cost is one string compare and, only when it actually changed, one texture
+		# swap or texture_scale write, never a node rebuild.
+		var is_anchor: bool = h.type_key == ANCHOR_HABIT
+		var target_radius: float = ANCHOR_ROUTINE_RADIUS if is_anchor else TOWER_LAMP_RADIUS
+		var target_curve: Vector2 = SHADOW_CURVE_WIDE if is_anchor else SHADOW_CURVE_TIGHT
+		var light: Light2D = _shadow_lights.get(spot)
+		if light == null:
+			light = _make_shadow_light(target_radius, target_curve)
+			_shadow_light_layer.add_child(light)
+			_shadow_lights[spot] = light
+			light.global_position = h.global_position
+		else:
+			var target_tex := _shadow_light_tex(target_curve.x, target_curve.y)
+			if light.texture != target_tex:
+				light.texture = target_tex
+			var tex_half := target_tex.get_width() / 2.0
+			var target_scale: float = target_radius / tex_half
+			if not is_equal_approx(light.texture_scale, target_scale):
+				light.texture_scale = target_scale
+		light.visible = h.in_routine
+	for spot in _shadow_lights.keys():
+		if not seen.has(spot):
+			_shadow_lights[spot].queue_free()
+			_shadow_lights.erase(spot)
+
 # ---------------------------------------------------------------- drawing
 
 func _draw() -> void:
@@ -1132,10 +1870,6 @@ func _draw() -> void:
 	# so anything drawn here would cover every ground layer below it. It lives in
 	# _build_background_layer() at Z_BACKGROUND instead.
 
-	for cells: Array in spawn_zone_cells:
-		for c: Vector2i in cells:
-			draw_rect(Rect2(ox + c.x * tile, oy + c.y * tile, tile, tile), Color(0.9, 0.3, 0.4, 0.12))
-
 	# Jedna brána na zónu, ne dlaždice děr v každé buňce — hráč má vidět "tady to leze
 	# ven", ne vzorek. Slabý nádech nad ní nechává zónu čitelnou celou.
 	if _spawn_marker_tex != null and level != null:
@@ -1143,17 +1877,12 @@ func _draw() -> void:
 			var zc := Vector2(ox + (zone.position.x + zone.size.x * 0.5) * tile,
 				oy + (zone.position.y + zone.size.y * 0.5) * tile)
 			var msz := Vector2(_spawn_marker_tex.get_size()) \
-				* maxf(1.0, floorf(float(tile) / _spawn_marker_tex.get_width()))
+				* Data.pixel_scale()
 			draw_texture_rect(_spawn_marker_tex, Rect2(zc - msz / 2.0, msz), false)
 
 	# Predicted enemy routes were drawn here as faint trails; cut entirely — the player
 	# reads routes from the corridors themselves and the trails just dirtied the field.
 	# _spawn_path_previews stays computed in case the hint returns as a toggle.
-
-	# Dotted background grid instead of hard lines
-	for c in range(g.cols + 1):
-		for r in range(g.rows + 1):
-			draw_circle(Vector2(ox + c * tile, oy + r * tile), 1.5, Color("1e2333", 0.6))
 
 	# Vector walls are the fallback for levels with no painted terrain yet. Once tiles
 	# exist the TileMapLayer draws them instead — running both would double up.
@@ -1178,7 +1907,7 @@ func _draw() -> void:
 	# hmotném místo aby viselo na holé podlaze.
 	if _goal_marker_tex != null:
 		var gsz := Vector2(_goal_marker_tex.get_size()) \
-			* maxf(1.0, floorf(float(tile) / _goal_marker_tex.get_width()))
+			* Data.pixel_scale()
 		draw_texture_rect(_goal_marker_tex, Rect2(objective_pos - gsz / 2.0, gsz), false)
 	var max_f := float(max(1, level.focus)) if level != null else 30.0
 	var focus_ratio := clampf(float(GameState.focus) / max_f, 0.0, 1.0)
@@ -1379,7 +2108,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
 		# The event's own position, not _hover_cell — that is only refreshed from
 		# _process(), so a fast flick-and-click acted on the previous frame's cell.
-		var click_cell := world_to_cell(get_global_mouse_position())
+		# Na blok, ne na bunku: stavi a otevira se panel po blocich 3x3 (Data.build_block).
+		var click_cell := Data.build_block(world_to_cell(get_global_mouse_position()))
 
 		if is_setting_rally:
 			if event.button_index == MOUSE_BUTTON_LEFT:
@@ -2283,6 +3013,7 @@ func _process(delta: float) -> void:
 	_update_kill_feedback(delta)
 	_update_routine_reach()
 	_update_fog(delta)
+	_sync_shadow_lights()
 	_check_wave_progress()
 	queue_redraw()
 	_update_hover()
@@ -2384,7 +3115,7 @@ func _update_hover() -> void:
 	# Always track the hovered cell, not just while a habit is selected — a
 	# left-click with nothing selected opens that cell's panel (_try_open_panel),
 	# which needs a live _hover_cell to have anything to open.
-	var c := world_to_cell(get_global_mouse_position())
+	var c := Data.build_block(world_to_cell(get_global_mouse_position()))
 	if c != _hover_cell:
 		_hover_cell = c
 		should_redraw = true

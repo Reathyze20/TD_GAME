@@ -24,8 +24,16 @@ import os
 import statistics
 import sys
 
-ART_W, ART_H = 16, 8       # 48x24 on screen at the game's x3 raster
-ZOOM = 3
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import game_raster                                             # noqa: E402
+
+## Celo zdi je siroke jednu bunku a vysoke FACE_SCREEN_H pixelu OBRAZOVKY. Vyska je
+## vytvarne rozhodnuti (Game.WALL_FACE_H), ne nasobek bunky -- pri zjemneni rastru se
+## zed na obrazovce nesmi zmensit, takze se drzi v pixelech obrazovky a na art se
+## prepocita az tady.
+FACE_SCREEN_H = 24
+ZOOM = game_raster.SCALE
+ART_W, ART_H = game_raster.ART_PX, FACE_SCREEN_H // ZOOM
 
 ## Fraction of the wall body's median brightness the face should sit at. The face is a
 ## vertical surface under a top light, so it must be clearly darker than the wall's top

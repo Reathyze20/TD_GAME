@@ -143,6 +143,82 @@ func _run() -> void:
 	_check("reveal makes it visible", game.is_pos_visible(dark_pos))
 	game.fog_reveal_left = 0.0
 
+	# --- a habit lights the wedge it shoots into ---------------------------------
+	#
+	# Asserted as a DIFFERENCE, not against fixed cells. The board is lit by the core and
+	# by every other source too, so "this exact cell is dark" depends on level geometry and
+	# would rot the first time a spot moves. What cannot be coincidence is that turning the
+	# dial moves the light — so the test turns it and compares.
+	print("=== wedge light")
+	GameState.dopamine = 10000
+	GameState.select_habit("focus_timer")
+	game._build_on(in_cell)
+	game._end_aiming()
+	var hab: Habit = game.build_spots[in_cell].current_habit
+	if hab == null:
+		_check("wedge: a habit was built", false)
+	else:
+		hab.facing_angle = 0.0
+		hab.set_arc_angle(60.0)
+		game._update_fog(0.0)
+		var ahead: Vector2 = hab.global_position \
+			+ Vector2.RIGHT.rotated(hab.facing_angle) * (hab.current_attack_range * 0.8)
+		_check("the cone's own reach is lit", game.is_pos_visible(ahead),
+			"(%.0f px out)" % (hab.current_attack_range * 0.8))
+
+		var before: Dictionary = game._lit_cells.duplicate()
+		hab.facing_angle = PI
+		game._update_fog(0.0)
+		var lost := 0
+		for c in before:
+			if not game._lit_cells.has(c):
+				lost += 1
+		var gained := 0
+		for c in game._lit_cells:
+			if not before.has(c):
+				gained += 1
+		_check("turning the habit moves the light", lost > 0 and gained > 0,
+			"(-%d cells, +%d)" % [lost, gained])
+
+		hab.facing_angle = 0.0
+		hab.set_arc_angle(ArcProfile.ARC_MIN)
+		game._update_fog(0.0)
+		var narrow: int = game._lit_cells.size()
+		hab.set_arc_angle(ArcProfile.ARC_MAX)
+		game._update_fog(0.0)
+		var wide: int = game._lit_cells.size()
+		_check("a wider arc lights more board", wide > narrow,
+			"(%d -> %d cells, arc %.0f -> %.0f)" % [narrow, wide,
+				ArcProfile.ARC_MIN, ArcProfile.ARC_MAX])
+
+		# THE CONTRACT THE SKIRT EXISTS FOR: sight must cover fire. The beam is drawn
+		# wider than the cone (Game.LIGHT_SKIRT) precisely so the outermost degrees a
+		# habit can hit are still lit — fading inward instead would leave it shooting
+		# into its own dark edge, which is the one thing this fog must never do.
+		hab.set_arc_angle(60.0)
+		hab.facing_angle = 0.0
+		game._update_fog(0.0)
+		var edge_dark := 0
+		var edge_tested := 0
+		for si in [-1.0, 1.0]:
+			var ea: float = hab.facing_angle + si * deg_to_rad(hab.arc_angle * 0.5)
+			for f in [0.3, 0.6, 0.9]:
+				var p: Vector2 = hab.global_position \
+					+ Vector2.RIGHT.rotated(ea) * (hab.current_attack_range * f)
+				edge_tested += 1
+				if not game.is_pos_visible(p):
+					edge_dark += 1
+		_check("the firing edge is lit along its whole length", edge_dark == 0,
+			"(%d of %d probes dark)" % [edge_dark, edge_tested])
+
+		game._update_fog(0.0)
+		var side: Vector2 = hab.global_position \
+			+ Vector2.RIGHT.rotated(hab.facing_angle + PI) * (hab.current_attack_range * 0.8)
+		_check("behind the habit is outside its cone", not hab.is_point_in_cone(side))
+
+		game._do_sell(in_cell, 1)
+		game._update_fog(0.0)
+
 	# A distraction standing in the dark: no tower fires at it (board_live) and a shot
 	# passing straight through it leaves it untouched.
 	var d: Distraction = game.spawn_distraction("doomscroll", dark_cell)

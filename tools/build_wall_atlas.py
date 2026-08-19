@@ -12,8 +12,12 @@ from PIL import Image
 from collections import Counter
 import statistics, os
 
-T = 16
-ZOOM = 3
+import sys                                                     # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import game_raster                                             # noqa: E402
+
+T = game_raster.ART_PX       # strana dlazdice v pixelech ARTU
+ZOOM = game_raster.SCALE     # kolikrat se uklada do atlasu (atlas je v px OBRAZOVKY)
 # Adresáře se staženými sadami z PixelLabu (create_tiles_pro, tile_feature='tileset').
 # Každá sada = jedna varianta v atlasu, proto musí být z NEZÁVISLÝCH generování.
 SETS = ['terr', 'd_wall777', 'd_wall4242']

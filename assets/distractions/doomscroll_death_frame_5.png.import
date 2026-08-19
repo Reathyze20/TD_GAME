@@ -2,12 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bucfkayr1gth"
-valid=false
+uid="uid://bjm870wxeworx"
+path="res://.godot/imported/doomscroll_death_frame_5.png-7dd26a2251a074552adcf63031e0de66.ctex"
+metadata={
+"vram_texture": false
+}
 
 [deps]
 
 source_file="res://assets/distractions/doomscroll_death_frame_5.png"
+dest_files=["res://.godot/imported/doomscroll_death_frame_5.png-7dd26a2251a074552adcf63031e0de66.ctex"]
 
 [params]
 
