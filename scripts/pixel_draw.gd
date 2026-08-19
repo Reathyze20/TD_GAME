@@ -57,13 +57,19 @@ static func packet(cv: CanvasItem, from: Vector2, to: Vector2, col: Color, trave
 static func arc(cv: CanvasItem, centre: Vector2, radius: float, col: Color,
 		units: float = 1.0, spacing: float = 2.0,
 		from_angle: float = 0.0, to_angle: float = TAU) -> void:
+	ellipse(cv, centre, radius, radius * 0.5, col, units, spacing, from_angle, to_angle)
+
+static func ellipse(cv: CanvasItem, centre: Vector2, rx: float, ry: float, col: Color,
+		units: float = 1.0, spacing: float = 2.0,
+		from_angle: float = 0.0, to_angle: float = TAU) -> void:
 	var sweep := to_angle - from_angle
-	var n := maxi(int(absf(sweep) * radius / (PX * spacing)), 4)
+	var n := maxi(int(absf(sweep) * maxf(rx, ry) / (PX * spacing)), 8)
 	var s := PX * units
 	var last := Vector2.INF
 	for i in range(n + 1):
 		var a := from_angle + sweep * (float(i) / float(n))
-		var p := ((centre + Vector2.RIGHT.rotated(a) * radius) / PX).floor() * PX
+		var offset := Vector2(cos(a) * rx, sin(a) * ry)
+		var p := ((centre + offset) / PX).floor() * PX
 		if p == last:
 			continue
 		last = p

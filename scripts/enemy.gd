@@ -183,10 +183,17 @@ enum Facing { SOUTH, NORTH, EAST, WEST }
 var facing: Facing = Facing.SOUTH
 
 func note_heading(dir: Vector2) -> void:
-	if absf(dir.x) > absf(dir.y):
-		facing = Facing.EAST if dir.x > 0.0 else Facing.WEST
+	# In 2:1 isometric diamond projection, grid cardinal axes land on screen diagonals:
+	# Grid +X (1, 0) -> screen (+32, +16) (Facing.EAST)
+	# Grid -X (-1, 0) -> screen (-32, -16) (Facing.WEST)
+	# Grid +Y (0, 1) -> screen (-32, +16) (Facing.SOUTH)
+	# Grid -Y (0, -1) -> screen (+32, -16) (Facing.NORTH)
+	var u := dir.x * 0.5 + dir.y
+	var v := dir.y - dir.x * 0.5
+	if absf(u) > absf(v):
+		facing = Facing.EAST if u > 0.0 else Facing.WEST
 	else:
-		facing = Facing.SOUTH if dir.y > 0.0 else Facing.NORTH
+		facing = Facing.SOUTH if v > 0.0 else Facing.NORTH
 
 func distance_to_core() -> float:
 	return position.distance_to(game.objective_pos)

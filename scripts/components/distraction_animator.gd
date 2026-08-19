@@ -189,11 +189,11 @@ func _draw_type_glow(r: float, strength: float) -> void:
 func _draw_contact_shadow(r: float, strength: float) -> void:
 	if strength <= 0.01:
 		return
-	var drop: float = r * (1.45 if enemy.is_flying else 0.72)
+	var drop: float = r * 1.45 if enemy.is_flying else 0.0
 	var alpha: float = (0.22 if enemy.is_flying else 0.42) * strength
-	# Dynamic bobbing: shadow gently tightens on upward steps for physical ground anchor
+	# Dynamic bobbing: shadow gently tightens on upward steps for physical ground anchor (2:1 projection)
 	var bob: float = 1.0 - absf(sin(_time * 6.0)) * (0.06 if enemy.is_flying else 0.12)
-	draw_set_transform(Vector2(0.0, drop), 0.0, Vector2(bob, 0.42 * bob))
+	draw_set_transform(Vector2(0.0, drop), 0.0, Vector2(bob, 0.5 * bob))
 	# 3-tier soft shadow (core, mid-body, soft rim)
 	draw_circle(Vector2.ZERO, r * 1.15, Color(0.01, 0.01, 0.04, alpha * 0.25))
 	draw_circle(Vector2.ZERO, r * 0.85, Color(0.01, 0.01, 0.04, alpha * 0.65))
@@ -257,7 +257,7 @@ func _draw_texture_centred(tex: Texture2D, r: float, glow: float = 1.0,
 		var flash_intensity: float = clampf(_hit_flash_timer / 0.15, 0.0, 1.0)
 		tint = Color(1.0 + flash_intensity * 2.5, 1.0 + flash_intensity * 2.5, 1.0 + flash_intensity * 2.5, 1.0)
 	
-	draw_texture_rect(tex, Rect2(-size * 0.5 + shift, size), false, tint)
+	draw_texture_rect(tex, Rect2(Vector2(-size.x * 0.5, -size.y) + shift, size), false, tint)
 
 ## On-screen size of one frame. NOT derived from radius, and no longer from anything local.
 ##

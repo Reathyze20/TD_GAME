@@ -22,7 +22,7 @@ extends Resource
 @export var unlocked_growth: Array[String] = []
 
 @export var total_clarity_stars: int = 0
-@export var unlocked_levels: Array[String] = ["Level_01"]
+@export var unlocked_levels: Array[String] = ["Level_01", "Level_02", "Level_03"]
 ## Best stars (1-3) earned per level, keyed by id e.g. "Level_01". Separate from
 ## total_clarity_stars, which is cumulative and never decreases on replay.
 @export var level_stars: Dictionary = {}

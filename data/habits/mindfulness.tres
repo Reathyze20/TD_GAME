@@ -24,3 +24,4 @@ reframe_duration = 2.5
 color = "b07dff"
 projectile_color = "d7bcff"
 impulse = 0.0
+has_own_pedestal = true

@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://c8n1isopilot0"]
+
+[ext_resource type="Script" path="res://scenes/pilot_isometric/iso_pilot.gd" id="1"]
+
+[node name="IsoPilot" type="Node2D"]
+script = ExtResource("1")

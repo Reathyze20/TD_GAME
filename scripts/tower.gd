@@ -162,27 +162,25 @@ func start_break(duration: float, forced: bool) -> void:
 	burned_out = forced
 	queue_redraw()
 
-## Vector math filtering for directional cone sector.
+## Vector math filtering for directional cone sector in 2:1 ground space.
 func is_point_in_cone(target_pos: Vector2) -> bool:
-	var dist := global_position.distance_to(target_pos)
+	var dx := target_pos.x - global_position.x
+	var dy := (target_pos.y - global_position.y) * 2.0
+	var dist := sqrt(dx * dx + dy * dy)
 	if dist > current_attack_range:
 		return false
 	if dist < 1.0:
 		return true
 	var facing_dir := Vector2.RIGHT.rotated(facing_angle)
-	var target_dir := (target_pos - global_position).normalized()
+	var target_dir := Vector2(dx, dy).normalized()
 	var angle_diff := absf(facing_dir.angle_to(target_dir))
 	if angle_diff > deg_to_rad(arc_angle / 2.0):
 		return false
 	# The Brain Fog shades the cone the same way walls do: a body standing in the dark is
-	# simply not in it. Suppression has no target selection to filter, so "can't hit what
-	# you can't see" lives here (AoE pulses + the Pomodoro work check) and in the
-	# projectile's hit loop — the two places a hit is actually decided.
+	# simply not in it.
 	if game != null and not game.is_pos_visible(target_pos):
 		return false
-	# Walls shade the cone: anything behind high ground is simply not in it. Flyers over
-	# a wall are shaded too — the wedge preview draws the same cast, and a preview that
-	# never lies beats a special case the player cannot see.
+	# Walls shade the cone: anything behind high ground is simply not in it.
 	return game == null or game.has_line_of_sight(global_position, target_pos)
 
 func _recalculate_stats() -> void:
@@ -544,7 +542,10 @@ func _draw_head_sprite(tex: Texture2D, tint: Color, rot: float = 0.0, offset: Ve
 	var transformed := rot != 0.0 or offset != Vector2.ZERO
 	if transformed:
 		draw_set_transform(offset, rot, Vector2.ONE)
-	draw_texture_rect(tex, Rect2(-size / 2.0, size), false, tint)
+	if def != null and def.has_own_pedestal:
+		draw_texture_rect(tex, Rect2(Vector2(-size.x * 0.5, -size.y), size), false, tint)
+	else:
+		draw_texture_rect(tex, Rect2(Vector2(-size.x * 0.5, -size.y * 0.75), size), false, tint)
 	if transformed:
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
@@ -573,25 +574,24 @@ func _draw() -> void:
 				Vector2(0, -dr), Vector2(dr, 0), Vector2(0, dr), Vector2(-dr, 0)])
 			draw_colored_polygon(diamond, main_col)
 		if show_range_indicator:
-			draw_circle(Vector2.ZERO, def.range, Color(main_col.r, main_col.g, main_col.b, 0.08))
-			PixelDraw.arc(self, Vector2.ZERO, def.range, Color(main_col.r, main_col.g, main_col.b, 0.7), 1.0, 2.5)
+			PixelDraw.ellipse(self, Vector2.ZERO, def.range, def.range * 0.5, Color(main_col.r, main_col.g, main_col.b, 0.7), 1.0, 2.5)
 		if not in_routine:
 			var flash_a := (sin(Time.get_ticks_msec() * 0.008) * 0.35) + 0.65
 			draw_string(ThemeDB.fallback_font, Vector2(-34, -base_r - 14), "⚠ NO ROUTINE",
 				HORIZONTAL_ALIGNMENT_CENTER, -1, 13, Color(1.0, 0.8, 0.2, flash_a))
 		return
 
-	# 0. PEDESTAL CONTACT SHADOW (Anchors tower firmly to ground)
-	draw_set_transform(Vector2(0.0, base_r * 0.45), 0.0, Vector2(1.0, 0.45))
+	# 0. PEDESTAL CONTACT SHADOW (Anchors tower firmly to ground in 2:1 projection)
+	draw_set_transform(Vector2(0.0, base_r * 0.5), 0.0, Vector2(1.0, 0.5))
 	draw_circle(Vector2.ZERO, base_r * 1.15, Color(0.01, 0.01, 0.04, 0.15))
 	draw_circle(Vector2.ZERO, base_r * 0.85, Color(0.01, 0.01, 0.04, 0.35))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 	# 1. FIXED PEDESTAL BASE (PNG Sprite or Vector Fallback)
-	if _base_tex != null:
+	if _base_tex != null and not (def != null and def.has_own_pedestal):
 		var b_size := Vector2(_base_tex.get_size()) * Data.pixel_scale()
 		draw_texture_rect(_base_tex, Rect2(-b_size / 2.0, b_size), false, Color(1, 1, 1, 0.5) if resting else Color.WHITE)
-	else:
+	elif not (def != null and def.has_own_pedestal):
 		_draw_oct_base(base_r, Color("161a26"))
 		draw_arc(Vector2.ZERO, base_r - 3.0, 0.0, TAU, 24, Color("3b4561"), 2.5)
 
@@ -695,24 +695,20 @@ func _draw_wedge(radius: float, center_angle: float, fov_degrees: float, fill_co
 	# Enough rays that the outline blocks stay contiguous along the far edge.
 	var num_segments: int = clampi(int((end_angle - start_angle) * radius / 6.0), 24, 160)
 
-	# Every ray is clamped at the first wall — game.cast_to_wall, the same cast that
-	# kills projectiles and filters targets — so the drawn wedge IS the covered area,
-	# wall shadows included, and the preview cannot promise a shot the tower cannot take.
+	# Every ray is clamped at the first wall — game.cast_to_wall in ground space
 	var pts := PackedVector2Array([Vector2.ZERO])
 	for i: int in range(num_segments + 1):
 		var t: float = float(i) / float(num_segments)
 		var a: float = lerpf(start_angle, end_angle, t)
-		var dirv := Vector2.RIGHT.rotated(a)
+		var dirv := Vector2(cos(a), sin(a) * 0.5)
 		var r := radius
 		if game != null:
-			r = game.cast_to_wall(global_position, dirv, radius)
+			r = game.cast_to_wall(global_position, Vector2.RIGHT.rotated(a), radius)
 		pts.append(dirv * r)
 
 	draw_colored_polygon(pts, fill_color)
 
-	# Outline in raster blocks tracing the clamped boundary — where a wall cuts the
-	# wedge, the blocks jump inward with it. The smooth polyline was the big screaming
-	# circle whenever a tower was selected.
+	# Outline in raster blocks tracing the clamped boundary
 	if line_color.a > 0.0:
 		var s := 3.0
 		var last := Vector2.INF

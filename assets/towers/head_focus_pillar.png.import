@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://drgyh4gvmjnms"
-path="res://.godot/imported/head_mindfulness.png-04ce4b2db24b27ce00e6221fc3594816.ctex"
+uid="uid://dtq22nfodjodk"
+path="res://.godot/imported/head_focus_pillar.png-1674256087fc367559f13142f6f12ef0.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/towers/head_mindfulness.png"
-dest_files=["res://.godot/imported/head_mindfulness.png-04ce4b2db24b27ce00e6221fc3594816.ctex"]
+source_file="res://assets/towers/head_focus_pillar.png"
+dest_files=["res://.godot/imported/head_focus_pillar.png-1674256087fc367559f13142f6f12ef0.ctex"]
 
 [params]
 

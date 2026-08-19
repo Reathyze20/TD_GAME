@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://drgyh4gvmjnms"
-path="res://.godot/imported/head_mindfulness.png-04ce4b2db24b27ce00e6221fc3594816.ctex"
+uid="uid://bbsh8o7tsll8b"
+path="res://.godot/imported/enemy_energy_drink.png-42b5df6150dd9d3d764cc0fb2452d67d.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/towers/head_mindfulness.png"
-dest_files=["res://.godot/imported/head_mindfulness.png-04ce4b2db24b27ce00e6221fc3594816.ctex"]
+source_file="res://assets/iso_pilot/enemy_energy_drink.png"
+dest_files=["res://.godot/imported/enemy_energy_drink.png-42b5df6150dd9d3d764cc0fb2452d67d.ctex"]
 
 [params]
 

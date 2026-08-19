@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="HabitData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/habit_data.gd" id="1_fpil0"]
+
+; PLACEHOLDER STATS — borrowed 1:1 from zen_pulsar (data/habits/zen_pulsar.tres), NOT a
+; balanced design decision. This habit exists to install the approved 64x64 "Focus
+; Pillar" landmark art (assets/src/pixel/towers/tower_01_FOCUS_final.png) as a real,
+; buildable tower; the combat numbers below are a stand-in copy so it has SOMETHING to
+; play with, not the intended final identity. Whoever revisits this: re-author range /
+; arc_angle / damage / cooldown / stun / dispel for the Focus Pillar's own theme instead
+; of assuming these are settled.
+[resource]
+script = ExtResource("1_fpil0")
+id = &"focus_pillar"
+name = "Focus Pillar"
+short = "Pillar"
+description = "PLACEHOLDER TEXT — not the final player-facing copy. Stats and behavior are borrowed wholesale from Zen Pulsar as a temporary stand-in until this habit gets its own design pass: charges in silence, then snaps shut, freezing everything in the wedge and stripping the speed off anything running hot."
+build_cost = 70
+bandwidth_cost = 10
+upgrades = Array[StringName]([])
+range = 300.0
+arc_angle = 120.0
+willpower_damage = 0
+awareness_damage = 20
+fire_cooldown = 4.0
+aoe = true
+stun_duration = 1.2
+dispel_haste = true
+charge_telegraph = true
+color = "5fe4f6"
+projectile_color = "ffc766"
+impulse = 0.0
+has_own_pedestal = true

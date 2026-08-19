@@ -9,23 +9,17 @@ extends Node
 ## the chrome. Keep this >= Game._HUD_TOP_H; the grid then ends at 68+912 = 980, just
 ## above the bottom bar at 1080-96 = 984.
 const GRID := {
-	"cols": 120,
-	"rows": 57,
-	"tile": 16,
-	"origin_x": 0,
-	"origin_y": 68,
+	"cols": 24,
+	"rows": 24,
+	"tile": 32,
+	"tile_w": 64,
+	"tile_h": 32,
+	"origin_x": 960,
+	"origin_y": 120,
 }
 
 ## Kolik BUNEK ma strana jednoho stavebniho bloku.
-##
-## Mrizka se 18. 8. 2026 zjemnila trikrat (40x19 bunek po 48 px -> 120x57 po 16), aby se
-## pixel dostal na x1. Vez ale nesmi zmenit velikost ani pocet: kdyby kazda nova bunka
-## nesla vlastni stavebni misto, bylo by jich devetkrat vic a level by se rozsypal.
-## Stavi se proto na BLOKY 3x3, ktere presne odpovidaji puvodni bunce -- 48 px na
-## obrazovce, stejny terc pro mys, stejny pocet mist.
-##
-## Klic bloku je jeho PROSTREDNI bunka (3x+1, 3y+1). Diky tomu vraci Game.cell_center()
-## rovnou stred bloku a nic v kodu se nemuselo ucit nove souradnice.
+## Stavi se na BLOKY 3x3. Klic bloku je jeho PROSTREDNI bunka (3x+1, 3y+1).
 const BUILD_BLOCK := 3
 
 
@@ -37,22 +31,26 @@ static func build_block(cell: Vector2i) -> Vector2i:
 		int(floorf(float(cell.x) / b)) * b + b / 2,
 		int(floorf(float(cell.y) / b)) * b + b / 2)
 
-## Canonical grid <-> pixel converters.
+## Canonical grid <-> pixel converters (2:1 diamond isometric projection).
 ## Unified single source of truth for grid coordinate conversions.
 static func cell_center(cell: Vector2i) -> Vector2:
 	var g = GRID
-	var t: float = float(g.tile)
+	var tw: float = float(g.get("tile_w", 64))
+	var th: float = float(g.get("tile_h", 32))
 	var ox: float = float(g.origin_x)
 	var oy: float = float(g.origin_y)
-	return Vector2(ox + cell.x * t + t * 0.5, oy + cell.y * t + t * 0.5)
+	return Vector2(
+		ox + (cell.x - cell.y) * (tw * 0.5),
+		oy + (cell.x + cell.y + 1) * (th * 0.5))
 
 static func world_to_cell(pos: Vector2) -> Vector2i:
 	var g = GRID
-	var t: float = float(g.tile)
-	var ox: float = float(g.origin_x)
-	var oy: float = float(g.origin_y)
-	var col := int(floorf((pos.x - ox) / t))
-	var row := int(floorf((pos.y - oy) / t))
+	var tw: float = float(g.get("tile_w", 64))
+	var th: float = float(g.get("tile_h", 32))
+	var dx: float = pos.x - float(g.origin_x)
+	var dy: float = pos.y - float(g.origin_y)
+	var col := int(floorf(dx / tw + dy / th))
+	var row := int(floorf(dy / th - dx / tw))
 	return Vector2i(clampi(col, 0, int(g.cols) - 1), clampi(row, 0, int(g.rows) - 1))
 
 static func in_bounds(c: Vector2i) -> bool:
