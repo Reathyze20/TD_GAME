@@ -936,3 +936,31 @@ Log of tasks completed by run.sh, one entry per run, newest last.
   16 pass / 9 fail — všech 9 pádů jsou level-dependentní testy po migraci levelů, s touhle
   změnou nesouvisí.
 
+## 2026-08-29 — C: terén se negeneruje, fáze 0 a 1 padly (rozhodl uživatel)
+- **Rozhodnutí**: terén instaluje `tools/flat_terrain.py` jako ploché barvy za **0
+  generací**. Původní fáze 0 (kontrastní sonda) a 1 (zbytek terénu) ztratily předmět
+  a jsou z plánu pryč i s třemi terénními entitami.
+- **Ověření luminančního pravidla — bez jediné úpravy hodnot.** Napsán
+  `tools/check_terrain_contrast.py`, který čte **prahy z bible** a **hodnoty
+  z flat_terrain.py** a nedrží si kopii ani jednoho. Naměřeno: cesta − tkáň **+68**
+  (práh 60), kruhový rozdíl odstínů **147,3°** (práh 140), zdi − cesta **+338** (práh 200),
+  sytost zdí **0,266** (strop 0,30), tkáň 78 v pásmu 60–110, cesta 146 v pásmu 120–160.
+  Všech šest kontrol projde, takže se `flat_terrain.py` neupravoval — o kolik: o nic.
+- **Proč to muselo být kódem a ne prózou:** vypuštěním generování zmizelo jediné kolo,
+  ve kterém se kontrast reálně měřil. Brány v §4 by zůstaly jako text, který nikdo
+  nekontroluje, a první kdo by GROUND o kousek zesvětlil, by tiše smazal jediný rozdíl,
+  na kterém stojí čitelnost desky pod mlhou. `verify.sh` má sekci `== terrain contrast ==`.
+- **Zdůvodnění zapsané do STYLE_BIBLE.md** (blok `why0`, ten se propisuje do plánu): mlha
+  zakrývá skoro celou desku, takže hráč nikdy nevidí plochu, na které by textura mohla
+  něco vyprávět — vidí malé odhalené kapsy, a v nich rozhoduje jen luminanční rozdíl cesta
+  vs. tkáň. Ten je u plochých barev nastavitelný přesně; u generované dlaždice se dá jen
+  doufat a měřit. K tomu už dřív naměřený rozpad hlučné dlaždice při dláždění 3×3
+  (rozptyl jasu 227 a 142 proti 32 u ploché, `iso_bible.md` §2b).
+- **Rekvizity fázi 1 přežily** — nejsou terén. Přebázovaly se z `terrain_tissue` na
+  `prop_focus_core`, protože jejich původní kořen už neexistuje; `check_order()` by to
+  jinak zachytil jako vazbu na něco, co nevznikne.
+- **Rozpočet 600 → 520 generací**, 26 → 24 volání. Ušetřilo se přesně 80 = dvě volání
+  `create_tiles_pro` po 40.
+- verify.sh: `terrain contrast` (nová), `_test_art_prompts`, `roster regex`, `roster`,
+  `art prompts` PASS. 16 pass / 9 fail — pády jsou pořád ty level-dependentní.
+

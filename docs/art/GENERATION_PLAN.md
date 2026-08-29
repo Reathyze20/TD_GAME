@@ -11,13 +11,11 @@
 
 | fáze | název | entit | volání | generací |
 |---|---|---|---|---|
-| 0 | Kontrast cesty proti tkáni | 2 | 1 | 40 |
-| 1 | Zbytek terénu a rekvizity | 5 | 2 | 60 |
-| 2 | Focus core a jeden habit | 2 | 2 | 60 |
-| 3 | Zbytek habitů, distractions po rodinách, obránci | 31 | 21 | 440 |
-| **celkem** | | **40** | **26** | **600** |
+| 0 | Focus core a jeden habit | 2 | 2 | 60 |
+| 1 | Zbytek rejstříku | 35 | 22 | 460 |
+| **celkem** | | **37** | **24** | **520** |
 
-**40 entit, 26 volání, 600 generací** (pesimisticky — horní hranice každého pásma,
+**37 entit, 24 volání, 520 generací** (pesimisticky — horní hranice každého pásma,
 viz STYLE_BIBLE.md §9). Animace se sem nepočítají, jsou vlastní kolo.
 
 Rozpad podle druhu:
@@ -30,7 +28,6 @@ Rozpad podle druhu:
 | focus_core | 1 | 1 | 40 | 96 px |
 | habit | 15 | 5 | 100 | 64 px |
 | prop | 4 | 1 | 20 | 16 px |
-| terrain | 3 | 2 | 80 | 16 px |
 
 ## Co platí pro každé jedno volání
 
@@ -63,337 +60,42 @@ ověřuje na celém souboru, ne jen na promptech.
 
 ---
 
-## Fáze 0 — Kontrast cesty proti tkáni
-
-**Cena:** 40 generací · **volání:** 1 · **entit:** 2
-
-**Brána, než se pustí další fáze:** Změř terrain_tissue a terrain_axon z toho jednoho tilesetu: obě brány „cesta vs. tkáň“ z §4 musí projít (jas >= +60, odstín >= 140). Neprojde-li to, oprav prompt a opakuj — do fáze 1 se nesmí, dokud to nesedí.
-
-**Proč je fáze 0 první — a proč je to jedno jediné volání.**
-
-Kontrast cesty proti tkáni je jediné pravidlo v tomhle souboru, které se **nedá opravit
-později**. Špatný habit se přegeneruje za 1 generaci. Špatná dlaždice země se
-nepřegeneruje sama — přegeneruje se s ní *všechno*, co na ní stojí, protože každá postava
-byla vážená a laděná proti jasu podlahy, na které měla být vidět. Když se cesta od tkáně
-neodliší, je nečitelná celá deska bez ohledu na to, jak dobré jsou sprity na ní.
-
-K tomu se přidává druhá věc: `style_images` **přebírá i rozměr, nejen styl**
-(`iso_bible.md` §5). První dlaždice tedy nefixuje jen barvu — fixuje rastr celé sady.
-Špatná první dlaždice otráví každou další.
-
-A třetí, čistě ekonomická: fáze 0 je **jedno jediné volání** (jeden `create_tiles_pro`
-vyrábí oba terény naráz, tkáň i axon), riskuje tedy nejmenší možnou částku, aby ochránila
-**celý zbytek plánu** — každou další dlaždici, každý habit i každou postavu, které se
-proti té podlaze vážou jasem. Je to nejlevnější místo, kde se ta otázka dá položit,
-a jediné, kde se dá zodpovědět měřením místo dohadem.
-
-> **Nulová varianta, která stojí 0 generací a stojí za zvážení dřív, než se utratí
-> cokoli:** `tools/flat_terrain.py` už dnes instaluje ploché barvy přesně na cílových
-> hodnotách 78 / 146 / 484. Když je cíl „plochý terén jako Rogue Tower“
-> (`user-rogue-tower-jednoduchost`), fáze 0 i fáze 1 se dají celé nahradit tím skriptem
-> a celý rozpočet zůstane postavám. Generovat terén má smysl jen tehdy, když se vědomě
-> chce zpátky textura — a `iso_bible.md` §2b má naměřeno, proč se nechtěla.
-
-### 1. `terrain_axon` — terrain, 16 px
-
-| | |
-|---|---|
-| nástroj | `mcp__pixellab__create_tiles_pro` |
-| mode | `standard` |
-| vyzvednutí | `get_tiles_pro(tile_id)` |
-| velikost na disku | 16 art px (STYLE_BIBLE.md §5, kind `terrain`) |
-| velikost objednávky | 16 px, bez půlení |
-| kotva | žádná — není to postava, rodinu drží dědičnost níž |
-| závislost | terrain_tissue je v tomhle volání druhý terén |
-| dávka | `tileset_terrain_axon` |
-| cena | 40 generací (tier `tileset`) |
-
-**Parametry**
-
-```json
-{
-  "color_image_url": "docs/art/palette_48.png",
-  "description": "1). a myelinated axon read from above, one continuous warm amber conductive track laid into the tissue, smooth sheath, slightly raised 2). dark synaptic tissue, wet and grooved, deep indigo, one continuous unbroken surface with nothing on it that competes for attention; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
-  "outline_mode": "segmentation",
-  "seed": 34610,
-  "tile_feature": "tileset",
-  "tile_size": 16,
-  "tile_type": "square_topdown",
-  "tile_view": "top-down"
-}
-```
-
-**Prompt**
-
-```text
-1). a myelinated axon read from above, one continuous warm amber conductive track laid into the tissue, smooth sheath, slightly raised 2). dark synaptic tissue, wet and grooved, deep indigo, one continuous unbroken surface with nothing on it that competes for attention; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
-```
-
-### 2. `terrain_tissue` — terrain, 16 px
-
-| | |
-|---|---|
-| nástroj | `mcp__pixellab__create_tiles_pro` |
-| mode | `standard` |
-| vyzvednutí | `get_tiles_pro(tile_id)` |
-| velikost na disku | 16 art px (STYLE_BIBLE.md §5, kind `terrain`) |
-| velikost objednávky | 16 px, bez půlení |
-| kotva | žádná — není to postava, rodinu drží dědičnost níž |
-| závislost | vzniká jako druhý terén ve volání entity terrain_axon — vlastní volání nemá a neplatí se |
-| dávka | `tileset_terrain_axon` — jede v už otevřeném volání |
-| cena | 0 — placeno v dávce `tileset_terrain_axon` |
-
-**Parametry**
-
-```json
-{
-  "color_image_url": "docs/art/palette_48.png",
-  "description": "1). a myelinated axon read from above, one continuous warm amber conductive track laid into the tissue, smooth sheath, slightly raised 2). dark synaptic tissue, wet and grooved, deep indigo, one continuous unbroken surface with nothing on it that competes for attention; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
-  "outline_mode": "segmentation",
-  "seed": 34610,
-  "tile_feature": "tileset",
-  "tile_size": 16,
-  "tile_type": "square_topdown",
-  "tile_view": "top-down"
-}
-```
-
-**Prompt**
-
-```text
-1). a myelinated axon read from above, one continuous warm amber conductive track laid into the tissue, smooth sheath, slightly raised 2). dark synaptic tissue, wet and grooved, deep indigo, one continuous unbroken surface with nothing on it that competes for attention; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
-```
-
----
-
-## Fáze 1 — Zbytek terénu a rekvizity
-
-**Cena:** 60 generací · **volání:** 2 · **entit:** 5
-
-**Brána, než se pustí další fáze:** Všechny dlaždice mají 16 px stranu změřenou ze souboru, ne z parametru; dláždění nemá díry ani překryv; zdi projdou branami „zdi vs. cesta“ a „zdi, matnost“ z §4.
-
-### 3. `decor_knot` — prop, 16 px
-
-| | |
-|---|---|
-| nástroj | `mcp__pixellab__create_1_direction_object` |
-| mode | `pro` |
-| vyzvednutí | `get_object(object_id)` |
-| velikost na disku | 16 art px (STYLE_BIBLE.md §5, kind `prop`) |
-| velikost objednávky | 32 px — a pak **půlit přesně jednou** na 16 |
-| kotva | žádná — není to postava, rodinu drží dědičnost níž |
-| závislost | style_images = hotové PNG entity terrain_tissue (dědí styl i rozměr) |
-| dávka | `prop_01` |
-| cena | 20 generací (tier `pro`) |
-
-**Parametry**
-
-```json
-{
-  "color_image_url": "docs/art/palette_48.png",
-  "item_descriptions": [
-    "a small tangled knot of fibres resting on the tissue, scenery only; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
-  ],
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
-  "seed": 9425,
-  "size": 32,
-  "view": "top-down"
-}
-```
-
-**Prompt**
-
-```text
-a small tangled knot of fibres resting on the tissue, scenery only; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
-```
-
-### 4. `decor_synapse` — prop, 16 px
-
-| | |
-|---|---|
-| nástroj | `mcp__pixellab__create_1_direction_object` |
-| mode | `pro` |
-| vyzvednutí | `get_object(object_id)` |
-| velikost na disku | 16 art px (STYLE_BIBLE.md §5, kind `prop`) |
-| velikost objednávky | 32 px — a pak **půlit přesně jednou** na 16 |
-| kotva | žádná — není to postava, rodinu drží dědičnost níž |
-| závislost | style_images = hotové PNG entity terrain_tissue (dědí styl i rozměr) |
-| dávka | `prop_01` — jede v už otevřeném volání |
-| cena | 0 — placeno v dávce `prop_01` |
-
-**Parametry**
-
-```json
-{
-  "color_image_url": "docs/art/palette_48.png",
-  "item_descriptions": [
-    "a small synaptic cleft between two processes, scenery only, never reads as a collectable; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
-  ],
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
-  "seed": 13147,
-  "size": 32,
-  "view": "top-down"
-}
-```
-
-**Prompt**
-
-```text
-a small synaptic cleft between two processes, scenery only, never reads as a collectable; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
-```
-
-### 5. `prop_dopamine` — prop, 16 px
-
-| | |
-|---|---|
-| nástroj | `mcp__pixellab__create_1_direction_object` |
-| mode | `pro` |
-| vyzvednutí | `get_object(object_id)` |
-| velikost na disku | 16 art px (STYLE_BIBLE.md §5, kind `prop`) |
-| velikost objednávky | 32 px — a pak **půlit přesně jednou** na 16 |
-| kotva | žádná — není to postava, rodinu drží dědičnost níž |
-| závislost | style_images = hotové PNG entity terrain_tissue (dědí styl i rozměr) |
-| dávka | `prop_01` — jede v už otevřeném volání |
-| cena | 0 — placeno v dávce `prop_01` |
-
-**Parametry**
-
-```json
-{
-  "color_image_url": "docs/art/palette_48.png",
-  "item_descriptions": [
-    "a synaptic vesicle, a small round warm amber droplet swollen to bursting, translucent membrane; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
-  ],
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
-  "seed": 49370,
-  "size": 32,
-  "view": "top-down"
-}
-```
-
-**Prompt**
-
-```text
-a synaptic vesicle, a small round warm amber droplet swollen to bursting, translucent membrane; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
-```
-
-### 6. `prop_spawn` — prop, 16 px
-
-| | |
-|---|---|
-| nástroj | `mcp__pixellab__create_1_direction_object` |
-| mode | `pro` |
-| vyzvednutí | `get_object(object_id)` |
-| velikost na disku | 16 art px (STYLE_BIBLE.md §5, kind `prop`) |
-| velikost objednávky | 32 px — a pak **půlit přesně jednou** na 16 |
-| kotva | žádná — není to postava, rodinu drží dědičnost níž |
-| závislost | style_images = hotové PNG entity terrain_tissue (dědí styl i rozměr) |
-| dávka | `prop_01` — jede v už otevřeném volání |
-| cena | 0 — placeno v dávce `prop_01` |
-
-**Parametry**
-
-```json
-{
-  "color_image_url": "docs/art/palette_48.png",
-  "item_descriptions": [
-    "a torn opening in the tissue where something comes through, ragged cold edges, dark and empty inside; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
-  ],
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
-  "seed": 32926,
-  "size": 32,
-  "view": "top-down"
-}
-```
-
-**Prompt**
-
-```text
-a torn opening in the tissue where something comes through, ragged cold edges, dark and empty inside; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
-```
-
-### 7. `terrain_spine` — terrain, 16 px
-
-| | |
-|---|---|
-| nástroj | `mcp__pixellab__create_tiles_pro` |
-| mode | `standard` |
-| vyzvednutí | `get_tiles_pro(tile_id)` |
-| velikost na disku | 16 art px (STYLE_BIBLE.md §5, kind `terrain`) |
-| velikost objednávky | 16 px, bez půlení |
-| kotva | žádná — není to postava, rodinu drží dědičnost níž |
-| závislost | terrain_tissue je v tomhle volání druhý terén |
-| dávka | `tileset_terrain_spine` |
-| cena | 40 generací (tier `tileset`) |
-
-**Parametry**
-
-```json
-{
-  "color_image_url": "docs/art/palette_48.png",
-  "description": "1). a dense thicket of dendritic spines seen from above, bone coloured ivory, matte and desaturated, packed close enough to read as solid ground 2). dark synaptic tissue, wet and grooved, deep indigo, one continuous unbroken surface with nothing on it that competes for attention; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
-  "outline_mode": "segmentation",
-  "seed": 1263,
-  "tile_feature": "tileset",
-  "tile_size": 16,
-  "tile_type": "square_topdown",
-  "tile_view": "top-down"
-}
-```
-
-**Prompt**
-
-```text
-1). a dense thicket of dendritic spines seen from above, bone coloured ivory, matte and desaturated, packed close enough to read as solid ground 2). dark synaptic tissue, wet and grooved, deep indigo, one continuous unbroken surface with nothing on it that competes for attention; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
-```
-
----
-
-## Fáze 2 — Focus core a jeden habit
+## Fáze 0 — Focus core a jeden habit
 
 **Cena:** 60 generací · **volání:** 2 · **entit:** 2
 
-**Brána, než se pustí další fáze:** focus_timer stojí na terrain_spine, dotýká se jí (mezi spodkem obsahu a stínem není ani řádek holé zdi) a jeho tělo neleží do +-60 jasu od zdi pod ním. Teprve pak se generuje zbylých 14 habitů.
+**Brána, než se pustí další fáze:** focus_timer i Focus core stojí na ploché zdi (TOP, 484) a dotýkají se jí — mezi spodkem obsahu a začátkem stínu není ani řádek holé zdi — a jejich tělo neleží do +-60 jasu od podkladu. Teprve pak se generuje cokoli dalšího.
 
-### 8. `focus_timer` — habit, 64 px
+**Terén se negeneruje. Fáze 0 a 1 padly.**
 
-| | |
-|---|---|
-| nástroj | `mcp__pixellab__create_1_direction_object` |
-| mode | `pro` |
-| vyzvednutí | `get_object(object_id)` |
-| velikost na disku | 64 art px (STYLE_BIBLE.md §5, kind `habit`) |
-| velikost objednávky | 64 px, bez půlení |
-| kotva | žádná — není to postava, rodinu drží dědičnost níž |
-| závislost | style_images = hotové PNG entity terrain_spine (dědí styl i rozměr) |
-| dávka | `habit_02` |
-| cena | 20 generací (tier `pro`) |
+Rozhodl uživatel 29. 8. 2026: terén instaluje `tools/flat_terrain.py` jako ploché barvy,
+za **0 generací**. Původní fáze 0 (kontrastní sonda) a 1 (zbytek terénu) tím ztratily
+předmět a jsou z plánu pryč; ušetřilo to 100 generací a celý rozpočet zůstal postavám.
 
-**Parametry**
+Důvod není úspora, ta je až následek. Je to **brainfog**. Mlha zakrývá skoro celou desku —
+vidět je jen to, na co dosáhne světlo z jádra, usazených Anchorů, pracujících habitů
+(`TOWER_LIGHT_RADIUS = 150`) a obránců (90). Z terénu tedy hráč nikdy nevidí plochu, na
+které by textura mohla něco vyprávět; vidí malé odhalené kapsy, a v nich rozhoduje jediná
+věc — **jestli je cesta odlišitelná od tkáně**. To je čistě luminanční rozdíl, a ten se
+u plochých barev nastaví přesně, na jednotky. U generované dlaždice se dá jen doufat,
+změřit a případně objednat znovu.
 
-```json
-{
-  "color_image_url": "docs/art/palette_48.png",
-  "item_descriptions": [
-    "a round glial cell body with one coiled process wound like a spring and a single warm amber node, working in bursts; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
-  ],
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
-  "seed": 56129,
-  "size": 64,
-  "view": "top-down"
-}
-```
+K tomu se přidává, co už bylo naměřeno dřív (`iso_bible.md` §2b): hlučný povrch se při
+dláždění 3×3 rozpadne na opakovanou mřížku — rozptyl jasu 227 a 142 na generovaných
+blocích proti 32 u plochých. Plochá plocha ten problém nemá z definice, není co opakovat.
 
-**Prompt**
+**Brány z §4 tím ale nezanikly, jen se přesunuly z generování do kódu.** Vymáhá je
+`tools/check_terrain_contrast.py`, který čte prahy z bible a hodnoty z `flat_terrain.py`
+a nedrží si vlastní kopii ani jednoho. Změřeno 29. 8. 2026: cesta − tkáň **+68** (práh 60),
+odstín **147,3°** (práh 140), zdi − cesta **+338** (práh 200), sytost zdí **0,266**
+(strop 0,30). Všechny čtyři projdou **bez jakékoli úpravy** `flat_terrain.py`.
 
-```text
-a round glial cell body with one coiled process wound like a spring and a single warm amber node, working in bursts; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
-```
+**Proč je první fází právě jeden objekt.** Když odpadl terén, první otázka už není „jde
+cesta odlišit od tkáně", ale „vypadá vůbec něco z téhle kotvy tak, jak má, až to stojí na
+desce a zmenší se to do herního měřítka". Ta otázka se zodpoví na jednom kusu za 20–40
+generací; zodpovídat ji na čtyřiceti stojí 600.
 
-### 9. `prop_focus_core` — focus_core, 96 px
+### 1. `prop_focus_core` — focus_core, 96 px
 
 | | |
 |---|---|
@@ -403,7 +105,7 @@ a round glial cell body with one coiled process wound like a spring and a single
 | velikost na disku | 96 art px (STYLE_BIBLE.md §5, kind `focus_core`) |
 | velikost objednávky | 96 px, bez půlení |
 | kotva | žádná — není to postava, rodinu drží dědičnost níž |
-| závislost | style_images = hotové PNG entity terrain_tissue (dědí styl i rozměr) |
+| závislost | žádná, tohle je kořen rodiny |
 | dávka | samostatné volání |
 | cena | 40 generací (tier `pro_velky`) |
 
@@ -428,15 +130,50 @@ a round glial cell body with one coiled process wound like a spring and a single
 a single large neuron soma with many radiating processes, warm and unhurried, the one still thing on the board, gold white; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
+### 2. `focus_timer` — habit, 64 px
+
+| | |
+|---|---|
+| nástroj | `mcp__pixellab__create_1_direction_object` |
+| mode | `pro` |
+| vyzvednutí | `get_object(object_id)` |
+| velikost na disku | 64 art px (STYLE_BIBLE.md §5, kind `habit`) |
+| velikost objednávky | 64 px, bez půlení |
+| kotva | žádná — není to postava, rodinu drží dědičnost níž |
+| závislost | style_images = hotové PNG entity prop_focus_core (dědí styl i rozměr) |
+| dávka | `habit_01` |
+| cena | 20 generací (tier `pro`) |
+
+**Parametry**
+
+```json
+{
+  "color_image_url": "docs/art/palette_48.png",
+  "item_descriptions": [
+    "a round glial cell body with one coiled process wound like a spring and a single warm amber node, working in bursts; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
+  ],
+  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
+  "seed": 56129,
+  "size": 64,
+  "view": "top-down"
+}
+```
+
+**Prompt**
+
+```text
+a round glial cell body with one coiled process wound like a spring and a single warm amber node, working in bursts; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
+```
+
 ---
 
-## Fáze 3 — Zbytek habitů, distractions po rodinách, obránci
+## Fáze 1 — Zbytek rejstříku
 
-**Cena:** 440 generací · **volání:** 21 · **entit:** 31
+**Cena:** 460 generací · **volání:** 22 · **entit:** 35
 
 **Brána, než se pustí další fáze:** Každá vygenerovaná postava má siluetu rozeznatelnou od ostatních v kontaktním listu v herním měřítku a jas nad pásmem cesty (146).
 
-### 10. `accountability` — habit, 64 px
+### 3. `accountability` — habit, 64 px
 
 | | |
 |---|---|
@@ -447,7 +184,7 @@ a single large neuron soma with many radiating processes, warm and unhurried, th
 | velikost objednávky | 64 px, bez půlení |
 | kotva | žádná — není to postava, rodinu drží dědičnost níž |
 | závislost | style_images = hotové PNG entity focus_timer (dědí styl i rozměr) |
-| dávka | `habit_03` |
+| dávka | `habit_02` |
 | cena | 20 generací (tier `pro`) |
 
 **Parametry**
@@ -471,7 +208,7 @@ a single large neuron soma with many radiating processes, warm and unhurried, th
 a nest of several small round glial bodies sharing one teal membrane, a place others come out of; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 11. `anchor` — habit, 64 px
+### 4. `anchor` — habit, 64 px
 
 | | |
 |---|---|
@@ -482,8 +219,8 @@ a nest of several small round glial bodies sharing one teal membrane, a place ot
 | velikost objednávky | 64 px, bez půlení |
 | kotva | žádná — není to postava, rodinu drží dědičnost níž |
 | závislost | style_images = hotové PNG entity focus_timer (dědí styl i rozměr) |
-| dávka | `habit_03` — jede v už otevřeném volání |
-| cena | 0 — placeno v dávce `habit_03` |
+| dávka | `habit_02` — jede v už otevřeném volání |
+| cena | 0 — placeno v dávce `habit_02` |
 
 **Parametry**
 
@@ -506,7 +243,7 @@ a nest of several small round glial bodies sharing one teal membrane, a place ot
 a squat glial body rooted into the tissue by thick processes, one cyan crystal node, it holds and does not fire; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 12. `broccoli_knight` — defender, 32 px
+### 5. `broccoli_knight` — defender, 32 px
 
 | | |
 |---|---|
@@ -543,7 +280,7 @@ a squat glial body rooted into the tissue by thick processes, one cyan crystal n
 a broccoli knight in riveted armour, florets first, a wall that soaks hits and pins whole clumps in place; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 13. `clickbait` — distraction, 32 px
+### 6. `clickbait` — distraction, 32 px
 
 | | |
 |---|---|
@@ -580,7 +317,77 @@ a broccoli knight in riveted armour, florets first, a wall that soaks hits and p
 a pathogen dominated by one huge lidless eye with a barbed rim, pink, armoured against fast small hits; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 14. `exercise` — habit, 64 px
+### 7. `decor_knot` — prop, 16 px
+
+| | |
+|---|---|
+| nástroj | `mcp__pixellab__create_1_direction_object` |
+| mode | `pro` |
+| vyzvednutí | `get_object(object_id)` |
+| velikost na disku | 16 art px (STYLE_BIBLE.md §5, kind `prop`) |
+| velikost objednávky | 32 px — a pak **půlit přesně jednou** na 16 |
+| kotva | žádná — není to postava, rodinu drží dědičnost níž |
+| závislost | style_images = hotové PNG entity prop_focus_core (dědí styl i rozměr) |
+| dávka | `prop_03` |
+| cena | 20 generací (tier `pro`) |
+
+**Parametry**
+
+```json
+{
+  "color_image_url": "docs/art/palette_48.png",
+  "item_descriptions": [
+    "a small tangled knot of fibres resting on the tissue, scenery only; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
+  ],
+  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
+  "seed": 9425,
+  "size": 32,
+  "view": "top-down"
+}
+```
+
+**Prompt**
+
+```text
+a small tangled knot of fibres resting on the tissue, scenery only; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
+```
+
+### 8. `decor_synapse` — prop, 16 px
+
+| | |
+|---|---|
+| nástroj | `mcp__pixellab__create_1_direction_object` |
+| mode | `pro` |
+| vyzvednutí | `get_object(object_id)` |
+| velikost na disku | 16 art px (STYLE_BIBLE.md §5, kind `prop`) |
+| velikost objednávky | 32 px — a pak **půlit přesně jednou** na 16 |
+| kotva | žádná — není to postava, rodinu drží dědičnost níž |
+| závislost | style_images = hotové PNG entity prop_focus_core (dědí styl i rozměr) |
+| dávka | `prop_03` — jede v už otevřeném volání |
+| cena | 0 — placeno v dávce `prop_03` |
+
+**Parametry**
+
+```json
+{
+  "color_image_url": "docs/art/palette_48.png",
+  "item_descriptions": [
+    "a small synaptic cleft between two processes, scenery only, never reads as a collectable; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
+  ],
+  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
+  "seed": 13147,
+  "size": 32,
+  "view": "top-down"
+}
+```
+
+**Prompt**
+
+```text
+a small synaptic cleft between two processes, scenery only, never reads as a collectable; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
+```
+
+### 9. `exercise` — habit, 64 px
 
 | | |
 |---|---|
@@ -591,8 +398,8 @@ a pathogen dominated by one huge lidless eye with a barbed rim, pink, armoured a
 | velikost objednávky | 64 px, bez půlení |
 | kotva | žádná — není to postava, rodinu drží dědičnost níž |
 | závislost | style_images = hotové PNG entity focus_timer (dědí styl i rozměr) |
-| dávka | `habit_03` — jede v už otevřeném volání |
-| cena | 0 — placeno v dávce `habit_03` |
+| dávka | `habit_02` — jede v už otevřeném volání |
+| cena | 0 — placeno v dávce `habit_02` |
 
 **Parametry**
 
@@ -615,7 +422,7 @@ a pathogen dominated by one huge lidless eye with a barbed rim, pink, armoured a
 a thick walled glial body with a glowing orange core showing through the membrane, heavy and slow; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 15. `focus_pillar` — habit, 64 px
+### 10. `focus_pillar` — habit, 64 px
 
 | | |
 |---|---|
@@ -626,8 +433,8 @@ a thick walled glial body with a glowing orange core showing through the membran
 | velikost objednávky | 64 px, bez půlení |
 | kotva | žádná — není to postava, rodinu drží dědičnost níž |
 | závislost | style_images = hotové PNG entity focus_timer (dědí styl i rozměr) |
-| dávka | `habit_03` — jede v už otevřeném volání |
-| cena | 0 — placeno v dávce `habit_03` |
+| dávka | `habit_02` — jede v už otevřeném volání |
+| cena | 0 — placeno v dávce `habit_02` |
 
 **Parametry**
 
@@ -650,7 +457,7 @@ a thick walled glial body with a glowing orange core showing through the membran
 a fluted round glial column with a single cyan crystal at its crown, quiet and upright; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 16. `focus_timer_2` — habit, 64 px
+### 11. `focus_timer_2` — habit, 64 px
 
 | | |
 |---|---|
@@ -685,7 +492,7 @@ a fluted round glial column with a single cyan crystal at its crown, quiet and u
 the same cell escalated, the coil tighter and doubled, the amber node brighter, one added ring; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 17. `mindfulness` — habit, 64 px
+### 12. `mindfulness` — habit, 64 px
 
 | | |
 |---|---|
@@ -720,7 +527,77 @@ the same cell escalated, the coil tighter and doubled, the amber node brighter, 
 a round glial cell under a wide crown of fine violet dendritic processes, reaching over everything nearby; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 18. `real_hobby` — habit, 64 px
+### 13. `prop_dopamine` — prop, 16 px
+
+| | |
+|---|---|
+| nástroj | `mcp__pixellab__create_1_direction_object` |
+| mode | `pro` |
+| vyzvednutí | `get_object(object_id)` |
+| velikost na disku | 16 art px (STYLE_BIBLE.md §5, kind `prop`) |
+| velikost objednávky | 32 px — a pak **půlit přesně jednou** na 16 |
+| kotva | žádná — není to postava, rodinu drží dědičnost níž |
+| závislost | style_images = hotové PNG entity prop_focus_core (dědí styl i rozměr) |
+| dávka | `prop_03` — jede v už otevřeném volání |
+| cena | 0 — placeno v dávce `prop_03` |
+
+**Parametry**
+
+```json
+{
+  "color_image_url": "docs/art/palette_48.png",
+  "item_descriptions": [
+    "a synaptic vesicle, a small round warm amber droplet swollen to bursting, translucent membrane; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
+  ],
+  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
+  "seed": 49370,
+  "size": 32,
+  "view": "top-down"
+}
+```
+
+**Prompt**
+
+```text
+a synaptic vesicle, a small round warm amber droplet swollen to bursting, translucent membrane; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
+```
+
+### 14. `prop_spawn` — prop, 16 px
+
+| | |
+|---|---|
+| nástroj | `mcp__pixellab__create_1_direction_object` |
+| mode | `pro` |
+| vyzvednutí | `get_object(object_id)` |
+| velikost na disku | 16 art px (STYLE_BIBLE.md §5, kind `prop`) |
+| velikost objednávky | 32 px — a pak **půlit přesně jednou** na 16 |
+| kotva | žádná — není to postava, rodinu drží dědičnost níž |
+| závislost | style_images = hotové PNG entity prop_focus_core (dědí styl i rozměr) |
+| dávka | `prop_03` — jede v už otevřeném volání |
+| cena | 0 — placeno v dávce `prop_03` |
+
+**Parametry**
+
+```json
+{
+  "color_image_url": "docs/art/palette_48.png",
+  "item_descriptions": [
+    "a torn opening in the tissue where something comes through, ragged cold edges, dark and empty inside; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
+  ],
+  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
+  "seed": 32926,
+  "size": 32,
+  "view": "top-down"
+}
+```
+
+**Prompt**
+
+```text
+a torn opening in the tissue where something comes through, ragged cold edges, dark and empty inside; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
+```
+
+### 15. `real_hobby` — habit, 64 px
 
 | | |
 |---|---|
@@ -755,7 +632,7 @@ a round glial cell under a wide crown of fine violet dendritic processes, reachi
 a slender glial column fraying at the top into many fine golden fibres, reaching further than anything else; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 19. `zen_pulsar` — habit, 64 px
+### 16. `zen_pulsar` — habit, 64 px
 
 | | |
 |---|---|
@@ -790,7 +667,7 @@ a slender glial column fraying at the top into many fine golden fibres, reaching
 a spherical glial bulb held inside one standing cyan ring, still until it releases; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 20. `accountability_2` — habit, 64 px
+### 17. `accountability_2` — habit, 64 px
 
 | | |
 |---|---|
@@ -825,7 +702,7 @@ a spherical glial bulb held inside one standing cyan ring, still until it releas
 the same cell escalated, two more bodies in the nest, the teal membrane brighter; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 21. `adult_content` — distraction, 32 px
+### 18. `adult_content` — distraction, 32 px
 
 | | |
 |---|---|
@@ -862,7 +739,7 @@ the same cell escalated, two more bodies in the nest, the teal membrane brighter
 a heavy orange sac with hooked barbs and a slick membrane, low to the ground and dragging; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 22. `autoplay` — distraction, 32 px
+### 19. `autoplay` — distraction, 32 px
 
 | | |
 |---|---|
@@ -899,7 +776,7 @@ a heavy orange sac with hooked barbs and a slick membrane, low to the ground and
 an amber spore chain of three fused capsules that keeps unrolling forward, each capsule budding the next; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 23. `avocado_monk` — defender, 32 px
+### 20. `avocado_monk` — defender, 32 px
 
 | | |
 |---|---|
@@ -936,7 +813,7 @@ an amber spore chain of three fused capsules that keeps unrolling forward, each 
 an avocado monk with wrapped fists and a stone pit core, calm, mends the defenders around it; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 24. `chilli_berserker` — defender, 32 px
+### 21. `chilli_berserker` — defender, 32 px
 
 | | |
 |---|---|
@@ -973,7 +850,7 @@ an avocado monk with wrapped fists and a stone pit core, calm, mends the defende
 a chilli berserker with two burning knives and no patience, thin and fast, every slash keeps searing; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 25. `comparison` — distraction, 32 px
+### 22. `comparison` — distraction, 32 px
 
 | | |
 |---|---|
@@ -1010,7 +887,7 @@ a chilli berserker with two burning knives and no patience, thin and fast, every
 a bleached cyan mimic blob wearing a half finished copy of another creature, edges unresolved; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 26. `doomscroll` — distraction, 32 px
+### 23. `doomscroll` — distraction, 32 px
 
 | | |
 |---|---|
@@ -1047,7 +924,7 @@ a bleached cyan mimic blob wearing a half finished copy of another creature, edg
 a long green ciliated ribbon that flows head first, segmented, with no visible end to it; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 27. `energy_drink` — distraction, 32 px
+### 24. `energy_drink` — distraction, 32 px
 
 | | |
 |---|---|
@@ -1084,7 +961,7 @@ a long green ciliated ribbon that flows head first, segmented, with no visible e
 a swollen teal cyst under pressure, ribbed, with a torn neck venting, faster the more damaged it is; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 28. `exercise_2` — habit, 64 px
+### 25. `exercise_2` — habit, 64 px
 
 | | |
 |---|---|
@@ -1119,7 +996,7 @@ a swollen teal cyst under pressure, ribbed, with a torn neck venting, faster the
 the same cell escalated, the wall thicker and the orange core burning brighter through it; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 29. `fomo` — distraction, 32 px
+### 26. `fomo` — distraction, 32 px
 
 | | |
 |---|---|
@@ -1156,7 +1033,7 @@ the same cell escalated, the wall thicker and the orange core burning brighter t
 a darting magenta filament with a bright head and a dissolving tail, already half gone before it arrives; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 30. `garlic_mage` — defender, 32 px
+### 27. `garlic_mage` — defender, 32 px
 
 | | |
 |---|---|
@@ -1193,7 +1070,7 @@ a darting magenta filament with a bright head and a dissolving tail, already hal
 an ivory garlic bulb sage with a root staff, its pungent air slows everything shuffling through it; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 31. `group_chat` — distraction, 32 px
+### 28. `group_chat` — distraction, 32 px
 
 | | |
 |---|---|
@@ -1230,7 +1107,7 @@ an ivory garlic bulb sage with a root staff, its pungent air slows everything sh
 a knot of six small green spores sharing one membrane, all of them mouths, none of them a head; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 32. `jackpot` — distraction, 32 px
+### 29. `jackpot` — distraction, 32 px
 
 | | |
 |---|---|
@@ -1267,7 +1144,7 @@ a knot of six small green spores sharing one membrane, all of them mouths, none 
 a crimson gland with three swollen lobes and one bright wet core, pulsing on a slow rhythm; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 33. `just_one_more` — distraction, 32 px
+### 30. `just_one_more` — distraction, 32 px
 
 | | |
 |---|---|
@@ -1304,7 +1181,7 @@ a crimson gland with three swollen lobes and one bright wet core, pulsing on a s
 a violet cluster of four loosely bound spores pulling apart at the seams, about to become four of itself; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 34. `mindfulness_2` — habit, 64 px
+### 31. `mindfulness_2` — habit, 64 px
 
 | | |
 |---|---|
@@ -1339,7 +1216,7 @@ a violet cluster of four loosely bound spores pulling apart at the seams, about 
 the same cell escalated, the dendritic crown denser and wider, the violet deeper; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 35. `notification` — distraction, 32 px
+### 32. `notification` — distraction, 32 px
 
 | | |
 |---|---|
@@ -1376,7 +1253,7 @@ the same cell escalated, the dendritic crown denser and wider, the violet deeper
 the smallest and fastest spore of the swarm, a hard red shell and one twitching cilium, almost nothing to it; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 36. `phantom_buzz` — distraction, 32 px
+### 33. `phantom_buzz` — distraction, 32 px
 
 | | |
 |---|---|
@@ -1413,7 +1290,7 @@ the smallest and fastest spore of the swarm, a hard red shell and one twitching 
 a hollow blue spore husk that hovers, no legs, a sharp vibrating rim, and nothing at all inside it; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 37. `real_hobby_2` — habit, 64 px
+### 34. `real_hobby_2` — habit, 64 px
 
 | | |
 |---|---|
@@ -1448,7 +1325,7 @@ a hollow blue spore husk that hovers, no legs, a sharp vibrating rim, and nothin
 the same cell escalated, more golden fibres, fraying further down the column; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 38. `social_media_binge` — distraction_elite, 64 px
+### 35. `social_media_binge` — distraction_elite, 64 px
 
 | | |
 |---|---|
@@ -1485,7 +1362,7 @@ the same cell escalated, more golden fibres, fraying further down the column; or
 a violet colonial mass of fused spores, many eyes, a shielding outer membrane, dragging a train of smaller buds behind it; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 39. `zen_pulsar_2a` — habit, 64 px
+### 36. `zen_pulsar_2a` — habit, 64 px
 
 | | |
 |---|---|
@@ -1520,7 +1397,7 @@ a violet colonial mass of fused spores, many eyes, a shielding outer membrane, d
 the same cell escalated, a second concentric cyan ring standing outside the first; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 40. `zen_pulsar_2b` — habit, 64 px
+### 37. `zen_pulsar_2b` — habit, 64 px
 
 | | |
 |---|---|
@@ -1561,44 +1438,41 @@ the same cell escalated, the single ring split into two smaller counter turning 
 
 | # | fáze | id | závisí na | dávka |
 |---|---|---|---|---|
-| 1 | 0 | `terrain_axon` | `terrain_tissue` | `tileset_terrain_axon` |
-| 2 | 0 | `terrain_tissue` | — | `tileset_terrain_axon` |
-| 3 | 1 | `decor_knot` | `terrain_tissue` | `prop_01` |
-| 4 | 1 | `decor_synapse` | `terrain_tissue` | `prop_01` |
-| 5 | 1 | `prop_dopamine` | `terrain_tissue` | `prop_01` |
-| 6 | 1 | `prop_spawn` | `terrain_tissue` | `prop_01` |
-| 7 | 1 | `terrain_spine` | `terrain_tissue` | `tileset_terrain_spine` |
-| 8 | 2 | `focus_timer` | `terrain_spine` | `habit_02` |
-| 9 | 2 | `prop_focus_core` | `terrain_tissue` | — |
-| 10 | 3 | `accountability` | `focus_timer` | `habit_03` |
-| 11 | 3 | `anchor` | `focus_timer` | `habit_03` |
-| 12 | 3 | `broccoli_knight` | — | — |
-| 13 | 3 | `clickbait` | — | — |
-| 14 | 3 | `exercise` | `focus_timer` | `habit_03` |
-| 15 | 3 | `focus_pillar` | `focus_timer` | `habit_03` |
-| 16 | 3 | `focus_timer_2` | `focus_timer` | `habit_04` |
-| 17 | 3 | `mindfulness` | `focus_timer` | `habit_04` |
-| 18 | 3 | `real_hobby` | `focus_timer` | `habit_04` |
-| 19 | 3 | `zen_pulsar` | `focus_timer` | `habit_04` |
-| 20 | 3 | `accountability_2` | `accountability` | `habit_05` |
-| 21 | 3 | `adult_content` | `clickbait` | — |
-| 22 | 3 | `autoplay` | `clickbait` | — |
-| 23 | 3 | `avocado_monk` | `broccoli_knight` | — |
-| 24 | 3 | `chilli_berserker` | `broccoli_knight` | — |
-| 25 | 3 | `comparison` | `clickbait` | — |
-| 26 | 3 | `doomscroll` | `clickbait` | — |
-| 27 | 3 | `energy_drink` | `clickbait` | — |
-| 28 | 3 | `exercise_2` | `exercise` | `habit_05` |
-| 29 | 3 | `fomo` | `clickbait` | — |
-| 30 | 3 | `garlic_mage` | `broccoli_knight` | — |
-| 31 | 3 | `group_chat` | `clickbait` | — |
-| 32 | 3 | `jackpot` | `clickbait` | — |
-| 33 | 3 | `just_one_more` | `clickbait` | — |
-| 34 | 3 | `mindfulness_2` | `mindfulness` | `habit_05` |
-| 35 | 3 | `notification` | `clickbait` | — |
-| 36 | 3 | `phantom_buzz` | `clickbait` | — |
-| 37 | 3 | `real_hobby_2` | `real_hobby` | `habit_05` |
-| 38 | 3 | `social_media_binge` | `clickbait` | — |
-| 39 | 3 | `zen_pulsar_2a` | `zen_pulsar` | `habit_06` |
-| 40 | 3 | `zen_pulsar_2b` | `zen_pulsar` | `habit_06` |
+| 1 | 0 | `prop_focus_core` | — | — |
+| 2 | 0 | `focus_timer` | `prop_focus_core` | `habit_01` |
+| 3 | 1 | `accountability` | `focus_timer` | `habit_02` |
+| 4 | 1 | `anchor` | `focus_timer` | `habit_02` |
+| 5 | 1 | `broccoli_knight` | — | — |
+| 6 | 1 | `clickbait` | — | — |
+| 7 | 1 | `decor_knot` | `prop_focus_core` | `prop_03` |
+| 8 | 1 | `decor_synapse` | `prop_focus_core` | `prop_03` |
+| 9 | 1 | `exercise` | `focus_timer` | `habit_02` |
+| 10 | 1 | `focus_pillar` | `focus_timer` | `habit_02` |
+| 11 | 1 | `focus_timer_2` | `focus_timer` | `habit_04` |
+| 12 | 1 | `mindfulness` | `focus_timer` | `habit_04` |
+| 13 | 1 | `prop_dopamine` | `prop_focus_core` | `prop_03` |
+| 14 | 1 | `prop_spawn` | `prop_focus_core` | `prop_03` |
+| 15 | 1 | `real_hobby` | `focus_timer` | `habit_04` |
+| 16 | 1 | `zen_pulsar` | `focus_timer` | `habit_04` |
+| 17 | 1 | `accountability_2` | `accountability` | `habit_05` |
+| 18 | 1 | `adult_content` | `clickbait` | — |
+| 19 | 1 | `autoplay` | `clickbait` | — |
+| 20 | 1 | `avocado_monk` | `broccoli_knight` | — |
+| 21 | 1 | `chilli_berserker` | `broccoli_knight` | — |
+| 22 | 1 | `comparison` | `clickbait` | — |
+| 23 | 1 | `doomscroll` | `clickbait` | — |
+| 24 | 1 | `energy_drink` | `clickbait` | — |
+| 25 | 1 | `exercise_2` | `exercise` | `habit_05` |
+| 26 | 1 | `fomo` | `clickbait` | — |
+| 27 | 1 | `garlic_mage` | `broccoli_knight` | — |
+| 28 | 1 | `group_chat` | `clickbait` | — |
+| 29 | 1 | `jackpot` | `clickbait` | — |
+| 30 | 1 | `just_one_more` | `clickbait` | — |
+| 31 | 1 | `mindfulness_2` | `mindfulness` | `habit_05` |
+| 32 | 1 | `notification` | `clickbait` | — |
+| 33 | 1 | `phantom_buzz` | `clickbait` | — |
+| 34 | 1 | `real_hobby_2` | `real_hobby` | `habit_05` |
+| 35 | 1 | `social_media_binge` | `clickbait` | — |
+| 36 | 1 | `zen_pulsar_2a` | `zen_pulsar` | `habit_06` |
+| 37 | 1 | `zen_pulsar_2b` | `zen_pulsar` | `habit_06` |
 

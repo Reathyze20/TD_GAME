@@ -185,7 +185,6 @@ o ní hádat.
 
 | kind | art_px | gen_px | bunky_pri_x2 | zdroj |
 |---|---|---|---|---|
-| terrain | 16 | 16 | 1 | zadání — „dlaždice 16px“; ART_PIPELINE.md §76 měl tile_size 16 funkční |
 | distraction | 32 | 64 | 2 | zadání — „běžný distraction 32px“; ART_PIPELINE.md §588 „64px → ÷2 na 32“ |
 | distraction_elite | 64 | 128 | 4 | zadání — „elite 48-64px“; ART_PIPELINE.md §457 „size:64 (boss 128)“ |
 | habit | 64 | 64 | 4 | zadání — „habit 64px“; věže se generovaly rovnou na 64 |
@@ -300,14 +299,11 @@ váží.
 
 | id | kind | family | base | form |
 |---|---|---|---|---|
-| terrain_tissue | terrain | - | - | dark synaptic tissue, wet and grooved, deep indigo, one continuous unbroken surface with nothing on it that competes for attention |
-| terrain_axon | terrain | - | terrain_tissue | a myelinated axon read from above, one continuous warm amber conductive track laid into the tissue, smooth sheath, slightly raised |
-| terrain_spine | terrain | - | terrain_tissue | a dense thicket of dendritic spines seen from above, bone coloured ivory, matte and desaturated, packed close enough to read as solid ground |
-| prop_focus_core | focus_core | - | terrain_tissue | a single large neuron soma with many radiating processes, warm and unhurried, the one still thing on the board, gold white |
-| prop_dopamine | prop | - | terrain_tissue | a synaptic vesicle, a small round warm amber droplet swollen to bursting, translucent membrane |
-| prop_spawn | prop | - | terrain_tissue | a torn opening in the tissue where something comes through, ragged cold edges, dark and empty inside |
-| decor_synapse | prop | - | terrain_tissue | a small synaptic cleft between two processes, scenery only, never reads as a collectable |
-| decor_knot | prop | - | terrain_tissue | a small tangled knot of fibres resting on the tissue, scenery only |
+| prop_focus_core | focus_core | - | - | a single large neuron soma with many radiating processes, warm and unhurried, the one still thing on the board, gold white |
+| prop_dopamine | prop | - | prop_focus_core | a synaptic vesicle, a small round warm amber droplet swollen to bursting, translucent membrane |
+| prop_spawn | prop | - | prop_focus_core | a torn opening in the tissue where something comes through, ragged cold edges, dark and empty inside |
+| decor_synapse | prop | - | prop_focus_core | a small synaptic cleft between two processes, scenery only, never reads as a collectable |
+| decor_knot | prop | - | prop_focus_core | a small tangled knot of fibres resting on the tissue, scenery only |
 | broccoli_knight | defender | general | - | a broccoli knight in riveted armour, florets first, a wall that soaks hits and pins whole clumps in place |
 | avocado_monk | defender | general | broccoli_knight | an avocado monk with wrapped fists and a stone pit core, calm, mends the defenders around it |
 | chilli_berserker | defender | general | broccoli_knight | a chilli berserker with two burning knives and no patience, thin and fast, every slash keeps searing |
@@ -325,7 +321,7 @@ váží.
 | jackpot | distraction | general | clickbait | a crimson gland with three swollen lobes and one bright wet core, pulsing on a slow rhythm |
 | adult_content | distraction | general | clickbait | a heavy orange sac with hooked barbs and a slick membrane, low to the ground and dragging |
 | social_media_binge | distraction_elite | general | clickbait | a violet colonial mass of fused spores, many eyes, a shielding outer membrane, dragging a train of smaller buds behind it |
-| focus_timer | habit | - | terrain_spine | a round glial cell body with one coiled process wound like a spring and a single warm amber node, working in bursts |
+| focus_timer | habit | - | prop_focus_core | a round glial cell body with one coiled process wound like a spring and a single warm amber node, working in bursts |
 | mindfulness | habit | - | focus_timer | a round glial cell under a wide crown of fine violet dendritic processes, reaching over everything nearby |
 | exercise | habit | - | focus_timer | a thick walled glial body with a glowing orange core showing through the membrane, heavy and slow |
 | real_hobby | habit | - | focus_timer | a slender glial column fraying at the top into many fine golden fibres, reaching further than anything else |
@@ -368,7 +364,6 @@ meet the art bar“). Nejsou to opomenuté entity, jsou to entity bez vizuální
 
 | kind | mcp_tool | mode | poll | pevne_parametry |
 |---|---|---|---|---|
-| terrain | mcp__pixellab__create_tiles_pro | standard | get_tiles_pro(tile_id) | tile_type=square_topdown, tile_feature=tileset, tile_view=top-down, outline_mode=segmentation |
 | prop | mcp__pixellab__create_1_direction_object | pro | get_object(object_id) | view=top-down |
 | focus_core | mcp__pixellab__create_1_direction_object | pro | get_object(object_id) | view=top-down |
 | habit | mcp__pixellab__create_1_direction_object | pro | get_object(object_id) | view=top-down |
@@ -402,7 +397,6 @@ jako *„front-facing low top-down RPG perspective, zero isometric tilt“*
 
 | kind | strategie | max_v_davce | zdroj |
 |---|---|---|---|
-| terrain | jedno volání na entitu: ona je terén 1, terrain_tissue je terén 2 | 1 | tile_feature=tileset nejde kombinovat se style_images |
 | prop | item_descriptions v jednom create_1_direction_object | 4 | build/iso_art/jobs.json, dávka props_b |
 | focus_core | vlastní volání, nemíchá se do dávky | 1 | jediný kus na desce, nesmí soutěžit o kandidáty |
 | habit | item_descriptions v jednom create_1_direction_object | 4 | build/iso_art/jobs.json, dávky towers_b a towers_c |
@@ -455,39 +449,41 @@ download URL.
 
 | phase | title | kinds | gate |
 |---|---|---|---|
-| 0 | Kontrast cesty proti tkáni | id:terrain_axon, id:terrain_tissue | Změř terrain_tissue a terrain_axon z toho jednoho tilesetu: obě brány „cesta vs. tkáň“ z §4 musí projít (jas >= +60, odstín >= 140). Neprojde-li to, oprav prompt a opakuj — do fáze 1 se nesmí, dokud to nesedí. |
-| 1 | Zbytek terénu a rekvizity | terrain, prop | Všechny dlaždice mají 16 px stranu změřenou ze souboru, ne z parametru; dláždění nemá díry ani překryv; zdi projdou branami „zdi vs. cesta“ a „zdi, matnost“ z §4. |
-| 2 | Focus core a jeden habit | focus_core, id:focus_timer | focus_timer stojí na terrain_spine, dotýká se jí (mezi spodkem obsahu a stínem není ani řádek holé zdi) a jeho tělo neleží do +-60 jasu od zdi pod ním. Teprve pak se generuje zbylých 14 habitů. |
-| 3 | Zbytek habitů, distractions po rodinách, obránci | habit, distraction, distraction_elite, defender | Každá vygenerovaná postava má siluetu rozeznatelnou od ostatních v kontaktním listu v herním měřítku a jas nad pásmem cesty (146). |
+| 0 | Focus core a jeden habit | focus_core, id:focus_timer | focus_timer i Focus core stojí na ploché zdi (TOP, 484) a dotýkají se jí — mezi spodkem obsahu a začátkem stínu není ani řádek holé zdi — a jejich tělo neleží do +-60 jasu od podkladu. Teprve pak se generuje cokoli dalšího. |
+| 1 | Zbytek rejstříku | habit, distraction, distraction_elite, defender, prop | Každá vygenerovaná postava má siluetu rozeznatelnou od ostatních v kontaktním listu v herním měřítku a jas nad pásmem cesty (146). |
 
 <!-- /gen:phases -->
 
 <!-- gen:why0 -->
 
-**Proč je fáze 0 první — a proč je to jedno jediné volání.**
+**Terén se negeneruje. Fáze 0 a 1 padly.**
 
-Kontrast cesty proti tkáni je jediné pravidlo v tomhle souboru, které se **nedá opravit
-později**. Špatný habit se přegeneruje za 1 generaci. Špatná dlaždice země se
-nepřegeneruje sama — přegeneruje se s ní *všechno*, co na ní stojí, protože každá postava
-byla vážená a laděná proti jasu podlahy, na které měla být vidět. Když se cesta od tkáně
-neodliší, je nečitelná celá deska bez ohledu na to, jak dobré jsou sprity na ní.
+Rozhodl uživatel 29. 8. 2026: terén instaluje `tools/flat_terrain.py` jako ploché barvy,
+za **0 generací**. Původní fáze 0 (kontrastní sonda) a 1 (zbytek terénu) tím ztratily
+předmět a jsou z plánu pryč; ušetřilo to 100 generací a celý rozpočet zůstal postavám.
 
-K tomu se přidává druhá věc: `style_images` **přebírá i rozměr, nejen styl**
-(`iso_bible.md` §5). První dlaždice tedy nefixuje jen barvu — fixuje rastr celé sady.
-Špatná první dlaždice otráví každou další.
+Důvod není úspora, ta je až následek. Je to **brainfog**. Mlha zakrývá skoro celou desku —
+vidět je jen to, na co dosáhne světlo z jádra, usazených Anchorů, pracujících habitů
+(`TOWER_LIGHT_RADIUS = 150`) a obránců (90). Z terénu tedy hráč nikdy nevidí plochu, na
+které by textura mohla něco vyprávět; vidí malé odhalené kapsy, a v nich rozhoduje jediná
+věc — **jestli je cesta odlišitelná od tkáně**. To je čistě luminanční rozdíl, a ten se
+u plochých barev nastaví přesně, na jednotky. U generované dlaždice se dá jen doufat,
+změřit a případně objednat znovu.
 
-A třetí, čistě ekonomická: fáze 0 je **jedno jediné volání** (jeden `create_tiles_pro`
-vyrábí oba terény naráz, tkáň i axon), riskuje tedy nejmenší možnou částku, aby ochránila
-**celý zbytek plánu** — každou další dlaždici, každý habit i každou postavu, které se
-proti té podlaze vážou jasem. Je to nejlevnější místo, kde se ta otázka dá položit,
-a jediné, kde se dá zodpovědět měřením místo dohadem.
+K tomu se přidává, co už bylo naměřeno dřív (`iso_bible.md` §2b): hlučný povrch se při
+dláždění 3×3 rozpadne na opakovanou mřížku — rozptyl jasu 227 a 142 na generovaných
+blocích proti 32 u plochých. Plochá plocha ten problém nemá z definice, není co opakovat.
 
-> **Nulová varianta, která stojí 0 generací a stojí za zvážení dřív, než se utratí
-> cokoli:** `tools/flat_terrain.py` už dnes instaluje ploché barvy přesně na cílových
-> hodnotách 78 / 146 / 484. Když je cíl „plochý terén jako Rogue Tower“
-> (`user-rogue-tower-jednoduchost`), fáze 0 i fáze 1 se dají celé nahradit tím skriptem
-> a celý rozpočet zůstane postavám. Generovat terén má smysl jen tehdy, když se vědomě
-> chce zpátky textura — a `iso_bible.md` §2b má naměřeno, proč se nechtěla.
+**Brány z §4 tím ale nezanikly, jen se přesunuly z generování do kódu.** Vymáhá je
+`tools/check_terrain_contrast.py`, který čte prahy z bible a hodnoty z `flat_terrain.py`
+a nedrží si vlastní kopii ani jednoho. Změřeno 29. 8. 2026: cesta − tkáň **+68** (práh 60),
+odstín **147,3°** (práh 140), zdi − cesta **+338** (práh 200), sytost zdí **0,266**
+(strop 0,30). Všechny čtyři projdou **bez jakékoli úpravy** `flat_terrain.py`.
+
+**Proč je první fází právě jeden objekt.** Když odpadl terén, první otázka už není „jde
+cesta odlišit od tkáně", ale „vypadá vůbec něco z téhle kotvy tak, jak má, až to stojí na
+desce a zmenší se to do herního měřítka". Ta otázka se zodpoví na jednom kusu za 20–40
+generací; zodpovídat ji na čtyřiceti stojí 600.
 
 <!-- /gen:why0 -->
 

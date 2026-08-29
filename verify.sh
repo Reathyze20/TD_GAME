@@ -188,6 +188,26 @@ else
   fi
 fi
 
+echo "== terrain contrast =="
+# Since 2026-08-29 the terrain is not generated — tools/flat_terrain.py installs flat
+# colours for 0 generations. That removed the generation round in which the path-vs-tissue
+# contrast used to get measured, so STYLE_BIBLE.md §4's gates would have decayed into prose
+# nobody checks. This re-measures them: thresholds read from the bible, values read from
+# flat_terrain.py, no local copy of either. The whole board's legibility under Brain Fog
+# rests on that one luminance difference.
+terrain_log="$LOG_DIR/terrain_contrast.log"
+PYTHONIOENCODING=utf-8 python tools/check_terrain_contrast.py >"$terrain_log" 2>&1
+terrain_status=$?
+if [ "$terrain_status" -ne 0 ]; then
+  echo "FAIL terrain contrast (exit $terrain_status) — see $terrain_log"
+  grep "FAIL" "$terrain_log" | sed 's/^/  /'
+  fail=$((fail + 1))
+  failed_names+=("terrain contrast")
+else
+  echo "PASS terrain contrast"
+  pass=$((pass + 1))
+fi
+
 echo "== art prompts =="
 # Same shape as the roster check above and for the same reason: docs/art/GENERATION_PLAN.md
 # is generated from docs/art/STYLE_BIBLE.md + data/, so it goes stale silently the moment
