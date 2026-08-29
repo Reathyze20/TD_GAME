@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/_test_square_projection.gd" id="1_jffud"]
+
+[node name="TestSquareProjection" type="Node" unique_id=366311449]
+script = ExtResource("1_jffud")
