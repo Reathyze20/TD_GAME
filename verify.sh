@@ -42,6 +42,25 @@ KNOWN_BROKEN_TESTS=(
 )
 ROSTER_KNOWN_STALE=0
 
+# Tests that need process-launch-time flags Godot only accepts as CLI args (no
+# runtime-settable equivalent from GDScript) — --fixed-fps is one: S2's
+# LevelSimulator determinism proof needs the engine's per-frame delta (and every
+# create_tween() the game uses) to be a bit-identical synthetic constant across runs,
+# which only --fixed-fps guarantees (Engine.time_scale still scales a REAL measured
+# delta, so it would not give byte-identical reproduction). Runs several full level
+# playthroughs back to back, so it also gets a longer per-test timeout.
+FIXED_FPS_TESTS=(
+  _test_level_simulator
+)
+_needs_fixed_fps() {
+  local candidate="$1"
+  local entry
+  for entry in "${FIXED_FPS_TESTS[@]}"; do
+    [ "$entry" = "$candidate" ] && return 0
+  done
+  return 1
+}
+
 echo "== import =="
 "$GODOT" --headless --path . --import
 import_status=$?
@@ -80,12 +99,19 @@ for scene in scenes/_test_*.tscn; do
 
   log="$LOG_DIR/$name.log"
   echo "== $name =="
-  timeout "$TIMEOUT_S" "$GODOT" --headless --path . --main-scene "res://$scene" >"$log" 2>&1
+  extra_args=()
+  test_timeout="$TIMEOUT_S"
+  if _needs_fixed_fps "$name"; then
+    extra_args=(--fixed-fps 60)
+    test_timeout=520
+  fi
+  timeout "$test_timeout" "$GODOT" --headless --path . --main-scene "res://$scene" \
+    "${extra_args[@]}" >"$log" 2>&1
   status=$?
 
   if [ "$status" -eq 124 ]; then
     # A timeout is never baselined, known-broken or not — a hang is always news.
-    echo "FAIL $name (timeout after ${TIMEOUT_S}s) — see $log"
+    echo "FAIL $name (timeout after ${test_timeout}s) — see $log"
     fail=$((fail + 1))
     failed_names+=("$name (timeout)")
   elif [ "$status" -ne 0 ]; then
