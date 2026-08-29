@@ -152,6 +152,11 @@ const ARC_WHEEL_STEP := 5.0
 
 # Draft overlay
 var _draft_overlay: Control = null
+## The hand currently on offer, alongside _draft_overlay — options rolled by
+## _roll_draft_options() were previously only reachable via the overlay's Buy button
+## Callables. Non-behavioral: read-only for external callers (S2's simulator driver),
+## nothing here changes what a real player sees or can do.
+var _draft_options: Array[CardData] = []
 ## 1-based count of drafts opened this level — it indexes the odds curve, so it rises
 ## with progress rather than with the wave number. A level that drafts on a different
 ## cadence still walks the same rarity ramp.
@@ -5156,6 +5161,7 @@ func _build_draft_overlay(options: Array[CardData]) -> void:
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_hud_root.add_child(overlay)
 	_draft_overlay = overlay
+	_draft_options = options
 
 	# Centred with anchors instead of a hand-measured position/size, so the layout holds
 	# whether the draft offers three cards or the four a Clear Sight player gets.
@@ -5457,6 +5463,7 @@ func _close_draft() -> void:
 	if _draft_overlay != null and is_instance_valid(_draft_overlay):
 		_draft_overlay.queue_free()
 	_draft_overlay = null
+	_draft_options = []
 
 # ---------------------------------------------------------------- end states
 
