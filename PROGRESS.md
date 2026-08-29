@@ -231,3 +231,40 @@ Log of tasks completed by run.sh, one entry per run, newest last.
 - Commit: 4a543fd
 - T4 is now close to complete: only the 3 ellipse-radius squash sites above remain from
   the audit's original inventory.
+
+## 2026-08-29 — T4 part 4: remaining ellipse-radius squash sites
+- Migrated the 3 sites from part 3's own remainder note directly (small, mechanical,
+  same identity already proven at tower.gd:796): game.gd's objective pulse-wave and
+  health-ring ellipses (wave_r, ring_r x2) and distraction_animator.gd's Slow/Calm
+  status ring, all now dividing by GridProjection.GROUND_Y_SCALE instead of a bare
+  `* 0.5` on PixelDraw.ellipse()'s second radius argument.
+- verify.sh: PASS (14 pass, 0 fail, 0 skip, 8 known-broken); every KNOWN_BROKEN log
+  byte-identical except the same recurring timing-jitter value.
+- Commit: 105d011
+
+## 2026-08-29 — T4 part 5: one more genuine miss, found by a final sweep
+- Before calling T4's original audit inventory done, swept scripts/+tools/ once more
+  for tw/th/cos/sin combined with *0.5/*2.0. Found one real remaining site:
+  impact_fx.gd's splat/smear ring ("SMOUHA" block) used
+  Vector2(cos(a)*rx, sin(a)*rx*0.5) — the same ground_dir_to_screen(a)*rx identity as
+  everywhere else, just with the radius folded into the literal, which is why neither
+  the T3 audit's grep nor part 3's verification workflow caught it (different literal
+  shape than dir.y*0.5). Migrated it.
+- Everything else the sweep found was correctly out of scope: TileSet tile_size
+  configuration (not a coordinate conversion), the already-declined
+  _build_terrace_blocks() art-anchor line (T4 part 3 reasoned through this explicitly —
+  reads a fixed tile_h/2 fraction for texture alignment, not a diamond), unrelated
+  blink/bob animation math, a line inside confirmed-dead WallShadow code, and
+  PixelDraw.ellipse()'s own generic rx/ry parameters (squash supplied by callers).
+- Verified: full verify.sh unchanged; a real screenshot (_shot_splat.tscn, built
+  specifically for this effect) shows all four splat stages still rendering as
+  properly flattened 2:1 ellipses.
+- verify.sh: PASS (14 pass, 0 fail, 0 skip, 8 known-broken).
+- Commit: 919ab97
+- **T4's audit-derived inventory (~42 sites) is now fully migrated through
+  GridProjection**, except the confirmed-dead code cataloged in part 3 — deliberately
+  left for S9 (docs/refactor/SYSTEMS.MD) to decide fix-vs-delete, since it has zero
+  call sites and migrating its formulas would add verification risk for no behavioral
+  benefit. T4's own "hotovo když" also requires T2's tests to stay green throughout,
+  which they have at every step (_test_economy_characterization + every other
+  previously-passing fixture, checked after every single commit in this migration).
