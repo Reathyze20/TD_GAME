@@ -96,6 +96,20 @@ func run(level_id: int, run_seed: int, strategy: SimStrategy,
 func is_build_phase() -> bool:
 	return game.between_waves
 
+## Empty, currently-Routine-lit cells a build() call would actually succeed on right
+## now (same gate the UI's green/red placement tint uses) — sorted top-to-bottom,
+## left-to-right so a strategy that builds at all of them does so in a stable,
+## reproducible order rather than whatever order Dictionary.keys() happens to return.
+func buildable_cells() -> Array[Vector2i]:
+	var cells: Array[Vector2i] = []
+	for cell: Vector2i in game.build_spots:
+		var spot: BuildSpot = game.build_spots[cell]
+		if spot.state == BuildSpot.State.EMPTY and game._can_build(cell):
+			cells.append(cell)
+	cells.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		return a.y < b.y if a.y != b.y else a.x < b.x)
+	return cells
+
 func is_draft_pending() -> bool:
 	return is_instance_valid(game._draft_overlay)
 

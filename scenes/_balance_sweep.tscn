@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/_balance_sweep.gd" id="1_pgofp"]
+
+[node name="BalanceSweep" type="Node" unique_id=525870895]
+script = ExtResource("1_pgofp")
