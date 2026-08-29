@@ -12,6 +12,10 @@ extends Node2D
 ## Vše je nakešované v lokálních polích: rebuild() sesbírá data z editoru, _draw() jen
 ## kreslí. Kdyby _draw sahal na uzly scény, panel by se rozbil při každém přejmenování.
 
+## Autoload `Data` se v editoru chovat nemusí; `preload` na tentýž skript ano.
+## GRID, BUILD_BLOCK i převodníky jsou const/static, takže je to plnohodnotná náhrada.
+const D = preload("res://scripts/data.gd")
+
 const CELL := 48
 const ATLAS := "res://assets/terrain/high_ground_atlas.png"
 const PATH_DIR := "res://assets/terrain/path"
@@ -44,8 +48,190 @@ var _goal_marker: Texture2D = null
 func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 
+# ---------------------------------------------------------------- izometrický náhled
+#
+# Kreslí TOUTÉŽ logikou jako `Game._build_path_layer()` a `Game._build_terrace_blocks()`,
+# včetně masek pruhu a losování variant ze stejného seedu — jinak by náhled ukazoval jiné
+# dlaždice než hra a byl by k ničemu právě v tom, kvůli čemu existuje.
+#
+# Čte PLÁTNO, ne soubor levelu, takže ukazuje i nevypálené tahy.
+
+const ISO_GROUND_DIR := "res://assets/terrain/iso/ground/"
+const ISO_LANE_DIR := "res://assets/terrain/iso/lane/"
+const ISO_TERRACE_BLOCK := "res://assets/terrain/iso/terrace/block.png"
+const ISO_TERRACE_CAP := "res://assets/terrain/iso/terrace/cap.png"
+const ISO_CORE := "res://assets/terrain/iso/props/core.png"
+
+var _iso_high := {}                 ## Vector2i -> true
+var _iso_lane := {}                 ## Vector2i -> true
+var _iso_ground: Array[Texture2D] = []
+var _iso_accent: Array[Texture2D] = []
+var _iso_lane_tex := {}             ## maska -> Array[Texture2D]
+var _iso_lane_fill: Texture2D = null
+var _iso_block: Texture2D = null
+var _iso_core: Texture2D = null
+var _iso_anchor := Vector2.ZERO
+var _iso_ready := false
+
+func _load_iso_art() -> void:
+	if _iso_ready:
+		return
+	_iso_ready = true
+	for i in range(64):
+		var p := ISO_GROUND_DIR + "ground_%02d.png" % i
+		if not ResourceLoader.exists(p):
+			break
+		_iso_ground.append(load(p))
+	for i in range(64):
+		var p := ISO_GROUND_DIR + "ground_accent_%02d.png" % i
+		if not ResourceLoader.exists(p):
+			break
+		_iso_accent.append(load(p))
+	for mask in range(16):
+		var pool: Array[Texture2D] = []
+		for suffix in ["", "a", "b"]:
+			var p := ISO_LANE_DIR + "lane_%02d%s.png" % [mask, suffix]
+			if ResourceLoader.exists(p):
+				pool.append(load(p))
+		if not pool.is_empty():
+			_iso_lane_tex[mask] = pool
+	if ResourceLoader.exists(ISO_LANE_DIR + "lane_fill.png"):
+		_iso_lane_fill = load(ISO_LANE_DIR + "lane_fill.png")
+	if ResourceLoader.exists(ISO_TERRACE_BLOCK):
+		_iso_block = load(ISO_TERRACE_BLOCK)
+	if ResourceLoader.exists(ISO_CORE):
+		_iso_core = load(ISO_CORE)
+	# Kotva terasy se ČTE Z ARTU, ne zadrátuje — přesně jako `_build_terrace_blocks()`,
+	# aby výměna artu náhled tiše nerozhodila.
+	if ResourceLoader.exists(ISO_TERRACE_CAP):
+		var cap: Texture2D = load(ISO_TERRACE_CAP)
+		var used := cap.get_image().get_used_rect()
+		var th: float = float(D.GRID.get("tile_h", 32))
+		_iso_anchor = Vector2(float(used.position.x) + float(used.size.x) * 0.5,
+			float(used.position.y + used.size.y - 1) - th * 0.5)
+
+func _iso_pick(pool: Array, key: Vector2i, salt: int) -> Texture2D:
+	if pool.is_empty():
+		return null
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(key) ^ salt
+	return pool[rng.randi() % pool.size()]
+
+func _draw_iso() -> void:
+	var g: Dictionary = D.GRID
+	var cols: int = int(g.cols)
+	var rows: int = int(g.rows)
+	var seed_val: int = hash(_level_id) ^ 0x9a71
+
+	draw_rect(Rect2(Vector2(-1200, -200), Vector2(3000, 1600)), Color("0d1017"))
+
+	# STAVOVÝ ŘÁDEK SE KRESLÍ VŽDY A UKOTVENÝ K POHLEDU, NE K POČÁTKU SVĚTA.
+	#
+	# První verze psala hlášku na (24, 40) ve světových souřadnicích. Kamera panelu je
+	# ale synchronizovaná s levým 2D pohledem, takže hláška padla mimo obraz a uživatel
+	# viděl černou plochu bez vysvětlení. Panel, který mlčí, je k nerozeznání od
+	# rozbitého — a hádání, proč mlčí, stálo několik kol.
+	#
+	# Proto se čísla ukazují i když je všechno v pořádku: kdykoli je náhled prázdný, je
+	# z nich hned vidět, jestli chybí art, data z plátna, nebo se jen kamera dívá jinam.
+	var cam := get_viewport().get_camera_2d()
+	var at := Vector2(24, 40)
+	if cam != null:
+		at = cam.get_screen_center_position() \
+			- get_viewport().get_visible_rect().size * 0.5 / maxf(cam.zoom.x, 0.01) \
+			+ Vector2(16, 26)
+	var font := ThemeDB.fallback_font
+	var status := "terén %d · lane sad %d · cesta %d bun. · terasa %d bun. · kamera %s" \
+		% [_iso_ground.size(), _iso_lane_tex.size(), _iso_lane.size(), _iso_high.size(),
+			("%.0f,%.0f" % [cam.get_screen_center_position().x,
+				cam.get_screen_center_position().y]) if cam != null else "?"]
+	draw_string(font, at, status, HORIZONTAL_ALIGNMENT_LEFT, -1, 13,
+		Color(0.55, 0.65, 0.8) if not _iso_ground.is_empty() else Color(1.0, 0.6, 0.4))
+
+	if _iso_ground.is_empty():
+		draw_string(font, at + Vector2(0, 26),
+			"Chybí assets/terrain/iso/ground/ground_00.png — zmáčkni ⟳ nad panelem.",
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(1.0, 0.6, 0.4))
+		return
+
+	# Akcenty ve stejných pramíncích jako hra.
+	var accent := {}
+	if not _iso_accent.is_empty():
+		var arng := RandomNumberGenerator.new()
+		arng.seed = seed_val ^ 0x5A17
+		var strands: int = maxi(1, int(float(rows * cols) * ACCENT_SHARE / float(ACCENT_STRAND)))
+		for _s in range(strands):
+			var c := Vector2i(arng.randi_range(0, cols - 1), arng.randi_range(0, rows - 1))
+			var step: Vector2i = [Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1),
+				Vector2i(1, -1)][arng.randi() % 4]
+			for _k in range(arng.randi_range(2, ACCENT_STRAND)):
+				if D.in_bounds(c) and not _iso_lane.has(c):
+					accent[c] = true
+				c += step
+
+	# Podlaha. Pořadí x+y je pro 2:1 projekci totéž co y-sort.
+	for s in range(cols + rows - 1):
+		for x in range(maxi(0, s - rows + 1), mini(cols - 1, s) + 1):
+			var cell := Vector2i(x, s - x)
+			var tex: Texture2D = null
+			if _iso_lane.has(cell) and not _iso_lane_tex.is_empty():
+				var mask := 0
+				if _iso_lane.has(cell + Vector2i(0, -1)): mask |= 1
+				if _iso_lane.has(cell + Vector2i(1, 0)): mask |= 2
+				if _iso_lane.has(cell + Vector2i(0, 1)): mask |= 4
+				if _iso_lane.has(cell + Vector2i(-1, 0)): mask |= 8
+				var interior: bool = mask == 15 and _iso_lane_fill != null \
+					and _iso_lane.has(cell + Vector2i(1, 1)) \
+					and _iso_lane.has(cell + Vector2i(-1, -1)) \
+					and _iso_lane.has(cell + Vector2i(1, -1)) \
+					and _iso_lane.has(cell + Vector2i(-1, 1))
+				if interior:
+					tex = _iso_lane_fill
+				else:
+					tex = _iso_pick(_iso_lane_tex.get(mask, _iso_lane_tex.get(0, [])),
+						cell, seed_val)
+			if tex == null and accent.has(cell):
+				tex = _iso_pick(_iso_accent, cell, seed_val ^ 0x5A17)
+			if tex == null:
+				var blk: int = D.BUILD_BLOCK
+				tex = _iso_pick(_iso_ground, Vector2i(int(floorf(float(x) / blk)),
+					int(floorf(float(cell.y) / blk))), seed_val)
+			if tex != null:
+				draw_texture(tex, D.cell_center(cell) - tex.get_size() * 0.5)
+
+	# Terasa přes podlahu, taky odzadu dopředu.
+	if _iso_block != null:
+		var hs: Array[Vector2i] = []
+		hs.assign(_iso_high.keys())
+		hs.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+			return a.x + a.y < b.x + b.y)
+		for c in hs:
+			if c == _objective:
+				continue
+			draw_texture(_iso_block, D.cell_center(c) - _iso_anchor)
+
+	if _iso_core != null and D.in_bounds(_objective):
+		draw_texture(_iso_core, D.cell_center(_objective)
+			- _iso_core.get_size() * Vector2(0.5, 0.75))
+
+	for z in _zones:
+		var r := PackedVector2Array()
+		for corner in [Vector2i(0, 0), Vector2i(z.size.x, 0),
+				Vector2i(z.size.x, z.size.y), Vector2i(0, z.size.y)]:
+			r.append(D.cell_center(z.position + corner) - Vector2(0, 16))
+		r.append(r[0])
+		draw_polyline(r, Color(1.0, 0.35, 0.4, 0.9), 2.0)
+
 ## Stáhne aktuální stav plátna z MapEditoru. Volá plugin při každé změně otisku.
 func rebuild(ed) -> void:
+	_load_iso_art()
+	_iso_high.clear()
+	_iso_lane.clear()
+	for c in ed._high_cells():
+		_iso_high[c] = true
+	for c in ed._lane_cells():
+		_iso_lane[c] = true
+
 	_load_art()
 	_walls.clear()
 	_paths.clear()
@@ -126,6 +312,16 @@ func _load_art() -> void:
 
 ## Po výměně atlasu (tiles.py instaluj) zavolá plugin, ať se art načte znovu.
 func drop_art_cache() -> void:
+	# Izo sadu taky — načítá se jednou a hlídá se `_iso_ready`. Kdyby se sem nevešla,
+	# tlačítko ⟳ by po přegenerování artu nic neudělalo a jediná cesta zpět by bylo
+	# restartovat editor.
+	_iso_ready = false
+	_iso_ground.clear()
+	_iso_accent.clear()
+	_iso_lane_tex.clear()
+	_iso_lane_fill = null
+	_iso_block = null
+	_iso_core = null
 	_atlas_tex = null
 	_bg_tex = null
 	_path_tex.clear()
@@ -134,7 +330,19 @@ func drop_art_cache() -> void:
 	_spawn_marker = null
 	_goal_marker = null
 
+## Náhled kreslí TOP-DOWN desku: `CELL = 48`, atlas `high_ground_atlas.png`, dlaždice
+## z `terrain/path` a `terrain/face`. Hra od přechodu na izometrii nic z toho nekreslí,
+## takže od 21. 8. 2026 tenhle panel ukazoval barevný šum, který s výsledkem nesouvisel.
+##
+## Šum je horší než prázdno: vypadá jako informace. Panel proto říká rovnou, na čem je,
+## dokud nedostane izometrickou verzi (znamená to vytáhnout stavbu desky z `game.gd`
+## do samostatného stavitele, který půjde volat i z editoru).
+const ISO_NOTICE := true
+
 func _draw() -> void:
+	if ISO_NOTICE:
+		_draw_iso()
+		return
 	var ox := _origin.x
 	var oy := _origin.y
 
@@ -220,7 +428,7 @@ func _draw() -> void:
 	# Rekvizity, seřazené podle y (malíř), ×3 jako DecorLayer.
 	for p in _props:
 		var tex: Texture2D = p.tex
-		var sz: Vector2 = Vector2(tex.get_size()) * Data.pixel_scale()
+		var sz: Vector2 = Vector2(tex.get_size()) * D.pixel_scale()
 		var at: Vector2 = p.pos
 		if bool(p.flip):
 			draw_set_transform(at, 0.0, Vector2(-1.0, 1.0))

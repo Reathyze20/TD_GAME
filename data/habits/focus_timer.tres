@@ -14,3 +14,5 @@ name = "Focus Timer"
 short = "Timer"
 bandwidth_cost = 8
 impulse = 0.6
+has_own_pedestal = true
+head_aims = false

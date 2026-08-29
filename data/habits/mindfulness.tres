@@ -25,3 +25,4 @@ color = "b07dff"
 projectile_color = "d7bcff"
 impulse = 0.0
 has_own_pedestal = true
+head_aims = false

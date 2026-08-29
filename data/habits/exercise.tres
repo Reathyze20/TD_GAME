@@ -19,3 +19,5 @@ color = "ff8a3d"
 projectile_color = "ffc08a"
 base_pierce = 3
 impulse = 2.0
+has_own_pedestal = true
+head_aims = false

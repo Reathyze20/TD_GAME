@@ -10,6 +10,10 @@
 [ext_resource type="Resource" path="res://data/distractions/group_chat.tres" id="8_gchat"]
 [ext_resource type="Resource" path="res://data/distractions/social_media_binge.tres" id="9_boss"]
 [ext_resource type="Resource" path="res://data/distractions/clickbait.tres" id="10_clkbt"]
+[ext_resource type="Resource" path="res://data/ads/brain_blast.tres" id="90_ad0"]
+[ext_resource type="Resource" path="res://data/ads/free_dopamine.tres" id="90_ad1"]
+[ext_resource type="Resource" path="res://data/ads/go_outside.tres" id="90_ad2"]
+[ext_resource type="Script" path="res://scripts/resources/ad_data.gd" id="90_adscript"]
 
 [sub_resource type="Resource" id="Resource_r6nyh"]
 script = ExtResource("2_nvlcu")
@@ -100,3 +104,9 @@ wave_count = 15
 wave_curve = Array[ExtResource("2_nvlcu")]([SubResource("Resource_r6nyh"), SubResource("Resource_fg383"), SubResource("Resource_7m04u"), SubResource("Resource_qbcda"), SubResource("Resource_clkbt"), SubResource("Resource_adult"), SubResource("Resource_gchat")])
 lean_waves = Array[int]([6, 13])
 boss = ExtResource("9_boss")
+cue_phase = 2
+variable_rewards = true
+delay_offers = true
+split_meter = true
+bait_waves = Array[int]([10])
+ads = Array[ExtResource("90_adscript")]([ExtResource("90_ad0"), ExtResource("90_ad1"), ExtResource("90_ad2")])

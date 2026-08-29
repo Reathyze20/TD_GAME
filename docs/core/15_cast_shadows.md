@@ -1,5 +1,28 @@
 # 15 — Cast Shadows (Light2D)
 
+> **Dodatek 21. 8. 2026 — iso deska má vlastní, JINÝ stín.** Světlo, které dělá Rogue
+> Tower, není Light2D: jsou to **vržené stíny na plochou zem**. Ploché plochy čtou jako
+> těleso proto, že vrhají stín, ne proto, že mají texturu. Proto přibyl
+> `Game.TerraceShadow` — statický kontaktní stín terasy v iso prostoru, který s tímhle
+> dokumentem nesdílí ani řádek kódu.
+>
+> `WallShadow` popsaná níž je psaná pro **čtvercovou** mřížku (slučuje vodorovné běhy,
+> kreslí `draw_rect`), takže na kosočtvercové desce by kreslila obdélníky napříč mřížkou.
+> `TerraceShadow` je táž myšlenka přeložená do iso: místo obdélníku kosočtverec, místo
+> „jižní hrany" posun o buňku ve směru `TERRACE_SHADOW_DIR`.
+>
+> **Směr stínu a stínovaná stěna terasy si musí odpovídat.** Bible má světlo zleva (levý
+> bok 70 %, pravý 45 %), takže stín padá na +x. Když se jedno otočí, musí se otočit obojí.
+>
+> **A jedna věc, kvůli které to teprve teď dává smysl:** playtest 18. 8. zamítl Light2D
+> verzi mimo jiné proto, že „textury čtou jako rozbité". Terén od 21. 8. žádnou texturu
+> nemá (`docs/art/iso_bible.md` kap. 2b), takže ten konkrétní důvod zanikl. Jestli by
+> Light2D verze na ploché desce obstála, **není změřeno** — `shadow_enabled` je na iso
+> levelech pořád `false` a tenhle dodatek to nemění.
+>
+> Síla a délka: `TERRACE_SHADOW_STEPS` (dnes `[0.55, 0.26]`, tedy dvě buňky).
+
+
 > Theme reminder (see `00_overview`): Brain Fog (`14`) is the macro question — *what can
 > you see at all*. This doc is the micro one — *given that you can see it, how does the
 > light actually fall across the room*. Same world, two different jobs, two different

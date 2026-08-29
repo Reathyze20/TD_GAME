@@ -14,3 +14,5 @@ melee_damage = 5
 color = "ffaa33"
 radius = 10.5
 shape = "triangle"
+autoplay_seconds = 18.0
+autoplay_grace = 5.0

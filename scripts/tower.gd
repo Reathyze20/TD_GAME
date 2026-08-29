@@ -106,15 +106,109 @@ func set_arc_angle(deg: float) -> void:
 	if def != null:
 		_profile.recompute(def, arc_angle)
 
+# ---------------------------------------------------------------- auto-aim
+#
+# The low-effort option, and the reason it exists is Salamone rather than convenience.
+#
+# Dopamine is not what makes a reward pleasant — it is what makes an animal willing to
+# WORK for it. Rats with depleted accumbens dopamine stop climbing the barrier for the
+# preferred food and eat the freely available chow instead, while their liking for the
+# preferred food is completely unchanged. They did not stop wanting it. They stopped
+# being willing to climb.
+#
+# Aiming is this game's barrier: enter aim mode, read the corridor, tune the cone. So a
+# depleted player is offered the chow — a habit that points itself.
+#
+# THE PENALTY IS NOT INVENTED. Auto-aim snaps the cone back to the habit's own authored
+# angle, where every ArcProfile multiplier is exactly 1.0 by construction. What the
+# player loses is precisely the tuning they were doing and nothing else: a player who
+# never touched the wheel loses nothing at all, and one who had it narrow for a corridor
+# loses the whole difference. That number is knowable, so the receipt can print it
+# instead of asserting it.
+const AUTO_AIM_INTERVAL := 0.9
+
+var auto_aim := false
+var _auto_aim_cd := 0.0
+## The aim the player had before handing over, restored when they take it back.
+##
+## Deliberately NOT a permanent forfeit. The cost of the easy option is the waves that
+## were fought at the home angle — that is already paid and already on the receipt. A
+## sticky tax on top would just teach the player never to try the toggle, and a lesson
+## nobody presses the button for is not a lesson.
+var _pre_auto_facing := 0.0
+var _pre_auto_arc := 0.0
+## Damage multiplier the player's own aim was worth the moment they handed it over.
+## 1.0 = they were already at the home angle and gave up nothing.
+var surrendered_mult := 1.0
+
+func set_auto_aim(on: bool) -> void:
+	if auto_aim == on or def == null or def.is_support():
+		return
+	auto_aim = on
+	if on:
+		_pre_auto_facing = facing_angle
+		_pre_auto_arc = arc_angle
+		surrendered_mult = _profile.damage_mult
+		set_arc_angle(def.arc_angle)
+		_auto_aim_cd = 0.0
+	elif _pre_auto_arc > 0.0:
+		facing_angle = _pre_auto_facing
+		set_arc_angle(_pre_auto_arc)
+	queue_redraw()
+
+## Faces the centroid of what it can actually see and shoot. Deliberately dumb: it has
+## no idea where the corridor bends, so a crowd split either side of a wall averages out
+## to the wall between them. A human reading the map beats it, which is the point — it
+## has to be genuinely worse and genuinely good enough.
+func _tick_auto_aim(delta: float) -> void:
+	_auto_aim_cd -= delta
+	if _auto_aim_cd > 0.0:
+		return
+	_auto_aim_cd = AUTO_AIM_INTERVAL
+	if game == null:
+		return
+	var sum := Vector2.ZERO
+	var n := 0
+	for d in game.get_live_distractions():
+		if not is_instance_valid(d) or d.dead:
+			continue
+		# Ground space, matching is_point_in_cone: the projection is 2:1, so a raw screen
+		# vector would aim the cone above everything it was pointed at.
+		var dx: float = d.global_position.x - global_position.x
+		var dy: float = (d.global_position.y - global_position.y) * 2.0
+		if sqrt(dx * dx + dy * dy) > current_attack_range:
+			continue
+		if not game.is_pos_visible(d.global_position):
+			continue
+		sum += Vector2(dx, dy)
+		n += 1
+	if n == 0:
+		return
+	facing_angle = (sum / float(n)).angle()
+	queue_redraw()
+
 ## Read-only view of the derived stats, for the HUD and for tests. Handing out the live
 ## object rather than copying it is safe because nothing outside set_arc_angle() writes
 ## to it, and a per-frame copy for a panel readout would be silly.
 func arc_profile() -> ArcProfile:
 	return _profile
 
-## Seconds between shots at the current width — fire_cooldown shaped by the angle.
+## Seconds between shots at the current width — fire_cooldown shaped by the angle, then
+## by Craving.
+##
+## CRAVING IS A REAL BUFF, and it has to be. Wanting is not a penalty bar: a
+## downregulated brain is not slower, it is more urgent, and a meter that only ever
+## punished would just teach the player to avoid it rather than to feel the trade. So
+## urgency genuinely wins fights — up to 25% faster at max Craving — while every defeat
+## it wins pays less Satisfaction. The run gets mechanically stronger and emotionally
+## emptier at the same time, which is the finding.
+##
+## Applied here rather than in _refresh_stats() because Craving moves every wave and
+## _refresh_stats only runs when a modifier changes; reading it per shot keeps the two
+## from drifting apart.
 func shot_interval() -> float:
-	return _profile.shot_interval(current_fire_cooldown)
+	var urgency: float = lerpf(1.0, 0.75, GameState.craving / 100.0)
+	return _profile.shot_interval(current_fire_cooldown) * urgency
 
 ## Whether anything is standing in the wedge right now. NOT used to decide whether to
 ## fire (the habit fires regardless — that is the point) — only to decide whether the
@@ -255,6 +349,9 @@ func _process(delta: float) -> void:
 			_anim_t += delta
 		queue_redraw()
 
+	if auto_aim and wave_active:
+		_tick_auto_aim(delta)
+
 	if _recoil > 0.001 or _muzzle_flash_alpha > 0.001:
 		_recoil = lerpf(_recoil, 0.0, 16.0 * delta)
 		_muzzle_flash_alpha = lerpf(_muzzle_flash_alpha, 0.0, 24.0 * delta)
@@ -290,6 +387,15 @@ func _process(delta: float) -> void:
 		_fire()
 		cooldown = shot_interval()
 
+	# Nic k sestreleni: hlaven patri do STREDU VYSECE, ne zaparkovana na poslednim
+	# vystrelu. _spray_angle obnovuje jen _fire(), takze bez tohohle radku se vez,
+	# kterou hrac po postaveni premiril, mezi vlnami vratila tam, kam mirila pri
+	# stavbe. U jedne staticke hlavy to nebylo videt; u osmi smerovych hlav to hraci
+	# hlasi spatny smer (zmereno 22. 8. 2026: osm vezi zamcenych po 45 stupnich melo
+	# facing_angle spravne, ale _aim vsech osmi spadl na 0).
+	if not board_live:
+		_spray_angle = facing_angle
+
 	# The barrel CHASES the last shot instead of leading it, so the sprite reports the
 	# spread for free: a 120° fan visibly rakes across its wedge, a 15° beam barely
 	# twitches. Faster than the old 8 rad/s slew because at ten shots a second a slow
@@ -324,7 +430,12 @@ func _fire() -> void:
 	_shot_index += 1
 	_spray_angle = shot_angle
 
-	var dir := Vector2.RIGHT.rotated(shot_angle)
+	# IZO: posun od stredu veze musi byt ZPLOSTELY, jinak se strela rodi vedle hlavne.
+	# Vyska hlavne se sem zamerne nepromita: `global_position` je HERNI pozice u zeme
+	# a proti ni se meri zasahy na nepratelich, kteri u zeme taky stoji. Zvednout zrod
+	# na vysku hlavne by znamenalo, ze strely prolétnou nad nepritelem hned u veze.
+	# Vizualni skok prekryje zaseh u usti (muzzle flash v _draw()).
+	var dir := Vector2(cos(shot_angle), sin(shot_angle) * 0.5)
 	var perp := dir.orthogonal()
 	var side_offset := -5.0 if _barrel_side == 0 else 5.0
 	var spawn_pos := global_position + (perp * side_offset) + (dir * 22.0)
@@ -453,6 +564,26 @@ var _base_tex: Texture2D
 var _head_tex: Texture2D
 var _head_frames: Array[Texture2D] = []
 
+## Osm skutecnych pohledu na hlavu, kdyz je art dodava: "south" -> Texture2D.
+##
+## PROC OSM OBRAZKU A NE ROTACE JEDNOHO
+##
+## Izometricky objekt otoceny o 90 stupnu NENI tentyz obrazek pootoceny -- vypadal by,
+## ze se preklapi. Presne to je duvod, proc `head_aims` zustava u cele rodiny false:
+## rotace bitmapy je spatna operace, ne spatny napad. S osmi pohledy uz se NEROTUJE nic,
+## jen se vybira ten spravny.
+##
+## Prazdne = art osmismerny neni a chova se to presne jako driv.
+var _head_dirs := {}
+## Viz _measure_foot_pad(). V ART pixelech; nasobi se Data.pixel_scale() az pri kresleni.
+var _head_foot_pad := 0.0
+
+## Poradi odpovida uhlu na OBRAZOVCE po 45 stupnich, zacina vpravo a jde po smeru
+## hodinovych rucicek (tedy dolu, protoze y roste dolu). Jmena jsou z PixelLabu, ktery
+## je takhle pojmenovava sam -- necham je, at se soubor na disku a klic v kodu shoduji.
+const HEAD_DIR_NAMES := ["east", "south-east", "south", "south-west",
+	"west", "north-west", "north", "north-east"]
+
 ## Head art lives in assets/towers/ as head_<type_key>.png plus optional animation
 ## frames head_<type_key>_frame_1.png, _2, ... A tier-2 habit with no art of its own
 ## falls back to the tier-1 files (mindfulness_2 -> mindfulness), so upgrades inherit
@@ -502,9 +633,23 @@ func _frame_index() -> int:
 
 ## Current frame when animated, the static sprite otherwise, null when no art exists.
 func _current_head_tex() -> Texture2D:
+	if not _head_dirs.is_empty():
+		return _head_dirs[_head_dir_name()]
 	if not _head_frames.is_empty():
 		return _head_frames[_frame_index()]
 	return _head_tex
+
+## Ktery z osmi pohledu odpovida tomu, kam vez prave miri.
+##
+## `_aim` je uhel ve SVETE mrizky; na obrazovce ho izometrie zplosti na polovinu ve svisle
+## ose. Tentyz prepocet uz dela vetev `head_aims` o kus niz (`screen_aim`) -- kdyby se ty
+## dva rozesly, vez by mirila jinam, nez ukazuje jeji vlastni kuzel.
+func _head_dir_name() -> String:
+	var screen_aim: float = Vector2(cos(_aim), sin(_aim) * 0.5).angle()
+	var idx: int = int(round(screen_aim / (PI / 4.0))) % 8
+	if idx < 0:
+		idx += 8
+	return HEAD_DIR_NAMES[idx]
 
 func _ready() -> void:
 	# Tower sprites are pixel art now; anything but whole-multiple nearest scaling mushes.
@@ -525,8 +670,63 @@ func _load_head_art() -> void:
 		if not FileAccess.file_exists(p):
 			break
 		_head_frames.append(load(p))
+	# Osmismerny art se nacita jen kdyz je tam CELA sada. Polovicata sada by znamenala,
+	# ze vez pri nekterych uhlech zmizi -- radsi at spadne na jediny staticky obrazek.
+	_head_dirs.clear()
+	var dirs := {}
+	for d: String in HEAD_DIR_NAMES:
+		var dp := "res://assets/towers/head_%s_%s.png" % [key, d]
+		if not FileAccess.file_exists(dp):
+			dirs.clear()
+			break
+		dirs[d] = load(dp)
+	_head_dirs = dirs
+	if _head_tex == null and _head_dirs.has("south"):
+		_head_tex = _head_dirs["south"]
 	if _head_tex == null and not _head_frames.is_empty():
 		_head_tex = _head_frames[0]
+	_head_foot_pad = _measure_foot_pad()
+
+## Prazdne radky pod obsahem hlavy, v ART pixelech.
+##
+## PROC to musi vedet engine a ne art: sprite se kotvi SPODKEM PLATNA, ale stoji na
+## spodku OBSAHU. U rajcete je mezi nimi 7-9 radku a vez se o ne vznasela nad terasou --
+## bylo videt sest radku holé zeme mezi ni a jejim stinem (zmereno 22. 8. 2026 na
+## build/_aim_board.png, sloupec x=352: sprite konci y=266, terasa 484 az do y=272,
+## stin teprve od y=273).
+##
+## Bere se MINIMUM pres vsech osm smeru, ne kazdy zvlast: kdyby se kazdy smer srovnal
+## ke dnu sam, rajce by pri otaceni poskakovalo nahoru a dolu. Takhle dosedne ten
+## nejnizsi a ostatni si nechaji svuj rozdil -- hlaven, ktera v nekterem smeru klesa
+## niz, klesat MA.
+func _measure_foot_pad() -> float:
+	var texes: Array = []
+	if not _head_dirs.is_empty():
+		texes = _head_dirs.values()
+	elif not _head_frames.is_empty():
+		texes = _head_frames
+	elif _head_tex != null:
+		texes = [_head_tex]
+	var pad := -1.0
+	for t: Texture2D in texes:
+		var img: Image = t.get_image()
+		if img == null:
+			continue
+		var h: int = img.get_height()
+		var w: int = img.get_width()
+		var empty := 0
+		for y in range(h - 1, -1, -1):
+			var row_used := false
+			for x in range(w):
+				if img.get_pixel(x, y).a > 0.03:
+					row_used = true
+					break
+			if row_used:
+				break
+			empty += 1
+		if pad < 0.0 or float(empty) < pad:
+			pad = float(empty)
+	return maxf(0.0, pad)
 
 ## One art pixel draws as the same screen block as everything else on the map, so head art
 ## can be authored at whatever size the design needs and the pixel density never changes
@@ -537,17 +737,25 @@ func _load_head_art() -> void:
 ## per screen pixel. Fixing that with a hardcoded 2.0 traded one mismatch for a quieter
 ## one — the ground was already at 3.0. Data.pixel_scale() is the single source now.
 
+## `offset`/`rot` are LOCAL to whatever transform is already active when this is called
+## (always the plateau-lift origin set at the top of _draw() — see _lift_origin there),
+## so both absolute draw_set_transform calls below fold that origin back in rather than
+## overwriting it with a bare Vector2.ZERO, which would snap the head back to true
+## ground level for exactly one draw call.
 func _draw_head_sprite(tex: Texture2D, tint: Color, rot: float = 0.0, offset: Vector2 = Vector2.ZERO) -> void:
 	var size := Vector2(tex.get_size()) * Data.pixel_scale()
+	var lift_origin := Vector2(0.0, -_iso_lift)
 	var transformed := rot != 0.0 or offset != Vector2.ZERO
 	if transformed:
-		draw_set_transform(offset, rot, Vector2.ONE)
+		draw_set_transform(lift_origin + offset, rot, Vector2.ONE)
+	# Posun o prazdny okraj: kotvi se spodek OBSAHU, ne spodek platna. Viz _measure_foot_pad().
+	var foot := _head_foot_pad * Data.pixel_scale()
 	if def != null and def.has_own_pedestal:
-		draw_texture_rect(tex, Rect2(Vector2(-size.x * 0.5, -size.y), size), false, tint)
+		draw_texture_rect(tex, Rect2(Vector2(-size.x * 0.5, -size.y + foot), size), false, tint)
 	else:
-		draw_texture_rect(tex, Rect2(Vector2(-size.x * 0.5, -size.y * 0.75), size), false, tint)
+		draw_texture_rect(tex, Rect2(Vector2(-size.x * 0.5, -size.y * 0.75 + foot), size), false, tint)
 	if transformed:
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		draw_set_transform(lift_origin, 0.0, Vector2.ONE)
 
 func _draw() -> void:
 	var tile: int = Data.GRID.tile
@@ -555,15 +763,28 @@ func _draw() -> void:
 	var resting: bool = is_resting()
 	var main_col: Color = _color.darkened(0.45) if resting else _color
 
+	# The plateau lift (see base_habit.gd:setup). Established once, up front, so both
+	# branches below (support and standard) draw lifted without either having to know
+	# about it individually. `position`/global_position are untouched — see why in the
+	# block comment where _iso_lift is set.
+	var _lift_origin := Vector2(0.0, -_iso_lift)
+	draw_set_transform(_lift_origin, 0.0, Vector2.ONE)
+
 	# Support habits get their own look — an Anchor drawn as a turret with barrels
 	# promises damage it will never deal. A pylon with a diamond marker reads as
 	# infrastructure, and its range ring is the Routine radius it actually projects.
 	if def.is_support():
 		var support_head := _current_head_tex()
-		if _base_tex != null and support_head != null:
-			var sb_size := Vector2(_base_tex.get_size()) * Data.pixel_scale()
-			draw_texture_rect(_base_tex, Rect2(-sb_size / 2.0, sb_size), false,
-				Color(1, 1, 1, 0.5) if resting else Color.WHITE)
+		# The shared disc is OPTIONAL, the head is not. This used to require both, which
+		# was fine while every support habit sat on tower_base.png — but a habit with
+		# has_own_pedestal never loads that disc (see _ready), so requiring it silently
+		# dropped the sprite and fell through to the vector pylon below. The Anchor's
+		# whole art disappeared the moment it sculpted its own plinth.
+		if support_head != null:
+			if _base_tex != null and not def.has_own_pedestal:
+				var sb_size := Vector2(_base_tex.get_size()) * Data.pixel_scale()
+				draw_texture_rect(_base_tex, Rect2(-sb_size / 2.0, sb_size), false,
+					Color(1, 1, 1, 0.5) if resting else Color.WHITE)
 			_draw_head_sprite(support_head, Color.WHITE if in_routine else Color(0.6, 0.6, 0.6, 0.8))
 		else:
 			_draw_oct_base(base_r, Color("161a26"))
@@ -581,11 +802,18 @@ func _draw() -> void:
 				HORIZONTAL_ALIGNMENT_CENTER, -1, 13, Color(1.0, 0.8, 0.2, flash_a))
 		return
 
-	# 0. PEDESTAL CONTACT SHADOW (Anchors tower firmly to ground in 2:1 projection)
-	draw_set_transform(Vector2(0.0, base_r * 0.5), 0.0, Vector2(1.0, 0.5))
+	# 0. PEDESTAL CONTACT SHADOW (Anchors tower firmly to ground in 2:1 projection).
+	# The shadow lands on the surface the habit actually stands on — the lifted plateau
+	# top, not true ground zero — so it is offset by _lift_origin like everything else.
+	# Posun stinu je maly a smerem DOLU-DOPRAVA, protoze svetlo jde zleva shora
+	# (docs/art/iso_bible.md kap. 2). Drive to bylo (0, base_r*0.5), tedy 6,7 px primo
+	# dolu -- spolu s prazdnym okrajem spritu (viz _measure_foot_pad) to udelalo sest
+	# radku hole zeme mezi vezi a jejim stinem a vez se vznasela.
+	draw_set_transform(_lift_origin + Vector2(base_r * 0.16, base_r * 0.10), 0.0,
+		Vector2(1.0, 0.5))
 	draw_circle(Vector2.ZERO, base_r * 1.15, Color(0.01, 0.01, 0.04, 0.15))
 	draw_circle(Vector2.ZERO, base_r * 0.85, Color(0.01, 0.01, 0.04, 0.35))
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	draw_set_transform(_lift_origin, 0.0, Vector2.ONE)
 
 	# 1. FIXED PEDESTAL BASE (PNG Sprite or Vector Fallback)
 	if _base_tex != null and not (def != null and def.has_own_pedestal):
@@ -610,7 +838,18 @@ func _draw() -> void:
 		# Heads that do not aim: AoE pulses (the sprite's own animation carries the life)
 		# and directional habits whose art would read wrong spinning — the Tome fires its
 		# pages along _aim while the book itself stays open and still.
-		_draw_head_sprite(head_tex, Color(0.6, 0.6, 0.6, 0.6) if resting else Color.WHITE)
+		#
+		# Osmismerny art sem spadne taky, a je to spravne: `_current_head_tex()` uz vybral
+		# pohled podle uhlu, takze se NESMI jeste rotovat. Otoceni uz je nakreslene.
+		#
+		# ZPETNY RAZ se ale kreslit MA. Driv ho dostavaly jen hlavy s head_aims, takze
+		# osmismerna vez strilela uplne bez pohybu -- vystrel byl videt jen na zabesku
+		# u usti a na letici strele. Posun je zplostely (izo) a jde PROTI vystrelu.
+		var kick := Vector2.ZERO
+		if not _head_dirs.is_empty() and _recoil > 0.001:
+			kick = Vector2(cos(_aim), sin(_aim) * 0.5) * (-_recoil * 5.0)
+		_draw_head_sprite(head_tex, Color(0.6, 0.6, 0.6, 0.6) if resting else Color.WHITE,
+			0.0, kick)
 	elif def.aoe: # Mindfulness / Meditation Crystal Orb (vector fallback)
 		var crystal_r := base_r * 0.6
 		draw_circle(Vector2.ZERO, crystal_r + 3.0, Color(main_col.r, main_col.g, main_col.b, 0.25))
@@ -636,13 +875,35 @@ func _draw() -> void:
 	# 3. MUZZLE FLASH EFFECT (At active barrel tip)
 	if _muzzle_flash_alpha > 0.01 and not def.aoe:
 		var side_offset := -6.0 if _barrel_side == 0 else 6.0
-		var flash_tip := (dir * (tile * 0.65)) + (perp * side_offset)
-		# Muzzle flash as collapsing raster blocks — matches ImpactFX's centre flash.
+		# Zablesk patri k USTI HLAVNE, ne na zem pod vez. Dve opravy proti puvodnimu
+		# `dir * (tile*0.65) + perp*side`:
+		#
+		#  * ZPLOSTENI. `dir` je svetovy smer; deska je 2:1, takze bez pulené slozky y
+		#    zablesk obihal vez po kruhu misto po elipse a u severnich uhlu utekl.
+		#  * VYSKA. Hlaven sedi vysoko na tele. Zmereno na osmi smerech rajcete: usti
+		#    lezi 23 px od stredu a 31 px nad bodem dotyku, tedy 0,46 vysky spritu
+		#    (68 px). Proto podil, ne konstanta -- plati i pro veze s jinak velkym artem.
+		var head_h: float = 0.0
+		if head_tex != null:
+			head_h = float(head_tex.get_size().y) * Data.pixel_scale()
+		var flat_dir := Vector2(dir.x, dir.y * 0.5)
+		var flash_tip := (flat_dir * (tile * 0.72)) + (flat_dir.orthogonal() * side_offset) 			+ Vector2(0.0, -head_h * 0.46)
+		# Zablesk je TEPLY a MALY, a splaskava ve trech krocich.
+		#
+		# Driv bral barvu z def.projectile_color a kreslil se jako 9px ctverec: u veze,
+		# ktera tu barvu nema nastavenou, z toho byl bledy MODROBILY obdelnik vedle
+		# hlavne -- na desce cetl jako nalepeny papirek, ne jako vystrel. Vystrel z
+		# mosazne hlavne sviti do zlutoorandzova, takze barva patri sem a ne do dat.
+		#
+		# Elipsa misto ctverce: deska je 2:1 a vsechno ostatni na ni to uz respektuje.
 		var mf_units := 3.0 if _muzzle_flash_alpha > 0.66 else (2.0 if _muzzle_flash_alpha > 0.33 else 1.0)
-		var mf_s := 3.0 * mf_units
-		draw_rect(Rect2(flash_tip - Vector2(mf_s, mf_s) * 0.5, Vector2(mf_s, mf_s)), Color(1, 1, 1, _muzzle_flash_alpha))
-		draw_rect(Rect2(flash_tip - Vector2(mf_s, mf_s) * 0.85, Vector2(mf_s, mf_s) * 1.7),
-			Color(_color.r, _color.g, _color.b, _muzzle_flash_alpha * 0.45))
+		var mf_r := 1.6 * mf_units
+		var halo := Color(1.0, 0.62, 0.22, _muzzle_flash_alpha * 0.5)
+		var core := Color(1.0, 0.93, 0.72, _muzzle_flash_alpha)
+		draw_set_transform(_lift_origin + flash_tip, 0.0, Vector2(1.0, 0.5))
+		draw_circle(Vector2.ZERO, mf_r * 2.0, halo)
+		draw_circle(Vector2.ZERO, mf_r, core)
+		draw_set_transform(_lift_origin, 0.0, Vector2.ONE)
 
 	# 3. WORK-INTERVAL BAR (Pomodoro ammo / rest meter — drawn BELOW pedestal)
 	if has_work_cycle():
@@ -662,6 +923,16 @@ func _draw() -> void:
 	# 4. PULSE VISUAL (AoE activation): expanding wave, not a full-area flash
 	if _pulse_progress > 0.0 and _pulse_progress < 1.0:
 		_draw_pulse_wave()
+
+	# 5a. AUTO-AIM TELL. Without it the mechanic is invisible: the flash says "your
+	# habits will point themselves" and then nothing on the board changes, because the
+	# head sprites no longer rotate (`head_aims = false` across the roster). So the wedge
+	# itself is the tell — faint, always on while auto-aim is, showing exactly where the
+	# thing decided to point. It is also the honest one: what the player gave up is the
+	# right to choose this shape, so the shape is what they should be looking at.
+	if auto_aim and not show_range_indicator:
+		_draw_wedge(current_attack_range, facing_angle, arc_angle,
+			Color(0.61, 0.82, 1.0, 0.07), Color(0.61, 0.82, 1.0, 0.28))
 
 	# 5. RANGE INDICATOR OVERLAY (When selected or aiming)
 	if show_range_indicator:

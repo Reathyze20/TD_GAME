@@ -160,6 +160,9 @@ func set_rally_point(pos: Vector2) -> void:
 
 func _draw() -> void:
 	var tile: int = Data.GRID.tile
+	# Plateau lift — see base_habit.gd:setup(). Draw-only; position/global_position
+	# stay at ground level for y-sort and every distance/targeting calculation.
+	draw_set_transform(Vector2(0.0, -_iso_lift), 0.0, Vector2.ONE)
 
 	# Socket base + kiosk body, native size x whole zoom like every other habit.
 	if _base_tex != null:

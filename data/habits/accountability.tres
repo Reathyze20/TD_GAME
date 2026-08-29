@@ -20,3 +20,5 @@ ally_spawn_cooldown = 4.0
 guard_radius = 240.0
 color = "2bd6c0"
 projectile_color = "2bd6c0"
+has_own_pedestal = true
+head_aims = false

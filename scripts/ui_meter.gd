@@ -18,6 +18,19 @@ class_name UIMeter extends Control
 ## darker relative of the fill so it reads as "the same thing, but stuck".
 @export var floor_color: Color = Color("6b3a1c")
 
+## The second line, drawn INSIDE this same bar rather than as another widget.
+##
+## Berridge's split: wanting and liking are separate systems that come apart. The whole
+## finding IS the gap between two lines, so two independent meters would destroy it —
+## the player would read them as two unrelated stats. Here they start life looking like
+## one bar (both at zero, same left edge, same length) and visibly separate over a
+## campaign, which is the picture, drawn by the player's own hands, at a cost of zero
+## new HUD real estate.
+##
+## Negative hides it entirely, which is how every level before the reveal runs.
+@export var split_value: float = -1.0: set = set_split_value
+@export var split_color: Color = Color("c86bff")
+
 @export var caption: String = ""
 @export var readout: String = ""
 ## Fill turns this colour below `danger_below` (as a fraction). 0 disables it.
@@ -38,6 +51,10 @@ func set_max_value(v: float) -> void:
 
 func set_floor_value(v: float) -> void:
 	floor_value = v
+	queue_redraw()
+
+func set_split_value(v: float) -> void:
+	split_value = v
 	queue_redraw()
 
 ## Sets everything a frame needs in one call, so callers don't trigger four redraws.
@@ -87,6 +104,17 @@ func _draw() -> void:
 		var w: float = inner.size.x * ratio - start
 		if w > 0.5:
 			draw_rect(Rect2(inner.position + Vector2(start, 0), Vector2(w, inner.size.y)), col)
+
+	# The second line, in the bottom third of the SAME bar. While the two values agree it
+	# is invisible under the fill and the meter reads as one bar; as they diverge it
+	# emerges from underneath, which is the entire point of putting it here.
+	if split_value >= 0.0:
+		var s_ratio: float = clampf(split_value / max_value, 0.0, 1.0)
+		var s_h: float = maxf(3.0, inner.size.y * 0.34)
+		var s_y: float = inner.position.y + inner.size.y - s_h
+		var s_w: float = inner.size.x * s_ratio
+		if s_w > 0.5:
+			draw_rect(Rect2(Vector2(inner.position.x, s_y), Vector2(s_w, s_h)), split_color)
 
 	# A brighter cap on the leading edge — reads as "this is the current level" and keeps
 	# a nearly-empty bar visible.

@@ -46,6 +46,41 @@ import sprite_16
 
 # ------------------------------------------------------------------ vyriznuti
 
+#: Vyrez podle BARVY, ne podle vyplneni z rohu.
+#:
+#: Midjourney pod 3D render skoro vzdy zapece vrzeny stin, a `cutout()` ho neodstrani:
+#: je to plynuly prechod, takze vylevani z rohu se v nem zastavi, a `strip_shadow()`
+#: bere jen spodni pas, kdezto stin sahá do strany.
+#:
+#: Zmereno na koncepte rajcete (21. 8. 2026):
+#:     stin      sytost 0,129   soucet 479
+#:     ciferník  sytost 0,170   soucet 283   <- nejzradnejsi, taky sedy
+#:     telo      sytost 0,961   soucet 117
+#:     pozadi    sytost 0,025   soucet 658
+#:
+#: Stin je SVETLY a NESYTY zaroven. Ciferník je nesyty, ale tmavy. Objekt je bud syty,
+#: nebo tmavy -- a to je cela ta hranice.
+CHROMA_SAT = 0.18
+CHROMA_VAL = 420.0
+
+
+def cutout_chroma(src, sat_thr=CHROMA_SAT, val_thr=CHROMA_VAL):
+    im = Image.open(src).convert("RGB")
+    a = np.asarray(im).astype(float)
+    mx, mn = a.max(2), a.min(2)
+    sat = np.where(mx > 0, (mx - mn) / np.maximum(mx, 1e-6), 0.0)
+    keep = (sat > sat_thr) | (a.sum(2) < val_thr)
+    # Jen nejvetsi souvisla oblast: drobky po prahovani jsou presne to, na cem pada
+    # brana "casti > 1".
+    lab, n = label(keep)
+    if n > 1:
+        sizes = np.bincount(lab.ravel())
+        sizes[0] = 0
+        keep = lab == sizes.argmax()
+    out = np.dstack([np.asarray(im), (keep * 255).astype(np.uint8)])
+    return Image.fromarray(out, "RGBA")
+
+
 def _flood(a, seed, tol, starts):
     h, w, _ = a.shape
     vis = np.zeros((h, w), bool)
@@ -396,7 +431,10 @@ def report(name, img):
 
 if __name__ == "__main__":
     src, dst = sys.argv[1], sys.argv[2]
-    ref = build(cutout(src))
+    # --chroma: vyrez podle barvy (stin pryc). Vychozi zustava puvodni vylevani z rohu,
+    # aby se starym konceptum nezmenil vysledek pod rukama.
+    cut = cutout_chroma(src) if "--chroma" in sys.argv else cutout(src)
+    ref = build(cut)
     ref.save(dst)
     print(f"predloha 64 px -> {dst}")
     if "--test" in sys.argv:

@@ -15,6 +15,63 @@ class_name LevelData extends Resource
 @export var focus: int = 30
 ## Enables the Quick Hit button and the Tolerance mechanic (level 2's lesson).
 @export var quick_hit: bool = false
+## Defeats pay a variable-ratio amount instead of a flat one. Expected value is
+## IDENTICAL either way (GameState._payout_multiplier) — only the predictability
+## changes, which is what makes the Steady Payout card an honest experiment rather
+## than a trick question. Off on level 1: the first level runs no experiments.
+@export var variable_rewards: bool = false
+## Offer "take less now / more at the end of the wave" before each wave. The delayed
+## option is always worth more, so every impatient pick is a measurement rather than a
+## mistake the level punished.
+@export var delay_offers: bool = false
+
+@export_category("Attention lessons")
+## The conditioned cue's phase in this level. It teaches by being CONSISTENT first and
+## empty afterwards, which cannot be done retroactively — level 1 must already be
+## training it or there is nothing to hollow out later.
+##   0 OFF · 1 TRAINING (always precedes a real reward) · 2 EMPTY (fires, pays nothing)
+@export_range(0, 2) var cue_phase: int = 0
+## Waves announced as a bonus that then pay nothing. Negative prediction error, the one
+## thing that drops the picture BELOW its own baseline. One per campaign, two at most —
+## a third reads as a bug rather than as a feeling.
+@export var bait_waves: Array[int] = []
+## The fast. Quick Hit is unavailable, Tolerance drains far faster than usual, and the
+## juice comes back gradually across the level instead of being there from wave one.
+## Deliberately the least fun stretch in the campaign for its first two thirds; the
+## payoff is that the first clean kill after the drought lands on a starved player.
+@export var fasting: bool = false
+## The finale. The level is won by holding for HANDS_OFF_SECONDS without input rather
+## than by clearing the field — the boss lane never empties. Watching your own systems
+## hold is both the most relaxing thing a tower defense can produce and the thesis of
+## the game, which is why it is the ending.
+@export var hands_off_finale: bool = false
+## SPIKE (see game.gd "sinking walls"). Above a Tolerance threshold the buildable block
+## furthest from the core stops being a wall: the maze frays, distractions path through
+## it, and a habit standing on it can be interrupted. Drops back under the threshold and
+## the wall returns. Off everywhere until the spike is judged.
+@export var sinking_walls: bool = false
+## Reveals the second line inside the Tolerance bar (UIMeter.split_value): wanting and
+## liking, which have been two numbers all along. Held back until the player has a few
+## levels of watching one bar, because the reveal IS that it was always two.
+## The consecutive-clean-wave bonus. Real money, and meant to feel good — see the
+## streak block in game_state.gd for why it is not a trap. Introduced on the first
+## level and left on afterwards: a retention mechanic that appears and vanishes is not
+## the thing being demonstrated.
+## Presentation and gating switches that used to be a hardcoded `if level.id == 99` in
+## game.gd. They are per-level DESIGN decisions, so they belong in the level — the magic
+## number silently gave the isometric slice a different game from every other map, and
+## the second iso level did not get the exemption because nobody remembered it existed.
+##
+## Defaults preserve the original top-down behaviour; the iso levels turn all three off.
+@export var fog: bool = true
+@export var shadows: bool = true
+@export var routine_gates: bool = true
+
+@export var streak: bool = false
+
+@export var split_meter: bool = false
+## Parody interstitials, in the order they appear. See scripts/resources/ad_data.gd.
+@export var ads: Array[AdData] = []
 
 @export_category("Field layout")
 ## The Focus core's cell — what every distraction walks toward. Drag the green sprite
@@ -34,6 +91,17 @@ class_name LevelData extends Resource
 ## playable while the tile art is still being made, and keeps a missing texture from ever
 ## becoming a pathfinding bug.
 @export var terrain_tiles: Dictionary = {}
+
+## Ručně vybraná dlaždice podlahy: Vector2i(buňka) -> "ground/ground_03" (cesta bez
+## přípony, relativně k assets/terrain/iso/).
+##
+## ČISTĚ VZHLED. Kudy se dá projít a kde se dá stavět určuje dál `high_ground` a
+## `path_cells` — tahle mapa jen přebíjí, KTERÁ textura se na buňku vykreslí. Kdyby
+## určovala i hru, namalovaná zeď by nebyla zeď a nepřátelé by jí prošli; ta vazba mezi
+## daty a artem je jediný důvod, proč funguje pathfinding a stavební místa.
+##
+## Prázdné = všechno se odvodí jako dosud (masky pruhu, varianty ze seedu).
+@export var tile_overrides: Dictionary = {}
 
 ## Hand-placed scenery: [{"id": "mug", "pos": Vector2(x, y), "flip": bool}, ...] in field
 ## pixels. Purely decorative — nothing here affects pathing, building or targeting.
@@ -59,6 +127,14 @@ class_name LevelData extends Resource
 ## How much dearer an off-lane step is. 1.0 = lanes are purely cosmetic; 4.0 keeps the
 ## horde on the lane unless the detour is over four times longer.
 @export_range(1.0, 12.0, 0.5) var path_off_lane_cost: float = 4.0
+
+## Routes that open partway through the level. See scripts/resources/trod_data.gd for
+## why these are a preference rather than a terrain change, and for the convergence rule
+## that separates "react" from "your work was wasted".
+##
+## Empty means a static map, which is the old behaviour and stays valid — not every
+## level should move under the player, or the one that does stops being an event.
+@export var trods: Array[TrodData] = []
 
 @export_category("Horde curve")
 ## Total number of waves. The last one is the finale — the boss (if set) spawns there.

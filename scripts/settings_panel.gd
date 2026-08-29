@@ -44,6 +44,26 @@ func _ready() -> void:
 	mute.toggled.connect(func(on: bool): Sfx.set_muted(on))
 	box.add_child(mute)
 
+	# --- Music: its own slider, not a share of the SFX one ------------------------
+	# The music carries Satisfaction (scripts/music.gd) — it is a gameplay channel, not
+	# decoration. Folding it into the SFX slider would let a player who turns the sound
+	# down silently lose one of the five things the game says with.
+	var music_row := HBoxContainer.new()
+	music_row.add_theme_constant_override("separation", 10)
+	box.add_child(music_row)
+	music_row.add_child(UI.label("Music volume", UI.FS_BODY, UI.TEXT))
+	var music_slider := HSlider.new()
+	music_slider.min_value = 0.0
+	music_slider.max_value = 1.0
+	music_slider.step = 0.05
+	music_slider.value = Music.get_volume_linear()
+	music_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	music_slider.custom_minimum_size = Vector2(180, 24)
+	music_slider.value_changed.connect(func(v: float): Music.preview_volume_linear(v))
+	music_slider.drag_ended.connect(func(_changed: bool):
+		Music.set_volume_linear(music_slider.value))
+	music_row.add_child(music_slider)
+
 	box.add_child(HSeparator.new())
 
 	var fullscreen := CheckButton.new()
@@ -69,6 +89,24 @@ func _ready() -> void:
 		reset.text = "Hints reset ✓"
 		reset.disabled = true)
 	box.add_child(reset)
+
+	box.add_child(HSeparator.new())
+
+	# --- The player's own data ----------------------------------------------------
+	# The post-level receipt ends on "None of this left your computer", and a promise
+	# about data the player cannot act on is a slogan rather than a guarantee. So the
+	# delete button exists, it is not buried, and it works immediately. This game does
+	# not get to make a point about the attention economy and then behave like it.
+	box.add_child(UI.label("Your data", UI.FS_BODY, UI.TEXT))
+	box.add_child(UI.wrapped(
+		"Everything the post-level screen shows is stored only on this computer, in "
+		+ "user://mirror.json. It is never sent anywhere.", 400, UI.FS_SMALL, UI.TEXT_DIM))
+	var forget := UI.button("Delete my behaviour history", UI.FS_SMALL)
+	forget.pressed.connect(func():
+		Mirror.forget()
+		forget.text = "Deleted ✓"
+		forget.disabled = true)
+	box.add_child(forget)
 
 	box.add_child(UI.spacer(Vector2(0, 4)))
 

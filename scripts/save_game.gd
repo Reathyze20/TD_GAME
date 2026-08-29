@@ -34,6 +34,11 @@ extends Resource
 ## Linear 0..1 master SFX volume, applied to the "Sfx" audio bus by the Sfx autoload.
 @export var sfx_volume: float = 1.0
 @export var sfx_muted: bool = false
+## Linear 0..1 master music volume, applied to the "Music" bus by the Music autoload.
+## Its own slider rather than a share of sfx_volume: the music carries Satisfaction and
+## a player who mutes the soundscape would otherwise lose that channel silently.
+@export var music_volume: float = 0.7
+@export var music_muted: bool = false
 @export var fullscreen: bool = false
 ## Contextual one-shot hints: master toggle + which hint ids have already been shown.
 @export var hints_enabled: bool = true
@@ -73,6 +78,7 @@ func migrate() -> void:
 	# A hand-edited or corrupted volume outside 0..1 would silently blow out or kill
 	# the mix — clamping here keeps migrate() idempotent and the audio path safe.
 	sfx_volume = clampf(sfx_volume, 0.0, 1.0)
+	music_volume = clampf(music_volume, 0.0, 1.0)
 
 func write_savegame() -> void:
 	ResourceSaver.save(self, SAVE_PATH)

@@ -6,11 +6,19 @@ func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 
 	var idx: int = GameState.current_level_index
-	# Looked up by level_id, not by array position — the old positional-index version
-	# would have silently shown the wrong card if a level was ever inserted/reordered.
-	var card: InsightCardData = Data.get_insight_card(idx + 1)
-	if card == null:
+	# Looked up by the level's OWN id. `idx` is a position in Data's array and `idx + 1`
+	# only happened to equal the id while the ids ran 1, 2, 3… — the isometric levels are
+	# 98 and 99, so the old arithmetic silently fell through to the fallback card.
+	var card: InsightCardData = null
+	if idx >= 0 and idx < Data.get_level_count():
+		card = Data.get_insight_card(Data.get_level(idx).id)
+	# A level with no card of its own borrows the last one rather than crashing on a
+	# null title. If even that is missing there is nothing honest to show, so the
+	# screen skips straight past the lesson instead of taking the run down with it.
+	if card == null and Data.get_level_count() > 0:
 		card = Data.get_insight_card(Data.get_level(Data.get_level_count() - 1).id)
+	if card == null:
+		card = InsightCardData.new()
 	var has_next: bool = (idx + 1) < Data.get_level_count()
 
 	theme = UI.theme()
@@ -64,12 +72,27 @@ func _ready() -> void:
 	box.add_child(HSeparator.new())
 	_add_wrapped(box, desc, UI.FS_HEAD, UI.TEXT)
 
+	# The source, small and directly under the claim it belongs to. A game that teaches
+	# people to distrust confident unsourced claims about their own brain cannot make
+	# confident unsourced claims about their own brain. Optional, so a card that is
+	# purely about the player's behaviour is not forced to invent a paper.
+	if card.citation != "":
+		_add_wrapped(box, card.citation, UI.FS_MICRO, UI.TEXT_FAINT)
+
 	# The takeaway is the one line the player should leave with, so it gets a frame of
 	# its own rather than being a differently-coloured paragraph among paragraphs.
 	var take := UI.panel(UI.DOPAMINE, 1)
 	box.add_child(take)
 	take.add_child(UI.wrapped("→ " + _fill_placeholders(card.takeaway), 1000,
 		UI.FS_HEAD, UI.DOPAMINE))
+
+	# The mirror, under the lesson and above the bookkeeping. Deliberately in that order:
+	# the insight card explains the concept, the receipt shows the player doing it, and
+	# the second one lands only because the first one just named the thing.
+	var receipt := Receipt.build(1000.0)
+	if receipt != null:
+		box.add_child(HSeparator.new())
+		box.add_child(receipt)
 
 	# Same breakdown the defeat screen shows, so a win and a loss speak the same language
 	# about what the run was worth.
@@ -98,6 +121,26 @@ func _ready() -> void:
 	btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	box.add_child(btn)
 	btn.pressed.connect(_on_continue.bind(has_next, idx))
+
+	_show_between_level_ad(idx)
+
+## The first interstitial a player ever sees lands HERE, on a results screen, costing
+## nothing. That order is the one thing in the whole ad system that cannot be got wrong:
+## an ad that takes Focus before the player knows this game does jokes reads as
+## hostility, and they never come back to find out it was one.
+##
+## Mid-wave ads (and the ones with a working button) only start once the joke is
+## established. See docs/design/dopamine_mechanics.md §6, "Křivka důvěry".
+func _show_between_level_ad(idx: int) -> void:
+	var lvl: LevelData = Data.get_level(idx)
+	if lvl == null:
+		return
+	for ad: AdData in lvl.ads:
+		if not ad.between_levels:
+			continue
+		var overlay := AdOverlay.create(ad)
+		add_child(overlay)
+		return
 
 ## Substitutes live balance values into card copy. A card that claims "one in 20" while
 ## the constant says something else is worse than no card at all — this whole screen's

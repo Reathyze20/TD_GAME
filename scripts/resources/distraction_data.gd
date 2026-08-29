@@ -90,3 +90,62 @@ class_name DistractionData extends Resource
 @export var disrupt_interval: float = 0.0
 @export var disrupt_duration: float = 0.0
 @export var disrupt_radius: float = 0.0
+
+@export_category("Type-specific: fleeting (FOMO)")
+## A limited-time offer, and the only distraction in the game that CANNOT hurt you.
+## After `lifetime_seconds` of wave time it simply leaves — no Focus damage, no leak,
+## nothing. Ignoring it is free; the game never says so.
+##
+## The lesson is the one every countdown timer in every shop is built on: urgency is not
+## evidence of value. What it actually costs you is the cooldowns your habits burned
+## shooting it while a real threat walked past, and the receipt is where that lands
+## (Mirror counts `bait_kill`). So it must be genuinely tempting rather than a trap —
+## give it a fat `dopamine_reward`. The payout is real. The value is zero. That gap IS
+## the mechanic, and it is exactly the gap the attention economy runs on.
+##
+## 0.0 = permanent (default for everything).
+@export var lifetime_seconds: float = 0.0
+
+@export_category("Type-specific: splitter (Just One More)")
+## Dies and leaves `split_count` smaller copies of itself, up to `split_generations`
+## deep. Every copy looks like the last one.
+##
+## The arithmetic is deliberately reassuring and deliberately wrong: at count 2 and
+## 3 generations one spawn is 15 bodies, and each individual kill feels like progress
+## because it IS progress. "Just one more" is not a lie the game tells the player, it is
+## a true statement about the next body and a false statement about the queue.
+##
+## Health scales by `split_scale` per generation, so the tail is trivial to clear —
+## the cost is never difficulty, it is TIME, which is the thing the archetype is about.
+## 0 count or 0 generations = does not split (default for everything).
+@export var split_count: int = 0
+@export var split_generations: int = 0
+@export var split_scale: float = 0.66
+
+@export_category("Type-specific: autoplay (deadline archetype)")
+## Let it live `autoplay_seconds` of wave time and it takes your build phase: the next
+## wave starts on a short forced countdown (`autoplay_grace`) instead of waiting for you.
+##
+## It steals the one part of a tower defence that is actually restful — the untimed
+## think. That is precisely what an autoplay countdown does to the end of an episode,
+## and the reason it exists is that the pause is where people leave.
+##
+## Killable, and the countdown is visible from the moment it arms, so it is a threat the
+## player can answer rather than a punishment they discover. 0.0 = not an autoplay.
+@export var autoplay_seconds: float = 0.0
+@export var autoplay_grace: float = 4.0
+
+@export_category("Type-specific: comparison (adaptive archetype)")
+## Reads the habits the player actually built and hardens against whichever damage
+## channel they leaned on, by `adapt_ratio` of the single best habit's output.
+##
+## The lesson is the recommender loop, not difficulty: the thing you engage with most is
+## the thing that learns you fastest, and a monoculture is what makes that cheap. The
+## counter is never more of your best tower — it is a SECOND channel, because the
+## resistance only ever lands on one of the two.
+##
+## Deliberately reads the built board rather than a kill history, so the player can look
+## at their own maze and predict what the next one will resist. An adaptation nobody can
+## anticipate is just a random stat. false = does not adapt (default for everything).
+@export var adapts_to_player: bool = false
+@export var adapt_ratio: float = 0.5

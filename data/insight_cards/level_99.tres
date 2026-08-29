@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="InsightCardData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/insight_card_data.gd" id="1_iso99"]
+
+[resource]
+script = ExtResource("1_iso99")
+level_id = 99
+title = "Wanting Is Not Liking"
+concept = "Incentive Salience"
+description = "The blue flash came back this level. Most of the time there was nothing behind it. You looked anyway.
+
+That gap has a name. The brain runs two separate systems: one that WANTS — that pulls you toward a thing — and one that LIKES, that actually enjoys it. They feel like one feeling from the inside, and they are not. Dopamine drives the first. Damage it and animals still enjoy sweet food; they simply stop going to get it.
+
+This is why the two meters on your Focus bar drifted apart. Craving went up. Satisfaction did not follow. Nothing was broken — that is what the real thing does. It is also why a cue that has stopped being true keeps working: wanting was never checking."
+takeaway = "When you catch yourself reaching for something, the useful question is not \"do I want this?\" — wanting is the part that is lying. It is \"the last ten times, did I enjoy it?\""
+citation = "Berridge & Robinson, 1998 — dopamine mediates the \"wanting\" of a reward rather than the pleasure of it; the two can be separated experimentally."
+color = "ff7ac8"

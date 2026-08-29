@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="AdData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/ad_data.gd" id="1_ad"]
+
+[resource]
+script = ExtResource("1_ad")
+id = &"brain_defense"
+headline = "🧠 BRAIN DEFENSE 💎"
+subline = "100+ LEVELS!  ⭐  FREE DOPAMINE!  ⭐  NO ADS!"
+stars = "★★★★★  4.9  (1,204,882)"
+cta_text = "DOWNLOAD NOW"
+footnote = "That's how we'd have to sell it.
+Thanks for playing it instead."
+color_a = Color(0.35, 0.1, 0.75, 1)
+color_b = Color(0.05, 0.6, 0.85, 1)
+emoji = "🧠"
+x_size_px = 48
+x_delay = 0.5
+payload_dopamine = 0
+payload_craving = 0.0
+between_levels = true

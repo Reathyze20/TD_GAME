@@ -9,6 +9,9 @@ var col: int
 var row: int
 var _color: Color
 var game  # reference to the Game node
+## Screen-space Y offset applied only in _draw() — see the block comment in setup().
+## Zero everywhere except built-on-high_ground in the isometric renderer.
+var _iso_lift := 0.0
 ## Whether this habit sits inside the player's Routine — the reach of the Focus core,
 ## extended by Anchors. A habit outside it stops working: a habit with nothing in your
 ## day to hang it on doesn't hold, however good the intention behind it was.
@@ -48,6 +51,25 @@ func setup(_game, _type_key: String, _col: int, _row: int, initial_facing: float
 	_color = Color(def.color)
 
 	position = Data.cell_center(Vector2i(col, row))
+	# PURELY VISUAL — a built habit standing on high_ground visually sits at ground
+	# level, not on top of the WALL_HEIGHT-raised plateau it is built on (see
+	# IsoWallSegment / IsoTopSegment in game.gd, and the matching lift the hover
+	# placement preview already applies at game.gd:1126 for the SAME reason).
+	#
+	# The first attempt at this fix subtracted WALL_HEIGHT from `position` directly, and
+	# was reverted: `position` is also this node's y-sort key (entities.y_sort_enabled)
+	# AND the point every range/distance/targeting check measures from. Raising it
+	# sorted the habit as if it were further back than the plateau it stands on (drew it
+	# BEHIND its own wall top — invisible, strictly worse than sitting on the ground),
+	# and would have silently shrunk every combat range by 48px against enemies that
+	# stay at ground level and share none of the offset.
+	#
+	# So the lift lives here instead: a value the DRAW methods (Habit._draw(),
+	# Barracks._draw()) apply as a canvas transform, exactly the split IsoTopSegment
+	# already uses — node position stays at ground level for sorting and gameplay math,
+	# the raised look is only ever a transform around the draw calls.
+	if game != null and game.high_ground.has(Vector2i(col, row)):
+		_iso_lift = game.WALL_HEIGHT
 
 	_setup_specific(initial_facing, initial_arc)
 

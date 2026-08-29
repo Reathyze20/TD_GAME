@@ -24,3 +24,4 @@ color = "ffa53c"
 projectile_color = "ffd08a"
 base_pierce = 4
 impulse = 0.0
+has_own_pedestal = true

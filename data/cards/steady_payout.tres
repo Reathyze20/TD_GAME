@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/card_burst_data.gd" id="1_burst"]
+[ext_resource type="Script" path="res://scripts/resources/card_data.gd" id="2_card"]
+
+[sub_resource type="Resource" id="Resource_steady"]
+script = ExtResource("1_burst")
+type = "steady_payout"
+
+[resource]
+script = ExtResource("2_card")
+id = &"steady_payout"
+title = "Steady Payout"
+description = "Every defeat pays exactly the same, and 20% more on average. No jackpots."
+rarity = &"rare"
+weight = 1.0
+min_draft = 2
+burst = SubResource("Resource_steady")

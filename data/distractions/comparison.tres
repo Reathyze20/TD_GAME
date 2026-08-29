@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="DistractionData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/distraction_data.gd" id="1_comp"]
+
+[resource]
+script = ExtResource("1_comp")
+id = &"comparison"
+display_name = "Comparison"
+description = "It looked at what worked for you. Now it does not work on it."
+max_health = 48
+speed = 64.0
+is_flying = false
+compulsion = 0
+rationalization = 0
+dopamine_reward = 7
+focus_damage = 3
+melee_damage = 3
+block_weight = 2
+color = "6fd3ff"
+radius = 10.5
+shape = "rect"
+adapts_to_player = true
+adapt_ratio = 0.5

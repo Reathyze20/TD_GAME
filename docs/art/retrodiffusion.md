@@ -19,7 +19,7 @@ se to netýká — to je přesně ta věc, která se prodává.
 
 **Astropulse na dotaz odpověděli ano.** Doplň sem jejich přesné znění, ne parafrázi:
 
-> _(sem vlož citaci odpovědi)_
+>Máte povolení. 
 >
 > — Astropulse, _(datum)_, kanál: _(mail / Discord / …)_
 

@@ -39,9 +39,17 @@ const Z_ENTITIES := 0  ## walls + tower + enemy, y-sorted against each other
 const PILLAR_TEX := "res://assets/iso_pilot/wall.png"  ## round-1 leftover, kept as an optional corner accent
 const TOWER_TEX := "res://assets/iso_pilot/tower_focus_pillar.png"
 const ENEMY_TEX := "res://assets/iso_pilot/enemy_energy_drink.png"
-## Flat material swatch for the code-drawn wall faces — no iso shape, just surface
-## texture (stone/tissue, same palette as the tower and floor). Falls back to a
-## placeholder swatch if art-direction's real one isn't on disk yet.
+## Flat material swatches for the code-drawn wall faces — no iso shape, just surface
+## texture (stone/tissue, same palette as the tower and floor). Three variants, same
+## reasoning as FLOOR_VARIANTS below: one swatch stretched over every segment in a
+## wall run repeats the exact same diagonal grain pattern at a perfectly regular
+## interval, which reads as a mechanical sawtooth rather than hand-painted strata.
+## Falls back to a placeholder swatch if none of these are on disk yet.
+const WALL_MATERIAL_VARIANTS := [
+	"res://assets/iso_pilot/wall_material_1.png",
+	"res://assets/iso_pilot/wall_material_2.png",
+	"res://assets/iso_pilot/wall_material_3.png",
+]
 const WALL_MATERIAL_TEX := "res://assets/iso_pilot/wall_material.png"
 const WALL_MATERIAL_FALLBACK := "res://assets/iso_pilot/wall_material_placeholder.png"
 
@@ -225,13 +233,35 @@ func _build_entities() -> void:
 ## edge — cells at y=0 / x=0 have no such neighbor, so THAT edge is the true outer
 ## boundary. Both rows share the (0,0) tile's north vertex, so the two walls meet with
 ## zero gap, by construction, not by matching two separately-generated pieces of art.
+## Loads whichever wall material variants exist on disk, falling back to the single
+## WALL_MATERIAL_TEX / WALL_MATERIAL_FALLBACK path for an older checkout.
+func _wall_textures() -> Array:
+	var paths: Array = WALL_MATERIAL_VARIANTS.filter(func(p): return ResourceLoader.exists(p))
+	if paths.is_empty():
+		paths = [WALL_MATERIAL_TEX if ResourceLoader.exists(WALL_MATERIAL_TEX) else WALL_MATERIAL_FALLBACK]
+	var textures: Array = []
+	for p in paths:
+		textures.append(load(p) as Texture2D)
+	return textures
+
+
+## Deterministic per-cell pick, same convention as the floor's variant pick — a fresh
+## dice roll every load would make the wall look different on every playtest for no
+## reason and make bug reports about "that one ugly seam" unreproducible.
+func _pick_wall_tex(cell: Vector2i, salt: int, textures: Array) -> Texture2D:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(cell) ^ salt
+	return textures[rng.randi() % textures.size()]
+
+
 func _build_walls() -> void:
-	var path := WALL_MATERIAL_TEX if ResourceLoader.exists(WALL_MATERIAL_TEX) else WALL_MATERIAL_FALLBACK
-	var tex := load(path) as Texture2D
+	var textures := _wall_textures()
 	for x in range(GRID_W):
-		_spawn_wall_segment(Vector2i(x, 0), "N", "E", tex, 1.0)   # back-right wall, catches the light
+		var cell := Vector2i(x, 0)
+		_spawn_wall_segment(cell, "N", "E", _pick_wall_tex(cell, 0x9A11, textures), 1.0)   # back-right wall, catches the light
 	for y in range(GRID_H):
-		_spawn_wall_segment(Vector2i(0, y), "N", "W", tex, 0.72)  # back-left wall, in shadow — one consistent light source from the right
+		var cell := Vector2i(0, y)
+		_spawn_wall_segment(cell, "N", "W", _pick_wall_tex(cell, 0x9A11, textures), 0.72)  # back-left wall, in shadow — one consistent light source from the right
 
 
 func _corner_offset(corner: String) -> Vector2:
@@ -269,7 +299,7 @@ const STONE_TOP_TEX := "res://assets/iso_pilot/floor_stone_top.png"  ## wall_mat
 
 
 func _build_terrace() -> void:
-	var wall_tex := load(WALL_MATERIAL_TEX if ResourceLoader.exists(WALL_MATERIAL_TEX) else WALL_MATERIAL_FALLBACK) as Texture2D
+	var textures := _wall_textures()
 	# Deliberately the STONE material, not another organic floor variant: the height
 	# change alone reads as subtle at this zoom (one 16px step), but a material change on
 	# top of it — built stone vs. the organic ground below — makes "this ground was
@@ -280,9 +310,9 @@ func _build_terrace() -> void:
 		for y in range(RAISED_RECT.position.y, RAISED_RECT.position.y + RAISED_RECT.size.y):
 			var cell := Vector2i(x, y)
 			if not RAISED_RECT.has_point(Vector2i(x + 1, y)):
-				_spawn_wall_segment(cell, "E", "S", wall_tex, 0.85, STEP_HEIGHT)
+				_spawn_wall_segment(cell, "E", "S", _pick_wall_tex(cell, 0x7EEC, textures), 0.85, STEP_HEIGHT)
 			if not RAISED_RECT.has_point(Vector2i(x, y + 1)):
-				_spawn_wall_segment(cell, "S", "W", wall_tex, 0.62, STEP_HEIGHT)
+				_spawn_wall_segment(cell, "S", "W", _pick_wall_tex(cell, 0x7EEC, textures), 0.62, STEP_HEIGHT)
 
 			var top := Sprite2D.new()
 			top.texture = top_tex

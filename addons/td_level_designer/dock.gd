@@ -18,6 +18,8 @@ var editor: MapEditor:
 var _calc: MapEditor = null
 
 var _header: Label
+var _status: Label      ## semafor: dá se ta mapa hrát?
+var _advice: Label      ## co s tím udělat, česky
 var _action_line: Label
 var _open_btn: Button
 var _action_buttons: Array[Button] = []
@@ -98,6 +100,20 @@ func _build_ui() -> void:
 	_header.add_theme_font_size_override("font_size", 14)
 	add_child(_header)
 
+	# Semafor. Úplně nahoře a velký schválně: první otázka každého, kdo se na mapu
+	# podívá, je „dá se to hrát?", a ta se nemá luštit z tabulky metrik pod tím.
+	_status = Label.new()
+	_status.add_theme_font_size_override("font_size", 16)
+	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	add_child(_status)
+
+	_advice = Label.new()
+	_advice.add_theme_font_size_override("font_size", 12)
+	_advice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_advice.add_theme_color_override("font_color", Color(0.78, 0.82, 0.9))
+	add_child(_advice)
+	add_child(HSeparator.new())
+
 	_action_line = Label.new()
 	_action_line.add_theme_font_size_override("font_size", 11)
 	_action_line.add_theme_color_override("font_color", Color(0.6, 0.65, 0.75))
@@ -125,6 +141,12 @@ func _build_ui() -> void:
 		func(): _ed._save_level_settings())
 	_add_action(grid, "New Level", "Copy this level into the next free level_N.tres",
 		func(): _ed._create_new_level())
+	_add_action(grid, "Nová mapa (šablona)",
+		"Přemaluje plátno na hratelný začátek: cíl, spawn, terasa kolem jádra a cesta "
+		+ "kolem shluku. Splňuje všechny cíle analyzátoru — hodí se jako odrazový můstek.",
+		func():
+			_ed.scaffold_starter_map()
+			_refresh())
 	_add_action(grid, "Add Zone", "Add a spawn zone rectangle (drag it into place)",
 		func():
 			_ed._add_spawn_zone()
@@ -189,13 +211,15 @@ func _build_hint() -> void:
 	_hint = Label.new()
 	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_hint.add_theme_font_size_override("font_size", 11)
-	_hint.text = ("Maluj Godotem — vyber uzel a kresli:\n"
-		+ "•  HighGroundTiles = zdi (fialová)\n"
-		+ "•  PathTiles = cesty (oranžová)\n"
-		+ "•  Spawny/Cíl: přesuň uzly nástrojem výběru\n"
-		+ "•  Rekvizity: duplikuj sprite pod Props (Ctrl+D)\n"
-		+ "Panel vpravo ukazuje živě, jak to vykreslí hra.\n"
-		+ "Bake zapíše všechno (zdi, cesty, rekvizity, zóny, cíl).")
+	_hint.text = ("Maluj Godotem — ve stromu scény vyber vrstvu a kresli.\n"
+		+ "Jedno kliknutí = jeden blok 3×3 = jedno stavební místo:\n"
+		+ "•  BlockTiles (fialová) = terasa: zeď i parcela\n"
+		+ "•  BlockPath (oranžová) = cesta\n"
+		+ "•  BlockSpawn (červená) = odkud přijdou\n"
+		+ "•  BlockGoal (zelená) = cíl, jen jeden blok\n"
+		+ "Nevíš, kde začít? Zmáčkni Nová mapa (šablona).\n"
+		+ "Bake zapíše geometrii, Playtest ji rovnou spustí.\n"
+		+ "HighGroundTiles/PathTiles jsou doladění po buňkách.")
 	add_child(_hint)
 
 func _add_action(parent: Node, label: String, tip: String, action: Callable) -> void:
@@ -241,8 +265,37 @@ func _refresh_header() -> void:
 		_header.text = "editing: %s (id %d)" % [fname, tl.id]
 	_action_line.text = _ed.last_action if _ed.last_action != "" else "no writes yet this session"
 
+## Semafor nahoře. Barva nese stejnou informaci jako text, takže se stav pozná
+## periferním viděním při malování a nemusí se číst.
+func _refresh_status() -> void:
+	if _status == null:
+		return
+	if _ed == null or not is_instance_valid(_ed):
+		_status.text = "⬜  Otevři MapEditor.tscn"
+		_status.add_theme_color_override("font_color", Color(0.6, 0.65, 0.75))
+		_advice.text = ""
+		return
+	var h: Dictionary = _ed.map_health()
+	var lvl := String(h.get("level", "none"))
+	var mark := {"ok": "🟢", "warn": "🟡", "broken": "🔴", "none": "⬜"}.get(lvl, "⬜")
+	var col := {
+		"ok": Color(0.45, 1.0, 0.6),
+		"warn": Color(1.0, 0.82, 0.35),
+		"broken": Color(1.0, 0.42, 0.42),
+		"none": Color(0.6, 0.65, 0.75),
+	}.get(lvl, Color(0.6, 0.65, 0.75)) as Color
+	_status.text = "%s  %s" % [mark, String(h.get("headline", ""))]
+	_status.add_theme_color_override("font_color", col)
+	var advice: Array = h.get("advice", [])
+	var out := ""
+	for a in advice:
+		out += "•  %s\n" % String(a)
+	_advice.text = out.strip_edges()
+	_advice.visible = not advice.is_empty()
+
 func _refresh() -> void:
 	_refresh_header()
+	_refresh_status()
 	if _rows_box == null:
 		return
 	for child in _rows_box.get_children():

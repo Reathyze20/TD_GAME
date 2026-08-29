@@ -21,6 +21,13 @@ signal bandwidth_changed(used: int, max_value: int)
 ## independently and flushes them together — neither handler depends on the other's
 ## ordering.
 signal defeat_reward_granted(amount: int)
+## Wanting and liking, emitted separately because they are separately true. See the
+## `craving` / `satisfaction` docs below.
+## The streak and the multiplier it is currently worth, together — the HUD needs both
+## and computing the second from the first at the call site would let them drift.
+signal streak_changed(value: int, multiplier: float)
+signal craving_changed(value: float)
+signal satisfaction_changed(value: float)
 
 var current_level_index := 0
 
@@ -54,6 +61,79 @@ var burnout := 0.0
 var selected_habit = null  # String key or null
 var quick_hit_enabled := false
 var kills := 0
+
+# ---------------------------------------------------------------- wanting vs liking
+#
+# Berridge's split, made mechanical. Dopamine drives WANTING; liking is a different
+# system, and in a downregulated brain the two come apart — you can want something
+# badly that gives you nothing. One meter could not show that, because the whole
+# finding IS the gap between two lines.
+#
+# Craving is deliberately USEFUL (game.gd turns it into fire rate). It has to be: a
+# stat that only ever punished would be a morality bar, and the player would route
+# around it instead of feeling the trade. The trap is that it works.
+
+## Wanting, 0-100. Rises from cheap sources (Quick Hit, ads, frantic clicking), decays
+## during clean play. Drives urgency: faster habits, louder UI, unbearable downtime.
+var craving := 0.0
+## Liking, 0-100, starts full. Falls when reward is taken cheaply or leaks through,
+## recovers from waves cleared on their own merits. Drives the music: a level won at
+## low Satisfaction ends in near-silence, which is the whole thesis in one sensation.
+var satisfaction := 100.0
+
+const CRAVING_DECAY_PER_WAVE := 8.0
+const SATISFACTION_PER_CLEAN_WAVE := 6.0
+const SATISFACTION_PER_QUICK_HIT := -9.0
+const SATISFACTION_PER_LEAK := -4.0
+
+# ---------------------------------------------------------------- novelty (RPE)
+#
+# Reward prediction error, the half of dopamine a Tolerance meter cannot express.
+# Schultz: a fully predicted reward produces NO response; novelty restores it. So the
+# juice of a defeat is not just "how downregulated am I" but "did I see this coming".
+#
+# Familiarity is counted per killing habit. That is what turns the science into a
+# DECISION: upgrading the tower that already works is strategically correct and
+# progressively duller, while building a new one feels alive and is weaker. The pull
+# toward the new button, against your own interest, is the lesson — and no card has to
+# say it out loud.
+
+## habit id -> how many defeats it has been credited with this level.
+var _familiarity: Dictionary = {}
+## Kills by one habit before its surprise bottoms out.
+const FAMILIARITY_FULL := 18.0
+## Floor on surprise, so a veteran tower still reads as a kill rather than as silence.
+const SURPRISE_FLOOR := 0.25
+
+## How surprising one more defeat by `key` would be, 1.0 (never seen) → SURPRISE_FLOOR.
+func surprise_of(key: StringName) -> float:
+	if key == &"":
+		return 1.0
+	var seen: float = float(_familiarity.get(key, 0))
+	return lerpf(1.0, SURPRISE_FLOOR, clampf(seen / FAMILIARITY_FULL, 0.0, 1.0))
+
+## Novelty ages only for the habit that actually fired. Deliberately never decays
+## within a level: habituation to a specific stimulus does not wear off while you keep
+## using it, which is exactly why people switch apps rather than wait.
+func _age_familiarity(key: StringName) -> void:
+	if key == &"":
+		return
+	_familiarity[key] = int(_familiarity.get(key, 0)) + 1
+
+func add_craving(amount: float) -> void:
+	set_craving(craving + amount)
+
+func set_craving(value: float) -> void:
+	craving = clampf(value, 0.0, 100.0)
+	craving_changed.emit(craving)
+
+func add_satisfaction(amount: float) -> void:
+	set_satisfaction(satisfaction + amount)
+
+func set_satisfaction(value: float) -> void:
+	satisfaction = clampf(value, 0.0, 100.0)
+	satisfaction_changed.emit(satisfaction)
+	streak_changed.emit(streak, streak_mult())
 
 ## Insight breakdown from the run that just ended, as returned by
 ## MetaProgression.bank_run(). Lives here rather than in game.gd because
@@ -167,8 +247,19 @@ func reset_for_level(level: LevelData) -> void:
 	burnout = 0.0
 	selected_habit = null
 	quick_hit_enabled = level.quick_hit
+	variable_rewards = level.variable_rewards
 	kills = 0
 	lean_wave_active = false
+	craving = 0.0
+	satisfaction = 100.0
+	streak_enabled = level.streak
+	streak = 0
+	_leaked_this_wave = false
+	# `conditioning` is deliberately ABSENT from this function. See the cue-conditioning
+	# block below: a level boundary does not un-learn an association, and resetting it
+	# here would quietly delete the one thing the two-level cue arc exists to show.
+	_familiarity.clear()
+	steady_payout = false
 	run_insight = 0
 	rush = 0
 	# Growth Tree ranks raise the cap permanently (+25/rank). Read here rather than via
@@ -186,6 +277,131 @@ func reset_for_level(level: LevelData) -> void:
 	burnout_changed.emit(burnout)
 	selected_habit_changed.emit(selected_habit)
 	kills_changed.emit(kills)
+	craving_changed.emit(craving)
+	satisfaction_changed.emit(satisfaction)
+
+# ---------------------------------------------------------------- the streak
+#
+# Consecutive waves cleared without a single leak, and the only mechanic in the game
+# that the player will recognise from their own phone inside two seconds.
+#
+# The bonus is REAL and it is meant to feel good. This is not a trap and there is no
+# right answer being withheld — a streak genuinely pays, and building carefully to keep
+# one is genuinely correct play. If it were secretly bad the lesson would be "the game
+# lied to me", which teaches nothing about anything outside the game.
+#
+# What it does is change the FRAME. Past two or three waves the player is no longer
+# earning a bonus, they are protecting one, and a loss looms roughly twice as large as
+# the equivalent gain (Kahneman & Tversky, 1979). Two things follow, and both are the
+# point:
+#
+#   * it makes people play SAFE — overbuild, stop experimenting, take the boring line
+#   * it makes people play ONE MORE WAVE
+#
+# Neither is a penalty the game applies. Both are things the player does to themselves
+# for a number, with the number visible the whole time.
+#
+# BREAKS ON THE LEAK, not at the end of the wave. The instant a distraction touches the
+# core the counter drops to zero, because the loss has to be a MOMENT — a streak that
+# quietly failed to increment during the between-wave summary is bookkeeping, and
+# bookkeeping does not sting.
+#
+# Nothing about the next wave is harder after a break. What was lost is a bonus that had
+# not been paid yet. That gap is what the receipt prints.
+
+## Per-wave increment, and the ceiling it stops at. Capped because an uncapped streak
+## would eventually pay for careless play by itself, and because the loss-frame is fully
+## established by wave four — everything above that is just a bigger number to lose.
+const STREAK_STEP := 0.15
+const STREAK_MAX_MULT := 1.6
+
+var streak_enabled := false
+var streak := 0
+var _leaked_this_wave := false
+
+func streak_mult() -> float:
+	if not streak_enabled or streak < 1:
+		return 1.0
+	return minf(STREAK_MAX_MULT, 1.0 + STREAK_STEP * float(streak))
+
+## Called by game.gd when a wave finishes. A wave that leaked has already broken the
+## streak at the moment it happened, so this only ever has to handle the clean case.
+func note_wave_cleared() -> void:
+	if not streak_enabled or _leaked_this_wave:
+		return
+	streak += 1
+	Mirror.mark(&"streak", streak)
+	streak_changed.emit(streak, streak_mult())
+
+func begin_wave_streak_window() -> void:
+	_leaked_this_wave = false
+
+# ---------------------------------------------------------------- cue conditioning
+#
+# How much the blue flash has come to MEAN. Everything about this block is designed
+# around one finding, and it is the hardest thing the game has to say:
+#
+#   **Recovery does not erase the association.**
+#
+# Cue-induced reinstatement (Shaham et al., 2003, and the human cue-reactivity work
+# behind it): after a conditioned response has been extinguished, a single re-pairing
+# restores it almost to its old strength — far faster than it took to build. It is why
+# relapse is not evidence of weak character, and it is why "I quit for a month, I can
+# handle one" is the most expensive sentence in the whole subject.
+#
+# Three rules make that literal here, and each one is a deliberate refusal:
+#
+#  1. NOT reset in reset_for_level(). Finishing a level does not un-learn it. This is
+#     the only piece of run state that survives the boundary on purpose.
+#  2. NOT touched by Tolerance. The player can drain Tolerance to zero, watch the
+#     colour come back, and be entirely, visibly "better" — and the flash still pulls
+#     exactly as hard. That gap is the lesson, and the receipt prints both numbers
+#     side by side without commenting on it.
+#  3. Extinction is SLOW and reinstatement is FAST. Empty cues wear the association
+#     down a little at a time; one real payout snaps it back to REINSTATE_SHARE of its
+#     old peak in a single step. Symmetric numbers here would teach the opposite of
+#     what is true.
+#
+# Deliberately has NO mechanical effect on combat. Its teeth are that the player looks,
+# and looking costs them the wave they were watching. Mirror counts that.
+
+## Acquisition per real pairing. ~6 honest cues to full, which is one clean level.
+const CUE_ACQUIRE := 0.18
+## Extinction per empty cue. A third of acquisition: unlearning is the slow direction.
+const CUE_EXTINGUISH := 0.06
+## How much of the old peak one real pairing restores after extinction has set in.
+const CUE_REINSTATE_SHARE := 0.9
+## Below this share of peak the association counts as extinguished — and therefore as
+## something that can be REINSTATED rather than merely topped up.
+const CUE_EXTINCT_AT := 0.6
+
+var conditioning := 0.0
+var cue_peak := 0.0
+var _cue_extinct := false
+
+## Returns true when this pairing was a reinstatement rather than ordinary acquisition —
+## the caller uses it to mark the log and to let the receipt name the moment.
+func condition_cue(real: bool) -> bool:
+	if not real:
+		conditioning = maxf(0.0, conditioning - CUE_EXTINGUISH)
+		if cue_peak > 0.0 and conditioning < cue_peak * CUE_EXTINCT_AT:
+			_cue_extinct = true
+		return false
+	var reinstated: bool = _cue_extinct and cue_peak * CUE_REINSTATE_SHARE > conditioning
+	if reinstated:
+		conditioning = cue_peak * CUE_REINSTATE_SHARE
+	else:
+		conditioning = minf(1.0, conditioning + CUE_ACQUIRE)
+	cue_peak = maxf(cue_peak, conditioning)
+	_cue_extinct = false
+	return reinstated
+
+## Only for tests and a genuinely fresh profile. Nothing in normal play calls this —
+## if it did, the mechanic above would be a lie.
+func forget_conditioning() -> void:
+	conditioning = 0.0
+	cue_peak = 0.0
+	_cue_extinct = false
 
 func can_afford(amount: int) -> bool:
 	return dopamine >= amount
@@ -306,6 +522,41 @@ func _roll_rush(d: Node2D) -> void:
 	if d.distance_to_core() <= RUSH_CLOSE_RADIUS:
 		add_rush(RUSH_PER_CLOSE_KILL)
 
+# ---------------------------------------------------------------- payout schedule
+#
+# Variable-ratio reinforcement, with the expected value held EXACTLY equal to the flat
+# schedule it replaces. That equality is not a nicety, it is the experiment: the level's
+# income is unchanged, only its predictability is, so any difference in how the player
+# feels about it comes from the schedule alone.
+#
+# Most defeats pay BASE_TIER of the old amount; JACKPOT_CHANCE of them pay JACKPOT_MULT.
+# BASE_TIER is derived rather than typed so the mean stays 1.0 if the other two are
+# retuned.
+#
+# The Steady Payout card then offers a flat schedule that is STRICTLY BETTER (+20%) and
+# perfectly predictable. Turning it down is the finding; taking it and missing the
+# randomness is the same finding from the other side.
+
+## Set to false on level 1 — the first level is a clean tower defense with no experiment
+## running on the player. Enabled per level via LevelData.variable_rewards.
+var variable_rewards := false
+## Set by the Steady Payout card. Flat, predictable, and worth more than the gamble.
+var steady_payout := false
+
+const JACKPOT_CHANCE := 0.15
+const JACKPOT_MULT := 3.0
+const STEADY_MULT := 1.2
+
+func _payout_multiplier() -> float:
+	if steady_payout:
+		return STEADY_MULT
+	if not variable_rewards:
+		return 1.0
+	if randf() < JACKPOT_CHANCE:
+		return JACKPOT_MULT
+	# Whatever is left over once the jackpots are paid for, so the mean is exactly 1.0.
+	return (1.0 - JACKPOT_CHANCE * JACKPOT_MULT) / (1.0 - JACKPOT_CHANCE)
+
 ## Downregulation made mechanical: the higher your Tolerance, the less every defeat
 ## pays. Card/Growth `dopamine_bonus` is applied on top, and the total is floored at 1 —
 ## without that floor a negative bonus would drain Dopamine on a kill and print "+-1".
@@ -320,12 +571,21 @@ func _on_distraction_defeated(d: Node2D, base_reward: int) -> void:
 				insight_dropped.emit(d.global_position, INSIGHT_DROP_AMOUNT)
 		return
 	var ratio: float = tolerance / 100.0
-	var reward: int = maxi(1, int(round(base_reward * (1.0 - 0.6 * ratio))))
+	var reward: int = maxi(1, int(round(base_reward * (1.0 - 0.6 * ratio)
+		* _payout_multiplier() * streak_mult())))
 	var bonus: int = int(ModifierManager.get_modified_stat(0.0, ModifierManager.STAT_DOPAMINE_BONUS))
 	reward = maxi(1, reward + bonus)
 	add_dopamine(reward)
 	add_kill()
 	defeat_reward_granted.emit(reward)
+
+	# Novelty ages here, AFTER game.gd has already read surprise_of() for the kill sound.
+	# The ordering is guaranteed by Distraction._die(), which emits its own `defeated`
+	# signal (presentation) before the bus signal (economy) — so presentation always sees
+	# the un-aged value, which is the honest one: how surprising was THIS kill, not the
+	# next one.
+	if is_instance_valid(d) and "killer_key" in d:
+		_age_familiarity(d.killer_key)
 
 	# The Insight drop. Rolled per defeat and independent of the Dopamine reward: one is
 	# the fast currency that gets spent immediately, the other the slow one that
@@ -337,6 +597,12 @@ func _on_distraction_defeated(d: Node2D, base_reward: int) -> void:
 
 func _on_wave_completed(_wave_number: int) -> void:
 	add_run_insight(INSIGHT_PER_WAVE_CLEARED)
+	# A wave held on its own merits is the only thing that pays Satisfaction, and the
+	# only thing that walks Craving back down. Both directions matter: without the
+	# recovery this is a one-way descent, and a one-way descent is a punishment bar
+	# rather than a rhythm the player can learn to ride.
+	add_satisfaction(SATISFACTION_PER_CLEAN_WAVE)
+	add_craving(-CRAVING_DECAY_PER_WAVE)
 
 ## Scaled by focus_damage rather than flat per leak, so the meter agrees with the rest of
 ## the game about what a bad leak is: a Notification getting through (1) barely registers,
@@ -344,8 +610,17 @@ func _on_wave_completed(_wave_number: int) -> void:
 const BURNOUT_PER_FOCUS := 3.0
 
 func _on_distraction_escaped(focus_damage: int) -> void:
+	# Before anything else: the break has to land on the same frame as the breach, not
+	# after the Focus arithmetic and definitely not at the end of the wave.
+	if streak_enabled and streak > 0:
+		Mirror.mark(&"streak_broken", streak)
+		streak = 0
+		streak_changed.emit(0, 1.0)
+	_leaked_this_wave = true
 	lose_focus(focus_damage)
 	add_burnout(BURNOUT_PER_FOCUS * float(focus_damage))
+	add_satisfaction(SATISFACTION_PER_LEAK * float(focus_damage))
+	Mirror.mark(&"leak", focus_damage)
 	if focus <= 0:
 		SignalBus.game_over.emit(false)
 

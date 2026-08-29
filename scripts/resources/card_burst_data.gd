@@ -14,6 +14,9 @@ class_name CardBurstData extends Resource
 ## "summon_allies"   — ally_* fields, spawned around the Focus core
 ## "damage_field"    — willpower_damage / awareness_damage to every live distraction
 ## "freeze_field"    — freeze_duration on every live distraction
+## "steady_payout"   — flat, predictable defeat rewards for the rest of the level. No
+##                     fields: the multiplier lives in GameState.STEADY_MULT so the
+##                     card's copy and the economy can never disagree.
 
 @export_category("Type-specific: grant_dopamine")
 @export var dopamine: int = 0

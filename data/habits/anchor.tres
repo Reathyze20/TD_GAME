@@ -22,3 +22,5 @@ has_work_cycle = false
 work_duration = 0.0
 break_short = 0.0
 break_long = 0.0
+has_own_pedestal = true
+head_aims = false

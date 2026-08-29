@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="DistractionData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/distraction_data.gd" id="1_jom"]
+
+[resource]
+script = ExtResource("1_jom")
+id = &"just_one_more"
+display_name = "Just One More"
+description = "This is the last one. It is not the last one."
+max_health = 34
+speed = 72.0
+is_flying = false
+compulsion = 0
+rationalization = 0
+dopamine_reward = 2
+focus_damage = 2
+melee_damage = 2
+block_weight = 1
+color = "b98cff"
+radius = 10.0
+shape = "circle"
+split_count = 2
+split_generations = 3
+split_scale = 0.6

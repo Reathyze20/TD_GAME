@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="AdData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/ad_data.gd" id="1_ad"]
+
+[resource]
+script = ExtResource("1_ad")
+id = &"go_outside"
+headline = "GO OUTSIDE"
+subline = "It's free.
+No download."
+cta_text = "OK"
+color_a = Color(0.45, 0.72, 0.95, 1)
+color_b = Color(0.55, 0.82, 0.62, 1)
+text_color = Color(0.06, 0.12, 0.1, 1)
+emoji = "🌤"
+x_size_px = 64
+x_delay = 0.0
+payload_dopamine = 0
+payload_craving = 0.0
+wave = 4

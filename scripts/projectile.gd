@@ -17,6 +17,13 @@ var willpower: int = 0
 var awareness: int = 0
 var speed := 560.0
 var _color: Color
+## Sprite strely, kdyz ho vez ma. Nacita se podle type_key zdroje, ne pres HabitData:
+## novy export by musel projit vsemi .tres a tenhle udaj patri k ARTU, ne k balanci.
+## Bez souboru zustane puvodni blokovy bolt, takze zbytek rejstriku se nemeni.
+var _art: Texture2D = null
+static var _art_cache := {}
+## Duzina. Opsano z head_focus_timer_north.png (telo rajcete), ne vymysleno.
+const SPLAT_COLOR := Color8(189, 53, 50)
 var dead := false
 var game: Node = null
 
@@ -82,8 +89,18 @@ func setup_directional(_game: Node, dir_angle: float, max_dist: float, wp: int, 
 	# fired from, "the platform I am over" is no longer "the platform that must not stop
 	# me". -2 means "no game yet", which is neither a slab nor open ground.
 	_origin_platform = -2 if game == null else game.platform_at(global_position)
-	direction_vec = Vector2.RIGHT.rotated(dir_angle)
-	rotation = dir_angle
+	_art = _art_for(_source)
+	# IZO: deska je zplostela 2:1, takze SVETOVY uhel se na obrazovku prevadi pulenim
+	# slozky y -- presne jako Habit._draw_wedge() (tower.gd) a naopak jako _aoe_targets(),
+	# ktery ji pri mereni dosahu nasobi dvema. Bez toho strela LETELA MIMO VLASTNI KUZEL:
+	# vysec se kreslila zplostela, projektil ne. U staticke hlavy to nebylo poznat,
+	# u osmismerne hlaven miri jinam nez vystrel (zmereno 22. 8. 2026).
+	#
+	# `direction_vec` NENI jednotkovy, a to zamerne: krok `speed * delta` tim zustava
+	# v POZEMNICH jednotkach, takze `max_travel_distance` i game.cast_to_wall() (ktery
+	# pracuje "in ground space") plati dal beze zmeny.
+	direction_vec = Vector2(cos(dir_angle), sin(dir_angle) * 0.5)
+	rotation = direction_vec.angle()
 	max_travel_distance = max_dist
 	distance_traveled = 0.0
 	willpower = wp
@@ -102,6 +119,17 @@ func setup_directional(_game: Node, dir_angle: float, max_dist: float, wp: int, 
 	_pierced = 0
 	dead = false
 	queue_redraw()
+
+static func _art_for(src: Object) -> Texture2D:
+	if src == null or not (src is Node) or not ("type_key" in src):
+		return null
+	var key: String = str(src.type_key)
+	if _art_cache.has(key):
+		return _art_cache[key]
+	var path := "res://assets/towers/shot_%s.png" % key
+	var tex: Texture2D = load(path) if FileAccess.file_exists(path) else null
+	_art_cache[key] = tex
+	return tex
 
 func _process(delta: float) -> void:
 	if dead:
@@ -146,7 +174,10 @@ func _process(delta: float) -> void:
 			# on the frame it dies — the push is what sells the hit, and a corpse that
 			# stands perfectly still while the next shot arrives reads as a missed frame.
 			if knockback > 0.0:
-				d.apply_knockback(direction_vec, knockback)
+				# Normalizovany: apply_knockback() dela `position + dir * amount`, tedy
+				# ceka jednotkovy vektor. Nezploštělý by u severojiznich strel odhoz
+				# zkratil na polovinu.
+				d.apply_knockback(direction_vec.normalized(), knockback)
 			if stagger_factor < 1.0:
 				d.apply_slow(stagger_factor, ArcProfile.STAGGER_TIME)
 			if boredom > 0.0:
@@ -219,6 +250,16 @@ func _draw() -> void:
 			_color.lightened(0.45))
 		return
 
+	if _art != null:
+		# ODROTOVANO. Uzel je natoceny do smeru letu, ale rajce je kulate a jeho svetlo
+		# ma podle bible chodit zleva shora (docs/art/iso_bible.md kap. 2). Kdyby se
+		# otacelo s letem, svetlo by obihalo dokola a strela by blikala.
+		draw_set_transform(Vector2.ZERO, -rotation, Vector2.ONE)
+		var half := Vector2(_art.get_size()) * Data.pixel_scale() * 0.5
+		draw_texture_rect(_art, Rect2(-half, half * 2.0), false)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		return
+
 	# Bolt: 3x2-block body, lit tip ahead, dimmer block behind, white-hot core.
 	draw_rect(Rect2(-PX * 1.5, -PX, PX * 3.0, PX * 2.0), _color)
 	_px(Vector2(PX * 2.0, 0.0), 1.0, _color.lightened(0.4))
@@ -230,7 +271,12 @@ func _create_impact_fx() -> void:
 		var fx = game.impact_fx_pool.acquire()
 		if fx != null:
 			fx.global_position = global_position
-			fx.play(_color)
+			# Strela s vlastnim spritem caka: preda se smer letu (zapne splat) a
+			# barva duziny z artu, ne def.projectile_color -- rajce ma strikat cerveny.
+			if _art != null:
+				fx.play(SPLAT_COLOR, 1.0, direction_vec)
+			else:
+				fx.play(_color)
 			# The pool handles listening to the 'finished' signal for release
 
 

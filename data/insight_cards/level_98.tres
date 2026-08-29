@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="InsightCardData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/insight_card_data.gd" id="1_iso98"]
+
+[resource]
+script = ExtResource("1_iso98")
+level_id = 98
+title = "The Cue"
+concept = "Reward Prediction"
+description = "A small blue flash kept appearing in the corner. Every single time, something good had just happened — a wave cleared, a payout landed. You probably stopped reading it as a light and started reading it as good news.
+
+That is the whole trick, and it is not a metaphor. Dopamine does not fire when the reward arrives. It fires when something PREDICTS the reward, and the better the prediction, the further back in time the signal moves. After enough repetitions the neurons stop responding to the reward at all and respond only to the cue.
+
+Nothing was done to you this level. The flash was honest every time. That was the point: an honest signal is exactly how a reliable one gets built."
+takeaway = "Notice what your own cues are — the lock screen, the red badge, the pull-to-refresh. None of them are the reward. They are what your brain learned comes before it."
+citation = "Schultz, Dayan & Montague, 1997, Science — dopamine neurons signal the ERROR between predicted and received reward, and shift their response onto the earliest reliable predictor."
+color = "4aa3ff"

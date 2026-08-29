@@ -12,6 +12,10 @@ extends Node2D
 
 signal defeated(distraction: Distraction)
 signal reached_core(distraction: Distraction)
+## Left of its own accord (a fleeting distraction's timer ran out). Deliberately NOT
+## `defeated` — nothing was beaten, nobody is paid, and no kill is recorded. The game
+## only needs it to drop the body from its live list so the wave can end.
+signal expired(distraction: Distraction)
 
 var def: DistractionData
 var type_key: String
@@ -24,6 +28,11 @@ var current_rationalization: int
 var is_flying: bool
 
 var dead := false
+
+## Habit id that landed the killing blow, or &"" for a leak / direct kill with no
+## source. Read by GameState._on_distraction_defeated to age the novelty of THAT habit:
+## the twentieth kill by the same tower is the one that stops surprising you.
+var killer_key: StringName = &""
 
 # --- Statuses (delegated to StatusManager component) -------------------------
 # All three status effects (Calm/Slow, Reframe, Boredom) live in a StatusManager
@@ -56,6 +65,27 @@ var _ping_target := Vector2.ZERO
 var _haste_timer := 0.0
 var _wave_time := -1.0        # >= 0 while a wave is expanding; drives the ring in _draw()
 
+# Fleeting (FOMO, def.lifetime_seconds > 0): counts down in WAVE time only, so a
+# limited-time offer cannot quietly expire while the player is thinking in the build
+# phase. Its whole claim is that the clock is running; the clock has to be the same one
+# the threat runs on or the mechanic is a lie in the player's favour.
+var _life_left := -1.0
+
+# Splitter (Just One More, def.split_count > 0): how deep in the chain this body is.
+# Set by Game.spawn_distraction BEFORE setup() so the health scaling can read it.
+# Generation 0 is the one the wave actually spawned.
+var generation := 0
+
+# Autoplay (def.autoplay_seconds > 0): wave-time countdown to stealing the build phase.
+# Latches once armed — killing it afterwards does not give the prep phase back, the same
+# way closing the tab after the next episode started does not give you the evening back.
+var _autoplay_left := -1.0
+var _autoplay_fired := false
+
+# Comparison (def.adapts_to_player): which channel this body hardened against, or &"" if
+# the board was still empty when it arrived. Drives the resistance tell in _draw().
+var adapted_channel: StringName = &""
+
 func setup(_game, _type_key: String) -> void:
 	game = _game
 	type_key = _type_key
@@ -63,6 +93,12 @@ func setup(_game, _type_key: String) -> void:
 	# Cards can make the feed sturdier (the cost half of a two-sided card) or frailer.
 	max_health = maxi(1, int(round(ModifierManager.get_modified_stat(
 		float(def.max_health), ModifierManager.STAT_DISTRACTION_HEALTH))))
+	# Splitter children are frailer the deeper they sit in the chain. The tail of a
+	# "just one more" spawn has to be trivial to clear: the archetype's cost is the TIME
+	# it eats, never difficulty, and a hard tail would turn a lesson about attrition into
+	# an ordinary hard wave.
+	if generation > 0 and def.split_scale > 0.0:
+		max_health = maxi(1, int(round(float(max_health) * pow(def.split_scale, generation))))
 	current_health = max_health
 	# Apply any active distraction-speed modifiers (cards drafted earlier this level).
 	current_speed = ModifierManager.get_modified_stat(def.speed, ModifierManager.STAT_DISTRACTION_SPEED)
@@ -77,6 +113,14 @@ func setup(_game, _type_key: String) -> void:
 	_color = Color(def.color)
 	var s: float = Data.GRID.tile * 0.16
 	_scatter = Vector2(randf_range(-s, s), randf_range(-s, s))
+	_life_left = def.lifetime_seconds if def.lifetime_seconds > 0.0 else -1.0
+	_autoplay_left = def.autoplay_seconds if def.autoplay_seconds > 0.0 else -1.0
+	# Visual shrink only — the hit radius stays def.radius. A split child that LOOKS
+	# smaller than it is, is slightly easier to hit than it appears; the reverse would be
+	# a body that eats shots it visibly dodged, and forgiving beats punishing when the
+	# archetype is already about volume.
+	if generation > 0 and def.split_scale > 0.0:
+		scale = Vector2.ONE * maxf(0.45, pow(def.split_scale, generation))
 
 	# StatusManager component — owns Calm/Reframe/Boredom logic
 	status_manager = StatusManager.new()
@@ -90,6 +134,10 @@ func setup(_game, _type_key: String) -> void:
 	animator.name = "DistractionAnimator"
 	add_child(animator)
 	animator.setup(self)
+
+	# After the def values are seeded above — this ADDS to them rather than replacing.
+	if def.adapts_to_player:
+		_adapt_to_player()
 
 	add_to_group("distractions")
 	queue_redraw()
@@ -139,6 +187,21 @@ func _process(delta: float) -> void:
 	# Same gating, same reason: a blocked energiser still pushes the ones behind it.
 	if def.haste_interval > 0.0 and game != null and game.started and not game.between_waves:
 		_tick_haste(delta)
+	# Both deadline archetypes run on WAVE time, matching the two ticks above: a
+	# countdown that kept running through the build phase would either expire a
+	# limited-time offer the player never got to answer, or steal a prep phase that had
+	# already started.
+	if _life_left > 0.0 and game != null and game.started and not game.between_waves:
+		_life_left -= delta
+		queue_redraw()          # the ring is the whole tell; it must move every frame
+		if _life_left <= 0.0:
+			_expire()
+			return
+	if _autoplay_left > 0.0 and game != null and game.started and not game.between_waves:
+		_autoplay_left -= delta
+		queue_redraw()
+		if _autoplay_left <= 0.0:
+			_arm_autoplay()
 	if _wave_time >= 0.0:
 		_wave_time += delta
 		if _wave_time > WAVE_FX_TIME:
@@ -249,6 +312,11 @@ func take_direct_damage(amount: int, source: Object = null) -> void:
 		source.record_damage(applied)
 		if current_health <= 0:
 			source.record_kill()
+			# Who landed the killing blow, for the novelty tax (GameState.surprise_of).
+			# Recorded here rather than passed through distraction_defeated because the
+			# bus signal is consumed by five listeners that have no use for it, and a
+			# wider signature would have to be threaded through every test harness.
+			killer_key = source.def.id
 	if animator != null:
 		animator.trigger_hit_flash()
 	queue_redraw()
@@ -461,6 +529,70 @@ func effective_compulsion() -> int:
 func effective_rationalization() -> int:
 	return maxi(0, current_rationalization - status_manager.reframe_amount)
 
+## Comparison archetype: harden against whatever the player leaned on.
+##
+## Only ONE channel is ever resisted, and that is the whole design. Resisting both would
+## be a flat difficulty bump that says nothing; resisting the dominant one says "the
+## thing you did most is the thing that stopped working", and leaves the answer visible
+## on the player's own board.
+##
+## Silent when the board is empty (wave 1, or a maze of pure blockers): there is nothing
+## to have learned yet, and inventing a resistance would make the archetype arbitrary.
+func _adapt_to_player() -> void:
+	if game == null or not game.has_method("player_damage_profile"):
+		return
+	var profile: Dictionary = game.player_damage_profile()
+	var wp: int = int(profile.get("willpower", 0))
+	var aw: int = int(profile.get("awareness", 0))
+	if wp <= 0 and aw <= 0:
+		return
+	# Scaled off the single best habit, not the board total, so adding towers never makes
+	# this one harder. Otherwise the archetype would punish building, which is the one
+	# thing a tower defence must never do.
+	var bite: int = maxi(1, int(round(float(profile.get("top_damage", 0)) * def.adapt_ratio)))
+	if wp >= aw:
+		current_compulsion += bite
+		adapted_channel = &"willpower"
+	else:
+		current_rationalization += bite
+		adapted_channel = &"awareness"
+	Mirror.mark(&"adapted", adapted_channel)
+
+## Fleeting archetype: the offer closes. No damage, no reward, no kill — the point is
+## that this was ALWAYS what ignoring it would cost. Recorded so the receipt can pair
+## "offers you shot" against "damage they would have done", which is 0.
+func _expire() -> void:
+	if dead:
+		return
+	dead = true
+	Mirror.mark(&"bait_expired", type_key)
+	expired.emit(self)
+	queue_free()
+
+## Autoplay archetype: the deadline passed and the next wave is now on a clock. Latched,
+## so killing it after this changes nothing. Handing it to the game rather than acting
+## here keeps every wave-flow decision in one place.
+func _arm_autoplay() -> void:
+	if _autoplay_fired:
+		return
+	_autoplay_fired = true
+	_autoplay_left = -1.0
+	Mirror.mark(&"autoplay_armed", type_key)
+	if game != null and game.has_method("arm_autoplay"):
+		game.arm_autoplay(def.autoplay_grace)
+
+## Splitter archetype: leave smaller copies behind. Called from _die() AFTER the defeat
+## signals, so the parent is already off the live list and the wave-progress check sees
+## the children as the reason the wave has not ended — rather than briefly seeing an
+## empty field and declaring the wave clear.
+func _split() -> void:
+	if def.split_count <= 0 or generation >= def.split_generations:
+		return
+	if game == null or not game.has_method("spawn_split"):
+		return
+	for i: int in range(def.split_count):
+		game.spawn_split(self, i)
+
 func _die() -> void:
 	if dead:
 		return
@@ -471,6 +603,7 @@ func _die() -> void:
 	# the corpse would still count as "on field".
 	defeated.emit(self)
 	SignalBus.distraction_defeated.emit(self, def.dopamine_reward)
+	_split()
 
 	# With death art, the node lingers just long enough to play it out. It is already
 	# `dead`, so nothing targets it, it deals no damage and it does not move.
@@ -498,6 +631,29 @@ func _reach_core() -> void:
 
 func _draw() -> void:
 	var r: float = def.radius
+
+	# Deadline tells. Both archetypes are only fair if the clock is VISIBLE — a
+	# limited-time offer the player cannot see expiring teaches nothing, and an autoplay
+	# that steals the build phase without warning is a punishment rather than a threat.
+	# Drawn as a depleting ground arc (PixelDraw.arc is already 2:1, so it reads as a
+	# ring on the floor in isometry rather than a flat circle pasted over the body).
+	if _life_left > 0.0 and def.lifetime_seconds > 0.0:
+		var left: float = clampf(_life_left / def.lifetime_seconds, 0.0, 1.0)
+		PixelDraw.arc(self, Vector2(0.0, r * 0.35), r * 1.7,
+			Color(1.0, 0.78, 0.25, 0.75), 1.0, 2.0, -PI * 0.5, -PI * 0.5 + TAU * left)
+	# Comparison tell: a closed ring in the colour of the channel it learned. Solid
+	# rather than depleting, because unlike the two below it this is not a countdown —
+	# it is a fact about this body that was already true when it arrived.
+	if adapted_channel != &"":
+		var chan_col := Color(0.45, 0.72, 1.0, 0.7) if adapted_channel == &"willpower" 			else Color(1.0, 0.85, 0.35, 0.7)
+		PixelDraw.arc(self, Vector2(0.0, r * 0.35), r * 1.5, chan_col, 1.0, 2.4)
+	if _autoplay_left > 0.0 and def.autoplay_seconds > 0.0:
+		var run: float = clampf(_autoplay_left / def.autoplay_seconds, 0.0, 1.0)
+		# Reddens as it charges: this one is counting UP to something bad, unlike the
+		# offer above, which is counting down to nothing.
+		PixelDraw.arc(self, Vector2(0.0, r * 0.35), r * 1.7,
+			Color(1.0, 0.35 + run * 0.4, 0.3, 0.8), 1.0, 2.0,
+			-PI * 0.5, -PI * 0.5 + TAU * (1.0 - run))
 
 	# Disruptor tells, drawn regardless of which body renderer is active: a radius ring
 	# that brightens as the ping charges, and the ping line itself when it fires. The

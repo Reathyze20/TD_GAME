@@ -21,3 +21,5 @@ break_long = 5.0
 color = "1166ee"
 projectile_color = "77aaff"
 impulse = 0.6
+has_own_pedestal = true
+head_aims = false

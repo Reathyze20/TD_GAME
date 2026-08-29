@@ -107,6 +107,88 @@ func play(cue: StringName) -> void:
 	_players[0].volume_db = _volume_db.get(cue, -6.0)
 	_players[0].play()
 
+## The cue chime, scaled by how much the flash has come to mean (GameState.conditioning).
+##
+## Volume rather than pitch on purpose: pitch is the kill sound's channel (novelty) and
+## sharing an output is what makes a game feel muddy. A well-conditioned cue is simply
+## LOUDER — it takes up more of the room, which is exactly what it does in a head.
+func play_cue(strength: float) -> void:
+	var t: float = clampf(strength, 0.0, 1.0)
+	play(&"cue")
+	# play() already picked a player and started it; nudge the one that just began.
+	for p in _players:
+		if p.playing and p.stream == _streams.get(&"cue"):
+			p.volume_db = float(_volume_db.get(&"cue", -6.0)) + lerpf(-7.0, 3.0, t)
+			return
+
+# ---------------------------------------------------------------- surprise-scaled defeat
+#
+# ONE SYSTEM, ONE SENSE. The kill sound belongs to NOVELTY and nothing else touches
+# it; Tolerance owns colour and saturation, Burnout owns the camera. Sharing an output
+# between two systems is what makes a game feel muddy — the player can tell something
+# changed but never what caused it, and a lesson they cannot attribute is not a lesson.
+#
+# So this rides reward PREDICTION ERROR, not downregulation. Schultz: a fully predicted
+# reward produces no dopamine response at all. The twentieth kill by the same habit is
+# a dull thud not because the player has been abusing anything, but because their brain
+# already knew it was coming. The first kill by a habit they just built is bright again,
+# instantly, even at high Tolerance.
+#
+# That asymmetry is the whole design: building something NEW feels alive and is weaker,
+# upgrading what already works is correct and progressively silent. The pull toward the
+# new button — against the player's own interest, while they can see the numbers — is
+# the lesson, and nothing has to say it out loud.
+#
+# Implementation: two pre-rendered cues (defeat_bright / defeat_dull) crossfaded by how
+# worn the killing habit is, with pitch and volume scaled so it is continuous rather
+# than a hard switch.
+
+## Call this instead of play() for a kill. `surprise` is GameState.surprise_of(killer):
+## 1.0 for a habit that has never scored, falling toward SURPRISE_FLOOR as it repeats.
+func play_defeat(surprise: float) -> void:
+	# 0.0 = never seen this before, 1.0 = completely worn out. Normalised against the
+	# floor so a veteran habit lands at full dullness rather than three quarters of it.
+	var t: float = clampf(inverse_lerp(1.0, GameState.SURPRISE_FLOOR,
+		clampf(surprise, GameState.SURPRISE_FLOOR, 1.0)), 0.0, 1.0)
+
+	# Below 0.4 worn: bright chime. Above 0.6: dull thud. Between: random mix.
+	var cue: StringName
+	if t < 0.4:
+		cue = &"defeat_bright"
+	elif t > 0.6:
+		cue = &"defeat_dull"
+	else:
+		cue = &"defeat_bright" if randf() > (t - 0.4) / 0.2 else &"defeat_dull"
+
+	if not _streams.has(cue):
+		return
+	var now: int = Time.get_ticks_msec()
+	if now - int(_last_ms.get(cue, -99999)) < int(float(_min_gap.get(cue, 0.04)) * 1000.0):
+		return
+	_last_ms[cue] = now
+
+	# Volume: base dB scaled down by juice loss. Pitch: slightly detuned + flattened.
+	var db: float = _volume_db.get(cue, -6.0) + lerpf(0.0, -10.0, t)
+	var pitch: float = randf_range(0.97, 1.03) * lerpf(1.0, 0.72, t)
+
+	for p in _players:
+		if not p.playing:
+			p.stream = _streams[cue]
+			p.volume_db = db
+			p.pitch_scale = pitch
+			p.play()
+			return
+	_players[0].stream = _streams[cue]
+	_players[0].volume_db = db
+	_players[0].pitch_scale = pitch
+	_players[0].play()
+
+## Returns the juice factor (1.0 = full satisfaction, ~0.15 = numb) for the given
+## tolerance ratio. Other systems (particles, screenshake) use this to stay in sync
+## with the sound degradation so the whole game feel dims together.
+static func juice_factor(tolerance_ratio: float) -> float:
+	return lerpf(1.0, 0.15, clampf(tolerance_ratio, 0.0, 1.0))
+
 # ---------------------------------------------------------------- synthesis
 
 func _build_streams() -> void:
@@ -154,6 +236,36 @@ func _build_streams() -> void:
 	# click — a tiny tick for every button; barely there, but the UI stops feeling numb.
 	_add(&"click", 0.03, -14.0, 0.03,
 		func(t: float) -> float: return 0.30 * sin(TAU * 1150.0 * t))
+
+	# cue — the conditioned signal. Deliberately the most DISTINCTIVE two notes in the
+	# set and never used for anything else, because the entire mechanic depends on the
+	# player learning it without noticing they learned it (game.gd:_fire_cue).
+	#
+	# It precedes every real reward for the first two levels, then starts firing empty.
+	# Pavlov, then Schultz: the dopamine response migrates backwards from the reward
+	# onto whatever reliably predicts it, which is why an app icon works on you and the
+	# content behind it does not have to.
+	_add(&"cue", 0.13, -9.0, 0.12,
+		func(t: float) -> float:
+			var note := 1567.98 if t < 0.05 else 2093.0  # G6 → C7, a doorbell-bright pair
+			return 0.30 * sin(TAU * note * t) + 0.10 * sin(TAU * note * 2.0 * t))
+
+	# defeat_bright — a rising two-note chime with stacked harmonics: the satisfying
+	# kill sound at clean (low-tolerance) play. Bright, clear, the kind of ding that
+	# makes you want another. This is what downregulation takes away.
+	_add(&"defeat_bright", 0.18, -7.0, 0.04,
+		func(t: float) -> float:
+			var note := 880.0 if t < 0.07 else 1174.7  # A5 → D6 (ascending = reward)
+			return 0.35 * sin(TAU * note * t) \
+				+ 0.20 * sin(TAU * note * 2.0 * t) \
+				+ 0.10 * sin(TAU * note * 3.0 * t))
+
+	# defeat_dull — a short, low, muffled thump: the same event heard through the fog
+	# of high Tolerance. No harmonics, no sparkle — just a dead weight landing. The
+	# player does not need to be told the game is less fun; they can hear it.
+	_add(&"defeat_dull", 0.10, -10.0, 0.04,
+		func(t: float) -> float:
+			return 0.40 * _chirp(t, 180.0, 90.0, 0.10))
 
 ## Renders one cue: generator -> attack/release envelope -> 16-bit mono WAV.
 func _add(cue: StringName, duration: float, db: float, min_gap: float,

@@ -113,8 +113,34 @@ const TERRAIN_ART_PX := 16
 ## Every creature, defender and tower head used to hardcode 2.0 in three separate files
 ## while the ground ran at 3.0. They all ask here now, so the world cannot drift apart
 ## again: move GRID.tile or TERRAIN_ART_PX and the art follows on its own.
+## Preview-only override for pixel_scale(), driven by _shot_flat.gd to render side-by-
+## side comparison screenshots at candidate iso scales without touching the real
+## formula. -1 = disabled (the shipped path below). Never set outside a screenshot
+## harness — this is a rendering knob for humans to look at, not a gameplay setting.
+static var pixel_scale_override := -1.0
+
+## Decided 2026-08-20 against the isometric field: GRID.tile / TERRAIN_ART_PX (2.0x) was
+## inherited from the flat top-down grid it was tuned for and oversized every character
+## against the 64x32 iso diamond — a real enemy sprite stood taller than a wall block.
+## 1.0x was picked from a side-by-side sweep (scripts/_shot_flat.gd, candidates 2.0 /
+## 1.5 / 1.25 / 1.0 with a real enemy and a real tower in the same shot) over the other
+## candidates, which still crowded the tile.
+##
+## This DROPS the GRID.tile/TERRAIN_ART_PX formula as the live default — it stays below,
+## commented, because "move GRID.tile or TERRAIN_ART_PX and the art follows" was the
+## right idea for a project with one grid, and this project no longer has just one: the
+## flat top-down levels (level_1/level_2) this formula was tuned for are currently
+## unplayable pending their own migration (see docs/design/dopamine_mechanics.md §13),
+## so nothing today actually needs the old 2.0x. If a flat, non-isometric level ever
+## becomes playable again wanting its own art scale, this needs a level-aware answer
+## instead of a single global constant — not a reason to guess one now.
+const ISO_PIXEL_SCALE := 1.0
+
 static func pixel_scale() -> float:
-	return maxf(1.0, floorf(float(GRID["tile"]) / float(TERRAIN_ART_PX)))
+	if pixel_scale_override > 0.0:
+		return pixel_scale_override
+	return ISO_PIXEL_SCALE
+	# return maxf(1.0, floorf(float(GRID["tile"]) / float(TERRAIN_ART_PX)))  # pre-iso formula
 
 # UI display order — not gameplay balance data, so these stay plain id lists here
 # rather than becoming their own Resource type.

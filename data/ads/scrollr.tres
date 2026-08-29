@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="AdData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/ad_data.gd" id="1_ad"]
+
+[resource]
+script = ExtResource("1_ad")
+id = &"scrollr"
+headline = "SCROLLR"
+subline = "10,000 hours of video.
+Never be bored again."
+stars = "4.9 ★  (2,300,411)"
+cta_text = "GET SCROLLR — FREE"
+color_a = Color(0.1, 0.1, 0.12, 1)
+color_b = Color(0.35, 0.05, 0.5, 1)
+emoji = "📱"
+x_size_px = 26
+x_delay = 1.0
+countdown_lies = true
+payload_dopamine = 18
+payload_tolerance = 6.0
+payload_craving = 14.0
+wave = 5

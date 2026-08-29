@@ -4,6 +4,10 @@ extends Node2D
 var bg_texture: Texture2D = null
 var _spawn_marker_tex: Texture2D = null
 var _goal_marker_tex: Texture2D = null
+## Kreslene jadro (assets/terrain/iso/props/core.png). Kdyz existuje, nahradi jak maly
+## podstavec, tak vektorove kruhy uvnitr -- prstence kolem nej ale zustavaji, protoze
+## nesou stav (zbyvajici Focus, tempo zasahu), ktery sprite ukazat neumi.
+var _core_prop_tex: Texture2D = null
 
 # Core gameplay (maze TD). Attach to the root Node2D of Game.tscn.
 # HIGH GROUND cells are fixed terrain that BLOCK movement AND are the only spots
@@ -26,6 +30,16 @@ var astar: AStarGrid2D
 var objective_cell: Vector2i
 var objective_pos: Vector2
 var high_ground := {}            # Vector2i -> true (blocking + buildable)
+## The lane network AS IT IS RIGHT NOW — starts as level.path_cells and grows when a
+## trod opens (see _open_trod).
+##
+## Deliberately separate from `level.path_cells` rather than appended to it. `level` is
+## already a deep duplicate, so writing into it would be safe; keeping it read-only is
+## about not confusing two different questions. `level.path_cells` answers "what did the
+## designer paint", this answers "where does the horde prefer to walk right now", and
+## _build_field rebuilds the second from the first. The sinking-walls spike below does
+## mutate `level.high_ground` and consequently has to remember to put every cell back.
+var lane_cells := {}             # Vector2i -> true
 var build_spots: Dictionary = {} # Vector2i -> BuildSpot
 var spawn_zone_cells: Array = [] # Array[Array[Vector2i]] — open cells per zone
 var decor_layer: DecorLayer = null
@@ -112,6 +126,7 @@ var _hud_layer: CanvasLayer
 ## they all inherit UI.theme() instead of styling themselves one property at a time.
 var _hud_root: Control
 var _dopamine_label: Label
+var _streak_label: Label
 var _insight_label: Label
 var _rush_label: Label
 var _bandwidth_label: Label
@@ -190,12 +205,13 @@ func _ready() -> void:
 		_spawn_marker_tex = load("res://assets/markers/spawn_portal.png")
 	if ResourceLoader.exists("res://assets/markers/goal_core.png"):
 		_goal_marker_tex = load("res://assets/markers/goal_core.png")
+	if ResourceLoader.exists("res://assets/terrain/iso/props/core.png"):
+		_core_prop_tex = load("res://assets/terrain/iso/props/core.png")
 	level = Data.get_level(GameState.current_level_index)
 	level = level.duplicate(true)
-	if level.id == 99:
-		fog_enabled = false
-		shadow_enabled = false
-		routine_gates_enabled = false
+	fog_enabled = level.fog
+	shadow_enabled = level.shadows
+	routine_gates_enabled = level.routine_gates
 	level.waves = Data.build_waves(level)
 	# Perks mutate the level's Focus/Dopamine, so they must land on this duplicate BEFORE
 	# GameState snapshots it — and on the duplicate, never on Data's shared resource.
@@ -207,6 +223,8 @@ func _ready() -> void:
 	between_waves = true
 	started = false
 	wave_index = 0
+	_autoplay_left = -1.0   # a theft armed on the previous level must not follow you here
+	_effort_offered = false
 	entities = Node2D.new()
 	entities.name = "Entities"
 	entities.y_sort_enabled = true
@@ -226,15 +244,27 @@ func _ready() -> void:
 	_build_field()
 	_build_fog_layer()
 	_build_shadow_light_layer()
+	# The occluder geometry the lights cast against. This call was MISSING: the builder,
+	# its layer, its counter and _apply_shadow_enabled's visibility toggle all existed,
+	# but nothing ever ran it — so every lamp lit straight through every wall and
+	# _test_shadow_occlusion could never find a blocked sample. Must come after
+	# _build_field(), which is what fills high_ground.
+	_build_shadow_occluders()
 	_build_glitch_overlay()
 	_build_hud()
 
 	SignalBus.game_over.connect(_on_bus_game_over)
 	GameState.defeat_reward_granted.connect(_on_defeat_reward_granted)
+	GameState.satisfaction_changed.connect(_on_satisfaction_changed)
 	# Designer runs never open the log: every RunLog method no-ops until begin() is
 	# called, and a run with F1 money in it would poison the balance dataset.
 	if not GameState.designer_mode:
 		_run_log.begin("Level_%02d" % (GameState.current_level_index + 1))
+	# Same designer rule, enforced inside Mirror: cheat keys would make every number on
+	# the receipt a lie, and the receipt's credibility is the whole product.
+	Mirror.begin_level(level.id)
+	# After _build_hud(): the cue and the offer panel hang off _hud_root.
+	_setup_attention()
 	SignalBus.level_started.emit(level.id)
 
 	# The initial build phase is entered before the HUD exists, so the first preview
@@ -297,6 +327,11 @@ func _build_field() -> void:
 		bs.setup(self, cell)
 		build_spots[cell] = bs
 
+	lane_cells = {}
+	for c: Vector2i in level.path_cells:
+		lane_cells[c] = true
+	_trods_open = {}
+
 	_build_platforms()
 	_apply_path_weights()
 	_build_path_layer()
@@ -314,6 +349,7 @@ func _build_field() -> void:
 			spawn_zone_cells.append(cells)
 
 	_build_background_layer()
+	_build_camera()
 	if _static_overlay != null and is_instance_valid(_static_overlay):
 		_static_overlay.queue_free()
 	_static_overlay = StaticOverlay.new()
@@ -323,18 +359,22 @@ func _build_field() -> void:
 	_compute_path_previews()
 
 ## Makes the designer's painted lanes actually attract the horde.
+##
+## Sets the weight on EVERY cell, not just the off-lane ones. It used to skip lane cells
+## on the assumption they were still at their default 1.0 — true when this ran once at
+## level start, false the moment a trod opens and re-runs it: cells that just became
+## lane would have kept the off-lane penalty they were given the first time, and the new
+## route would have been ignored by the very pathfinder it was built for.
 func _apply_path_weights() -> void:
-	if level.path_cells.is_empty() or level.path_off_lane_cost <= 1.0:
+	if lane_cells.is_empty() or level.path_off_lane_cost <= 1.0:
 		return
 	var g = Data.GRID
-	var lane := {}
-	for c: Vector2i in level.path_cells:
-		lane[c] = true
 	for y in range(int(g.rows)):
 		for x in range(int(g.cols)):
 			var c := Vector2i(x, y)
-			if not lane.has(c) and astar.is_in_bounds(c.x, c.y):
-				astar.set_point_weight_scale(c, level.path_off_lane_cost)
+			if astar.is_in_bounds(c.x, c.y):
+				astar.set_point_weight_scale(
+					c, 1.0 if lane_cells.has(c) else level.path_off_lane_cost)
 
 func _build_background_layer() -> void:
 	var plate := ColorRect.new()
@@ -376,9 +416,17 @@ const WALL_FACE_H := 24
 ##
 ## Only the southern rim of a wall mass gets a face — a cell with solid ground below it
 ## is looking at its neighbour, not at open floor.
-const WALL_HEIGHT := 48.0
+## 32, not the old 48, because the drawn terrace block (see _build_terrace_blocks) has
+## walls exactly one tile height tall — measured on the kit, not chosen. Everything that
+## needs to stand on a plateau reads this one constant (base_habit.gd:72 sets _iso_lift
+## from it, and the hover preview at _draw_placement_preview uses it), so the art and
+## the things standing on it cannot drift apart.
+const WALL_HEIGHT := 32.0
+var _wall_nodes: Array[Node2D] = []
 const WALL_MATERIAL_PATH := "res://assets/iso_pilot/wall_material.png"
 const WALL_FALLBACK_PATH := "res://assets/iso_pilot/wall_material_placeholder.png"
+const TERRACE_BLOCK_PATH := "res://assets/terrain/iso/terrace/block.png"
+const TERRACE_CAP_PATH := "res://assets/terrain/iso/terrace/cap.png"
 
 class IsoWallSegment extends Node2D:
 	var pts: PackedVector2Array
@@ -428,9 +476,27 @@ class IsoTopSegment extends Node2D:
 		draw_polygon(pts, PackedColorArray([tint]), uvs, tex)
 
 
+## Iso walls, as y-sorted objects in `entities` rather than a background layer — a unit
+## north of a wall must draw behind it. Nodes are TRACKED in _wall_nodes (rather than
+## just parented and forgotten) so the set can be rebuilt when the maze changes shape:
+## the sinking-walls spike erodes a block at runtime and the art has to follow.
+##
+## They stay DIRECT children of `entities`; a grouping container would sort as one unit
+## and every segment inside it would share a single depth.
 func _build_wall_segments() -> void:
 	if level == null:
 		return
+	for n in _wall_nodes:
+		if is_instance_valid(n):
+			n.queue_free()
+	_wall_nodes.clear()
+	# Drawn terrace block (PixelLab building kit) if installed, else the old
+	# code-drawn parallelograms. See _spawn_terrace_block for why the drawn kit is
+	# allowed to supply geometry here when docs/art/iso_bible.md §5 otherwise forbids it.
+	if ResourceLoader.exists(TERRACE_BLOCK_PATH) and ResourceLoader.exists(TERRACE_CAP_PATH):
+		_build_terrace_blocks()
+		return
+
 	var mat_path := WALL_MATERIAL_PATH if ResourceLoader.exists(WALL_MATERIAL_PATH) else WALL_FALLBACK_PATH
 	if not ResourceLoader.exists(mat_path):
 		return
@@ -460,6 +526,7 @@ func _build_wall_segments() -> void:
 		top.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		top.position = pos
 		entities.add_child(top)
+		_wall_nodes.append(top)
 
 		# South-East face (facing down-right) exposed when c + (1, 0) is not solid
 		if not solid.has(c + Vector2i(1, 0)):
@@ -476,6 +543,120 @@ func _build_wall_segments() -> void:
 			_spawn_wall_segment(pos, Vector2(0.0, -th * 0.5), Vector2(-tw * 0.5, 0.0), tex, 0.72)
 
 
+## One drawn block per solid cell, y-sorted, back to front.
+##
+## WHY THE GENERATOR IS ALLOWED TO SUPPLY GEOMETRY HERE
+##
+## docs/art/iso_bible.md §5 says the generator supplies material and the code supplies
+## shape, because two independently-generated pieces never agree on a shared edge (the
+## pilot measured 3px of drift). A building KIT is the documented exception and it was
+## verified by measurement, not by opinion: every piece is drawn against one lattice on
+## one shared 102x83 canvas, and the floor diamond measures 64x33 widening exactly 4px
+## per row — a grid-exact 2:1 diamond. (`create_tiles_pro` is NOT: its diamonds came
+## back 64x28..30 with ragged widths and tiled with visible holes.)
+##
+## No neighbour test is needed. Drawing a full block on every solid cell would leave
+## interior walls showing, except that the cell in FRONT (higher x+y, so drawn later)
+## covers exactly the parallelogram its neighbour's wall occupies. Only the walls on
+## the real edge of the mass survive — the sort does the culling for free.
+## Stín, který terasa vrhá na podlahu — v ISO prostoru.
+##
+## PROČ NOVÁ TŘÍDA A NE `WallShadow`
+##
+## `WallShadow` je psaná pro čtvercovou mřížku: slučuje vodorovné běhy buněk a kreslí
+## `draw_rect`. Na kosočtvercové desce by z toho byly obdélníky ležící napříč mřížkou.
+## Tohle je táž myšlenka přeložená do iso — místo obdélníku kosočtverec, místo „jižní
+## hrany" posun o buňku ve směru, kam padá stín.
+##
+## PROČ TO TEPRVE TEĎ DÁVÁ SMYSL
+##
+## Dokud měla podlaha texturu, stín na ní nebyl k rozeznání od vzoru — playtest 18. 8.
+## přesně to řekl o Light2D verzi („textury čtou jako rozbité", docs/core/15). Na ploché
+## podlaze je to naopak JEDINÁ věc, která říká, že blok na zemi stojí a neplave nad ní.
+## Ploché plochy čtou jako těleso díky vrženému stínu, ne díky textuře.
+##
+## Směr: bible má světlo ZLEVA (levý bok terasy 70 %, pravý 45 %), takže stín padá
+## doprava — v naší mřížce +x, což je na obrazovce doprava dolů. Kdyby se to někdy
+## otočilo, musí se otočit obojí naráz, jinak si blok a jeho stín odporují.
+class TerraceShadow extends Node2D:
+	## buňka -> průhlednost. Dva kroky místo přechodu: plochý styl nemá gradienty.
+	var steps: Dictionary = {}
+
+	func _draw() -> void:
+		var g = Data.GRID
+		var tw: float = float(g.get("tile_w", 64))
+		var th: float = float(g.get("tile_h", 32))
+		# Studený a průsvitný, nikdy černý — neutrálně černý stín čte jako díra v desce,
+		# modře posunutý jako stín. Převzato z WallShadow, kde to stálo playtest.
+		for cell: Vector2i in steps:
+			var p: Vector2 = Data.cell_center(cell)
+			draw_colored_polygon(PackedVector2Array([
+				p + Vector2(0.0, -th * 0.5),
+				p + Vector2(tw * 0.5, 0.0),
+				p + Vector2(0.0, th * 0.5),
+				p + Vector2(-tw * 0.5, 0.0)
+			]), Color(0.016, 0.027, 0.063, float(steps[cell])))
+
+
+## Kolik buněk daleko stín dosáhne a jak silný je v každém kroku. První krok zhruba
+## odpovídá výšce boku terasy (33 px proti posunu o buňku, tedy 32×16 px), druhý je jen
+## doznění, aby hrana nebyla useknutá.
+const TERRACE_SHADOW_STEPS := [0.55, 0.26]
+const TERRACE_SHADOW_DIR := Vector2i(1, 0)
+
+func _build_terrace_shadow(solid: Dictionary) -> void:
+	var steps := {}
+	for c: Vector2i in solid:
+		for i in range(TERRACE_SHADOW_STEPS.size()):
+			var t: Vector2i = c + TERRACE_SHADOW_DIR * (i + 1)
+			# Na buňku, kde stojí další blok, se stín kreslit nemá — zakryje ho, a kdyby
+			# se dvě průhledné vrstvy překryly, vznikly by tmavší fleky uvnitř masivu.
+			if solid.has(t) or not _in_bounds(t):
+				continue
+			if not steps.has(t) or float(steps[t]) < TERRACE_SHADOW_STEPS[i]:
+				steps[t] = TERRACE_SHADOW_STEPS[i]
+	if steps.is_empty():
+		return
+	var sh := TerraceShadow.new()
+	sh.name = "TerraceShadow"
+	sh.steps = steps
+	sh.z_index = Z_WALL_SHADOW
+	add_child(sh)
+	_wall_nodes.append(sh)
+
+func _build_terrace_blocks() -> void:
+	var block: Texture2D = load(TERRACE_BLOCK_PATH)
+	var cap: Texture2D = load(TERRACE_CAP_PATH)
+
+	# The anchor is DERIVED from the art, never hardcoded. The cap is the kit's plain
+	# floor diamond, so its lowest opaque row is the base diamond's bottom vertex, which
+	# by construction sits tile_h/2 below the cell centre; its horizontal midpoint is the
+	# cell centre. Reading it from the pixels means a future art swap cannot silently
+	# desync placement — the same reasoning as get_used_rect() in iso_pilot.gd, and the
+	# same trap that a hardcoded constant sprang on the first placeholder wall.
+	var used := cap.get_image().get_used_rect()
+	var th: float = float(Data.GRID.get("tile_h", 32))
+	var anchor := Vector2(
+		float(used.position.x) + float(used.size.x) * 0.5,
+		float(used.position.y + used.size.y - 1) - th * 0.5)
+
+	var solid := {}
+	for c: Vector2i in level.high_ground:
+		if c != level.objective:
+			solid[c] = true
+	_build_terrace_shadow(solid)
+
+	for c: Vector2i in solid:
+		var spr := Sprite2D.new()
+		spr.texture = block
+		spr.centered = false
+		spr.offset = -anchor
+		spr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		spr.position = Data.cell_center(c)
+		entities.add_child(spr)
+		_wall_nodes.append(spr)
+
+
 func _spawn_wall_segment(world_pos: Vector2, p1: Vector2, p2: Vector2, tex: Texture2D, shade: float) -> void:
 	var seg := IsoWallSegment.new()
 	seg.pts = PackedVector2Array([
@@ -489,6 +670,7 @@ func _spawn_wall_segment(world_pos: Vector2, p1: Vector2, p2: Vector2, tex: Text
 	seg.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	seg.position = world_pos
 	entities.add_child(seg)
+	_wall_nodes.append(seg)
 
 
 class WallFace extends Node2D:
@@ -913,44 +1095,180 @@ func _build_path_layer() -> void:
 	ts.tile_layout = TileSet.TILE_LAYOUT_DIAMOND_DOWN
 	ts.tile_size = Vector2i(tw, th)
 
-	var floor_tex_paths: Array[String] = [
-		"res://assets/iso_pilot/floor_tile.png",
-		"res://assets/iso_pilot/floor_tile_v2.png",
-		"res://assets/iso_pilot/floor_tile_v3.png"
-	]
-	var floor_sources: Array[int] = []
-	for i in range(floor_tex_paths.size()):
-		var p: String = floor_tex_paths[i]
-		if ResourceLoader.exists(p):
-			var tex: Texture2D = load(p)
-			var src := TileSetAtlasSource.new()
-			src.texture = tex
-			src.texture_region_size = Vector2i(tw, th)
-			src.create_tile(Vector2i.ZERO)
-			ts.add_source(src, i)
-			floor_sources.append(i)
+	# The ground is TWO sets, not one: quiet grey-matter tissue everywhere, and the
+	# dopamine tract on the cells the designer actually painted.
+	#
+	# Until 2026-08-21 this function painted every cell with the same three tiles and
+	# never read `level.path_cells` at all, so the player could not see where the wave
+	# would walk — the most expensive missing information on the board. That was a bug
+	# HERE, not in the art, which is why new tiles alone would not have fixed it.
+	var ground_sources: Array[int] = []
+	var accent_sources: Array[int] = []
+	var next_src := 0
+	for i in range(64):
+		var p := "res://assets/terrain/iso/ground/ground_%02d.png" % i
+		if not ResourceLoader.exists(p):
+			break
+		ground_sources.append(_add_tile_source(ts, p, next_src))
+		next_src += 1
+	# Tiles carrying a lit synapse live in their own pool, installed under a different
+	# name by tools/install_iso_art.py (which classifies them by MEASURING the share of
+	# saturated bright pixels). Two pools exist so accents can be CLUSTERED below —
+	# rolling one mixed pool uniformly is confetti at any ratio, which the top-down board
+	# already proved the expensive way, and which the first iso build reproduced exactly.
+	for i in range(64):
+		var p := "res://assets/terrain/iso/ground/ground_accent_%02d.png" % i
+		if not ResourceLoader.exists(p):
+			break
+		accent_sources.append(_add_tile_source(ts, p, next_src))
+		next_src += 1
 
-	if floor_sources.is_empty():
+	# Fall back to the pilot tiles on an older checkout so the board still draws.
+	if ground_sources.is_empty():
+		for p in ["res://assets/iso_pilot/floor_tile.png",
+				"res://assets/iso_pilot/floor_tile_v2.png",
+				"res://assets/iso_pilot/floor_tile_v3.png"]:
+			if ResourceLoader.exists(p):
+				ground_sources.append(_add_tile_source(ts, p, next_src))
+				next_src += 1
+	if ground_sources.is_empty():
 		return
+
+	# Lane tiles are named by the neighbour MASK they belong to, so there is no
+	# mask -> filename table anywhere to drift out of sync with the files on disk
+	# (tools/install_iso_art.py does the renaming). Bits: 1=N 2=E 4=S 8=W, with
+	# N=(0,-1) E=(1,0) S=(0,1) W=(-1,0) — measured off the single-bit tiles, not
+	# assumed; see docs/art/iso_bible.md.
+	var lane_sources := {}
+	for mask in range(16):
+		var variants: Array[int] = []
+		for suffix in ["", "a", "b"]:
+			var p := "res://assets/terrain/iso/lane/lane_%02d%s.png" % [mask, suffix]
+			if ResourceLoader.exists(p):
+				variants.append(_add_tile_source(ts, p, next_src))
+				next_src += 1
+		if not variants.is_empty():
+			lane_sources[mask] = variants
+	var lane_fill := -1
+	if ResourceLoader.exists("res://assets/terrain/iso/lane/lane_fill.png"):
+		lane_fill = _add_tile_source(ts, "res://assets/terrain/iso/lane/lane_fill.png", next_src)
+		next_src += 1
+
+	var on_lane := lane_cells.duplicate()
+
+	# Ručně vybrané dlaždice: každá použitá textura dostane vlastní zdroj. Načítá se jen
+	# to, co level opravdu používá — ne celý adresář.
+	var override_src := {}
+	if level != null and not level.tile_overrides.is_empty():
+		var by_name := {}
+		for key in level.tile_overrides:
+			var rel := String(level.tile_overrides[key])
+			if not by_name.has(rel):
+				var p := "res://assets/terrain/iso/%s.png" % rel
+				if not ResourceLoader.exists(p):
+					continue
+				by_name[rel] = _add_tile_source(ts, p, next_src)
+				next_src += 1
+			override_src[key] = by_name[rel]
 
 	path_layer = TileMapLayer.new()
 	path_layer.name = "Floor"
 	path_layer.tile_set = ts
 	path_layer.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	path_layer.position = Vector2(g.origin_x, g.origin_y)
+	# PŮL DLAŽDICE DOLEVA, A NENÍ TO KOSMETIKA.
+	#
+	# Godot vrací pro izometrický DIAMOND_DOWN střed dlaždice jako
+	# `((x-y+1)*w/2, (x+y+1)*h/2)`, kdežto kanonický převod hry `Data.cell_center()`
+	# počítá `((x-y)*w/2, (x+y+1)*h/2)`. V ose y se shodují, v ose x se liší o w/2.
+	#
+	# Bez téhle korekce ležela podlaha o 32 px vpravo od VŠEHO ostatního: terasa
+	# (`_build_terrace_blocks` staví na `Data.cell_center`), věže, jádro, nepřátelé
+	# i trasy. Nebylo to vidět, protože podlaha je opakující se textura a posun byl
+	# všude stejný — jenže logická mřížka a vizuální podlaha se rozcházely, což je
+	# tikající bomba pro všechno, co se o polohu buňky opírá: dosah střelby, zásahy,
+	# náhledy stavění, indikátory.
+	#
+	# Změřeno 21. 8. 2026 (`scripts/_probe_align.gd`): rozdíl (32, 0) u každé buňky.
+	path_layer.position = Vector2(g.origin_x - float(tw) * 0.5, g.origin_y)
 	path_layer.z_index = Z_PATH
 	add_child(path_layer)
 
 	var rng := RandomNumberGenerator.new()
 	var seed_val: int = hash(level.id if level != null else 99) ^ 0x9a71
 
+	# Synapse accents are seeded as short STRANDS, not sprinkled per cell: ~6 % of the
+	# tissue in runs of ACCENT_STRAND reads far calmer than the same pixel count spread
+	# evenly, because the eye groups a run into one shape and a sprinkle into noise.
+	# Same constants and same reasoning as the top-down lane accents above.
+	var accent_cells := {}
+	if not accent_sources.is_empty():
+		var arng := RandomNumberGenerator.new()
+		arng.seed = seed_val ^ 0x5A17
+		var field: int = int(g.rows) * int(g.cols)
+		var strands: int = maxi(1, int(float(field) * ACCENT_SHARE / float(ACCENT_STRAND)))
+		for _s in range(strands):
+			var c := Vector2i(arng.randi_range(0, int(g.cols) - 1), arng.randi_range(0, int(g.rows) - 1))
+			var step: Vector2i = [Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1), Vector2i(1, -1)][arng.randi() % 4]
+			for _k in range(arng.randi_range(2, ACCENT_STRAND)):
+				if Data.in_bounds(c) and not on_lane.has(c):
+					accent_cells[c] = true
+				c += step
+
 	for y in range(int(g.rows)):
 		for x in range(int(g.cols)):
 			var cell := Vector2i(x, y)
-			var blk: int = Data.BUILD_BLOCK
-			rng.seed = hash(Vector2i(int(floorf(float(x) / blk)), int(floorf(float(y) / blk)))) ^ seed_val
-			var src_id: int = floor_sources[rng.randi() % floor_sources.size()]
+			var src_id := -1
+			if on_lane.has(cell) and not lane_sources.is_empty():
+				var mask := 0
+				if on_lane.has(cell + Vector2i(0, -1)): mask |= 1
+				if on_lane.has(cell + Vector2i(1, 0)): mask |= 2
+				if on_lane.has(cell + Vector2i(0, 1)): mask |= 4
+				if on_lane.has(cell + Vector2i(-1, 0)): mask |= 8
+				# A lane painted three cells wide makes its interior cells mask 15, and
+				# the mask-15 art is a CROSSROADS with its corners cut away — laid side
+				# by side that punched holes down the middle of the lane. A cell whose
+				# diagonals are lane too is interior, so it takes the solid slab instead.
+				var interior: bool = mask == 15 and lane_fill >= 0 \
+					and on_lane.has(cell + Vector2i(1, 1)) and on_lane.has(cell + Vector2i(-1, -1)) \
+					and on_lane.has(cell + Vector2i(1, -1)) and on_lane.has(cell + Vector2i(-1, 1))
+				if interior:
+					src_id = lane_fill
+				else:
+					var pool: Array = lane_sources.get(mask, lane_sources.get(0, []))
+					if not pool.is_empty():
+						rng.seed = hash(cell) ^ seed_val
+						src_id = pool[rng.randi() % pool.size()]
+			if src_id < 0 and accent_cells.has(cell):
+				rng.seed = hash(cell) ^ seed_val ^ 0x5A17
+				src_id = accent_sources[rng.randi() % accent_sources.size()]
+			if src_id < 0:
+				# Variant rolled per BUILD BLOCK, not per cell: the grid is three times
+				# finer than a build block, so a per-cell roll makes the ground fizz.
+				var blk: int = Data.BUILD_BLOCK
+				rng.seed = hash(Vector2i(int(floorf(float(x) / blk)), int(floorf(float(y) / blk)))) ^ seed_val
+				src_id = ground_sources[rng.randi() % ground_sources.size()]
+			# Ruční přepis vyhrává nad odvozenou dlaždicí. Čistě vzhled — `high_ground`
+			# a `path_cells` rozhodly o zdech a chůzi o kus výš a tohle na ně nesahá.
+			if override_src.has(cell):
+				src_id = override_src[cell]
 			path_layer.set_cell(cell, src_id, Vector2i.ZERO)
+
+
+## Adds one whole PNG as a single-tile atlas source and returns its id.
+##
+## The region is the texture's FULL size, not tile_size: the ground art is a 64x64 canvas
+## carrying a 64x32 diamond plus the slab skirt that hangs into the cell in front. Godot
+## centres an oversized region on the cell, which is exactly what the skirt needs — and
+## that skirt is the whole reason this set tiles at all (measured: 0 enclosed holes,
+## against 1143 for the flat diamonds; see docs/art/iso_bible.md §4).
+func _add_tile_source(ts: TileSet, path: String, id: int) -> int:
+	var tex: Texture2D = load(path)
+	var src := TileSetAtlasSource.new()
+	src.texture = tex
+	src.texture_region_size = tex.get_size()
+	src.create_tile(Vector2i.ZERO)
+	ts.add_source(src, id)
+	return id
 
 func _build_corner_terrain() -> void:
 	var g = Data.GRID
@@ -1074,6 +1392,22 @@ func _draw_static_field(cv: CanvasItem) -> void:
 				pos + Vector2(-tw * 0.5, 0.0)
 			])
 			cv.draw_colored_polygon(diamond, Color(0.9, 0.3, 0.4, 0.18))
+
+	# Telegraf: trod, ktery se otevre PRISTI vlnu. Kresli se v barve pruhu, ale skoro
+	# pruhledne -- ma se to cist jako "tudy to zacina prosvitat", ne jako hotova cesta.
+	# Cela pointa je, aby to hrac videl o vlnu driv a stejne to nestihl zavrit.
+	var soon := pending_trod()
+	if soon != null:
+		for c: Vector2i in soon.cells:
+			if lane_cells.has(c) or high_ground.has(c) or not _in_bounds(c):
+				continue
+			var tp := Data.cell_center(c)
+			cv.draw_colored_polygon(PackedVector2Array([
+				tp + Vector2(0.0, -th * 0.5),
+				tp + Vector2(tw * 0.5, 0.0),
+				tp + Vector2(0.0, th * 0.5),
+				tp + Vector2(-tw * 0.5, 0.0)
+			]), Color(0.85, 0.66, 0.31, 0.16))
 
 	# Tecky po blocich 3x3 v isometricem prostoru
 	var b: int = Data.BUILD_BLOCK
@@ -1886,7 +2220,7 @@ func _draw() -> void:
 	var base_radius := tile * 0.45
 
 	# Podstavec pod jádrem
-	if _goal_marker_tex != null:
+	if _core_prop_tex == null and _goal_marker_tex != null:
 		var gsz := Vector2(_goal_marker_tex.get_size()) * Data.pixel_scale()
 		draw_texture_rect(_goal_marker_tex, Rect2(objective_pos + Vector2(-gsz.x * 0.5, -gsz.y * 0.75), gsz), false)
 	var max_f := float(max(1, level.focus)) if level != null else 30.0
@@ -1925,12 +2259,27 @@ func _draw() -> void:
 		var end_angle := start_angle + (TAU * focus_ratio)
 		PixelDraw.ellipse(self, objective_pos, ring_r, ring_r * 0.5, core_color, 1.0, 1.2, start_angle, end_angle)
 
-	# Main Inner Glowing Core in 2:1 projection squash
-	draw_set_transform(objective_pos, 0.0, Vector2(1.0, 0.5))
-	draw_circle(Vector2.ZERO, base_radius * pulse_scale * 1.2, Color(core_color.r, core_color.g, core_color.b, 0.2))
-	draw_circle(Vector2.ZERO, base_radius * pulse_scale * 0.65, core_color)
-	draw_circle(Vector2.ZERO, base_radius * pulse_scale * 0.3, Color.WHITE)
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	if _core_prop_tex != null:
+		# Drawn core: a gold orb cradled in bone ribs. It replaces the three stacked
+		# circles, but NOT the rings above — those carry state (the arc is remaining
+		# Focus, the wave rate is how hard it is being hit) and a sprite cannot.
+		#
+		# The health colour survives as a TINT rather than as the fill colour, so
+		# "the core goes red when Focus is low" still reads while the art stays art.
+		# Anchored at its feet like every other object on this board, not centred.
+		var csz := Vector2(_core_prop_tex.get_size()) * Data.pixel_scale()
+		var tint := Color.WHITE.lerp(core_color, 0.35)
+		if _glitch_hit > 0.01:
+			tint = tint.lerp(Color.WHITE, minf(1.0, _glitch_hit * 2.0))
+		draw_texture_rect(_core_prop_tex,
+			Rect2(objective_pos + Vector2(-csz.x * 0.5, -csz.y + tile * 0.5), csz), false, tint)
+	else:
+		# Main Inner Glowing Core in 2:1 projection squash
+		draw_set_transform(objective_pos, 0.0, Vector2(1.0, 0.5))
+		draw_circle(Vector2.ZERO, base_radius * pulse_scale * 1.2, Color(core_color.r, core_color.g, core_color.b, 0.2))
+		draw_circle(Vector2.ZERO, base_radius * pulse_scale * 0.65, core_color)
+		draw_circle(Vector2.ZERO, base_radius * pulse_scale * 0.3, Color.WHITE)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 	# Sleek Minimalist Text Label
 	var text_col := core_color.lightened(0.2)
@@ -2067,9 +2416,124 @@ func _draw_wall_layer(ox: int, oy: int, tile: int, thickness: float, offset: Vec
 
 # ---------------------------------------------------------------- input / build / aiming
 
+# ---------------------------------------------------------------- kamera desky
+#
+# Do 21. 8. 2026 hra kameru NEMĚLA a deska se kreslila na pevný počátek. To nebyla
+# nedbalost: mřížka 24x24 dává 1536x768 px, což je přesně tolik, kolik se pod HUD vejde
+# do 1080p. Velikost mapy byla tedy určená velikostí obrazovky.
+#
+# Kamera tenhle strop odstraňuje, ale schválně se chová NEUTRÁLNĚ, dokud je potřeba:
+# když se deska na obrazovku vejde, kamera stojí přesně tam, kde dřív byl pevný pohled,
+# a nedá se s ní hnout. Tím se nezmění ani pixel na stávajících levelech (a screenshotové
+# testy zůstanou platné). Posouvat jde teprve tehdy, když je co posouvat.
+#
+# Mířit a stavět se tím nerozbije: všechna místa v tomhle souboru čtou myš přes
+# `get_global_mouse_position()`, což transformaci kamery zahrnuje. Ověřeno grepem, ne
+# předpokladem — jediné místo se screen-space myší je cue v HUDu, a to je správně.
+const CAM_PAN_SPEED := 900.0     ## px/s klávesnicí
+const CAM_EDGE := 18.0           ## jak blízko u kraje začne obraz ujíždět
+const CAM_EDGE_SPEED := 700.0
+
+var _camera: Camera2D
+var _cam_free := false           ## false = deska se vejde, kamera je zamčená
+var _cam_drag := false
+var _cam_drag_from := Vector2.ZERO
+var _cam_drag_origin := Vector2.ZERO
+
+## Obálka desky ve světových souřadnicích — rohy izometrického kosočtverce.
+func board_bounds() -> Rect2:
+	var g = Data.GRID
+	var cols: float = float(g.cols)
+	var rows: float = float(g.rows)
+	var tw: float = float(g.get("tile_w", 64))
+	var th: float = float(g.get("tile_h", 32))
+	var ox: float = float(g.origin_x)
+	var oy: float = float(g.origin_y)
+	return Rect2(ox - rows * tw * 0.5, oy,
+		(cols + rows) * tw * 0.5, (cols + rows) * th * 0.5)
+
+func _build_camera() -> void:
+	var b := board_bounds()
+	var view: Vector2 = get_viewport_rect().size
+
+	# ŽÁDNÁ KAMERA, KDYŽ SE DESKA VEJDE — a to je záměr, ne zkratka.
+	#
+	# První verze kameru vytvářela vždy a v „zamčeném" režimu ji stavěla na střed
+	# viewportu, což mělo dát tentýž obraz jako dřív. Nedalo: srovnání snímků před a po
+	# ukázalo 6,6 % odlišných pixelů, tedy posun celé desky. Bez kamery je plátno
+	# identita a shoda je zaručená, ne dopočítaná — takže se stávající levely ani
+	# screenshotové testy nemají o co rozbít.
+	if b.size.x <= view.x and b.size.y <= view.y:
+		_cam_free = false
+		return
+
+	_camera = Camera2D.new()
+	_camera.name = "BoardCamera"
+	add_child(_camera)
+	_camera.make_current()
+	_cam_free = true
+	_camera.position = b.position + b.size * 0.5
+	# Meze drží POHLED uvnitř desky, ne střed kamery — Godot si okraje odečte sám.
+	_camera.limit_left = int(b.position.x)
+	_camera.limit_top = int(b.position.y)
+	_camera.limit_right = int(b.position.x + b.size.x)
+	_camera.limit_bottom = int(b.position.y + b.size.y)
+
+func _update_camera(delta: float) -> void:
+	if _camera == null or not _cam_free or _cam_drag:
+		return
+	var move := Vector2.ZERO
+	if Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT):
+		move.x -= 1.0
+	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT):
+		move.x += 1.0
+	if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP):
+		move.y -= 1.0
+	if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN):
+		move.y += 1.0
+	if move != Vector2.ZERO:
+		_camera.position += move.normalized() * CAM_PAN_SPEED * delta
+		return
+
+	# Okrajové posouvání jen když je okno aktivní — jinak by obraz ujížděl pokaždé,
+	# co uživatel odjede myší na druhý monitor.
+	if not DisplayServer.window_is_focused():
+		return
+	var m: Vector2 = get_viewport().get_mouse_position()
+	var view: Vector2 = get_viewport_rect().size
+	var edge := Vector2.ZERO
+	if m.x <= CAM_EDGE: edge.x -= 1.0
+	elif m.x >= view.x - CAM_EDGE: edge.x += 1.0
+	if m.y <= CAM_EDGE: edge.y -= 1.0
+	elif m.y >= view.y - CAM_EDGE: edge.y += 1.0
+	if edge != Vector2.ZERO:
+		_camera.position += edge.normalized() * CAM_EDGE_SPEED * delta
+
+func _camera_input(event: InputEvent) -> bool:
+	if _camera == null or not _cam_free:
+		return false
+	# Prostřední tlačítko: levé staví a zamyká mířidla, pravé ruší — obě jsou zabraná.
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_MIDDLE:
+		_cam_drag = event.pressed
+		if _cam_drag:
+			_cam_drag_from = get_viewport().get_mouse_position()
+			_cam_drag_origin = _camera.position
+		return true
+	if _cam_drag and event is InputEventMouseMotion:
+		_camera.position = _cam_drag_origin \
+			- (get_viewport().get_mouse_position() - _cam_drag_from)
+		return true
+	return false
+
 func _unhandled_input(event: InputEvent) -> void:
+	if _camera_input(event):
+		return
 	if game_ended:
 		return
+	# Any input at all resets the hands-off hold. Mouse MOTION deliberately counts: the
+	# finale asks the player to stop touching the game, not to stop clicking it.
+	if event is InputEventMouse or event is InputEventKey:
+		_note_input()
 
 	if event is InputEventKey and event.pressed and not event.echo:
 		if GameState.designer_mode and _handle_designer_key(event.keycode):
@@ -2101,13 +2565,13 @@ func _unhandled_input(event: InputEvent) -> void:
 
 		if is_aiming:
 			if event.button_index == MOUSE_BUTTON_WHEEL_UP:
-				aiming_habit.set_arc_angle(clampf(aiming_habit.arc_angle + 10.0, ArcProfile.ARC_MIN, ArcProfile.ARC_MAX))
+				aiming_habit.set_arc_angle(clampf(aiming_habit.arc_angle + aim_step(), ArcProfile.ARC_MIN, ArcProfile.ARC_MAX))
 				aiming_habit.queue_redraw()
 				queue_redraw()
 				get_viewport().set_input_as_handled()
 				return
 			elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-				aiming_habit.set_arc_angle(clampf(aiming_habit.arc_angle - 10.0, ArcProfile.ARC_MIN, ArcProfile.ARC_MAX))
+				aiming_habit.set_arc_angle(clampf(aiming_habit.arc_angle - aim_step(), ArcProfile.ARC_MIN, ArcProfile.ARC_MAX))
 				aiming_habit.queue_redraw()
 				queue_redraw()
 				get_viewport().set_input_as_handled()
@@ -2239,6 +2703,9 @@ func _handle_hotkey() -> bool:
 		elif _draft_overlay == null or not is_instance_valid(_draft_overlay):
 			_open_pause_menu()
 		return true
+	if Input.is_action_just_pressed("td_auto_aim"):
+		toggle_auto_aim()
+		return true
 	if Input.is_action_just_pressed("td_start_wave"):
 		if between_waves and not _start_wave_button.disabled:
 			_on_start_wave_pressed()
@@ -2322,7 +2789,47 @@ func _handle_designer_key(keycode: int) -> bool:
 		KEY_F4:
 			_designer_clear_wave()
 			return true
+		KEY_F5:
+			_designer_nudge_tolerance(-20.0)
+			return true
+		KEY_F6:
+			_designer_nudge_tolerance(20.0)
+			return true
+		KEY_F8:
+			# Otevre dalsi cekajici trod hned, misto abys musel dohrat do jeho vlny.
+			# Ze stejneho duvodu jako F4 "clear wave": otazka "jak se level chova, kdyz
+			# se cesta zmeni" se ma dat polozit za pet vterin, ne za pet vln.
+			var next_i := -1
+			for i in range(level.trods.size()):
+				if level.trods[i] != null and not _trods_open.has(i):
+					next_i = i
+					break
+			if next_i < 0:
+				_flash("Designer: zadny dalsi trod", Color("ffb454"))
+				return true
+			_trods_open[next_i] = true
+			_open_trod(level.trods[next_i])
+			if _static_overlay != null and is_instance_valid(_static_overlay):
+				_static_overlay.queue_redraw()
+			return true
+		KEY_F7:
+			sinking_walls = not sinking_walls
+			if not sinking_walls and _sunk:
+				_set_sunk(false)
+			_flash("Designer: sinking walls %s" % ("ON" if sinking_walls else "off"),
+				Color("ffb454"))
+			return true
 	return false
+
+## Sweeps Tolerance by hand. The reason this exists: Tolerance is the input to three
+## different things a person can only judge by LOOKING — the flatten shader, the Quick
+## Hit escalation, and the sinking-walls spike — and on levels where Quick Hit is off
+## (the iso slice) there is otherwise no way to move it at all, so none of them can be
+## eyeballed without editing a .tres and relaunching.
+func _designer_nudge_tolerance(delta_t: float) -> void:
+	GameState.set_tolerance(GameState.tolerance + delta_t)
+	_flash("Designer: Tolerance %d%%%s" % [int(GameState.tolerance),
+		"  ·  structure eroded" if _sunk else ""], Color("ffb454"))
 
 ## Kills every distraction on the field via the shield-bypassing damage channel, so even
 ## a boss goes down. Defeat signals fire normally — the wave completes, rewards pay out —
@@ -2956,6 +3463,11 @@ func _start_wave() -> void:
 		return
 	var wave: WaveData = level.waves[wave_index]
 	GameState.set_wave(wave_index + 1)
+	# Counted per WAVE rather than per toggle: "you turned it on twice" says nothing,
+	# "six of nine waves aimed themselves" is the finding.
+	if auto_aim_active():
+		Mirror.mark(&"auto_aim_wave")
+	GameState.begin_wave_streak_window()
 	# Lean wave ("no cash"): defeats pay nothing until the wave clears. The preview
 	# already warned; the flash + hint land the point the moment it becomes real.
 	GameState.lean_wave_active = (wave_index + 1) in level.lean_waves
@@ -2963,8 +3475,22 @@ func _start_wave() -> void:
 		if _hints != null:
 			_hints.show_hint("first_lean")
 		_flash("Wave %d — LEAN: defeats pay no Dopamine" % (wave_index + 1), UI.DANGER)
+	elif (wave_index + 1) in level.bait_waves:
+		_announce_bait_wave()
 	else:
 		_flash("Wave %d" % (wave_index + 1))
+	# Closes the boredom-tolerance measurement: how long the player could sit in a build
+	# phase before reaching for the next wave.
+	_end_prep_span()
+	Mirror.mark(&"wave_start", wave_index + 1)
+	# BEFORE the spawn queue is built: this wave should walk the new route, not the one
+	# it replaced. Opening it afterwards would let the first wave past a trod ignore it.
+	_open_due_trods(wave_index + 1)
+	# Repaints the telegraph for whatever opens next. The static overlay is drawn once
+	# per field build rather than per frame, so this is the only thing that moves it.
+	if _static_overlay != null and is_instance_valid(_static_overlay):
+		_static_overlay.queue_redraw()
+	_maybe_show_ad(wave_index + 1)
 	spawn_queue = []
 	for group: SpawnBatchData in wave.groups:
 		for k in range(group.count):
@@ -2977,6 +3503,7 @@ func _start_wave() -> void:
 	SignalBus.wave_started.emit(wave_index + 1)
 
 func _process(delta: float) -> void:
+	_update_camera(delta)
 	if game_ended:
 		return
 	_update_interventions(delta)
@@ -2993,8 +3520,11 @@ func _process(delta: float) -> void:
 		if spawn_queue.is_empty():
 			wave_spawning = false
 	_run_log.tick(delta)
+	_update_attention(delta)
 	_update_tolerance(delta)
 	_update_wave_bonus(delta)
+	_update_autoplay(delta)
+	_update_effort_offer()
 	_update_glitch(delta)
 	_update_kill_feedback(delta)
 	_update_routine_reach()
@@ -3052,7 +3582,14 @@ func _update_routine_reach() -> void:
 
 	var any_stalled := false
 	for h in habits:
-		h.in_routine = is_position_in_routine(h.global_position, anchor_positions)
+		# routine_gates_enabled se musi promitnout SEM, ne az k jednotlivym spotrebitelum.
+		# `in_routine` cte sest mist -- strelba (tower.gd), viditelnost svetla, mireni
+		# nepratel, barracks, varovny popisek a odhalovani mlhy -- a s vypnutou branou
+		# byla vsechna krome barracks spatne. Na izo levelech (routine_gates = false)
+		# to znamenalo, ze vez SLO postavit mimo Routine, ale uz nikdy nevystrelila:
+		# _can_build branu obesel, tower.gd _process ji ne. Vez, ktera stoji a mlci,
+		# se cte jako bug, ne jako pravidlo -- a to pravidlo tam navic zadne nebylo.
+		h.in_routine = (not routine_gates_enabled) 			or is_position_in_routine(h.global_position, anchor_positions)
 		if not h.in_routine:
 			any_stalled = true
 	if any_stalled and _hints != null:
@@ -3114,6 +3651,7 @@ func _check_wave_progress() -> void:
 		return
 	if _distractions.size() > 0:
 		return
+	GameState.note_wave_cleared()
 	SignalBus.wave_completed.emit(wave_index + 1)
 	_run_log.write_wave(wave_index + 1, _telemetry_snapshot())
 	if wave_index < level.waves.size() - 1:
@@ -3164,7 +3702,12 @@ func _refresh_start_wave_button() -> void:
 		return
 	var bonus := _pending_wave_bonus()
 	var label := "▶ Start Wave %d" % (wave_index + 1)
-	if between_waves and bonus > 0:
+	# The autoplay countdown replaces the early-call bonus rather than sitting beside it:
+	# once the wave is starting anyway there is no early call left to reward, and two
+	# numbers on one button is exactly the dashboard the receipt rules ban.
+	if _autoplay_left >= 0.0 and between_waves:
+		label += "   ▶ %0.1fs" % maxf(_autoplay_left, 0.0)
+	elif between_waves and bonus > 0:
 		label += "   +%d" % bonus
 	_start_wave_button.text = label
 
@@ -3180,6 +3723,15 @@ func _enter_build_phase() -> void:
 	wave_index += 1
 	between_waves = true
 	GameState.lean_wave_active = false
+	# Settle the previous wave's promises before the next build phase opens: a waited-for
+	# payout, and a bonus wave that was announced and paid nothing.
+	_settle_delay_offer()
+	_resolve_bait_wave()
+	# Phase 1 of the cue only ever rides a REAL reward — that consistency is the whole
+	# asset, and it is the thing level 4 gets to spend.
+	if level.cue_phase == 1:
+		_fire_cue(true)
+	_begin_prep_span()
 	if _start_wave_button:
 		_start_wave_button.disabled = false
 		_start_wave_button.modulate = Color("7cffb2")
@@ -3308,7 +3860,7 @@ func _on_start_wave_pressed() -> void:
 		_pop_text(objective_pos, "+%d Early Call" % bonus, Color("7cffb2"))
 	_start_wave()
 
-func spawn_distraction(type_key: String, spawn_cell: Vector2i) -> Distraction:
+func spawn_distraction(type_key: String, spawn_cell: Vector2i, gen: int = 0) -> Distraction:
 	var d: Distraction
 	if Data.get_distraction(type_key).is_boss:
 		var boss := Boss.new()
@@ -3323,12 +3875,15 @@ func spawn_distraction(type_key: String, spawn_cell: Vector2i) -> Distraction:
 	else:
 		d = Distraction.new()
 	entities.add_child(d)
+	# BEFORE setup(): the splitter's health and visual scale are both read off it there.
+	d.generation = gen
 	d.setup(self, type_key)
 	d.position = cell_center(spawn_cell)
 	d.global_position = d.position
 	assign_path(d)
 	d.defeated.connect(_on_distraction_defeated)
 	d.reached_core.connect(_on_distraction_reached_core)
+	d.expired.connect(_on_distraction_expired)
 	_distractions.append(d)
 	SignalBus.distraction_spawned.emit(d)
 	_update_enemy_stats()
@@ -3353,19 +3908,273 @@ func spawn_directional_projectile(pos: Vector2, dir_angle: float, max_dist: floa
 ## Presentation half of a defeat. The economy half (tolerance-scaled reward, card
 ## bonuses, kill count) lives in GameState, driven by SignalBus.distraction_defeated
 ## which Distraction._die() emits alongside this per-instance signal.
+##
+## ONE SYSTEM, ONE SENSE (docs/design/dopamine_mechanics.md §3). A game feels muddy when
+## two systems move the same output: the player can tell something changed and never
+## what caused it, and an effect they cannot attribute teaches nothing. So the channels
+## are split and never shared:
+##
+##   TOLERANCE → COLOUR      saturation, particle count, the washed-out death flash
+##   NOVELTY   → SOUND       bright chime → dull thud as a habit's kills become predictable
+##   BURNOUT   → CAMERA      the tremble (see _update_burnout)
+##
+## The baseline shake stays CONSTANT here on purpose. Camera belongs to Burnout, so
+## nothing else is allowed to modulate it — but a kill with no kick at all reads as a
+## bug, and a flat floor is not a channel.
+##
+## The result the player can actually name after two levels: "grey means I'm taking too
+## much cheap dopamine", "silent means this stopped surprising me", "shaking means I'm
+## letting things through". Three sentences, learned without being told any of them.
 func _on_distraction_defeated(d: Distraction) -> void:
 	_distractions.erase(d)
 	_update_enemy_stats()
+	# Killing a limited-time offer is the receipt's sharpest single number, because the
+	# damage it would have done is knowable and it is zero. Recorded here rather than in
+	# the enemy so the log stays a record of OUTCOMES the game observed.
+	if d.def.lifetime_seconds > 0.0:
+		Mirror.mark(&"bait_kill", d.type_key)
 	_reward_pos = d.position
 	_combo += 1
 	_combo_timer = _COMBO_HOLD_TIME
-	_spawn_dopamine_burst(d.position)
-	# Death burst in the enemy's own colour — bigger and slower than a shot impact
-	# (see ImpactFX), fired here because the dying node is freed right after this.
+
+	# Juice factor: 1.0 at clean play → 0.15 at max Tolerance. Colour channel only.
+	var tol_ratio: float = GameState.tolerance / 100.0
+	var juice: float = Sfx.juice_factor(tol_ratio)
+
+	# Kill sound rides NOVELTY, not Tolerance. Read before GameState ages the counter —
+	# Distraction._die() emits `defeated` (here) before the bus signal (economy), so this
+	# is the surprise of the kill that just happened rather than of the next one.
+	Sfx.play_defeat(GameState.surprise_of(d.killer_key))
+
+	# Particles — fewer and slower when numb.
+	_spawn_dopamine_burst(d.position, juice)
+
+	# Constant: the camera is Burnout's channel and nothing else writes to it.
+	add_shake(7.0)
+
+	# Death burst in the enemy's own colour — shrinks with juice.
 	var fx = impact_fx_pool.acquire()
 	if fx != null:
 		fx.global_position = d.global_position
-		fx.play(Color(d.def.color), 1.8)
+		var burst_scale: float = lerpf(0.6, 1.8, juice)
+		# Dim the colour at high tolerance — deaths look washed out.
+		var col := Color(d.def.color)
+		col = col.lerp(Color(0.5, 0.5, 0.5), 1.0 - juice)
+		fx.play(col, burst_scale)
+
+## What the player has actually committed to, as raw damage per channel. Read by the
+## comparison archetype at spawn time.
+##
+## The BOARD, not the kill log: a maze the player is looking at is something they can
+## reason about, and an adaptation they can anticipate is a decision rather than a dice
+## roll. Upgrades count for free because current_*_damage is already the modified value.
+# ---------------------------------------------------------------- effort discounting
+#
+# Salamone's barrier, made out of a mouse wheel.
+#
+# The finding almost every article about dopamine gets backwards: dopamine is not the
+# pleasure chemical, it is the EFFORT chemical. Depleted animals still like the good
+# food exactly as much; they just stop being willing to climb for it and take the free
+# chow instead. Nothing about the reward changed. What changed is what it costs to go
+# and get it, relative to what the animal has left.
+#
+# So the barrier here rises with Tolerance: the wheel that tunes the cone starts moving
+# in smaller steps, and tuning the same angle costs two and a half times the clicks — at
+# exactly the moment the player has least patience for it. Nothing got harder to WIN.
+# It got more tedious to DO, which is a different axis and the correct one.
+#
+# And then, precisely there, the game offers the chow: press A and your habits point
+# themselves. It is a real offer with a real cost (see Habit.set_auto_aim) and the
+# player will take it, and the receipt will tell them what it was worth. There is no
+# right answer being withheld — taking it IS the demonstration.
+
+## Degrees per wheel notch, fresh and worn out.
+const AIM_STEP_FRESH := 10.0
+const AIM_STEP_TIRED := 4.0
+## Where the barrier starts rising. Below this, aiming costs exactly what it always did.
+const EFFORT_STRAIN := 45.0
+
+var _effort_offered := false
+
+func aim_step() -> float:
+	var t: float = clampf(inverse_lerp(EFFORT_STRAIN, 100.0, GameState.tolerance), 0.0, 1.0)
+	return lerpf(AIM_STEP_FRESH, AIM_STEP_TIRED, t)
+
+## Every built, firing habit. Support habits (the Anchor line) never aim, so they are
+## not part of the offer and set_auto_aim ignores them anyway.
+func _aiming_habits() -> Array:
+	var out: Array = []
+	for spot in build_spots.values():
+		if not is_instance_valid(spot) or spot.state != BuildSpot.State.BUILT:
+			continue
+		var h = spot.current_habit
+		if is_instance_valid(h) and h.def != null and not h.def.is_support():
+			out.append(h)
+	return out
+
+## Walks build_spots directly rather than going through _aiming_habits(): this is asked
+## every frame by the offer below, and allocating an Array to answer "is anything on?"
+## is per-frame money for a question whose answer is almost always no.
+func auto_aim_active() -> bool:
+	for spot in build_spots.values():
+		if not is_instance_valid(spot) or spot.state != BuildSpot.State.BUILT:
+			continue
+		var h = spot.current_habit
+		if is_instance_valid(h) and h.auto_aim:
+			return true
+	return false
+
+## All or nothing on purpose. Per-habit micromanagement would be MORE effort than aiming
+## by hand, which would invert the whole point of the offer.
+func toggle_auto_aim() -> void:
+	var habits: Array = _aiming_habits()
+	if habits.is_empty():
+		return
+	var on: bool = not auto_aim_active()
+	var surrendered := 0.0
+	for h in habits:
+		h.set_auto_aim(on)
+		surrendered += h.surrendered_mult
+	if on:
+		# What their own aiming was worth, averaged over the board. 1.0 means they were
+		# sitting at the home angle and handed over nothing.
+		Mirror.mark(&"auto_aim_on", surrendered / float(habits.size()))
+		_flash("Auto-aim on. Your habits will point themselves.", Color("9bd0ff"))
+	else:
+		Mirror.mark(&"auto_aim_off")
+		_flash("Auto-aim off — you have the wheel again.", Color("7cffb2"))
+	Sfx.play(&"cue")
+
+## The offer itself, made once per level the first time the barrier is actually felt.
+## Mid-wave rather than in the build phase: the point is that it arrives while the
+## player is tired of doing it, not while they are calmly reading a menu.
+func _update_effort_offer() -> void:
+	# Cheapest gates first, and both of them latch or sit still: _effort_offered is true
+	# for the rest of the level after one firing, and Tolerance is under the threshold for
+	# most of a clean run. The two board walks below only ever run in the narrow window
+	# where the offer is actually about to be made.
+	if _effort_offered or game_ended:
+		return
+	if GameState.tolerance < EFFORT_STRAIN:
+		return
+	if auto_aim_active() or _aiming_habits().is_empty():
+		return
+	_effort_offered = true
+	Mirror.mark(&"effort_offer")
+	_flash("Aiming feels heavy. Press A and let your habits aim themselves.",
+		Color("ffd479"))
+
+func player_damage_profile() -> Dictionary:
+	var wp := 0
+	var aw := 0
+	var top_key: StringName = &""
+	var top_damage := 0
+	for spot in build_spots.values():
+		if not is_instance_valid(spot) or spot.state != BuildSpot.State.BUILT:
+			continue
+		var h = spot.current_habit
+		if not is_instance_valid(h):
+			continue
+		wp += h.current_willpower_damage
+		aw += h.current_awareness_damage
+		var total: int = h.current_willpower_damage + h.current_awareness_damage
+		if total > top_damage:
+			top_damage = total
+			top_key = h.type_key
+	return {"willpower": wp, "awareness": aw, "top": top_key, "top_damage": top_damage}
+
+## Splitter archetype (Just One More): a body leaves smaller copies where it fell.
+##
+## The children repath from the parent's cell rather than from the spawn zone, which is
+## the entire feel of the archetype — the queue does not restart, it CONTINUES, one step
+## closer than the thing you just killed. Restarting them at the entrance would turn an
+## attrition mechanic into a free reset and quietly make killing the parent a good move.
+##
+## Hard-capped on live bodies. `split_count` and `split_generations` multiply, so a
+## mis-authored .tres is an exponent, not a typo — and the failure mode of an exponent is
+## a frozen frame rather than a wrong number.
+const MAX_LIVE_DISTRACTIONS := 220
+
+func spawn_split(parent: Distraction, index: int) -> void:
+	if game_ended or parent == null:
+		return
+	if _distractions.size() >= MAX_LIVE_DISTRACTIONS:
+		return
+	var cell: Vector2i = world_to_cell(parent.position)
+	var child := spawn_distraction(parent.type_key, cell, parent.generation + 1)
+	if child == null:
+		return
+	# Inherit the parent's REMAINING route rather than trusting the fresh A* solve that
+	# spawn_distraction just ran. Two reasons, and the second one is a soft-lock:
+	#
+	#  1. It is the archetype. The queue continues from where the parent stood, and the
+	#     parent's own path is the authoritative answer to "where was it going".
+	#  2. assign_path() fails SILENTLY when the origin cell is unroutable — a wall, or a
+	#     cell the sinking-walls spike just put back. The parent can be standing on one
+	#     after knockback or scatter, and a child with an empty path idles forever, so
+	#     the wave never ends and the run hangs with nothing on screen to explain it.
+	#
+	# Sliced one step back so the child still walks toward the node the parent was
+	# heading for, instead of teleporting its progress forward half a cell.
+	if parent.cell_path.size() > parent.path_index:
+		child.set_cell_path(parent.cell_path.slice(maxi(0, parent.path_index - 1)))
+	# Last resort. If neither the fresh solve nor the inheritance produced a route, this
+	# body would stand still forever and hold the wave open with nothing visible to kill.
+	# One missing copy is a rounding error in an archetype that spawns fifteen; a run that
+	# never ends is the whole session.
+	if child.cell_path.is_empty() and not child.is_flying:
+		_distractions.erase(child)
+		child.queue_free()
+		return
+	# Fan them apart so a split reads as several bodies rather than one that got smaller.
+	var spread: float = Data.GRID.tile * 0.3
+	var angle: float = TAU * (float(index) + 0.5) / float(maxi(1, parent.def.split_count))
+	child.position += Vector2(cos(angle), sin(angle) * 0.5) * spread
+	child.global_position = child.position
+	Mirror.mark(&"split", parent.type_key)
+
+## Fleeting archetype (FOMO): the offer closed on its own. No Focus damage, no reward,
+## no kill credit, no screen shake — the point is that nothing happens, and the silence
+## is the lesson. Only the live list and the wave-progress check care.
+func _on_distraction_expired(d: Distraction) -> void:
+	_distractions.erase(d)
+	_update_enemy_stats()
+	# No _check_wave_progress() here: _process polls it every frame, and a wave whose
+	# last body simply left still has to end through that one path.
+
+# ---------------------------------------------------------------- autoplay
+
+## Seconds left before the next wave starts itself, or -1.0 when nothing is armed.
+var _autoplay_left := -1.0
+
+## Called by a Distraction whose autoplay deadline expired. From here the build phase is
+## no longer untimed: it gets `grace` seconds and then starts without being asked.
+##
+## Latched rather than cancellable, and armed DURING the wave it was spawned in, so the
+## player finds out while they can still do something about the next one. The rule the
+## game is teaching is that the pause is the thing worth defending, and it can only teach
+## that by taking it away once.
+func arm_autoplay(grace: float) -> void:
+	if game_ended or _autoplay_left >= 0.0:
+		return
+	_autoplay_left = maxf(1.0, grace)
+	Sfx.play(&"cue")
+	_flash("▶ AUTOPLAY — next wave starts by itself", Color("ff6b6b"))
+
+func _update_autoplay(delta: float) -> void:
+	if _autoplay_left < 0.0 or game_ended:
+		return
+	# Only burns down in the build phase. During the wave it just sits armed: it is a
+	# threat against the PAUSE, so it has nothing to take while there is no pause.
+	if not between_waves:
+		return
+	_autoplay_left -= delta
+	_refresh_start_wave_button()
+	if _autoplay_left <= 0.0:
+		_autoplay_left = -1.0
+		Mirror.mark(&"autoplay_stole_prep")
+		if between_waves and not game_ended:
+			_on_start_wave_pressed()
 
 ## The paid-out amount arrives separately from GameState, because only GameState knows
 ## the economy rules and only the distraction knows where it died. Both write to
@@ -3377,9 +4186,16 @@ func _on_defeat_reward_granted(amount: int) -> void:
 
 ## Presentation half of a core breach. Focus loss and the resulting game-over live in
 ## GameState, driven by SignalBus.distraction_escaped.
+## NOTE: core breaches are NOT juice-scaled — losing Focus always hurts at full volume.
+## The asymmetry is deliberate: rewards degrade with tolerance, but consequences don't.
 func _on_distraction_reached_core(d: Distraction) -> void:
 	_distractions.erase(d)
 	_update_enemy_stats()
+	# A fleeting distraction that made it home still costs nothing, so it gets none of
+	# the breach presentation. Printing "-0 FOCUS" would read as a bug, and worse, it
+	# would tell the player the thing was a threat after all.
+	if d.def.focus_damage <= 0:
+		return
 	_glitch_hit = 0.85   # the screen lurches when your attention takes a hit
 	add_shake(9.0)
 	_pop_text(objective_pos, "-%d FOCUS" % d.def.focus_damage, Color("ff4455"))
@@ -3419,9 +4235,17 @@ func _update_tolerance(delta: float) -> void:
 	if GameState.tolerance > 0.0:
 		var rate := _TOLERANCE_DECAY_PER_SEC \
 			* (1.0 + MetaProgression.get_perk(MetaProgression.PERK_TOLERANCE_DECAY))
+		# On a fasting level the whole point is that the meter drains — slowly enough to
+		# be felt for most of the level, fast enough that the colour is genuinely back by
+		# the end. Without the multiplier the fast is just a level with no Quick Hit.
+		if level.fasting:
+			rate *= 2.5
 		GameState.set_tolerance(GameState.tolerance - delta * rate)
 	if _quick_hit_cd > 0.0:
 		_quick_hit_cd = maxf(0.0, _quick_hit_cd - delta)
+		_update_quick_hit_button()
+	elif GameState.tolerance > 0.0:
+		# Keep updating even when not on cooldown so the pulse/glow animates in real time.
 		_update_quick_hit_button()
 	_update_burnout(delta)
 
@@ -3514,13 +4338,30 @@ func do_quick_hit() -> void:
 	GameState.set_tolerance(GameState.tolerance + QUICK_HIT_SPIKE)
 	GameState.raise_tolerance_floor(QUICK_HIT_FLOOR_GAIN)
 	_quick_hit_cd = QUICK_HIT_COOLDOWN
+	# Wanting up, liking down, from the same press. Two lines that started as one and
+	# come apart over a campaign — that picture is the lesson, and this is where it gets
+	# drawn (GameState: craving / satisfaction).
+	GameState.add_craving(14.0)
+	GameState.add_satisfaction(GameState.SATISFACTION_PER_QUICK_HIT)
+	Mirror.mark(&"quick_hit", payout)
 	_update_quick_hit_button()
-	_flash("+%d Cheap Dopamine… baseline Tolerance +%d" % [payout, int(QUICK_HIT_FLOOR_GAIN)],
-		Color("ffcc00"))
+	if level.fasting:
+		# RELAPSE IS NOT A FAIL STATE. The meter jumps and continues; nothing resets and
+		# nothing scolds. Shame is what actually drives the spiral, so a game that shames
+		# the player here would be reproducing the exact mechanism it is warning about.
+		_flash("Tolerance +%d. Continuing." % int(QUICK_HIT_SPIKE), UI.TEXT_DIM)
+	else:
+		_flash("+%d Cheap Dopamine… baseline Tolerance +%d" % [payout, int(QUICK_HIT_FLOOR_GAIN)],
+			Color("ffcc00"))
 	_pop_text(Vector2(1920 - 150, 1080 - 100), "+%d Cheap Dopamine" % payout, Color("ffcc00"))
 
 ## The shrinking number on the button is the lesson made visible — the player watches
 ## their own cheap source pay less every time they reach for it.
+## TOLERANCE → QUICK HIT ESCALATION: the button gets louder as Tolerance rises.
+## Size grows, colour shifts from neutral to urgent gold, and above 40% a pulsing
+## glow appears. The asymmetry is the lesson: kill rewards are fading (juice) while
+## the cheap source SCREAMS for attention. That is exactly how an app behaves when
+## engagement is dropping — it escalates the push, not the content.
 func _update_quick_hit_button() -> void:
 	if _quick_hit_button == null:
 		return
@@ -3528,10 +4369,732 @@ func _update_quick_hit_button() -> void:
 		_quick_hit_button.text = "Quick Hit (%.1fs)" % _quick_hit_cd
 		_quick_hit_button.disabled = true
 		_quick_hit_button.modulate = Color(0.6, 0.6, 0.6)
+		_quick_hit_button.scale = Vector2.ONE
 	else:
 		_quick_hit_button.text = "Quick Hit +%d" % quick_hit_payout()
 		_quick_hit_button.disabled = false
-		_quick_hit_button.modulate = Color(1, 1, 1)
+
+		# Escalation: scale, colour and pulse driven by tolerance.
+		var t: float = GameState.tolerance / 100.0
+
+		# Size: 1.0 at rest → 1.25 at max tolerance. The button literally grows.
+		var s: float = lerpf(1.0, 1.25, t)
+		_quick_hit_button.scale = Vector2(s, s)
+		# Keep the button's anchor so it doesn't drift — pivot from centre.
+		_quick_hit_button.pivot_offset = _quick_hit_button.size * 0.5
+
+		# Colour: neutral white → urgent gold/amber at high tolerance.
+		var base_col := Color(1.0, 1.0, 1.0).lerp(Color("ffaa22"), t)
+
+		# Pulse: above 40% tolerance the button breathes. Faster at higher tolerance.
+		if t > 0.4:
+			var pulse_speed: float = lerpf(2.0, 5.0, (t - 0.4) / 0.6)
+			var pulse: float = 0.5 + 0.5 * sin(Time.get_ticks_msec() / 1000.0 * pulse_speed * TAU)
+			# Pulse amplitude: subtle at 40%, aggressive at 100%.
+			var amp: float = lerpf(0.08, 0.35, (t - 0.4) / 0.6)
+			base_col = base_col.lerp(Color("ff6622"), pulse * amp)
+
+		_quick_hit_button.modulate = base_col
+
+# ---------------------------------------------------------------- attention lessons
+#
+# Everything in this section exists to be FELT during a level and understood after it.
+# None of it adds a number to the HUD (docs/design/dopamine_mechanics.md §4): the
+# scoreboard shows only what the player can act on within three seconds, the senses
+# carry the rest, and the receipt does the explaining once the wave is over.
+#
+# The budget is one MOMENT per level. Every trick here — the empty bonus wave, the cue
+# going hollow, an ad with a working button — is a one-shot. Fired twice it is a trick;
+# fired every wave it is harassment. They cost nothing in ongoing complexity precisely
+# because they almost never happen: ~95% of playing time is a plain, quiet tower
+# defense, and it has to be, or none of this is worth sitting through.
+
+## Full-screen wash that carries the TOLERANCE channel. Deliberately a flat grey mix
+## rather than a luminance-preserving desaturation shader: mixing toward grey removes
+## saturation AND contrast, which is closer to what "the colour went out of it" actually
+## looks like, and it needs no shader to go wrong on somebody's driver.
+##
+## It sits BELOW the HUD layer, which is the whole trick — the map fades while the Quick
+## Hit button keeps escalating in full colour on top of it. That asymmetry is the lesson
+## and here it is free: the app gets louder exactly as the content stops paying.
+## How far the picture flattens at Tolerance 100. Not 1.0 — the level still has to be
+## playable at the bottom, and the sentence is "nothing stands out", not "you cannot see".
+const FLATTEN_MAX := 0.85
+var _wash: ColorRect = null
+var _wash_mat: ShaderMaterial = null
+var _flatten := 0.0
+
+# --- Tolerance's visual verb --------------------------------------------------
+#
+# ONE SYSTEM, ONE SENSE. Tolerance owns colour and gets exactly one operation; Burnout
+# owns the camera (tremble AND glitch, see _update_glitch); novelty owns the kill sound.
+#
+# The verb is FLATTEN, not "dim" and not "add grey", and it is drawn by
+# shaders/flatten.gdshader — drain the saturation, collapse the range toward the scene's
+# own mid-tone. Anhedonia is not reported as "everything looked faded", it is reported as
+# "everything looked the same, nothing stood out", and collapsing the spread is that
+# sentence. It also stays distinct from Brain Fog by construction, which matters because
+# fog is a full-screen effect one CanvasLayer below:
+#
+#   Brain Fog   darkens and occludes  ->  takes INFORMATION (you cannot see what is there)
+#   Tolerance   drains and collapses  ->  takes DEPTH       (you see it all, nothing stands out)
+#
+# MEASURED, and this is why the shader exists (build/flat*, 2026-08-20, _shot_flat.gd):
+#
+#   grey ColorRect   brightness ROSE 0.123 -> 0.148 as Tolerance went 0 -> 95. On a dark
+#                    scene, mixing toward opaque grey lightens it. Reads as haze.
+#   Light2D energy   the first fix attempt: drive the scene's lamps to zero, so "the
+#                    lights go out and the depth goes with them". Turning EVERY light off
+#                    moved contrast 3.1% and brightness 2.0% — nothing. The lamps are
+#                    additive glow on top of art that already renders at full authored
+#                    brightness (see the block comment above SHADOW_LIGHT_ENERGY); there
+#                    is no darkness for them to lift out of, so there is nothing to take
+#                    away by switching them off.
+#
+# The lighting version is still the better idea for isometric, but it needs a
+# CanvasModulate base darkness under the whole field first — a real rendering decision
+# with consequences for every piece of authored art, not a bolt-on. `depth_channel`
+# below is the hook for it and is OFF until that lands.
+
+## Drive Light2D energy from Tolerance as well as the flatten shader. OFF: measured at
+## 3% of contrast (see above). Turn it on only once the field has a CanvasModulate base
+## darkness for the lamps to lift out of, and re-measure with _shot_flat.gd before
+## trusting it.
+var depth_channel := false
+## Light energy left at Tolerance 100, as a fraction of SHADOW_LIGHT_ENERGY.
+const DEPTH_FLOOR := 0.0
+
+## How far below its own baseline the picture drops during a bait wave's payoff. The one
+## place anything is allowed to go under resting state — negative prediction error is not
+## the absence of a reward, it is a dip, and rendering it as "merely nothing" would teach
+## the wrong half of Schultz.
+const BAIT_UNDERSHOOT := 0.30
+var _bait_undershoot := 0.0
+var _bait_armed := false
+
+# --- the conditioned cue -----------------------------------------------------
+#
+# Pavlov, then Schultz: the dopamine response migrates backwards off the reward and onto
+# whatever reliably predicts it. That is why an app ICON works on you and the content
+# behind it does not have to.
+#
+# It can only be taught in this order and it cannot be done retroactively — level 1 must
+# already be training a cue or there is nothing to hollow out in level 4. So phase 1 is
+# the cheapest thing in this whole file (one rectangle and one chime) and the only one
+# with a deadline.
+const CUE_SIZE := Vector2(26, 26)
+## Where the flash sits, as a CENTRE rather than a corner.
+##
+## Below the HUD bar, not inside it. It used to be pinned at (28, 28), which is on top of
+## the Dopamine chip — and once conditioning started growing the square (up to 1.7x) it
+## covered the number outright. A cue is supposed to pull the eye from the PERIPHERY; one
+## that hides a stat is not peripheral, it is an obstruction.
+##
+## Centre rather than corner so growth expands both ways and the point the mouse is
+## measured against (CUE_PULL_RADIUS) stays put no matter how conditioned it is.
+const CUE_ORIGIN := Vector2(46, 122)
+const CUE_COLOR := Color("4db4ff")
+## A mouse inside this radius within CUE_WINDOW counts as having been pulled. Not a
+## click: the cue is not a button and never was. Attention is the thing being measured,
+## and the honest proxy available without eye tracking is "did the hand start moving".
+const CUE_PULL_RADIUS := 220.0
+const CUE_WINDOW := 2.0
+## Share of phase-2 cues that still pay. It is NOT zero, and that is the entire point: a
+## cue that is always empty gets extinguished in one level, and the player walks away
+## having learned that they can train themselves out of it. They cannot. Variable ratio
+## is what makes notifications un-ignorable, so the game has to be honest and keep some
+## of them real.
+const CUE_TRUE_RATE := 0.30
+
+var _cue_rect: ColorRect = null
+var _cue_glow := 0.0
+var _cue_window_left := 0.0
+var _cue_counted := false
+var _cue_idle := 0.0
+
+# --- downtime ----------------------------------------------------------------
+#
+# The prep phase is the only genuinely restful part of a tower defense, and boredom
+# intolerance is the single best predictor of compulsive scrolling. Nobody has made that
+# a mechanic, and the room for it already exists in the genre.
+#
+# At low Craving the build phase is a rest. At high Craving it is unbearable: the picture
+# flattens, a thin tone sits on top of it, and the player starts skipping prep just to
+# make the feeling stop. The receipt then reports what that cost them in seconds.
+var _prep_started_at := -1.0
+var _prep_tone_cd := 0.0
+
+# --- delay discounting -------------------------------------------------------
+#
+# The larger payout is ALWAYS the better one, so every impatient pick is a measurement
+# rather than a mistake the level punished. Across a campaign this draws the player's own
+# discount curve, and the curve steepens exactly as Craving rises.
+const OFFER_NOW := 20
+const OFFER_LATER := 60
+var _offer_panel: Control = null
+var _offer_pending := false
+
+# --- ads ---------------------------------------------------------------------
+var _ads_left: Array[AdData] = []
+var _ad_open: AdOverlay = null
+## What one interstitial costs in Focus if the player lets the wave run while they hunt
+## for the X. Small on purpose. The joke has teeth; it does not have jaws.
+const AD_FOCUS_COST := 1
+
+# --- the hands-off finale ----------------------------------------------------
+#
+# The Feed cannot be cleared, so the level is not won by clearing it. It is won by
+# building enough that the board holds without you — and then taking your hands off and
+# watching it happen.
+#
+# This is the ending because it is the one state where the most relaxing thing a tower
+# defense can produce and the thesis of the game are the same thing. The goal was never
+# to fight the feed harder.
+const HANDS_OFF_SECONDS := 30.0
+var _idle_seconds := 0.0
+var _hands_off_active := false
+var _hands_off_label: Label = null
+
+func _setup_attention() -> void:
+	# Layer 6: above the fog shader (5), below the HUD (10). Below the HUD is the whole
+	# trick — the field flattens while the Quick Hit button keeps escalating in full
+	# colour on top of it. The app gets louder exactly as the content stops paying.
+	var wash_layer := CanvasLayer.new()
+	wash_layer.layer = 6
+	add_child(wash_layer)
+	_wash_mat = ShaderMaterial.new()
+	_wash_mat.shader = load("res://shaders/flatten.gdshader")
+	_wash = ColorRect.new()
+	_wash.material = _wash_mat
+	_wash.color = Color.WHITE          # unused by the shader; it samples the screen
+	_wash.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_wash.visible = false              # nothing to do at Tolerance 0; skip the pass
+	wash_layer.add_child(_wash)
+
+	if level.cue_phase > 0:
+		_cue_rect = ColorRect.new()
+		_cue_rect.color = Color(CUE_COLOR, 0.0)
+		_cue_rect.custom_minimum_size = CUE_SIZE
+		_cue_rect.size = CUE_SIZE
+		_cue_rect.position = CUE_ORIGIN - CUE_SIZE * 0.5
+		_cue_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_hud_root.add_child(_cue_rect)
+
+	sinking_walls = level.sinking_walls
+	_pick_sink_block()
+
+	_ads_left = level.ads.duplicate()
+	# The fast: the player arrives already downregulated and spends the level climbing
+	# back out. Deliberately the least fun stretch in the campaign for its first two
+	# thirds — and the reason the first clean chime afterwards lands on someone who has
+	# been starved of it for six minutes. You cannot teach "it gets better" in text.
+	if level.fasting:
+		GameState.set_tolerance(70.0)
+		GameState.set_satisfaction(15.0)
+
+func _update_attention(delta: float) -> void:
+	_update_depth_channel()
+	_update_sinking(delta)
+	if _wash != null:
+		var target: float = (GameState.tolerance / 100.0) * FLATTEN_MAX
+		_flatten = lerpf(_flatten, target, clampf(delta * 2.0, 0.0, 1.0))
+		# Hidden outright at rest, same reasoning as the glitch overlay: a screen-texture
+		# pass that changes nothing should not be paid for during clean play.
+		_wash.visible = _flatten > 0.005 or _bait_undershoot > 0.005
+		if _wash.visible:
+			_wash_mat.set_shader_parameter("flatten", _flatten)
+			_wash_mat.set_shader_parameter("dim", _bait_undershoot)
+	if _bait_undershoot > 0.0:
+		_bait_undershoot = maxf(0.0, _bait_undershoot - delta * (BAIT_UNDERSHOOT / 3.0))
+
+	_update_cue(delta)
+	_update_downtime(delta)
+	_update_hands_off(delta)
+
+# --- depth channel -----------------------------------------------------------
+
+## Only claims Tolerance when there is actually a lit scene to unlight. On a level with
+## shadows off there is nothing to flatten, so the wash keeps the job.
+func _depth_channel_active() -> bool:
+	return depth_channel and shadow_enabled and _shadow_light_layer != null
+
+## Rides the SAME lights the atmosphere pass already built (_make_shadow_light) rather
+## than adding a second lighting system — at Tolerance 0 the scene is lit exactly as
+## authored, so this costs nothing until the player starts spending.
+func _update_depth_channel() -> void:
+	if not _depth_channel_active():
+		return
+	var flat: float = clampf(GameState.tolerance / 100.0, 0.0, 1.0)
+	var e: float = SHADOW_LIGHT_ENERGY * lerpf(1.0, DEPTH_FLOOR, flat)
+	if _core_shadow_light != null and is_instance_valid(_core_shadow_light):
+		_core_shadow_light.energy = e
+	for l in _shadow_lights.values():
+		if is_instance_valid(l):
+			l.energy = e
+
+# --- cue ---------------------------------------------------------------------
+
+func _update_cue(delta: float) -> void:
+	if _cue_rect == null:
+		return
+	# Fades slower the more it means — a strongly conditioned cue holds the eye longer.
+	_cue_glow = maxf(0.0, _cue_glow - delta * lerpf(2.0, 0.9, GameState.conditioning))
+	_cue_rect.color = Color(CUE_COLOR, _cue_glow)
+
+	if _cue_window_left > 0.0:
+		_cue_window_left -= delta
+		if not _cue_counted:
+			# Actual size, not CUE_SIZE: a conditioned cue is bigger, so the constant
+			# would put the centre off to one corner of it.
+			var centre: Vector2 = _cue_rect.global_position + _cue_rect.size * 0.5
+			if _hud_root.get_global_mouse_position().distance_to(centre) < CUE_PULL_RADIUS:
+				_cue_counted = true
+				Mirror.mark_click(&"cue")
+
+	# Phase 2 fires on its own, unattached to anything. Phase 1 never does — it only ever
+	# rides a real reward, which is what makes it worth anything later.
+	if level.cue_phase >= 2 and not between_waves and not game_ended:
+		_cue_idle -= delta
+		if _cue_idle <= 0.0:
+			_cue_idle = randf_range(7.0, 16.0)
+			_fire_cue(randf() < CUE_TRUE_RATE)
+
+## Flash + chime. `real` decides whether anything is behind it.
+func _fire_cue(real: bool) -> void:
+	if _cue_rect == null:
+		return
+	# The pairing happens BEFORE the presentation, so the flash the player sees is the
+	# one this pairing produced rather than the previous one's strength.
+	var reinstated: bool = GameState.condition_cue(real)
+	var pull: float = GameState.conditioning
+	_cue_glow = 1.0
+	_cue_window_left = CUE_WINDOW
+	_cue_counted = false
+	# A conditioned cue is bigger and lingers longer. It is the same square of light; it
+	# just takes up more of the screen the more it has come to mean. Nothing about the
+	# game got harder, which is the point.
+	var cue_sz: Vector2 = CUE_SIZE * (1.0 + pull * 0.7)
+	_cue_rect.size = cue_sz
+	_cue_rect.position = CUE_ORIGIN - cue_sz * 0.5
+	Sfx.play_cue(pull)
+	Mirror.mark(&"cue_flash", real)
+	Mirror.mark(&"cue_pull", pull)
+	if reinstated:
+		# The moment worth naming: it had gone quiet, and one real payout brought it
+		# most of the way back in a single step.
+		Mirror.mark(&"cue_reinstated", pull)
+		_flash("The flash means something again.", Color(CUE_COLOR))
+	if real:
+		GameState.add_run_insight(1)
+		GameState.insight_dropped.emit(objective_pos, 1)
+
+# --- downtime ----------------------------------------------------------------
+
+func _begin_prep_span() -> void:
+	_prep_started_at = Mirror.level_time()
+	if level.delay_offers:
+		_show_delay_offer()
+
+func _end_prep_span() -> void:
+	if _prep_started_at >= 0.0:
+		Mirror.mark(&"prep_span", Mirror.level_time() - _prep_started_at)
+		_prep_started_at = -1.0
+	_hide_delay_offer()
+
+func _update_downtime(delta: float) -> void:
+	if not between_waves or game_ended:
+		return
+	var craving: float = GameState.craving / 100.0
+	if craving < 0.45:
+		return
+	# A thin, unpleasant tone on an interval that tightens with Craving. Nothing is
+	# mechanically wrong; it is just no longer restful to sit here.
+	_prep_tone_cd -= delta
+	if _prep_tone_cd <= 0.0:
+		_prep_tone_cd = lerpf(3.2, 1.1, (craving - 0.45) / 0.55)
+		Sfx.play(&"click")
+
+# --- delay discounting -------------------------------------------------------
+
+func _show_delay_offer() -> void:
+	_hide_delay_offer()
+	var panel := UI.panel(UI.DOPAMINE, 1)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+	panel.add_child(box)
+	box.add_child(UI.label("Take %d Dopamine now — or %d when the wave clears."
+		% [OFFER_NOW, OFFER_LATER], UI.FS_BODY, UI.TEXT))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	box.add_child(row)
+
+	var now_btn := UI.button("Now  +%d" % OFFER_NOW)
+	now_btn.pressed.connect(func():
+		GameState.add_dopamine(OFFER_NOW)
+		# Impatience is a real cheap hit, so it prices like one — small, but it counts.
+		GameState.add_craving(5.0)
+		Mirror.mark(&"offer_now")
+		_hide_delay_offer())
+	row.add_child(now_btn)
+
+	var later_btn := UI.button("Wait  +%d" % OFFER_LATER)
+	later_btn.pressed.connect(func():
+		_offer_pending = true
+		Mirror.mark(&"offer_later")
+		_hide_delay_offer())
+	row.add_child(later_btn)
+
+	panel.position = Vector2(24, 190)
+	_hud_root.add_child(panel)
+	_offer_panel = panel
+
+func _hide_delay_offer() -> void:
+	if _offer_panel != null and is_instance_valid(_offer_panel):
+		_offer_panel.queue_free()
+	_offer_panel = null
+
+func _settle_delay_offer() -> void:
+	if not _offer_pending:
+		return
+	_offer_pending = false
+	GameState.add_dopamine(OFFER_LATER)
+	_pop_text(objective_pos, "+%d Dopamine (waited)" % OFFER_LATER, UI.DOPAMINE)
+
+# --- bait wave ---------------------------------------------------------------
+
+## Announced as a bonus, pays nothing. The announcement has to be completely sincere or
+## the prediction never forms and there is nothing to violate.
+func _announce_bait_wave() -> void:
+	_bait_armed = true
+	_flash("BONUS WAVE — DOUBLE DOPAMINE", UI.DOPAMINE)
+
+func _resolve_bait_wave() -> void:
+	if not _bait_armed:
+		return
+	_bait_armed = false
+	# No message, no explanation, no "gotcha". Three seconds of the room being emptier
+	# than its own baseline, and then it comes back. Naming it here would convert a
+	# feeling into a fact, and the fact is the weaker of the two.
+	_bait_undershoot = BAIT_UNDERSHOOT
+	Music.duck(3.0)
+	Mirror.mark(&"bait_wave")
+
+# --- ads ---------------------------------------------------------------------
+
+func _maybe_show_ad(for_wave: int) -> void:
+	if _ad_open != null and is_instance_valid(_ad_open):
+		return
+	var last_wave: int = level.waves.size()
+	for i in range(_ads_left.size()):
+		var ad: AdData = _ads_left[i]
+		if ad.between_levels:
+			continue
+		# An ad's wave lives on the AdData because it is part of the trust curve — which
+		# ad the player is ready for depends on how many they have already seen, not on
+		# which level they are standing in. That breaks down on a level SHORTER than the
+		# wave an ad was authored for (the 5-wave isometric slice against ads written for
+		# a 15-wave campaign), where it would simply never fire and the mechanic would
+		# look unimplemented. Clamping to the finale keeps every authored ad reachable.
+		var at: int = mini(ad.wave, last_wave) if last_wave > 0 else ad.wave
+		if at != for_wave:
+			continue
+		_ads_left.remove_at(i)
+		_show_ad(ad)
+		return
+
+## THE GAME KEEPS RUNNING behind this. While the player is laughing and hunting for a
+## six-pixel X, the wave does not wait — which is the attention economy in a single
+## interaction, and cheaper to feel than to be told.
+##
+## The Focus charge is one point and is named immediately afterwards. A joke that costs
+## a level is not a joke, and a game that punishes you for getting caught has become the
+## thing it is warning about.
+func _show_ad(ad: AdData) -> void:
+	var overlay := AdOverlay.create(ad)
+	# Parented to the HUD layer, NOT the tree root — a scene change during an open ad
+	# would otherwise leak it over the next screen.
+	_hud_root.add_child(overlay)
+	_ad_open = overlay
+	overlay.closed.connect(func(tapped: bool, seconds: float):
+		_ad_open = null
+		if game_ended:
+			return
+		# Guarded, not just small: lose_focus() does NOT check for game over, so an
+		# unguarded charge could silently strand the run at 0 Focus with no end screen.
+		# It also must never be the thing that loses a level — see _show_ad's docs.
+		var charged: int = 0
+		if seconds > 1.5 and not level.fasting and GameState.focus > AD_FOCUS_COST:
+			charged = AD_FOCUS_COST
+			GameState.lose_focus(charged)
+		_flash("Ad on screen: %.1fs. Focus lost: %d. Funny though." % [seconds, charged],
+			UI.TEXT_DIM)
+		if tapped:
+			# Named plainly and once. No lecture: the receipt will show the count at the
+			# end and the player can do their own arithmetic about what they knew.
+			_flash("You knew what that was.", UI.TOLERANCE))
+
+# --- hands-off finale --------------------------------------------------------
+
+func _update_hands_off(delta: float) -> void:
+	if not level.hands_off_finale or game_ended:
+		return
+	if wave_index + 1 < level.waves.size():
+		return
+	if not _hands_off_active:
+		_hands_off_active = true
+		_hands_off_label = UI.label("", UI.FS_TITLE, UI.FOCUS, HORIZONTAL_ALIGNMENT_CENTER)
+		_hands_off_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
+		_hands_off_label.position = Vector2(660, 150)
+		_hands_off_label.custom_minimum_size = Vector2(600, 0)
+		_hud_root.add_child(_hands_off_label)
+
+	_idle_seconds += delta
+	var left: float = HANDS_OFF_SECONDS - _idle_seconds
+	if _hands_off_label != null and is_instance_valid(_hands_off_label):
+		if _idle_seconds < 1.0:
+			_hands_off_label.text = "Take your hands off the mouse.\nYour habits will hold."
+		else:
+			_hands_off_label.text = "Take your hands off the mouse.\nYour habits will hold.\n\n%0.0f" % maxf(left, 0.0)
+	if left <= 0.0:
+		Mirror.mark(&"hands_off_cleared")
+		_level_complete()
+
+## Any input at all resets the hold. Called from _unhandled_input.
+func _note_input() -> void:
+	_idle_seconds = 0.0
+
+# ---------------------------------------------------------------- living map: trods
+#
+# The level's own move against the player: partway through, a new route to the core
+# opens. See scripts/resources/trod_data.gd for the thesis behind it and for the
+# convergence rule that keeps it fair.
+#
+# WHY IT CHANGES NO TERRAIN. A trod only re-weights ground the horde could already
+# cross, so nothing can appear or vanish under something the player built and no level
+# can be made unsolvable. That is the whole difference between this and the sinking-walls
+# spike directly below, which really does erode a wall and needs all that extra care.
+
+## index into level.trods -> true, for the ones already open. Reset in _build_field, so
+## a retry of the same level starts closed again.
+var _trods_open := {}
+
+## The trod that opens at the START of the next wave, or null. This is the telegraph:
+## drawn faint for one whole wave before it goes live. Without it a new route is a coin
+## flip; with it the player watches it coming and cannot quite finish in time, which is
+## the best tension a tower defense has.
+func pending_trod() -> TrodData:
+	if level == null:
+		return null
+	for i in range(level.trods.size()):
+		var t: TrodData = level.trods[i]
+		if t != null and not _trods_open.has(i) and t.open_at_wave == wave_index + 2:
+			return t
+	return null
+
+## Opens everything due at `wave` (1-based). Called from _start_wave.
+func _open_due_trods(wave: int) -> void:
+	if level == null:
+		return
+	for i in range(level.trods.size()):
+		var t: TrodData = level.trods[i]
+		if t == null or _trods_open.has(i) or t.open_at_wave > wave:
+			continue
+		_trods_open[i] = true
+		_open_trod(t)
+
+func _open_trod(t: TrodData) -> void:
+	var added := 0
+	for c: Vector2i in t.cells:
+		if not lane_cells.has(c) and _in_bounds(c) and not high_ground.has(c):
+			lane_cells[c] = true
+			added += 1
+	if added == 0:
+		return
+	# Same order as _set_sunk() below, and for the same reason: weights decide the
+	# routes, the art has to show them, and anything already walking is holding a cell
+	# path handed to it at spawn. Skip that last step and the wave already on the board
+	# keeps marching down the old trod through the whole reveal.
+	_apply_path_weights()
+	_build_path_layer()
+	_compute_path_previews()
+	for d in _distractions:
+		if is_instance_valid(d):
+			assign_path(d)
+	if _static_overlay != null and is_instance_valid(_static_overlay):
+		_static_overlay.queue_redraw()
+	queue_redraw()
+	_flash(t.announce, UI.TOLERANCE)
+
+# ---------------------------------------------------------------- sinking walls (SPIKE)
+#
+# SPIKE, not a shipped mechanic. One block, one threshold, disrupt() instead of
+# destruction. The question it exists to answer is narrow: does erosion READ, and does
+# A* cope with the maze changing under live distractions?
+#
+# THE IDEA. Tolerance has a look (shaders/flatten.gdshader) and now it gets a COST.
+# docs/core/00_overview.md maps the maze onto "Structure & boundaries", so the honest
+# consequence of spending too much cheap dopamine is that the structure erodes and the
+# distractions reach the habits themselves. That is not a metaphor bolted onto a
+# mechanic, it is the mechanic.
+#
+# It is also isometric-native: height IS the projection, so a block dropping to path
+# level is legible in iso and literally invisible top-down. This is the first mechanic
+# the flat version of the game cannot have.
+#
+# WHY IT IS DELIBERATELY SMALL. The obvious version — erode continuously with the
+# Tolerance number — is a death spiral: maze dissolves, more leaks, more Burnout, worse.
+# That is exactly the one-way descent docs/design/dopamine_mechanics.md §2 rejects. Three
+# things keep it a rhythm instead:
+#
+#   1. ONE block, the furthest from the core. The maze frays at its edge, not everywhere.
+#   2. A THRESHOLD with hysteresis, not a gradient. The line is visible and avoidable,
+#      and dropping back under it RAISES THE WALL AGAIN — recovery you can watch.
+#   3. An exposed habit is DISRUPTED, never destroyed. "When your boundaries erode your
+#      habits are not destroyed, they are interrupted" is both truer and unspiral-able,
+#      and it reuses the disruptor machinery that already exists (Tower.disrupt).
+#
+# KNOWN SPIKE LIMITATION: the block vanishes rather than animating downward, and a
+# distraction standing on the cells when the wall returns is simply repathed out. The
+# lowering animation is the next step, not this one.
+
+## Set per level. Off everywhere by default — this is not a shipped mechanic yet.
+var sinking_walls := false
+const SINK_AT := 60.0
+## Hysteresis, and it is wide on purpose: a block flickering up and down around a single
+## number would repath the whole field every few frames and read as a bug.
+const SINK_OFF := 45.0
+const EXPOSED_DISRUPT_RADIUS := 110.0
+const EXPOSED_DISRUPT_INTERVAL := 2.5
+const EXPOSED_DISRUPT_DURATION := 1.6
+
+var _sink_block := Vector2i(-9999, -9999)
+var _sink_cells: Array[Vector2i] = []
+var _sunk := false
+var _exposed_cd := 0.0
+
+## Picks which block erodes. Two rules, in order:
+##
+##  1. PREFER A BLOCK WITH A HABIT ON IT. The cost of eroded structure is supposed to be
+##     "the distractions reach your habits", so a block with nothing on it costs nothing
+##     and teaches nothing.
+##  2. Among those, the one FURTHEST from the core. Furthest because that is where the
+##     maze can afford to lose a piece, and because the habit you maintain least closely
+##     is the honest one to lose first. Eroding the block next to the objective would be
+##     a coin-flip on the whole level rather than a cost the player can play around.
+##
+## Re-picked at the moment it sinks, not once at level start: nothing is built when the
+## level opens, so a start-of-level choice would always fall through to rule 2.
+func _pick_sink_block() -> void:
+	_sink_cells.clear()
+	_sink_block = Vector2i(-9999, -9999)
+	var best_d := -1.0
+	var best_built_d := -1.0
+	var best_built := Vector2i(-9999, -9999)
+	for cell: Vector2i in build_spots:
+		var d: float = cell_center(cell).distance_to(objective_pos)
+		var spot = build_spots[cell]
+		if is_instance_valid(spot) and spot.state == BuildSpot.State.BUILT 				and spot.current_habit is Habit and d > best_built_d:
+			best_built_d = d
+			best_built = cell
+		if d > best_d:
+			best_d = d
+			_sink_block = cell
+	if best_built.x > -9998:
+		_sink_block = best_built
+	if _sink_block.x < -9998:
+		return
+	var b: int = Data.BUILD_BLOCK
+	for dy in range(-(b / 2), b / 2 + 1):
+		for dx in range(-(b / 2), b / 2 + 1):
+			var c: Vector2i = _sink_block + Vector2i(dx, dy)
+			if high_ground.has(c):
+				_sink_cells.append(c)
+
+func _update_sinking(delta: float) -> void:
+	if not sinking_walls or _sink_cells.is_empty() or game_ended:
+		return
+	if not _sunk and GameState.tolerance >= SINK_AT:
+		# Re-pick now that the board has something on it (see _pick_sink_block).
+		_pick_sink_block()
+		if _sink_cells.is_empty():
+			return
+		_set_sunk(true)
+	elif _sunk and GameState.tolerance <= SINK_OFF:
+		_set_sunk(false)
+	if _sunk:
+		_tick_exposed(delta)
+
+func _set_sunk(sunk: bool) -> void:
+	_sunk = sunk
+	for c: Vector2i in _sink_cells:
+		if sunk:
+			high_ground.erase(c)
+			level.high_ground.erase(c)
+		else:
+			high_ground[c] = true
+			if not level.high_ground.has(c):
+				level.high_ground.append(c)
+		if astar.is_in_bounds(c.x, c.y):
+			astar.set_point_solid(c, not sunk)
+
+	# Everything downstream of "which cells are walls" has to be rebuilt, in this order:
+	# platforms (flood fill over high_ground), the terrain art (painted from
+	# level.high_ground), then the paths.
+	_build_platforms()
+	_rebuild_walls()
+	_compute_path_previews()
+	# Live distractions keep a cell path they were handed at spawn. Without this they
+	# walk their stale route straight through where the wall used to be — or into where
+	# it just came back.
+	for d in _distractions:
+		if is_instance_valid(d):
+			assign_path(d)
+	queue_redraw()
+	_flash("Structure eroded — a habit is exposed" if sunk else "Structure restored",
+		UI.TOLERANCE if sunk else UI.FOCUS)
+
+## Repaints the walls after the maze changed shape.
+##
+## Calls _build_wall_segments(), NOT _build_terrain_layer(). That distinction cost an
+## hour: _build_terrain_layer/_build_corner_terrain paint square corner tiles and are
+## dead code on this branch — nothing calls them during _ready (the iso field builds
+## _build_path_layer + _build_wall_segments instead). Invoking the square-tile builder
+## over an iso field produced a shower of "Cannot create tile" errors and painted the
+## wrong geometry. If the corner-terrain path is ever revived, this needs to pick.
+func _rebuild_walls() -> void:
+	_build_wall_segments()
+
+## The habit standing on the sunk block, or null.
+func exposed_habit():
+	if not _sunk or not build_spots.has(_sink_block):
+		return null
+	var spot = build_spots[_sink_block]
+	if not is_instance_valid(spot) or spot.state != BuildSpot.State.BUILT:
+		return null
+	var h = spot.current_habit
+	return h if h is Habit else null
+
+## Any distraction that gets close to an exposed habit interrupts it — not only the
+## dedicated disruptor types. Reaching the habit at all is the escalation; what it does
+## when it gets there is the same disrupt() the Group Chat already uses, so nothing new
+## has to be balanced and nothing can be lost permanently.
+func _tick_exposed(delta: float) -> void:
+	_exposed_cd -= delta
+	if _exposed_cd > 0.0:
+		return
+	var h = exposed_habit()
+	if h == null or h.disrupted_left > 0.0:
+		return
+	for d in _distractions:
+		if not is_instance_valid(d) or d.dead:
+			continue
+		if d.global_position.distance_to(h.global_position) > EXPOSED_DISRUPT_RADIUS:
+			continue
+		_exposed_cd = EXPOSED_DISRUPT_INTERVAL
+		h.disrupt(EXPOSED_DISRUPT_DURATION)
+		_pop_text(h.global_position + Vector2(-30.0, -46.0), "exposed", UI.DANGER)
+		return
 
 # ---------------------------------------------------------------- card draft screen
 
@@ -3820,6 +5383,8 @@ func _burst_label(burst: CardBurstData) -> String:
 			return "Instantly restore %d Focus" % burst.focus_amount
 		"clear_tolerance":
 			return "Instantly wipe Tolerance and its baseline"
+		"steady_payout":
+			return "Every defeat pays exactly +%d%% — no more streaks, no more jackpots" 				% int(round((GameState.STEADY_MULT - 1.0) * 100.0))
 		"summon_allies":
 			if burst.ally_lifetime > 0.0:
 				return "Summon %d Allies for %.0fs" % [burst.ally_count, burst.ally_lifetime]
@@ -3845,6 +5410,12 @@ func _execute_burst(burst: CardBurstData) -> void:
 		"clear_tolerance":
 			GameState.clear_tolerance()
 			_pop_text(objective_pos, "Tolerance reset", Color("7ef2e6"))
+		"steady_payout":
+			# Strictly better than the gamble it replaces (+20% expected), and perfectly
+			# predictable. Whether the player takes it is the experiment; both answers are
+			# the same finding seen from opposite sides.
+			GameState.steady_payout = true
+			_pop_text(objective_pos, "Steady payout", UI.DOPAMINE)
 		"summon_allies":
 			_summon_burst_allies(burst)
 		"damage_field":
@@ -3945,6 +5516,9 @@ func _level_complete() -> void:
 	var next_id := "Level_%02d" % (GameState.current_level_index + 2)
 	_run_log.write_wave(level.waves.size(), _telemetry_snapshot(), "victory")
 	_run_log.end()
+	# Freezes this level's row into Mirror.history so the receipt can pair it against
+	# level 1. A lone number means nothing; the pair is the whole finding.
+	Mirror.end_level()
 	_reset_time_scale()
 	GameState.last_run_stats = {"stars": stars, "kills": GameState.kills,
 		"waves_cleared": level.waves.size(), "max_wave": level.waves.size(),
@@ -3969,6 +5543,7 @@ func _game_over() -> void:
 	var lvl_id := "Level_%02d" % (GameState.current_level_index + 1)
 	_run_log.write_wave(wave_index + 1, _telemetry_snapshot(), "defeat")
 	_run_log.end()
+	Mirror.end_level()
 	_reset_time_scale()
 	GameState.last_run_stats = {"stars": 0, "kills": GameState.kills,
 		"waves_cleared": wave_index, "max_wave": level.waves.size(),
@@ -4057,7 +5632,9 @@ func _init_pools() -> void:
 		func():
 			var p := GPUParticles2D.new()
 			p.texture = _get_dot_texture()
-			p.process_material = _get_burst_material()
+			# Each burst gets its own material copy so juice-scaled velocity
+			# changes don't bleed between concurrent active bursts.
+			p.process_material = _get_burst_material().duplicate()
 			p.amount = 10
 			p.lifetime = _BURST_LIFETIME
 			p.one_shot = true
@@ -4077,11 +5654,22 @@ func _on_impact_fx_finished(fx: ImpactFX) -> void:
 func _on_burst_finished(p: GPUParticles2D) -> void:
 	burst_pool.release(p)
 
-func _spawn_dopamine_burst(pos: Vector2) -> void:
+## Juice-scaled particle burst. At full juice: 10 particles, fast, vivid green.
+## At zero juice: 3 particles, slow, washed-out grey-green. The visual reward
+## literally thins out with Tolerance — the player's eye registers it even if
+## their conscious mind doesn't.
+func _spawn_dopamine_burst(pos: Vector2, juice: float = 1.0) -> void:
 	var p: GPUParticles2D = burst_pool.acquire()
 	if p == null:
 		return
 	p.position = pos
+	# Scale particle count: 10 at full juice → 3 at zero juice.
+	p.amount = maxi(3, int(round(lerpf(3.0, 10.0, juice))))
+	# Scale initial velocity: fast and explosive at full juice, sluggish at zero.
+	var mat: ParticleProcessMaterial = p.process_material
+	if mat:
+		mat.initial_velocity_min = lerpf(15.0, 45.0, juice)
+		mat.initial_velocity_max = lerpf(35.0, 95.0, juice)
 	p.restart()
 
 # ------------------------------------------------------------- glitch overlay (shader)
@@ -4108,13 +5696,28 @@ func _build_glitch_overlay() -> void:
 	_glitch_rect.visible = false
 	layer.add_child(_glitch_rect)
 
-## Tolerance is the sustained term, a core hit is a short spike. Hidden outright at rest
-## so the screen-texture pass costs nothing during clean play.
+## BURNOUT is the sustained term, a core hit is a short spike. Hidden outright at rest so
+## the screen-texture pass costs nothing during clean play.
+##
+## This used to ride TOLERANCE, and moving it is a deliberate design fix rather than a
+## tidy-up. Tolerance had quietly accumulated three visual verbs at once — this glitch,
+## the grey wash, and (in isometric) the lights — and three distorters on one number is
+## exactly the muddiness the channel rule exists to prevent. Rendered side by side at
+## Tolerance 95 the picture read as BROKEN rather than as flat, which is the wrong
+## sentence: downregulation is not a malfunction, it is a dimming.
+##
+## Burnout is where it belonged anyway. Burnout already owns the camera (the tremble in
+## _update_burnout), and shake and glitch are the same statement — "the picture is
+## unstable" — where wash and unlit are the same statement as each other. It also starts
+## at the SAME threshold as the tremble, so the two halves of Burnout's channel arrive
+## together instead of one sneaking in early.
 func _update_glitch(delta: float) -> void:
 	if _glitch_rect == null:
 		return
 	_glitch_hit = maxf(0.0, _glitch_hit - delta * 1.5)
-	var amount: float = clampf(GameState.tolerance / 100.0 * 0.75 + _glitch_hit, 0.0, 1.0)
+	var strain: float = clampf(
+		inverse_lerp(BURNOUT_STRAIN, 100.0, GameState.burnout), 0.0, 1.0)
+	var amount: float = clampf(strain * 0.75 + _glitch_hit, 0.0, 1.0)
 	_glitch_rect.visible = amount > 0.01
 	if _glitch_rect.visible:
 		_glitch_mat.set_shader_parameter("intensity", amount)
@@ -4142,15 +5745,22 @@ var _speed_button: Button = null
 var _pause_button: Button = null
 var _pause_menu: PauseMenu = null
 
+## THE SPEED BUTTON IS THE IMPATIENCE METER. Every tower defense already has one, and
+## it already means "more waves per real minute, in exchange for worse decisions" — the
+## same trade as watching everything at 1.5x and skipping the intros. Nothing had to be
+## invented; it only had to be measured, which is why this is the cheapest lesson in the
+## game and one of the sharpest on the receipt.
 func _cycle_speed() -> void:
 	_designer_turbo = false   # touching the normal ladder always leaves turbo
 	_speed_index = (_speed_index + 1) % SPEED_STEPS.size()
 	_apply_time_scale()
+	Mirror.mark(&"speed_changed", SPEED_STEPS[_speed_index])
 
 func set_speed_index(i: int) -> void:
 	_designer_turbo = false
 	_speed_index = clampi(i, 0, SPEED_STEPS.size() - 1)
 	_apply_time_scale()
+	Mirror.mark(&"speed_changed", SPEED_STEPS[_speed_index])
 
 ## Pausing IS opening the menu — a bare freeze with nothing on screen read as a hang,
 ## and there was no way to abandon a run from inside it. While paused this game node
@@ -4233,7 +5843,7 @@ func _build_hud() -> void:
 	# sheet, so the hotkeys need no documentation trip.
 	if GameState.designer_mode:
 		var badge := UI.label(
-			"DESIGNER MODE — F1 +500 Dopamine · F2 +10 Insight · F3 turbo 5× · F4 clear wave · telemetry off",
+			"DESIGNER MODE — F1 +500 Dopamine · F2 +10 Insight · F3 turbo 5× · F4 clear wave · F5/F6 Tolerance -/+ · F7 sinking walls · telemetry off",
 			UI.FS_SMALL, Color("ffb454"))
 		badge.position = Vector2(24, _HUD_TOP_H + 4)
 		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -4252,6 +5862,7 @@ func _build_hud() -> void:
 	# (willpower as a finite tank you spend) — a theory whose large multi-lab replication
 	# failed, and the opposite of this game's actual thesis: dopamine is EARNED and SPENT.
 	GameState.dopamine_changed.connect(_on_dopamine_changed)
+	GameState.streak_changed.connect(_on_streak_changed)
 	GameState.focus_changed.connect(_on_focus_changed)
 	GameState.wave_changed.connect(_on_wave_changed)
 	GameState.tolerance_changed.connect(_on_tolerance_changed)
@@ -4319,6 +5930,20 @@ func _build_top_bar() -> void:
 		+ "It never drains on its own: it counts commitments, not fuel.")
 	row.add_child(bw_chip)
 	_bandwidth_label = bw_out[0]
+
+	# --- the streak, sitting with the currencies because that is what it is: a
+	# multiplier on income. It has to be READABLE AT A GLANCE and it has to drop to zero
+	# in front of the player — a loss they have to go looking for is not a loss.
+	if level.streak:
+		var st_out: Array = []
+		var st_chip := UI.stat_chip("Streak", UI.DOPAMINE, st_out)
+		st_chip.tooltip_text = ("Waves in a row with nothing reaching your core.
+"
+			+ "Every one raises what defeats pay, up to x%.2f.
+"
+			+ "One leak sets it back to zero.") % GameState.STREAK_MAX_MULT
+		row.add_child(st_chip)
+		_streak_label = st_out[0]
 
 	row.add_child(UI.spacer(Vector2(8, 0)))
 
@@ -4569,6 +6194,31 @@ func _on_dopamine_changed(v: int) -> void:
 	# cost and comparing it to a number at the far end of the screen.
 	_refresh_habit_affordability()
 
+## The streak readout, and the moment it breaks.
+##
+## The break gets floating text at the core rather than a sound: sound belongs to
+## Novelty and the camera to Burnout, so the one channel a streak is allowed to use is
+## the NUMBER — which is also the honest one, because a number is exactly what was lost.
+func _on_streak_changed(value: int, multiplier: float) -> void:
+	if _streak_label == null:
+		return
+	if value <= 0:
+		_streak_label.text = "—"
+		_streak_label.add_theme_color_override("font_color", UI.TEXT_FAINT)
+	else:
+		_streak_label.text = "%d   x%.2f" % [value, multiplier]
+		_streak_label.add_theme_color_override("font_color", UI.DOPAMINE)
+	if value == 0 and _streak_was > 0 and not game_ended:
+		# Lifted clear of the core: a leak already prints "-N FOCUS" at objective_pos on
+		# the same event, and centred text there also sits half-behind the core sprite.
+		_pop_text(objective_pos + Vector2(0, -52), "STREAK %d LOST" % _streak_was,
+			UI.DANGER)
+	_streak_was = value
+
+## Last streak value seen, so the handler can tell "reset to 0 after a run" from
+## "still 0" — only the first of those is a loss worth showing.
+var _streak_was := 0
+
 func _on_run_insight_changed(v: int) -> void:
 	if _insight_label:
 		_insight_label.text = "%d ◆" % v
@@ -4675,8 +6325,23 @@ func _on_tolerance_changed(v: int) -> void:
 			if GameState.tolerance_floor > 0.0:
 				readout += "  ·  floor %d%%" % int(GameState.tolerance_floor)
 			_tolerance_meter.update_meter(float(v), 100.0, readout, GameState.tolerance_floor)
+			_refresh_split_line()
 	# The Quick Hit payout is tolerance-scaled, so its label moves whenever this does.
 	_update_quick_hit_button()
+
+## The wanting/liking split, drawn inside the Tolerance bar (UIMeter.split_value).
+##
+## Shown as `100 - satisfaction`, so both lines start at zero on the same left edge and
+## the meter genuinely reads as ONE bar for the first few levels. What separates them is
+## that Tolerance decays and lost Satisfaction does not — so the gap opens on its own,
+## from the player's own choices, without a single word of explanation.
+func _refresh_split_line() -> void:
+	if _tolerance_meter == null:
+		return
+	_tolerance_meter.split_value = (100.0 - GameState.satisfaction) if level.split_meter else -1.0
+
+func _on_satisfaction_changed(_v: float) -> void:
+	_refresh_split_line()
 
 var _flash_tween: Tween = null
 

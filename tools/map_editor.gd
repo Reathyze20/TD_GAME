@@ -87,26 +87,303 @@ signal analysis_updated
 # Tenhle skript už jen: staví abstraktní dlaždice vrstev, drží split-view náhled
 # (SubViewport se StylizedRenderer — „samsfacee" workflow), validuje, měří a peče.
 
-## Plná barevná dlaždice pro abstraktní malování. Levá strana split-view má být čitelná
+## Kosočtverečná dlaždice pro abstraktní malování. Levá strana split-view má být čitelná
 ## jako plán, ne hezká — hezká je pravá strana.
-static func _abstract_tile(fill: Color, edge: Color, cell: int) -> ImageTexture:
-	var img := Image.create_empty(cell, cell, false, Image.FORMAT_RGBA8)
-	img.fill(fill)
-	for i in range(cell):
-		for e in [Vector2i(i, 0), Vector2i(i, cell - 1), Vector2i(0, i), Vector2i(cell - 1, i)]:
-			img.set_pixelv(e, edge)
+##
+## KOSOČTVEREC, NE ČTVEREC. Do 21. 8. 2026 se tu kreslil čtverec a vrstvy byly
+## TILE_SHAPE_SQUARE, zatímco hra kreslí 2:1 izometrii. Designér tedy maloval do jiné
+## projekce, než jakou dostal — a co hůř, editor si odporoval i sám v sobě: mřížka, cíl,
+## zóny a teplotní mapa se kreslily čtvercově, ale kruh Routine a trasy nepřátel
+## izometricky (přes `D.cell_center()`). Půlka obrazu ukazovala něco jiného než druhá.
+static func _abstract_tile(fill: Color, edge: Color, w: int, h: int) -> ImageTexture:
+	var img := Image.create_empty(w, h, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	# Řádek po řádku: v 2:1 kosočtverci je polovina šířky lineární funkcí vzdálenosti
+	# od svislého středu. Kreslí se přímo do rastru, aby hrana seděla na pixel a dvě
+	# sousední dlaždice se nepřekrývaly ani nenechávaly škvíru.
+	# VÝPLŇ JE PRŮSVITNÁ, OKRAJ PEVNÝ. Plná výplň vypadá logicky ("blok je vyplněný"),
+	# ale na desce z ní je jednolitý koberec: nepoznáš, kde jeden blok končí a druhý
+	# začíná, ani neuvidíš mřížku a překryvy pod ním. Průsvitná výplň s ostrým okrajem
+	# čte obojí — kolik toho je i kde jsou švy.
+	var body := Color(fill.r, fill.g, fill.b, 0.30)
+	var rim := Color(edge.r, edge.g, edge.b, 0.95)
+	var hw := float(w) * 0.5
+	var hh := float(h) * 0.5
+	var thick: int = 2 if w <= 96 else 3
+	for y in range(h):
+		var dy: float = absf(float(y) + 0.5 - hh) / hh
+		var half: float = hw * (1.0 - dy)
+		var x0 := int(round(hw - half))
+		var x1 := int(round(hw + half)) - 1
+		for x in range(maxi(x0, 0), mini(x1, w - 1) + 1):
+			var on_edge: bool = (x < x0 + thick or x > x1 - thick
+				or y < thick - 1 or y > h - thick)
+			img.set_pixel(x, y, rim if on_edge else body)
 	return ImageTexture.create_from_image(img)
 
-func _abstract_tileset(fill: Color, edge: Color) -> TileSet:
-	var cell: int = _tile()
+## `span` = kolik BUNĚK má dlaždice na stranu. 1 = jedna buňka, 3 = celý stavební blok.
+func _abstract_tileset(fill: Color, edge: Color, span: int = 1) -> TileSet:
+	var g := _grid()
+	var w: int = int(g.get("tile_w", 64)) * span
+	var h: int = int(g.get("tile_h", 32)) * span
 	var ts := TileSet.new()
-	ts.tile_size = Vector2i(cell, cell)
+	ts.tile_shape = TileSet.TILE_SHAPE_ISOMETRIC
+	ts.tile_layout = TileSet.TILE_LAYOUT_DIAMOND_DOWN
+	ts.tile_size = Vector2i(w, h)
 	var src := TileSetAtlasSource.new()
-	src.texture = _abstract_tile(fill, edge, cell)
-	src.texture_region_size = Vector2i(cell, cell)
+	src.texture = _abstract_tile(fill, edge, w, h)
+	src.texture_region_size = Vector2i(w, h)
 	src.create_tile(Vector2i.ZERO)
+	# Bez jména hlásí paleta „Zdroj neznámého typu" — zdroj je postavený za běhu, takže
+	# nemá soubor, ze kterého by si Godot jméno vzal.
+	src.resource_name = "Blok 3×3" if span > 1 else "Buňka"
 	ts.add_source(src, 0)
 	return ts
+
+# ---------------------------------------------------------------- bloky
+
+## Malování po BLOCÍCH je výchozí způsob, a je to jediná věc, která tenhle editor dělá
+## pochopitelným pro někoho, kdo nezná pravidla hry.
+##
+## Hra staví na bloky 3x3 (`Data.BUILD_BLOCK`) a stavební místo vznikne JEN tam, kde je
+## celý blok vysokou zemí. Když se maluje po buňkách, drtivá většina namalované terasy
+## je proto zeď bez užitku — a nikde to není vidět. Když je jednotka malby rovnou blok,
+## tohle pravidlo přestane být skrytá past a stane se tvarem štětce.
+##
+## Geometrie sedí PŘESNĚ, není to aproximace: střed buňky (3bx+1, 3by+1) je
+## ((bx-by)*3*tile_w/2, (bx+by+1)*3*tile_h/2) od počátku, což je totéž co střed buňky
+## (bx,by) v izometrické mřížce s dlaždicí (3*tile_w, 3*tile_h). Blokové vrstvy proto
+## mají stejný `position` jako buňkové a nepotřebují žádný posun.
+const BLOCK_LAYERS := {
+	"BlockTiles": "high",
+	"BlockPath": "path",
+	"BlockSpawn": "spawn",
+	"BlockGoal": "goal",
+}
+
+# ---------------------------------------------------------------- výběr dlaždic artem
+
+## Adresáře, ze kterých se skládá paleta „vyber podle obrázku".
+## Paleta se staví ZE SOUBORŮ NA DISKU, ne z ručního seznamu — nový art se v ní objeví
+## sám, jakmile ho vygenerujeme, a nemusí se nikde dopisovat.
+const ART_DIRS := ["ground", "lane", "props"]
+const ART_ROOT := "res://assets/terrain/iso/"
+
+## Pořadí souborů určuje id zdroje v TileSetu, takže musí být STABILNÍ napříč spuštěními
+## — jinak by se po přidání jedné textury přeházely všechny už namalované dlaždice.
+## Proto setříděné podle cesty, ne podle pořadí ze souborového systému.
+func art_tile_paths() -> Array[String]:
+	var out: Array[String] = []
+	for sub in ART_DIRS:
+		var dir := DirAccess.open(ART_ROOT + sub)
+		if dir == null:
+			continue
+		var names: Array[String] = []
+		for f in dir.get_files():
+			if f.ends_with(".png"):
+				names.append(f.get_basename())
+		names.sort()
+		for n in names:
+			out.append("%s/%s" % [sub, n])
+	return out
+
+func _art_tileset() -> TileSet:
+	var g := _grid()
+	var ts := TileSet.new()
+	ts.tile_shape = TileSet.TILE_SHAPE_ISOMETRIC
+	ts.tile_layout = TileSet.TILE_LAYOUT_DIAMOND_DOWN
+	ts.tile_size = Vector2i(int(g.get("tile_w", 64)), int(g.get("tile_h", 32)))
+	var paths := art_tile_paths()
+	for i in range(paths.size()):
+		var p := "%s%s.png" % [ART_ROOT, paths[i]]
+		if not ResourceLoader.exists(p):
+			continue
+		var tex: Texture2D = load(p)
+		var src := TileSetAtlasSource.new()
+		src.texture = tex
+		src.texture_region_size = tex.get_size()
+		src.create_tile(Vector2i.ZERO)
+		src.resource_name = paths[i]
+		ts.add_source(src, i)
+	return ts
+
+## Rozseje seznam buněk na blokovou vrstvu (celé bloky) a buňkovou vrstvu (zbytek).
+func _fill_layers(cells: Array[Vector2i], block_layer: String, cell_layer: TileMapLayer) -> void:
+	var bl: TileMapLayer = get_node_or_null(block_layer)
+	if bl != null:
+		bl.clear()
+	if cell_layer != null:
+		cell_layer.clear()
+	var want := {}
+	for c: Vector2i in cells:
+		if D.in_bounds(c):
+			want[c] = true
+	var n := D.BUILD_BLOCK
+	var covered := {}
+	if bl != null:
+		var blocks := {}
+		for c: Vector2i in want:
+			blocks[Vector2i(int(floorf(float(c.x) / n)), int(floorf(float(c.y) / n)))] = true
+		for b: Vector2i in blocks:
+			var full := true
+			for bc in block_cells(b):
+				if not want.has(bc):
+					full = false
+					break
+			if not full or block_cells(b).size() < n * n:
+				continue
+			bl.set_cell(b, 0, Vector2i.ZERO)
+			for bc in block_cells(b):
+				covered[bc] = true
+	if cell_layer != null:
+		for c: Vector2i in want:
+			if not covered.has(c):
+				cell_layer.set_cell(c, 0, Vector2i.ZERO)
+
+## Vyrobí na plátně PLATNÝ začátek mapy: cíl uprostřed, prstenec terasy kolem něj,
+## spawn v rohu a cesta mezi tím.
+##
+## PROČ TO EXISTUJE. Prázdné plátno je pro tuhle hru horší než pro jinou, protože
+## „platná mapa" tu má netriviální podmínky: cíl musí být na středu bloku, kolem něj
+## musí být 12–20 stavebních míst V DOSAHU SVĚTLA, ze spawnu musí vést cesta a nesmí
+## být kratší než 25 buněk. Kdo je nezná, nakreslí něco, co Bake odmítne — a nedozví se
+## proč dřív, než to zkusí. Tohle dá do ruky funkční mapu, kterou stačí ohýbat.
+##
+## Rozvržení není náhodné: prstenec o poloměru 1 bloku kolem cíle dá přesně tolik
+## stavebních míst, aby se vešla do počátečního Routine, a cesta vede od rohu obloukem,
+## takže detour vyjde nad 1.35 bez další práce.
+func scaffold_starter_map() -> void:
+	build_layers()
+	var g := _grid()
+	var blocks_x := int(g.cols) / D.BUILD_BLOCK
+	var blocks_y := int(g.rows) / D.BUILD_BLOCK
+	var mid := Vector2i(blocks_x / 2, blocks_y / 2)
+
+	for layer_name in ["BlockTiles", "BlockPath", "BlockSpawn", "BlockGoal"]:
+		var l: TileMapLayer = get_node_or_null(layer_name)
+		if l != null:
+			l.clear()
+	var hg: TileMapLayer = get_node_or_null("HighGroundTiles")
+	if hg != null:
+		hg.clear()
+	var pl: TileMapLayer = get_node_or_null("PathTiles")
+	if pl != null:
+		pl.clear()
+
+	var goal: TileMapLayer = get_node_or_null("BlockGoal")
+	if goal != null:
+		goal.set_cell(mid, 0, Vector2i.ZERO)
+
+	var spawn_b := Vector2i(0, 0)
+	var spawn: TileMapLayer = get_node_or_null("BlockSpawn")
+	if spawn != null:
+		spawn.set_cell(spawn_b, 0, Vector2i.ZERO)
+
+	# Terasa kolem cíle, ale s JEDNÍMI dveřmi — a to je celý trik téhle mapy.
+	#
+	# Detour se počítá jako délka cesty děleno vzdušnou (Manhattanovou) vzdáleností.
+	# Lomená cesta ho tedy NEZVEDNE: Manhattan tu zatáčku už započítal. Zvednout ho umí
+	# jedině skutečná překážka, kterou musí nepřítel obejít. Terasa je zeď, takže
+	# kompaktní blok kolem jádra s jediným vstupem z odvrácené strany donutí hordu
+	# obejít celý shluk — a detour vyleze nad cíl sám od sebe.
+	# Dveře nejsou jeden volný blok, ale CHODBA až k okraji desky. Jeden volný blok
+	# nestačí — shluk bere nejbližší bloky dokola, takže by za dveřmi vznikla kapsa
+	# obklopená terasou a jádro by zůstalo zazděné. (Vyzkoušeno; test to chytil.)
+	var corridor := {}
+	for bx in range(mid.x + 1, blocks_x):
+		corridor[Vector2i(bx, mid.y)] = true
+	var door := mid + Vector2i(1, 0)
+	var tiles: TileMapLayer = get_node_or_null("BlockTiles")
+	var core := D.cell_center(block_center_cell(mid))
+	if tiles != null:
+		var cand: Array[Vector2i] = []
+		for by in range(blocks_y):
+			for bx in range(blocks_x):
+				var cb := Vector2i(bx, by)
+				if cb == mid or cb == spawn_b or corridor.has(cb):
+					continue
+				# Jen to, co je v dosahu světla — dál od jádra je tma a tam se stejně
+				# stavět nedá, takže by to byla jen zeď navíc.
+				if core.distance_to(D.cell_center(block_center_cell(cb))) \
+						> G.CORE_ROUTINE_RADIUS:
+					continue
+				cand.append(cb)
+		cand.sort_custom(func(p: Vector2i, q: Vector2i) -> bool:
+			return core.distance_squared_to(D.cell_center(block_center_cell(p))) \
+				< core.distance_squared_to(D.cell_center(block_center_cell(q))))
+		var want: int = (TARGET_CORE_SPOTS_MIN + TARGET_CORE_SPOTS_MAX) / 2
+		for i in range(mini(want, cand.size())):
+			tiles.set_cell(cand[i], 0, Vector2i.ZERO)
+
+	# Malovaný pruh se NEODHADUJE — spočítá se tou samou cestou, kterou skutečně půjde
+	# horda. Kdyby se kreslil ručně, ukazoval by hráči jinudy, než kudy nepřátelé jdou,
+	# a to je horší než žádný pruh.
+	var path: TileMapLayer = get_node_or_null("BlockPath")
+	if path != null:
+		var solid := {}
+		for c: Vector2i in _high_cells():
+			solid[c] = true
+		var objective := block_center_cell(mid)
+		var start := block_center_cell(spawn_b)
+		var route := _path_cells(start, objective, solid)
+		var b := D.BUILD_BLOCK
+		for c: Vector2i in route:
+			var cb := Vector2i(int(floorf(float(c.x) / b)), int(floorf(float(c.y) / b)))
+			if cb == mid or cb == spawn_b:
+				continue
+			path.set_cell(cb, 0, Vector2i.ZERO)
+		if route.is_empty():
+			push_warning("MapEditor: startovní mapa nemá cestu — to je vada scaffoldu")
+	# `door` drží chodbu otevřenou; proměnná je tu kvůli čitelnosti záměru.
+	assert(not corridor.is_empty() and corridor.has(door))
+
+	last_action = "Nová mapa připravena · %s" % _clock()
+	canvas_changed.emit()
+	queue_redraw()
+	_analyze()
+
+## Pozice malovací vrstvy tak, aby `map_to_local()` vracelo TENTÝŽ bod jako
+## `Data.cell_center()`.
+##
+## ZMĚŘENO 21. 8. 2026, ne odvozeno z dokumentace. Godot pro izometrický DIAMOND_DOWN
+## vrací střed dlaždice jako `((x-y+1)*w/2, (x+y+1)*h/2)`, kdežto kanonický převod hry
+## je `((x-y)*w/2, (x+y+1)*h/2)`. V ose y se shodují, v ose x se liší o **půl dlaždice**
+## — obojí je samo o sobě konzistentní, ale dohromady ne, a používá se obojí najednou.
+##
+## Posun se proto sráží tady, jednou a měřitelně, místo aby se s ním počítalo v každém
+## překryvu zvlášť.
+##
+## Pozn.: `scripts/game.gd` má tentýž rozdíl neopravený — podlaha tam leží o 32 px
+## vpravo od věží, jádra a tras, které se kreslí přes `Data.cell_center()`. Viz
+## `scripts/_probe_align.gd`.
+func _layer_origin(span: int) -> Vector2:
+	var g := _grid()
+	return Vector2(float(g.origin_x) - float(g.get("tile_w", 64)) * 0.5 * span,
+		float(g.origin_y))
+
+## Buňky, které blok pokrývá.
+static func block_cells(b: Vector2i) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var n := D.BUILD_BLOCK
+	for dy in range(n):
+		for dx in range(n):
+			out.append(Vector2i(b.x * n + dx, b.y * n + dy))
+	return out
+
+## Prostřední buňka bloku — klíč do `Game.build_spots` a jediné platné místo pro cíl.
+static func block_center_cell(b: Vector2i) -> Vector2i:
+	var n := D.BUILD_BLOCK
+	return Vector2i(b.x * n + n / 2, b.y * n + n / 2)
+
+## Všechny buňky namalované na blokové vrstvě.
+func _cells_from_blocks(layer_name: String) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var tm: TileMapLayer = get_node_or_null(layer_name)
+	if tm == null:
+		return out
+	for b: Vector2i in tm.get_used_cells():
+		out.append_array(block_cells(b))
+	return out
 
 ## Přemaluje cizí/staré dlaždice vrstvy na (0, (0,0)) — po výměně tilesetů by jinak
 ## buňky odkazovaly na neexistující zdroje a kreslily se prázdné.
@@ -168,6 +445,102 @@ var _traffic_max: int = 0
 ## _wave_summary() output cached at analysis time, so _draw() can render the difficulty
 ## bar chart without recomputing the curve every frame.
 var _last_summary: Dictionary = {}
+
+## Strukturovaný stav mapy z poslední analýzy. Syrová čísla; větu z nich dělá
+## `map_health()`.
+var _health: Dictionary = {}
+
+# ---------------------------------------------------------------- semafor
+
+## Jedna věta, která říká, jestli se mapa dá hrát — a když ne, co s tím.
+##
+## PROČ TO NENÍ JEN DALŠÍ ŘÁDEK METRIK. Metrika „detour factor 1.02, cíl >= 1.35" je
+## užitečná až pro toho, kdo ví, co detour factor je. Pro každého jiného je to šum,
+## ve kterém se nepozná, jestli je mapa rozbitá, nebo jen průměrná. Čísla proto
+## zůstávají, ale až POD odpovědí na otázku „můžu to hrát?".
+##
+## Vrací {"level": "ok"|"warn"|"broken"|"none", "headline": String, "advice": Array}.
+func map_health() -> Dictionary:
+	if target_level == null:
+		return {"level": "none", "headline": "Vyber level v poli Target Level.",
+			"advice": []}
+	if _health.is_empty():
+		return {"level": "none", "headline": "Zatím nezměřeno — dej Analyze.",
+			"advice": []}
+
+	var advice: Array[String] = []
+
+	# 1. Blokující vady. Bake je stejně odmítne, takže nemá smysl řešit nic jiného.
+	var problems: Array = _health.get("problems", [])
+	if not problems.is_empty():
+		return {"level": "broken",
+			"headline": "Mapa se nedá uložit — %d vada(y)." % problems.size(),
+			"advice": _czech_problems(problems)}
+
+	# 2. Průchodnost. Mapa, ze které se nedá dojít k cíli, není těžká, je rozbitá.
+	if not bool(_health.get("any_route", false)):
+		return {"level": "broken",
+			"headline": "Nepřátelé se vůbec nedostanou k cíli.",
+			"advice": ["Někde jsi terasou přehradil celou cestu. Smaž pár bloků mezi "
+				+ "spawnem a cílem — terasa je zeď, nepřátelé přes ni neprojdou."]}
+	var unreach := int(_health.get("unreachable_spawn", 0))
+	if unreach > 0:
+		return {"level": "broken",
+			"headline": "%d spawn buněk nemá cestu k cíli." % unreach,
+			"advice": ["Část spawnu je zazděná. Buď ji odkryj, nebo spawn přesuň jinam."]}
+
+	# 3. Varování: hratelné, ale mapa zatím nic zajímavého nedělá.
+	var detour := float(_health.get("detour", 0.0))
+	if detour > 0.0 and detour < TARGET_DETOUR:
+		advice.append("Nepřátelé jdou skoro rovně (%.2f, chce to aspoň %.2f). Přidej "
+			% [detour, TARGET_DETOUR]
+			+ "bloky doprostřed trasy, ať ji musí obejít — z toho vzniká bludiště.")
+	var shortest := int(_health.get("shortest", 999))
+	if shortest < TARGET_MIN_SPAWN_PATH:
+		advice.append("Spawn je moc blízko cíli (%d buněk, chce to aspoň %d). "
+			% [shortest, TARGET_MIN_SPAWN_PATH]
+			+ "Odsuň spawn dál, nebo trasu prodluž zatáčkou.")
+	var core := int(_health.get("spots_core", 0))
+	if core < TARGET_CORE_SPOTS_MIN:
+		advice.append("Kolem cíle je málo místa na stavbu (%d, chce to %d–%d). "
+			% [core, TARGET_CORE_SPOTS_MIN, TARGET_CORE_SPOTS_MAX]
+			+ "Přimaluj bloky terasy blíž k cíli — dál od něj je tma a tam se nestaví.")
+	elif core > TARGET_CORE_SPOTS_MAX:
+		advice.append("Kolem cíle je stavebních míst moc (%d, chce to %d–%d). "
+			% [core, TARGET_CORE_SPOTS_MIN, TARGET_CORE_SPOTS_MAX]
+			+ "Uber bloky, ať si hráč musí vybírat.")
+	var total := int(_health.get("spots_total", 0))
+	var reach := int(_health.get("spots_reachable", 0))
+	if total > 0 and reach < total:
+		advice.append("%d stavebních míst je mimo dosah světla — hráč se tam nikdy "
+			% (total - reach) + "nedostane. Buď je smaž, nebo k nim veď cestu blíž.")
+
+	if advice.is_empty():
+		return {"level": "ok", "headline": "Mapa je hratelná a měří se dobře.",
+			"advice": []}
+	return {"level": "warn", "headline": "Hratelné, ale dá se to zlepšit:",
+		"advice": advice}
+
+## Blokující vady jsou psané anglicky pro log; tady se z nich dělá věta pro člověka.
+func _czech_problems(problems: Array) -> Array[String]:
+	var out: Array[String] = []
+	for p in problems:
+		var s := String(p)
+		if s.contains("No spawn zones"):
+			out.append("Chybí spawn. Namaluj aspoň jeden blok na vrstvu BlockSpawn.")
+		elif s.contains("Objective") and s.contains("outside the grid"):
+			out.append("Cíl je mimo mřížku. Namaluj blok na vrstvu BlockGoal uvnitř desky.")
+		elif s.contains("Objective") and s.contains("high ground"):
+			out.append("Cíl stojí na terase. Smaž tam blok terasy — jádro potřebuje "
+				+ "vlastní buňku.")
+		elif s.contains("outside the") and s.contains("grid"):
+			out.append("Něco jsi namaloval mimo desku. Ty bloky se do hry nedostanou "
+				+ "— smaž je.")
+		else:
+			out.append(s)
+		if out.size() >= 3:
+			break
+	return out
 ## One-line record of the last write/launch ("Baked → level_1.tres · 14:32"), surfaced
 ## by the dock so success is never something you go check in the Output console.
 var last_action := ""
@@ -310,7 +683,13 @@ func _get_or_create(node_name: String, type_name: String) -> Node:
 func _enter_tree() -> void:
 	if not Engine.is_editor_hint():
 		return
+	build_layers()
 
+## Postaví (nebo opraví) všechny malovací vrstvy. Oddělené od `_enter_tree()` schválně:
+## v běžícím projektu `_enter_tree` skončí hned na `is_editor_hint()`, takže bez tohohle
+## vstupního bodu se geometrie bloků nedá ověřit headless harnessem — a přesně u ní se
+## chyba o půl dlaždice pozná až očima, pozdě.
+func build_layers() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 
 	var tm := _get_or_create("HighGroundTiles", "TileMapLayer") as TileMapLayer
@@ -346,6 +725,38 @@ func _enter_tree() -> void:
 	_normalize_layer(pt)
 	for layer in [tm, pt]:
 		layer.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+
+	# Blokové vrstvy — výchozí způsob malování. Jedno kliknutí = jedno stavební místo.
+	# Barvy jsou legenda, ne herní paleta: fialová zeď, oranžová cesta, červený spawn,
+	# zelený cíl. Pořadí dětí určuje překryv, proto se vrství odspodu: cesta, terasa,
+	# spawn, cíl — cíl a spawny musí být vidět i přes terasu pod nimi.
+	var block_style := {
+		"BlockPath": [Color("f08c28"), Color("a85a10")],
+		"BlockTiles": [Color("8b3fd6"), Color("4e1f66")],
+		"BlockSpawn": [Color("e0433f"), Color("7a1d1b")],
+		"BlockGoal": [Color("3fd67a"), Color("176b3a")],
+	}
+	for layer_name in ["BlockPath", "BlockTiles", "BlockSpawn", "BlockGoal"]:
+		var bl := _get_or_create(layer_name, "TileMapLayer") as TileMapLayer
+		var style: Array = block_style[layer_name]
+		bl.tile_set = _abstract_tileset(style[0], style[1], D.BUILD_BLOCK)
+		bl.position = _layer_origin(D.BUILD_BLOCK)
+		bl.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		bl.modulate = Color(1, 1, 1, 0.85)
+		_normalize_layer(bl)
+		move_child(bl, get_child_count() - 1)
+
+	# Buňkové vrstvy na stejnou kanonickou mřížku jako blokové.
+	tm.position = _layer_origin(1)
+	pt.position = tm.position
+
+	# Vrstva pro ruční výběr dlaždic. Leží NEJNÍŽ ze všech, protože je to podlaha —
+	# abstraktní bloky se kreslí přes ni, aby zůstalo vidět, kde je zeď a kde cesta.
+	var art := _get_or_create("ArtTiles", "TileMapLayer") as TileMapLayer
+	art.tile_set = _art_tileset()
+	art.position = _layer_origin(1)
+	art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	move_child(art, 0)
 
 	if obj.texture == null:
 		var t: int = _tile()
@@ -476,8 +887,60 @@ func _collect_cells(tm: TileMapLayer) -> Array[Vector2i]:
 		out.assign(tm.get_used_cells())
 	return out
 
+## Vysoká zem = namalované BLOKY plus případné doladění po buňkách.
+##
+## Obojí dohromady na JEDNOM místě schválně: kdyby to každý volající slučoval sám,
+## analýza a Bake by se mohly rozejít — a rozdíl mezi „co mi editor naměřil" a „co se
+## zapsalo do levelu" je přesně ten druh tiché neshody, který tenhle projekt už jednou
+## stál měsíc.
+## POZOR: buňky mimo mřížku se tu SCHVÁLNĚ nefiltrují. `_validate()` na ně hlásí vadu
+## („namaloval jsi mimo desku") a když se odsud tiše zahodí, ta kontrola je mrtvá —
+## což se 21. 8. 2026 na hodinu stalo a projevilo se to tak, že starý top-down level_1
+## prošel jako „hratelný, jen průměrný", místo aby řekl, že do téhle mřížky nepatří.
+func _high_cells() -> Array[Vector2i]:
+	var seen := {}
+	for c in _cells_from_blocks("BlockTiles"):
+		seen[c] = true
+	for c in _collect_cells(get_node_or_null("HighGroundTiles")):
+		seen[c] = true
+	var out: Array[Vector2i] = []
+	out.assign(seen.keys())
+	return out
+
+## Cesta: totéž pro malovaný pruh. Cesta nikdy neleží pod terasou — terasa je zeď,
+## takže by to byl pruh, kudy se nedá jít. Průnik se proto odečítá tady, ne až ve hře.
+func _lane_cells() -> Array[Vector2i]:
+	var high := {}
+	for c in _high_cells():
+		high[c] = true
+	var seen := {}
+	for c in _cells_from_blocks("BlockPath"):
+		if not high.has(c):
+			seen[c] = true
+	for c in _collect_cells(get_node_or_null("PathTiles")):
+		if not high.has(c):
+			seen[c] = true
+	var out: Array[Vector2i] = []
+	out.assign(seen.keys())
+	out.sort_custom(func(a: Vector2i, b: Vector2i):
+		return a.y < b.y if a.y != b.y else a.x < b.x)
+	return out
+
 func _cell_center(cell: Vector2i) -> Vector2:
 	return D.cell_center(cell)
+
+## Kosočtverec jedné buňky pro překryvy. Čtverec by v 2:1 izometrii ukazoval jinam,
+## než kam hra buňku kreslí — a překryv, který lže, je horší než žádný.
+func _cell_diamond(cell: Vector2i, span: int = 1) -> PackedVector2Array:
+	var g := _grid()
+	var hw: float = float(g.get("tile_w", 64)) * 0.5 * span
+	var hh: float = float(g.get("tile_h", 32)) * 0.5 * span
+	var c := D.cell_center(cell)
+	if span > 1:
+		c = D.cell_center(cell) + Vector2(0.0, hh - float(g.get("tile_h", 32)) * 0.5)
+	return PackedVector2Array([
+		c + Vector2(0.0, -hh), c + Vector2(hw, 0.0),
+		c + Vector2(0.0, hh), c + Vector2(-hw, 0.0)])
 
 ## Shortest path length in cells from `from` to `to`, routing around `solid`.
 ## Mirrors the game's AStarGrid2D setup: 4-way movement, high ground is solid.
@@ -582,10 +1045,38 @@ func _compute_traffic(solid: Dictionary, objective: Vector2i, zones: Array[Rect2
 ## (Game.compute_routine_sources): an Anchor only projects Routine once it is itself
 ## inside Routine. Reports both how many spots are reachable at all and roughly what
 ## that coverage costs, which is the number that decides whether a map is affordable.
+## POZOR NA HISTORII: do 21. 8. 2026 se tu za stavební místo považovala KAŽDÁ buňka
+## vysoké země. Hra ale staví na bloky 3x3 (`game.gd`: buňka musí být střed bloku a
+## celý blok musí být vysoká zem), takže analyzátor hlásil **devětkrát víc míst, než
+## kolik jich ve hře existuje** — level 98 měl „63 spots" a ve skutečnosti sedm.
+##
+## Cíl 12–20 míst v Routine se tedy celou dobu porovnával proti nafouknutému číslu a
+## každá mapa vypadala, že má stavění dost. Tady se počítá to samé co ve hře.
+static func _build_spot_cells(cells: Array[Vector2i]) -> Array[Vector2i]:
+	var solid := {}
+	for c in cells:
+		solid[c] = true
+	var b := D.BUILD_BLOCK
+	var out: Array[Vector2i] = []
+	for cell: Vector2i in solid:
+		if cell.x % b != b / 2 or cell.y % b != b / 2:
+			continue
+		var whole := true
+		for dy in range(-(b / 2), b / 2 + 1):
+			for dx in range(-(b / 2), b / 2 + 1):
+				if not solid.has(cell + Vector2i(dx, dy)):
+					whole = false
+					break
+			if not whole:
+				break
+		if whole:
+			out.append(cell)
+	return out
+
 func _routine_report(cells: Array[Vector2i], objective: Vector2i) -> Dictionary:
 	var core := _cell_center(objective)
 	var pts: Array[Vector2] = []
-	for c in cells:
+	for c in _build_spot_cells(cells):
 		pts.append(_cell_center(c))
 
 	var in_core := 0
@@ -656,12 +1147,13 @@ func _analyze() -> void:
 		print("MapEditor: assign a Target Level first.")
 		return
 	var tm: TileMapLayer = get_node_or_null("HighGroundTiles")
-	var cells := _collect_cells(tm)
+	var cells := _high_cells()
 	var objective := _read_objective()
 	var zones := _read_zones()
 
 	_report_lines = []
 	_preview_paths = []
+	_health = {}
 
 	print("\n========== MAP ANALYSIS: %s ==========" % target_level.resource_path)
 
@@ -757,16 +1249,24 @@ func _analyze() -> void:
 						continue
 					manh += absi(c2.x - objective.x) + absi(c2.y - objective.y)
 		var detour: float = float(sum) / maxf(1.0, float(manh))
+		_health["detour"] = detour
+		_health["shortest"] = shortest
 		_report("detour factor", "%.2f" % detour, detour >= TARGET_DETOUR,
 			"target >= %.2f (1.00 means enemies walk straight; no maze)" % TARGET_DETOUR)
 		_report("shortest spawn path", "%d cells" % shortest, shortest >= TARGET_MIN_SPAWN_PATH,
 			"target >= %d" % TARGET_MIN_SPAWN_PATH)
+	_health["unreachable_spawn"] = unreachable
+	_health["any_route"] = not all_lens.is_empty()
 	if unreachable > 0:
 		print("  BLOCKER: %d spawn cells have no path to the objective" % unreachable)
 		_report_lines.append({"text": "%d spawn cells have NO path to the objective"
 			% unreachable, "ok": 0})
 
 	var rr := _routine_report(cells, objective)
+	_health["spots_total"] = int(rr.total)
+	_health["spots_core"] = int(rr.in_core)
+	_health["spots_reachable"] = int(rr.reachable)
+	_health["problems"] = problems + sproblems
 	_report("build spots", "%d" % rr.total, rr.total > 0, "")
 	_report("spots in core Routine", "%d" % rr.in_core,
 		rr.in_core >= TARGET_CORE_SPOTS_MIN and rr.in_core <= TARGET_CORE_SPOTS_MAX,
@@ -901,24 +1401,44 @@ func _report(label: String, value: String, ok: bool, note: String) -> void:
 
 # ---------------------------------------------------------------- bake / load
 
+## Cíl: přednost má namalovaný blok na `BlockGoal`, teprve pak starý tahaný sprite.
+##
+## Namalovaný cíl je vždycky na středu bloku, což je jediné platné místo — validace to
+## vyžaduje a hráč tam staví. Tahaný sprite to zaručit nemohl a byl navíc čtený
+## ČTVERCOVĚ (`position / tile`), zatímco hra je izometrická; sprite tedy hlásil jinou
+## buňku, než na které ležel. Fallback je proto opravený na kanonický převod.
 func _read_objective() -> Vector2i:
+	var goal: TileMapLayer = get_node_or_null("BlockGoal")
+	if goal != null:
+		var used := goal.get_used_cells()
+		if not used.is_empty():
+			return block_center_cell(used[0])
 	var obj: Node2D = get_node_or_null("Objective")
 	if obj == null:
 		return Vector2i.ZERO
-	var t: float = float(_tile())
-	return Vector2i(int(round(obj.position.x / t)), int(round(obj.position.y / t)))
+	return D.world_to_cell(obj.position)
 
+## Spawny: přednost mají namalované bloky na `BlockSpawn`.
+##
+## Obdélník `ReferenceRect` byl v izometrii principiálně špatně — obdélník BUNĚK je na
+## obrazovce kosočtverec, takže tažené rohy nikdy neodpovídaly tomu, co se zapeklo.
+## Namalovaný blok je 3x3 buňky a převod je přesný.
 func _read_zones() -> Array[Rect2i]:
 	var out: Array[Rect2i] = []
+	var sp: TileMapLayer = get_node_or_null("BlockSpawn")
+	if sp != null and not sp.get_used_cells().is_empty():
+		var n := D.BUILD_BLOCK
+		for b: Vector2i in sp.get_used_cells():
+			out.append(Rect2i(b.x * n, b.y * n, n, n))
+		return out
 	var sz: Node2D = get_node_or_null("SpawnZones")
 	if sz == null:
 		return out
-	var t: float = float(_tile())
 	for child in sz.get_children():
 		if child is ReferenceRect or child is ColorRect:
-			out.append(Rect2i(
-				int(round(child.position.x / t)), int(round(child.position.y / t)),
-				int(round(child.size.x / t)), int(round(child.size.y / t))))
+			var tl := D.world_to_cell(child.position)
+			var br := D.world_to_cell(child.position + child.size)
+			out.append(Rect2i(tl, Vector2i(maxi(1, br.x - tl.x), maxi(1, br.y - tl.y))))
 	return out
 
 ## Returns true only when the level file was actually written — Playtest launches on
@@ -930,7 +1450,7 @@ func _bake_to_level() -> bool:
 		return false
 
 	var tm: TileMapLayer = get_node_or_null("HighGroundTiles")
-	var cells := _collect_cells(tm)
+	var cells := _high_cells()
 	var objective := _read_objective()
 	var zones := _read_zones()
 
@@ -968,13 +1488,20 @@ func _bake_to_level() -> bool:
 	# dlaždice po prvcích pole, takže deterministické pořadí = stejná mapa v editoru,
 	# ve hře i po každém dalším Bake.
 	var lanes: Array[Vector2i] = []
-	var ptl: TileMapLayer = get_node_or_null("PathTiles")
-	if ptl != null:
-		for c: Vector2i in ptl.get_used_cells():
-			lanes.append(c)
-		lanes.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
-			return a.y < b.y or (a.y == b.y and a.x < b.x))
+	lanes.assign(_lane_cells())
 	target_level.path_cells = lanes
+
+	# Ruční přepisy dlaždic. Klíč je jméno souboru, ne id zdroje — id se posune,
+	# jakmile do adresáře přibude textura, a level by se tiše přemaloval.
+	var overrides := {}
+	var art_layer: TileMapLayer = get_node_or_null("ArtTiles")
+	if art_layer != null:
+		var names := art_tile_paths()
+		for c: Vector2i in art_layer.get_used_cells():
+			var sid := art_layer.get_cell_source_id(c)
+			if sid >= 0 and sid < names.size():
+				overrides[c] = names[sid]
+	target_level.tile_overrides = overrides
 
 	# Rekvizity z uzlů: id = jméno souboru textury. Duplikuj sprite (Ctrl+D), přesuň,
 	# hotovo — Bake si je posbírá.
@@ -1170,14 +1697,21 @@ func _load_from_level() -> void:
 
 	# Abstraktní vrstvy: jedna plná dlaždice na buňku, žádné autotilování — tvar dělá
 	# až pravá strana split-view a hra.
-	if tm != null:
-		tm.clear()
-		for cell in target_level.high_ground:
-			tm.set_cell(cell, 0, Vector2i.ZERO)
-	if pt != null:
-		pt.clear()
-		for cell in target_level.path_cells:
-			pt.set_cell(cell, 0, Vector2i.ZERO)
+	#
+	# Rozdělení na bloky a zbytek: co je celý blok 3x3, jde na blokovou vrstvu (a dá se
+	# tedy dál upravovat jedním klikem), co zbude, jde po buňkách. Nikdy ne obojí, jinak
+	# by se stejná buňka počítala dvakrát a mazání by ji nechalo naživu na druhé vrstvě.
+	_fill_layers(target_level.high_ground, "BlockTiles", tm)
+	_fill_layers(target_level.path_cells, "BlockPath", pt)
+
+	var art_layer: TileMapLayer = get_node_or_null("ArtTiles")
+	if art_layer != null:
+		art_layer.clear()
+		var names := art_tile_paths()
+		for key in target_level.tile_overrides:
+			var idx := names.find(String(target_level.tile_overrides[key]))
+			if idx >= 0:
+				art_layer.set_cell(key, idx, Vector2i.ZERO)
 
 	if props != null:
 		for child in props.get_children():
@@ -1196,23 +1730,37 @@ func _load_from_level() -> void:
 			props.add_child(s)
 			_adopt(s)
 
+	# Cíl a spawny se nově MALUJÍ, ne tahají. Staré uzly se proto vyprázdní — kdyby
+	# zůstaly, `_read_objective()` by sice dalo přednost namalovanému, ale v pohledu by
+	# ležely dvě značky na různých místech a nikdo by nevěděl, která platí.
+	var n := D.BUILD_BLOCK
+	var goal: TileMapLayer = get_node_or_null("BlockGoal")
+	if goal != null:
+		goal.clear()
+		var oc := target_level.objective
+		if D.in_bounds(oc):
+			goal.set_cell(Vector2i(int(floorf(float(oc.x) / n)), int(floorf(float(oc.y) / n))),
+				0, Vector2i.ZERO)
 	if obj != null:
-		obj.position = Vector2(target_level.objective.x * t, target_level.objective.y * t)
+		obj.position = D.cell_center(target_level.objective)
+		obj.visible = false
 
+	var spawn: TileMapLayer = get_node_or_null("BlockSpawn")
+	if spawn != null:
+		spawn.clear()
+		for rect: Rect2i in target_level.spawn_zones:
+			# Obdélník buněk se pokryje bloky, které protíná. Zaokrouhluje se nahoru:
+			# spawn menší než blok je pořád spawn a nesmí se ztratit.
+			var b0 := Vector2i(int(floorf(float(rect.position.x) / n)),
+				int(floorf(float(rect.position.y) / n)))
+			var b1 := Vector2i(int(floorf(float(rect.position.x + maxi(rect.size.x, 1) - 1) / n)),
+				int(floorf(float(rect.position.y + maxi(rect.size.y, 1) - 1) / n)))
+			for by in range(b0.y, b1.y + 1):
+				for bx in range(b0.x, b1.x + 1):
+					spawn.set_cell(Vector2i(bx, by), 0, Vector2i.ZERO)
 	if sz != null:
 		for child in sz.get_children():
 			child.queue_free()
-		for i in range(target_level.spawn_zones.size()):
-			var rect: Rect2i = target_level.spawn_zones[i]
-			var rr := ReferenceRect.new()
-			rr.name = "Zone_" + str(i)
-			rr.border_color = Color(1.0, 0.2, 0.2, 0.8)
-			rr.border_width = 4.0
-			rr.editor_only = false
-			rr.position = Vector2(rect.position.x * t, rect.position.y * t)
-			rr.size = Vector2(rect.size.x * t, rect.size.y * t)
-			sz.add_child(rr)
-			_adopt(rr)
 
 	print("MapEditor: loaded %s" % target_level.resource_path)
 	last_action = "Loaded %s · %s" % [target_level.resource_path.get_file(), _clock()]
@@ -1252,14 +1800,29 @@ func _draw() -> void:
 	var w: float = float(g.cols) * t
 	var h: float = float(g.rows) * t
 
-	# Playable bounds. Anything painted outside this is a cell the player can never use.
-	draw_rect(Rect2(ox, oy, w, h), Color(0.4, 0.6, 1.0, 0.5), false, 3.0)
-	for c in range(int(g.cols) + 1):
-		draw_line(Vector2(ox + c * t, oy), Vector2(ox + c * t, oy + h),
-			Color(1, 1, 1, 0.05), 1.0)
-	for r in range(int(g.rows) + 1):
-		draw_line(Vector2(ox, oy + r * t), Vector2(ox + w, oy + r * t),
-			Color(1, 1, 1, 0.05), 1.0)
+	# Hrací plocha. Izometricky — dřív se tu kreslil ČTVEREC, zatímco hra i kruh Routine
+	# o pár řádků níž pracují v 2:1 kosočtverci, takže mřížka lhala o tom, kde buňka je.
+	var cols := int(g.cols)
+	var rows := int(g.rows)
+	# Rohy desky: buňka (0,0) horní, (cols,0) pravá, (cols,rows) dolní, (0,rows) levá.
+	var corner := func(cx: int, cy: int) -> Vector2:
+		return Vector2(ox + (cx - cy) * (float(g.tile_w) * 0.5),
+			oy + (cx + cy) * (float(g.tile_h) * 0.5))
+	draw_polyline(PackedVector2Array([
+		corner.call(0, 0), corner.call(cols, 0), corner.call(cols, rows),
+		corner.call(0, rows), corner.call(0, 0)]), Color(0.4, 0.6, 1.0, 0.5), 3.0)
+
+	# Mřížka buněk slabě, hranice BLOKŮ výrazněji — blok je jednotka, ve které se staví
+	# i maluje, takže musí být vidět na první pohled, kde jeden končí.
+	var blk := D.BUILD_BLOCK
+	for c in range(cols + 1):
+		var strong: bool = (c % blk == 0)
+		draw_line(corner.call(c, 0), corner.call(c, rows),
+			Color(1, 1, 1, 0.16 if strong else 0.05), 1.0)
+	for r in range(rows + 1):
+		var strong_r: bool = (r % blk == 0)
+		draw_line(corner.call(0, r), corner.call(cols, r),
+			Color(1, 1, 1, 0.16 if strong_r else 0.05), 1.0)
 
 	# The Focus core's Routine reach — the only area buildable without an Anchor chain.
 	var core := _cell_center(_read_objective())
@@ -1275,7 +1838,7 @@ func _draw() -> void:
 	if show_traffic and _traffic_max > 0:
 		for cell: Vector2i in _traffic:
 			var f := sqrt(float(_traffic[cell]) / float(_traffic_max))
-			draw_rect(Rect2(ox + cell.x * t, oy + cell.y * t, t, t),
+			draw_colored_polygon(_cell_diamond(cell),
 				Color(1.0, 0.85 - 0.6 * f, 0.15, 0.06 + 0.3 * f))
 
 	# Enemy routes from the last analysis — the maze made visible. Spawn end dotted,
@@ -1293,20 +1856,17 @@ func _draw() -> void:
 				path[i] + dir * 9.0, path[i] - dir * 4.0 + perp * 6.0,
 				path[i] - dir * 4.0 - perp * 6.0]), path_col)
 
-	# Zone + objective labels, so "which zone is which and how big" needs no counting.
-	var sz: Node2D = get_node_or_null("SpawnZones")
-	if sz != null:
-		var zi := 0
-		for child in sz.get_children():
-			if child is ReferenceRect or child is ColorRect:
-				draw_string(font, child.position + Vector2(4, -6),
-					"Zone %d — %d×%d" % [zi, int(round(child.size.x / t)), int(round(child.size.y / t))],
-					HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1.0, 0.35, 0.4, 0.95))
-				zi += 1
-	var obj: Node2D = get_node_or_null("Objective")
-	if obj != null:
-		var ocell := _read_objective()
-		draw_string(font, obj.position + Vector2(0, -8), "Objective (%d, %d)" % [ocell.x, ocell.y],
+	# Popisky spawnů a cíle. Čtou se z toho, co je NAMALOVANÉ, takže ukazují přesně to,
+	# co se zapeče — ne pozici uzlu, který už nikdo nepoužívá.
+	var zi := 0
+	for rect: Rect2i in _read_zones():
+		draw_string(font, _cell_center(rect.position) + Vector2(-24, -10),
+			"Spawn %d" % zi, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1.0, 0.35, 0.4, 0.95))
+		zi += 1
+	var ocell := _read_objective()
+	if D.in_bounds(ocell):
+		draw_string(font, _cell_center(ocell) + Vector2(-28, -14),
+			"Cíl (%d, %d)" % [ocell.x, ocell.y],
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.49, 1.0, 0.7, 0.95))
 
 	# On-canvas metrics panel, below the play field (the grid spans the full width, so

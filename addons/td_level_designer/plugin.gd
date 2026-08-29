@@ -16,6 +16,9 @@ const RENDERER_SCRIPT := "res://tools/stylized_renderer.gd"
 ## Šířky panelu; Půlka je výchozí — dost na čtení mapy, dost místa na malování.
 const W_HALF := 760.0
 const W_NARROW := 420.0
+## Meze tažení. Dolní je tak, aby zbyla lišta s tlačítky; horní ať se nedá zakrýt plátno.
+const W_MIN := 160.0
+const W_MAX := 1600.0
 
 var _dock: Control = null
 var _pane: Control = null
@@ -60,15 +63,81 @@ func _find_editor(node: Node) -> MapEditor:
 			return found
 	return null
 
+# ---------------------------------------------------------------- šířka panelu
+
+var _grip_drag := false
+var _grip_from := 0.0
+var _grip_width := 0.0
+
+## Šířka se pamatuje mezi spuštěními editoru. Ukládá se do metadat PROJEKTU, ne do
+## project.godot — je to nastavení pracovní plochy jednoho člověka, ne vlastnost hry,
+## a nemá co dělat v souboru, který se commituje.
+func _load_pane_width() -> float:
+	if not Engine.is_editor_hint():
+		return W_HALF
+	var es := EditorInterface.get_editor_settings()
+	if es == null:
+		return W_HALF
+	return clampf(float(es.get_project_metadata("td_level_designer", "pane_width", W_HALF)),
+		W_MIN, W_MAX)
+
+func _save_pane_width(w: float) -> void:
+	if not Engine.is_editor_hint():
+		return
+	var es := EditorInterface.get_editor_settings()
+	if es != null:
+		es.set_project_metadata("td_level_designer", "pane_width", w)
+
+## Panel visí na PRAVÉ straně, takže tažení doleva ho rozšiřuje — proto se posun myši
+## odčítá. Šířka se drží na `custom_minimum_size`, což je jediné, na co kontejner
+## editoru slyší; nastavovat `size` by přepsal rodič při nejbližším přepočtu.
+func _on_grip_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.double_click:
+			_pane.custom_minimum_size.x = W_HALF
+			_save_pane_width(W_HALF)
+			return
+		_grip_drag = event.pressed
+		if _grip_drag:
+			_grip_from = _pane.get_global_mouse_position().x
+			_grip_width = _pane.custom_minimum_size.x
+		else:
+			_save_pane_width(_pane.custom_minimum_size.x)
+	elif event is InputEventMouseMotion and _grip_drag:
+		var delta: float = _pane.get_global_mouse_position().x - _grip_from
+		_pane.custom_minimum_size.x = clampf(_grip_width - delta, W_MIN, W_MAX)
+
 # ---------------------------------------------------------------- pane
 
 func _build_pane() -> void:
-	_pane = VBoxContainer.new()
+	# Panel je HBox: úplně vlevo tenké táhlo, vpravo obsah. Bez něj se dala šířka měnit
+	# jen dvěma tlačítky na pevné hodnoty, což je pro panel, který si člověk chce
+	# přizpůsobit podle toho, co zrovna dělá, málo.
+	_pane = HBoxContainer.new()
 	_pane.name = "TDNahled"
-	_pane.custom_minimum_size.x = W_HALF
+	_pane.add_theme_constant_override("separation", 0)
+	_pane.custom_minimum_size.x = _load_pane_width()
+
+	var grip := Control.new()
+	grip.custom_minimum_size = Vector2(6, 0)
+	grip.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	grip.mouse_default_cursor_shape = Control.CURSOR_HSIZE
+	grip.tooltip_text = "Táhni pro změnu šířky · dvojklik vrátí půlku"
+	grip.gui_input.connect(_on_grip_input)
+	grip.draw.connect(func():
+		# Tři tečky uprostřed — jinak je 6px sloupec k nerozeznání od okraje okna.
+		var h: float = grip.size.y
+		for i in range(-1, 2):
+			grip.draw_circle(Vector2(3.0, h * 0.5 + float(i) * 7.0), 1.5,
+				Color(0.55, 0.6, 0.72, 0.9)))
+	_pane.add_child(grip)
+
+	var body := VBoxContainer.new()
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_pane.add_child(body)
 
 	var bar := HBoxContainer.new()
-	_pane.add_child(bar)
+	body.add_child(bar)
 	var title := Label.new()
 	title.text = "Náhled hry"
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -78,7 +147,8 @@ func _build_pane() -> void:
 	half.tooltip_text = "Přepnout šířku panelu"
 	half.pressed.connect(func():
 		_pane.custom_minimum_size.x = W_NARROW \
-			if _pane.custom_minimum_size.x == W_HALF else W_HALF)
+			if _pane.custom_minimum_size.x == W_HALF else W_HALF
+		_save_pane_width(_pane.custom_minimum_size.x))
 	bar.add_child(half)
 	_collapse_btn = Button.new()
 	_collapse_btn.text = "Sbalit"
@@ -100,10 +170,16 @@ func _build_pane() -> void:
 	holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	# Náhled je jen obraz — ať nikdy nesebere focus ani kolečko myši.
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_pane.add_child(holder)
+	body.add_child(holder)
+	# Sbalení si pamatuje, jak široko bylo předtím — jinak by rozbalení zahodilo šířku,
+	# kterou si člověk zrovna natáhl.
 	_collapse_btn.toggled.connect(func(on: bool):
 		holder.visible = not on
-		_pane.custom_minimum_size.x = 130.0 if on else W_HALF)
+		if on:
+			_save_pane_width(_pane.custom_minimum_size.x)
+			_pane.custom_minimum_size.x = 130.0
+		else:
+			_pane.custom_minimum_size.x = _load_pane_width())
 
 	_viewport = SubViewport.new()
 	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS

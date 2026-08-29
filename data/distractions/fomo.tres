@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="DistractionData" format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/distraction_data.gd" id="1_fomo"]
+
+[resource]
+script = ExtResource("1_fomo")
+id = &"fomo"
+display_name = "FOMO"
+description = "Ends soon. Everyone else already saw it."
+max_health = 22
+speed = 168.0
+is_flying = false
+compulsion = 0
+rationalization = 0
+dopamine_reward = 11
+focus_damage = 0
+melee_damage = 1
+block_weight = 1
+color = "ff4fa3"
+radius = 9.5
+shape = "triangle"
+lifetime_seconds = 7.0
