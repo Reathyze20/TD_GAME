@@ -123,7 +123,7 @@ func _test_art_fallback() -> void:
 
 func _test_stun(game: Game) -> void:
 	print("=== the freeze stops things a slow cannot")
-	var e = game.spawn_distraction(&"energy_drink", game._random_spawn_cell())
+	var e := game.spawn_distraction(&"energy_drink", game._random_spawn_cell())
 	_check("energy drink spawned", e != null)
 	if e == null:
 		return
@@ -160,7 +160,7 @@ func _test_stun(game: Game) -> void:
 
 func _test_dispel(game: Game) -> void:
 	print("=== the dispel takes the aura, not the phase change")
-	var e = game.spawn_distraction(&"energy_drink", game._random_spawn_cell())
+	var e := game.spawn_distraction(&"energy_drink", game._random_spawn_cell())
 	if e == null:
 		_check("energy drink spawned", false)
 		return
@@ -191,7 +191,7 @@ func _test_dispel(game: Game) -> void:
 
 func _test_vulnerable(game: Game) -> void:
 	print("=== vulnerability amplifies what other habits do")
-	var d = game.spawn_distraction(&"doomscroll", game._random_spawn_cell())
+	var d := game.spawn_distraction(&"doomscroll", game._random_spawn_cell())
 	if d == null:
 		_check("doomscroll spawned", false)
 		return
@@ -231,7 +231,7 @@ func _test_vulnerable(game: Game) -> void:
 
 func _test_pulse_order(game: Game) -> void:
 	print("=== Resonance Wave does not cash in on its own debuff")
-	var d = game.spawn_distraction(&"doomscroll", game._random_spawn_cell())
+	var d := game.spawn_distraction(&"doomscroll", game._random_spawn_cell())
 	if d == null:
 		_check("doomscroll spawned", false)
 		return
@@ -262,7 +262,7 @@ func _test_pulse_order(game: Game) -> void:
 		"(%d vs expected %d)" % [second_hit, int(round(float(first_hit) * 1.25))])
 
 	print("=== the base pulse freezes and dispels in one go")
-	var e = game.spawn_distraction(&"energy_drink", game._random_spawn_cell())
+	var e := game.spawn_distraction(&"energy_drink", game._random_spawn_cell())
 	if e != null:
 		await get_tree().process_frame
 		e.current_health = 99999

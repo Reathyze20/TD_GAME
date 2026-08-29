@@ -18,7 +18,7 @@ func _run() -> void:
 			GameState.current_level_index = i
 			break
 	GameState.designer_mode = true
-	var game = load("res://scenes/Game.tscn").instantiate()
+	var game: Game = load("res://scenes/Game.tscn").instantiate()
 	add_child(game)
 	await get_tree().process_frame
 	GameState.add_dopamine(2000)

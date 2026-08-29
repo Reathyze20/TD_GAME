@@ -139,7 +139,7 @@ func _load_set(base_id: String, suffix: String, dir_suffix: String) -> Array[Tex
 	for i in range(1, 33):
 		var p := "res://assets/distractions/%s%s%s_frame_%d.png" % [base_id, suffix, dir_suffix, i]
 		if ResourceLoader.exists(p):
-			var tex = load(p)
+			var tex := load(p)
 			if tex is Texture2D:
 				frames.append(tex)
 		elif FileAccess.file_exists(p):
@@ -384,7 +384,7 @@ func _load_death_frames(base_id: String, suffix: String) -> void:
 	for i in range(1, 33):
 		var p := "res://assets/distractions/%s%s_death_frame_%d.png" % [base_id, suffix, i]
 		if ResourceLoader.exists(p):
-			var tex = load(p)
+			var tex := load(p)
 			if tex is Texture2D:
 				frames.append(tex)
 		elif FileAccess.file_exists(p):

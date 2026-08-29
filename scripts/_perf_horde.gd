@@ -14,7 +14,7 @@ extends Node
 ##   godot --path <proj> --main-scene res://scenes/_perf_horde.tscn
 
 var completed := false
-var _game = null
+var _game: Game = null
 
 const N_STEPS := [50, 100, 200, 500, 1000]
 const DRUHY := ["notification", "autoplay", "doomscroll", "phantom_buzz",

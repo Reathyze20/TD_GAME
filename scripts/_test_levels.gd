@@ -41,7 +41,7 @@ func _check(label: String, ok: bool, detail: String = "") -> void:
 		print("  FAIL %s %s" % [label, detail])
 
 func _run() -> void:
-	var g = Data.GRID
+	var g := Data.GRID
 	var b: int = Data.BUILD_BLOCK
 	var broken_seen := {}
 
@@ -82,7 +82,7 @@ func _run() -> void:
 
 		# --- ziva kontrola: postav level a nech A* odpovedet -------------------
 		GameState.current_level_index = i
-		var game = load("res://scenes/Game.tscn").instantiate()
+		var game: Game = load("res://scenes/Game.tscn").instantiate()
 		add_child(game)
 		await get_tree().process_frame
 

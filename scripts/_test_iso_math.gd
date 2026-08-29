@@ -4,7 +4,7 @@ const Data = preload("res://scripts/data.gd")
 
 func _initialize() -> void:
 	print("--- Running Isometric Projection Math Verification ---")
-	var g = Data.GRID
+	var g := Data.GRID
 	var cols: int = int(g.cols)
 	var rows: int = int(g.rows)
 	var errors := 0
@@ -27,7 +27,7 @@ func _initialize() -> void:
 		
 	# Test AStar with LevelIso
 	print("--- Testing AStar pathfinding on level_iso ---")
-	var level = load("res://data/levels/level_iso.tres") as LevelData
+	var level := load("res://data/levels/level_iso.tres") as LevelData
 	if level == null:
 		printerr("Could not load level_iso.tres")
 		quit(1)
@@ -43,8 +43,8 @@ func _initialize() -> void:
 		if c != level.objective and astar.is_in_bounds(c.x, c.y):
 			astar.set_point_solid(c, true)
 			
-	var spawn_cell = level.spawn_zones[0].position + Vector2i(1, 1)
-	var path = astar.get_id_path(spawn_cell, level.objective)
+	var spawn_cell := level.spawn_zones[0].position + Vector2i(1, 1)
+	var path := astar.get_id_path(spawn_cell, level.objective)
 	print("AStar Path from %s to %s has %d steps:" % [spawn_cell, level.objective, path.size()])
 	if path.is_empty():
 		printerr("FAILED: No path found from spawn to objective!")

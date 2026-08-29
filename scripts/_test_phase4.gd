@@ -86,7 +86,7 @@ func _run() -> void:
 	game.aiming_habit.show_range_indicator = false
 	game.aiming_habit = null
 	game.aiming_spot = null
-	var h1 = spot0.current_habit
+	var h1 := spot0.current_habit
 	ok = _check(h1 is Habit, "ranged habit is class Habit") and ok
 	ok = _check(h1.facing_angle == PI, "ranged habit sets facing") and ok
 	ok = _check(h1.arc_angle == 90.0, "ranged habit sets arc") and ok
@@ -94,7 +94,7 @@ func _run() -> void:
 	# 2. Build barracks subclass
 	GameState.selected_habit = "accountability"
 	game._build_on(spot1.grid_cell)
-	var h2 = spot1.current_habit
+	var h2 := spot1.current_habit
 	ok = _check(h2 is Barracks, "barracks is class Barracks") and ok
 	# The Nutrition Guild fields its whole three-slot recipe at once — a fresh guild
 	# is never a lone unit slowly training up to strength.
@@ -131,7 +131,7 @@ func _run() -> void:
 
 	# 5. Upgrade preserves facing
 	game._do_upgrade(spot0.grid_cell, "focus_timer_2", 0)
-	var h1_up = spot0.current_habit
+	var h1_up := spot0.current_habit
 	ok = _check(h1_up is Habit, "upgrade preserves Habit class") and ok
 	ok = _check(h1_up.facing_angle == PI, "upgrade preserves facing angle") and ok
 	ok = _check(h1_up.arc_angle == 90.0, "upgrade preserves arc angle") and ok
@@ -162,7 +162,7 @@ func _run() -> void:
 	# 8. A fallen slot respawns on its timer — as whatever the slot names by then.
 	GameState.selected_habit = "accountability"
 	game._build_on(spot1.grid_cell)
-	var h3 = spot1.current_habit
+	var h3 := spot1.current_habit
 	ok = _check(h3.owned_allies.size() == 3, "guild starts full (got %d)" % h3.owned_allies.size()) and ok
 	var fallen = h3._slot_units[0]
 	fallen.take_damage(999999)

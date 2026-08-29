@@ -29,7 +29,7 @@ func _arg(name: String, fallback: String) -> String:
 ## Empty build spots inside the CURRENT Routine, farthest from the core first — same
 ## selection idea as _shot_fog.gd, re-run after each build because an Anchor extends
 ## _routine_sources and opens up spots that were dark a moment ago.
-func _candidates(game) -> Array:
+func _candidates(game: Game) -> Array:
 	var out: Array = []
 	for cell: Vector2i in game.build_spots:
 		var bs = game.build_spots[cell]
@@ -43,7 +43,7 @@ func _candidates(game) -> Array:
 	return out
 
 
-func _build(game, type_key: String, cell: Vector2i, facing: float, arc: float):
+func _build(game: Game, type_key: String, cell: Vector2i, facing: float, arc: float) -> Variant:
 	GameState.select_habit(type_key)
 	game._build_on(cell)
 	game._end_aiming()
@@ -67,7 +67,7 @@ func _save(img: Image, path: String) -> void:
 func _run() -> void:
 	var out_prefix := _arg("--out", "build/shadow")
 
-	var game = load("res://scenes/Game.tscn").instantiate()
+	var game: Game = load("res://scenes/Game.tscn").instantiate()
 	add_child(game)
 	await get_tree().process_frame
 	# Bez obrany jádro vyhoří a _game_over() přepne scénu ještě před fotkou (viz

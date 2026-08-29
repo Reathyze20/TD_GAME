@@ -4,7 +4,7 @@ extends Node
 ## texturu); pusti se pres --main-scene, viz reference-godot-binary.
 
 var _done := false
-var game
+var game: Game
 
 func _shot(name: String) -> void:
 	for i in range(20):

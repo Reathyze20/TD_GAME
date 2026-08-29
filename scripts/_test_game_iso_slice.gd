@@ -77,7 +77,7 @@ func _init() -> void:
 	game_state_node.selected_habit = "focus_pillar"
 	game._hover_cell = spot1
 	assert(game._can_build(spot1), "Should be able to build on spot1")
-	var t1 = game._build_habit(spot1, "focus_pillar")
+	var t1 := game._build_habit(spot1, "focus_pillar")
 	assert(t1 != null, "Tower 1 (focus_pillar) must be created")
 	print("Built focus_pillar at %s (world pos: %s)" % [spot1, t1.position])
 	
@@ -85,7 +85,7 @@ func _init() -> void:
 	game_state_node.selected_habit = "mindfulness"
 	game._hover_cell = spot2
 	assert(game._can_build(spot2), "Should be able to build on spot2")
-	var t2 = game._build_habit(spot2, "mindfulness")
+	var t2 := game._build_habit(spot2, "mindfulness")
 	assert(t2 != null, "Tower 2 (mindfulness) must be created")
 	print("Built mindfulness at %s (world pos: %s)" % [spot2, t2.position])
 	
@@ -93,7 +93,7 @@ func _init() -> void:
 	game_state_node.selected_habit = "focus_timer"
 	game._hover_cell = spot3
 	assert(game._can_build(spot3), "Should be able to build on spot3")
-	var t3 = game._build_habit(spot3, "focus_timer")
+	var t3 := game._build_habit(spot3, "focus_timer")
 	assert(t3 != null, "Tower 3 (focus_timer) must be created")
 	print("Built focus_timer at %s (world pos: %s)" % [spot3, t3.position])
 	

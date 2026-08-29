@@ -13,7 +13,7 @@ var _done := false
 var _splat_at := Vector2.ZERO
 
 ## Prave hrajici ImpactFX v prvni tretine zivota -- tam je splat nejvic videt.
-func _live_splat(game) -> Node2D:
+func _live_splat(game: Game) -> Node2D:
 	for n in game.get_children():
 		if n is ImpactFX and n.visible and n._progress > 0.04 and n._progress < 0.45:
 			return n
@@ -31,7 +31,7 @@ func _ready() -> void:
 			GameState.current_level_index = i
 			break
 	GameState.designer_mode = true
-	var game = load("res://scenes/Game.tscn").instantiate()
+	var game: Game = load("res://scenes/Game.tscn").instantiate()
 	add_child(game)
 	var wd := Timer.new(); wd.wait_time = 90.0; wd.one_shot = true
 	wd.timeout.connect(func():

@@ -33,7 +33,7 @@ func _check(label: String, ok: bool, detail: String = "") -> void:
 		fails += 1
 		print("  FAIL %s %s" % [label, detail])
 
-func _path_len(game, from: Vector2i) -> int:
+func _path_len(game: Game, from: Vector2i) -> int:
 	if not game.astar.is_in_boundsv(from):
 		return -1
 	return game.astar.get_id_path(from, game.objective_cell).size()
@@ -44,7 +44,7 @@ func _run() -> void:
 			GameState.current_level_index = i
 			break
 
-	var game = load("res://scenes/Game.tscn").instantiate()
+	var game: Game = load("res://scenes/Game.tscn").instantiate()
 	add_child(game)
 	await get_tree().process_frame
 	GameState.max_focus = 999999
@@ -102,7 +102,7 @@ func _run() -> void:
 	GameState.set_tolerance(0.0)
 	game._update_sinking(0.016)
 	await get_tree().process_frame
-	var d = game.spawn_distraction(&"notification", spawn)
+	var d := game.spawn_distraction(&"notification", spawn)
 	await get_tree().process_frame
 	_check("distrakce se spawnula", d != null and is_instance_valid(d))
 	GameState.set_tolerance(70.0)
@@ -146,7 +146,7 @@ func _run() -> void:
 
 	if h is Habit:
 		# Distrakce přímo na návyku — přerušení se má spustit.
-		var near = game.spawn_distraction(&"notification", game._sink_block)
+		var near := game.spawn_distraction(&"notification", game._sink_block)
 		await get_tree().process_frame
 		if near != null and is_instance_valid(near):
 			near.global_position = h.global_position

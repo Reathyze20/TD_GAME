@@ -42,7 +42,7 @@ func _run() -> void:
 			GameState.current_level_index = i
 			break
 
-	var game = load("res://scenes/Game.tscn").instantiate()
+	var game: Game = load("res://scenes/Game.tscn").instantiate()
 	add_child(game)
 	await get_tree().process_frame
 	GameState.max_focus = 999999
@@ -88,7 +88,7 @@ func _run() -> void:
 	print("\n-- fleeting: ignorovat je zadarmo")
 	var spawn: Vector2i = game._random_spawn_cell()
 	var live_before: int = game._distractions.size()
-	var f = game.spawn_distraction(&"fomo", spawn)
+	var f := game.spawn_distraction(&"fomo", spawn)
 	await get_tree().process_frame
 	_check("FOMO se spawnula", f != null and is_instance_valid(f))
 	_check("ma natazeny odpocet", f != null and f._life_left > 0.0, "%.1fs" % f._life_left)
@@ -115,7 +115,7 @@ func _run() -> void:
 	_check("log zapsal bait_expired", Mirror.count(&"bait_expired") >= 1)
 
 	print("\n-- fleeting: zabit ji je to, co stoji")
-	var f2 = game.spawn_distraction(&"fomo", spawn)
+	var f2 := game.spawn_distraction(&"fomo", spawn)
 	await get_tree().process_frame
 	f2.take_direct_damage(99999)
 	await get_tree().process_frame
@@ -131,7 +131,7 @@ func _run() -> void:
 	game.started = true
 	game.between_waves = false
 	var live0: int = game._distractions.size()
-	var j = game.spawn_distraction(&"just_one_more", spawn)
+	var j := game.spawn_distraction(&"just_one_more", spawn)
 	await get_tree().process_frame
 	# Posuň ho kus po cestě, ať je vidět, jestli děti startují odsud, nebo od vchodu.
 	var mid: Vector2 = game.cell_center(spawn).lerp(game.objective_pos, 0.5)
@@ -187,7 +187,7 @@ func _run() -> void:
 	print("
 -- splitter: nezasekne vlnu, kdyz rodic nema cestu")
 	var wall_cell: Vector2i = game.high_ground.keys()[0] if not game.high_ground.is_empty() else spawn
-	var stuck = game.spawn_distraction(&"just_one_more", spawn)
+	var stuck := game.spawn_distraction(&"just_one_more", spawn)
 	await get_tree().process_frame
 	stuck.position = game.cell_center(wall_cell)
 	stuck.global_position = stuck.position
@@ -212,7 +212,7 @@ func _run() -> void:
 	game.started = true
 	game.between_waves = false
 	game._autoplay_left = -1.0
-	var a = game.spawn_distraction(&"autoplay", spawn)
+	var a := game.spawn_distraction(&"autoplay", spawn)
 	await get_tree().process_frame
 	_check("autoplay ma natazeny odpocet", a._autoplay_left > 0.0, "%.1fs" % a._autoplay_left)
 	_check("build faze zatim neni ohrozena", game._autoplay_left < 0.0)
@@ -254,7 +254,7 @@ func _run() -> void:
 		if game.build_spots[cell].state == BuildSpot.State.EMPTY:
 			empty_spots.append(cell)
 	_check("mame kam stavet", empty_spots.size() >= 3, "%d mist" % empty_spots.size())
-	var c0 = game.spawn_distraction(&"comparison", spawn)
+	var c0 := game.spawn_distraction(&"comparison", spawn)
 	await get_tree().process_frame
 	_check("na prazdne desce se neadaptuje", c0.adapted_channel == &"",
 		str(c0.adapted_channel))
@@ -271,7 +271,7 @@ func _run() -> void:
 	await get_tree().process_frame
 	var prof: Dictionary = game.player_damage_profile()
 	_check("deska hlasi awareness", int(prof.get("awareness", 0)) > 0, str(prof))
-	var c1 = game.spawn_distraction(&"comparison", spawn)
+	var c1 := game.spawn_distraction(&"comparison", spawn)
 	await get_tree().process_frame
 	_check("adaptovala se na awareness", c1.adapted_channel == &"awareness",
 		str(c1.adapted_channel))
@@ -289,7 +289,7 @@ func _run() -> void:
 	game._build_on(empty_spots[1])
 	game._end_aiming()
 	await get_tree().process_frame
-	var c2 = game.spawn_distraction(&"comparison", spawn)
+	var c2 := game.spawn_distraction(&"comparison", spawn)
 	await get_tree().process_frame
 	_check("prepnula se na willpower", c2.adapted_channel == &"willpower",
 		str(c2.adapted_channel))
@@ -307,7 +307,7 @@ func _run() -> void:
 	game._build_on(empty_spots[2])
 	game._end_aiming()
 	await get_tree().process_frame
-	var c3 = game.spawn_distraction(&"comparison", spawn)
+	var c3 := game.spawn_distraction(&"comparison", spawn)
 	await get_tree().process_frame
 	_check("druhy stejny navyk ho neposilil", c3.current_compulsion == bite,
 		"%d == %d" % [c3.current_compulsion, bite])

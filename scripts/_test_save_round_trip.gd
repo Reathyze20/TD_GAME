@@ -85,7 +85,7 @@ func _check(label: String, ok: bool, detail: String = "") -> void:
 func _save_and_reload(s: SaveGame) -> SaveGame:
 	ResourceSaver.save(s, SCRATCH_PATH)
 	await get_tree().process_frame
-	var res = ResourceLoader.load(SCRATCH_PATH, "", ResourceLoader.CACHE_MODE_IGNORE)
+	var res := ResourceLoader.load(SCRATCH_PATH, "", ResourceLoader.CACHE_MODE_IGNORE)
 	return res as SaveGame
 
 ## True for two values Godot's .tres TEXT format may legitimately not round-trip
@@ -209,7 +209,7 @@ func _run() -> void:
 	back_to_default.sfx_muted = false  # matches the default, so ResourceSaver omits it entirely
 	ResourceSaver.save(back_to_default, SCRATCH_PATH)
 	await get_tree().process_frame
-	var reloaded = ResourceLoader.load(SCRATCH_PATH, "", ResourceLoader.CACHE_MODE_IGNORE)
+	var reloaded := ResourceLoader.load(SCRATCH_PATH, "", ResourceLoader.CACHE_MODE_IGNORE)
 	_check("a field reset to its default value reads back as that default, not a stale prior value",
 		reloaded is SaveGame and reloaded.sfx_muted == false,
 		"got %s" % (reloaded.sfx_muted if reloaded is SaveGame else "null"))

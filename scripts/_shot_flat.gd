@@ -45,7 +45,7 @@ func _save(img: Image, path: String) -> void:
 
 ## Prázdná místa uvnitř Routine, nejdál od jádra — stejný výběr jako _shot_shadows.gd.
 ## Daleko od jádra proto, že tam lampa věže naráží na zeď a stín je vidět.
-func _candidates(game) -> Array:
+func _candidates(game: Game) -> Array:
 	var out: Array = []
 	for cell: Vector2i in game.build_spots:
 		var bs = game.build_spots[cell]
@@ -59,7 +59,7 @@ func _candidates(game) -> Array:
 	return out
 
 
-func _build(game, type_key: String, cell: Vector2i, facing: float, arc: float):
+func _build(game: Game, type_key: String, cell: Vector2i, facing: float, arc: float) -> Variant:
 	GameState.select_habit(type_key)
 	game._build_on(cell)
 	game._end_aiming()
@@ -103,7 +103,7 @@ func _run() -> void:
 		return
 	GameState.current_level_index = iso_index
 
-	var game = load("res://scenes/Game.tscn").instantiate()
+	var game: Game = load("res://scenes/Game.tscn").instantiate()
 	add_child(game)
 	await get_tree().process_frame
 
@@ -231,7 +231,7 @@ func _run() -> void:
 	# TERRAIN_ART_PX=16 -> 2.0x), přenesené beze změny na iso diamant 64x32 s recyklovaným
 	# plochým artem. Sweep přes několik hodnot NA STEJNÉM záběru s věžemi i nepřítelem
 	# pohromadě, ať je vidět poměr k dlaždici, ne jen izolovaná postavička.
-	var enemy = game.spawn_distraction(&"notification", anchor_cell)
+	var enemy := game.spawn_distraction(&"notification", anchor_cell)
 	await get_tree().process_frame
 	if enemy != null and is_instance_valid(enemy):
 		enemy.global_position = sink_pos + Vector2(60, 20)

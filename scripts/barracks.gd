@@ -131,7 +131,7 @@ func _spawn_slot(i: int) -> void:
 	owned_allies.append(u)
 	game.entities.add_child(u)
 
-func _on_unit_died(unit) -> void:
+func _on_unit_died(unit: DefenderUnit) -> void:
 	owned_allies.erase(unit)
 	var i: int = unit.slot_index
 	if i >= 0 and i < slots.size() and _slot_units[i] == unit:

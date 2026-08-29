@@ -191,7 +191,7 @@ func _finish() -> void:
 	get_tree().quit(1 if fails > 0 else 0)
 
 ## Ruční výběr dlaždic: paleta ze souborů, přepis přežije Bake i Load, a hra ho vidí.
-func _test_art_overrides(ed) -> void:
+func _test_art_overrides(ed: MapEditor) -> void:
 	print("\n-- vyber dlazdic podle grafiky")
 	var names: Array = ed.art_tile_paths()
 	_check("paleta se poskladala ze souboru", names.size() > 0, "%d dlazdic" % names.size())

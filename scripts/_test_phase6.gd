@@ -50,7 +50,7 @@ func _run() -> void:
 	# 4. Test ImpactFX Pool
 	var fx: ImpactFX = game.impact_fx_pool.acquire()
 	ok = _check(fx != null and fx is ImpactFX, "pool allocates ImpactFX") and ok
-	var fx_active = game.impact_fx_pool._active
+	var fx_active := game.impact_fx_pool._active
 	fx.play(Color.WHITE)
 	# play takes 0.25s, so we wait 0.3s
 	await get_tree().create_timer(0.3).timeout
@@ -60,7 +60,7 @@ func _run() -> void:
 	# 5. Test GPUParticles2D Burst Pool (fixed ring buffer replacement)
 	var b1: GPUParticles2D = game.burst_pool.acquire()
 	ok = _check(b1 != null and b1 is GPUParticles2D, "pool allocates burst particle") and ok
-	var burst_active = game.burst_pool._active
+	var burst_active := game.burst_pool._active
 	# The burst pool doesn't explicitly release via script automatically unless we wired it up.
 	# We wired `finished.connect(func(): burst_pool.release(p))` in game.gd.
 	# Lifetime is 0.65s.

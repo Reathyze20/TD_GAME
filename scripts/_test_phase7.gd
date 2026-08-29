@@ -133,7 +133,7 @@ func _test_burnout(game: Game) -> void:
 
 func _test_overdrive(game: Game) -> void:
 	print("=== overdrive is armed by wounding, and only once")
-	var e = game.spawn_distraction(&"energy_drink", game._random_spawn_cell())
+	var e := game.spawn_distraction(&"energy_drink", game._random_spawn_cell())
 	_check("energy drink spawned", e != null)
 	if e == null:
 		return
@@ -172,8 +172,8 @@ func _test_overdrive(game: Game) -> void:
 
 func _test_damage_shape(game: Game) -> void:
 	print("=== the golem is hurt by the tool, not by the number")
-	var golem = game.spawn_distraction(&"clickbait", game._random_spawn_cell())
-	var plain = game.spawn_distraction(&"doomscroll", game._random_spawn_cell())
+	var golem := game.spawn_distraction(&"clickbait", game._random_spawn_cell())
+	var plain := game.spawn_distraction(&"doomscroll", game._random_spawn_cell())
 	_check("both spawned", golem != null and plain != null)
 	if golem == null or plain == null:
 		return
@@ -220,7 +220,7 @@ func _test_damage_shape(game: Game) -> void:
 func _test_rush(game: Game) -> void:
 	print("=== rush is paid for risk, not for kills")
 	GameState.rush = 0
-	var near = game.spawn_distraction(&"notification", game.world_to_cell(game.objective_pos))
+	var near := game.spawn_distraction(&"notification", game.world_to_cell(game.objective_pos))
 	if near != null:
 		near.position = game.objective_pos
 		SignalBus.distraction_defeated.emit(near, 1)
@@ -228,7 +228,7 @@ func _test_rush(game: Game) -> void:
 		"(%d)" % GameState.rush)
 
 	GameState.rush = 0
-	var far = game.spawn_distraction(&"notification", game._random_spawn_cell())
+	var far := game.spawn_distraction(&"notification", game._random_spawn_cell())
 	if far != null:
 		far.position = game.objective_pos + Vector2(GameState.RUSH_CLOSE_RADIUS + 200.0, 0.0)
 		SignalBus.distraction_defeated.emit(far, 1)
@@ -274,8 +274,8 @@ func _test_airplane_mode(game: Game) -> void:
 	# reference is not null, it is dangling, so `!= null` is no guard at all.
 	var far_cell := Vector2i(2, 2)
 	var near_cell: Vector2i = game.world_to_cell(game.objective_pos) - Vector2i(4, 0)
-	var a = game.spawn_distraction(&"notification", far_cell)
-	var b = game.spawn_distraction(&"notification", near_cell)
+	var a := game.spawn_distraction(&"notification", far_cell)
+	var b := game.spawn_distraction(&"notification", near_cell)
 	_check("two test distractions on the field",
 		is_instance_valid(a) and is_instance_valid(b))
 	await get_tree().process_frame

@@ -111,7 +111,7 @@ func _drain_projectiles(game: Game) -> void:
 
 func _test_projectile_carries_dot(game: Game) -> void:
 	print("=== a page sticks: the DoT survived the move off the cone")
-	var d = game.spawn_distraction(&"doomscroll", game._random_spawn_cell())
+	var d := game.spawn_distraction(&"doomscroll", game._random_spawn_cell())
 	if d == null:
 		_check("doomscroll spawned", false)
 		return
@@ -145,7 +145,7 @@ func _test_projectile_carries_dot(game: Game) -> void:
 
 func _test_dot_source_semantics(game: Game) -> void:
 	print("=== per-source stacking survived the move too")
-	var d = game.spawn_distraction(&"doomscroll", game._random_spawn_cell())
+	var d := game.spawn_distraction(&"doomscroll", game._random_spawn_cell())
 	if d == null:
 		_check("doomscroll spawned", false)
 		return
@@ -184,7 +184,7 @@ func _test_other_habits_unchanged(game: Game) -> void:
 
 	# A pooled projectile is reused: if a page's DoT/spin were not reset on setup, the
 	# next habit to borrow that instance would inherit them.
-	var d = game.spawn_distraction(&"doomscroll", game._random_spawn_cell())
+	var d := game.spawn_distraction(&"doomscroll", game._random_spawn_cell())
 	if d == null:
 		_check("doomscroll spawned", false)
 		return

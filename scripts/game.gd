@@ -1354,7 +1354,7 @@ var _static_overlay: Node2D = null
 ## Tecka je po BLOKU (Data.BUILD_BLOCK), ne po bunce: znaci, kam se da stavet, a to je
 ## porad ctverec 48 px. Tecka na kazdou bunku by krome ceny byla i jina informace.
 class StaticOverlay extends Node2D:
-	var game
+	var game: Game
 	func _draw() -> void:
 		game._draw_static_field(self)
 
@@ -1362,7 +1362,7 @@ class StaticOverlay extends Node2D:
 ## _draw() renders below every child including the terrain layer, and the overhanging
 ## corner tiles were clipping the marker right where building happens.
 class PlacementOverlay extends Node2D:
-	var game
+	var game: Game
 	func _process(_dt: float) -> void:
 		queue_redraw()
 	func _draw() -> void:
@@ -1621,7 +1621,7 @@ var _routine_sources: Array = []
 ## _draw() pass per frame — hundreds of lights are hundreds of draw_texture_rect calls,
 ## not hundreds of nodes.
 class LightMaskCanvas extends Node2D:
-	var game
+	var game: Game
 	static var _light_tex: ImageTexture = null
 
 	static func light_tex() -> ImageTexture:
@@ -5030,7 +5030,7 @@ func _rebuild_walls() -> void:
 	_build_wall_segments()
 
 ## The habit standing on the sunk block, or null.
-func exposed_habit():
+func exposed_habit() -> Habit:
 	if not _sunk or not build_spots.has(_sink_block):
 		return null
 	var spot = build_spots[_sink_block]

@@ -6,7 +6,7 @@ extends Node
 ##   godot --path <proj> --main-scene res://scenes/_perf_probe.tscn -- --n 140
 
 var completed := false
-var _game = null
+var _game: Game = null
 
 
 func _ready() -> void:
@@ -77,7 +77,7 @@ func _run() -> void:
 	GameState.dopamine = 100000
 	await get_tree().process_frame
 
-	var g = Data.GRID
+	var g := Data.GRID
 	print("\nmrizka %d x %d po %d px, %d bunek" % [g.cols, g.rows, g.tile,
 		int(g.cols) * int(g.rows)])
 

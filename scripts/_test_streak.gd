@@ -44,7 +44,7 @@ func _run() -> void:
 			GameState.current_level_index = i
 			break
 
-	var game = load("res://scenes/Game.tscn").instantiate()
+	var game: Game = load("res://scenes/Game.tscn").instantiate()
 	add_child(game)
 	await get_tree().process_frame
 	GameState.max_focus = 999999
@@ -89,14 +89,14 @@ func _run() -> void:
 	GameState.streak = 0
 	var spawn: Vector2i = game._random_spawn_cell()
 	var before_plain: int = GameState.dopamine
-	var d1 = game.spawn_distraction(&"notification", spawn)
+	var d1 := game.spawn_distraction(&"notification", spawn)
 	await get_tree().process_frame
 	d1.take_direct_damage(99999)
 	await get_tree().process_frame
 	var plain: int = GameState.dopamine - before_plain
 	GameState.streak = 4
 	var before_streak: int = GameState.dopamine
-	var d2 = game.spawn_distraction(&"notification", spawn)
+	var d2 := game.spawn_distraction(&"notification", spawn)
 	await get_tree().process_frame
 	d2.take_direct_damage(99999)
 	await get_tree().process_frame
@@ -126,7 +126,7 @@ func _run() -> void:
 	# Tohle je ten nalez: ztratil se bonus, ktery jeste nebyl vyplaceny. Nic jineho.
 	GameState.streak = 0
 	var after_break: int = GameState.dopamine
-	var d3 = game.spawn_distraction(&"notification", spawn)
+	var d3 := game.spawn_distraction(&"notification", spawn)
 	await get_tree().process_frame
 	d3.take_direct_damage(99999)
 	await get_tree().process_frame

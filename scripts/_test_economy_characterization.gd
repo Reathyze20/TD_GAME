@@ -88,7 +88,7 @@ func _run() -> void:
 			GameState.current_level_index = i
 			break
 
-	var game = load("res://scenes/Game.tscn").instantiate()
+	var game: Game = load("res://scenes/Game.tscn").instantiate()
 	add_child(game)
 	await get_tree().process_frame
 	GameState.max_focus = 999999
@@ -327,7 +327,7 @@ func _run() -> void:
 	GameState.variable_rewards = false
 	var spawn: Vector2i = game._random_spawn_cell()
 	var before_real: int = GameState.dopamine
-	var d = game.spawn_distraction(&"notification", spawn)
+	var d := game.spawn_distraction(&"notification", spawn)
 	await get_tree().process_frame
 	d.take_direct_damage(99999)
 	await get_tree().process_frame

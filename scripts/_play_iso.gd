@@ -37,7 +37,7 @@ func _run() -> void:
 	# harnessu nezkazí čísla na účtence.
 	GameState.designer_mode = true
 
-	var game = load("res://scenes/Game.tscn").instantiate()
+	var game: Game = load("res://scenes/Game.tscn").instantiate()
 	add_child(game)
 	await get_tree().process_frame
 	game.sinking_walls = true

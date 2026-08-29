@@ -21,7 +21,7 @@ extends Node
 ##   godot --path <proj> --main-scene res://scenes/_perf_shadows.tscn -- --n 280
 
 var completed := false
-var _game = null
+var _game: Game = null
 
 var _horde_n := 0
 var _horde_free_cells: Array[Vector2i] = []
@@ -72,7 +72,7 @@ func _radek(tag: String, m: Dictionary) -> void:
 
 ## Empty build spots inside the CURRENT Routine, farthest from the core first — same
 ## selection idea _shot_fog.gd/_shot_shadows.gd already use.
-func _candidates(game) -> Array:
+func _candidates(game: Game) -> Array:
 	var out: Array = []
 	for cell: Vector2i in game.build_spots:
 		var bs = game.build_spots[cell]
@@ -86,7 +86,7 @@ func _candidates(game) -> Array:
 	return out
 
 
-func _build_simple(game, type_key: String, cell: Vector2i) -> void:
+func _build_simple(game: Game, type_key: String, cell: Vector2i) -> void:
 	GameState.select_habit(type_key)
 	game._build_on(cell)
 	game._end_aiming()
@@ -97,7 +97,7 @@ func _build_simple(game, type_key: String, cell: Vector2i) -> void:
 ## heavy load, and the "not just Habit" check the fog's own _building_sight_lights and
 ## this system's _sync_shadow_lights both have to get right). Stops when nothing more is
 ## affordable or reachable — this is a realistic mixed build, not a synthetic max-count.
-func _fill_bandwidth(game) -> void:
+func _fill_bandwidth(game: Game) -> void:
 	var attack_types: Array[String] = [
 		"focus_timer", "mindfulness", "exercise", "real_hobby", "zen_pulsar", "accountability"]
 	var ti := 0
@@ -208,7 +208,7 @@ func _run() -> void:
 	for _f in range(5):
 		await get_tree().process_frame
 
-	var g = Data.GRID
+	var g := Data.GRID
 	print("\nmrizka %d x %d po %d px, %d bunek" % [g.cols, g.rows, g.tile,
 		int(g.cols) * int(g.rows)])
 

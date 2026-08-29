@@ -8,7 +8,7 @@ func _run() -> void:
 		if Data.get_level(i).id == 98:
 			GameState.current_level_index = i
 			break
-	var game = load("res://scenes/Game.tscn").instantiate()
+	var game: Game = load("res://scenes/Game.tscn").instantiate()
 	add_child(game)
 	await get_tree().process_frame
 	GameState.max_focus = 999999

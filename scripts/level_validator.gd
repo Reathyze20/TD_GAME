@@ -39,7 +39,7 @@ static func _solid_cells(level: LevelData) -> Dictionary:
 ## flag cells nothing ever spawns at, or a subset that would miss a real one.
 static func unreachable_spawn_cells(level: LevelData) -> Array:
 	var solid := _solid_cells(level)
-	var g = Data.GRID
+	var g := Data.GRID
 	var cols: int = int(g.cols)
 	var rows: int = int(g.rows)
 	var bad: Array = []

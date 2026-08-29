@@ -24,7 +24,7 @@ func _run() -> void:
 	var out := _arg("--out", "build/crowd.png")
 	var n := int(_arg("--n", "120"))
 
-	var game = load("res://scenes/Game.tscn").instantiate()
+	var game: Game = load("res://scenes/Game.tscn").instantiate()
 	add_child(game)
 	await get_tree().process_frame
 	# Bez obrany jadro vyhori a _game_over() prehodi scenu jeste pred fotkou -- a vzal
@@ -36,7 +36,7 @@ func _run() -> void:
 
 	# Rozeset je po VOLNE podlaze, ne po jedne draze: chceme videt, jak husty dav je,
 	# ne jak vypada zastup.
-	var g = Data.GRID
+	var g := Data.GRID
 	var volne: Array[Vector2i] = []
 	for cy in range(int(g.rows)):
 		for cx in range(int(g.cols)):
@@ -51,7 +51,7 @@ func _run() -> void:
 	var spawnuto := 0
 	for i in range(n):
 		var cell: Vector2i = volne[rng.randi() % volne.size()]
-		var d = game.spawn_distraction(StringName(druhy[i % druhy.size()]), cell)
+		var d := game.spawn_distraction(StringName(druhy[i % druhy.size()]), cell)
 		if d != null:
 			spawnuto += 1
 	await get_tree().process_frame

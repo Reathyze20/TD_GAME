@@ -74,7 +74,7 @@ func _sample(img: Image, world_pos: Vector2) -> float:
 
 
 func _run() -> void:
-	var game = load("res://scenes/Game.tscn").instantiate()
+	var game: Game = load("res://scenes/Game.tscn").instantiate()
 	add_child(game)
 	await get_tree().process_frame
 	# Bez obrany jádro vyhoří a _game_over() přepne scénu ještě před měřením (harness je

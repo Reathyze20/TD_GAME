@@ -146,12 +146,12 @@ func set_cell_path(p: Array) -> void:
 	cell_path = p
 	path_index = 1 if p.size() > 1 else 0
 
-func add_blocker(ally) -> void:
+func add_blocker(ally: DefenderUnit) -> void:
 	if not blockers.has(ally):
 		blockers.append(ally)
 	is_blocked = true
 
-func remove_blocker(ally) -> void:
+func remove_blocker(ally: DefenderUnit) -> void:
 	blockers.erase(ally)
 	is_blocked = not blockers.is_empty()
 

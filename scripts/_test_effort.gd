@@ -39,7 +39,7 @@ func _run() -> void:
 			GameState.current_level_index = i
 			break
 
-	var game = load("res://scenes/Game.tscn").instantiate()
+	var game: Game = load("res://scenes/Game.tscn").instantiate()
 	add_child(game)
 	await get_tree().process_frame
 	GameState.max_focus = 999999
@@ -142,7 +142,7 @@ func _run() -> void:
 	h.set_auto_aim(true)
 	h.facing_angle = 0.0
 	var spawn: Vector2i = game._random_spawn_cell()
-	var d = game.spawn_distraction(&"notification", spawn)
+	var d := game.spawn_distraction(&"notification", spawn)
 	await get_tree().process_frame
 	# Postav ji tesne k navyku, at je v dosahu a viditelna.
 	d.global_position = h.global_position + Vector2(0.0, 60.0)

@@ -12,7 +12,7 @@ func _ok(name: String, cond: bool, detail: String = "") -> void:
 		fails += 1
 	print(("  OK   " if cond else "  FAIL ") + name + ("  " + detail if detail != "" else ""))
 
-func _route(game) -> Array:
+func _route(game: Game) -> Array:
 	var zone: Array = game.spawn_zone_cells[0]
 	return Array(game.astar.get_id_path(zone[0], game.objective_cell))
 
@@ -34,7 +34,7 @@ func _ready() -> void:
 			print("FAILED: watchdog"); get_tree().quit(1))
 	t.start()
 
-	var game = load("res://scenes/Game.tscn").instantiate()
+	var game: Game = load("res://scenes/Game.tscn").instantiate()
 	add_child(game)
 	await get_tree().process_frame
 	GameState.max_focus = 999999

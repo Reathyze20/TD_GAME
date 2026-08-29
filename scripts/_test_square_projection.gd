@@ -42,7 +42,7 @@ func _run() -> void:
 		"%.2f" % GridProjection.GROUND_Y_SCALE)
 
 	print("\n-- cell_center / world_to_cell round-trip over every cell --")
-	var g = Data.GRID
+	var g := Data.GRID
 	var cols: int = int(g.cols)
 	var rows: int = int(g.rows)
 	var round_trip_fails := 0

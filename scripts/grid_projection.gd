@@ -47,7 +47,7 @@ static func set_mode(mode: int) -> void:
 ## MODE_SQUARE: the plain top-down case — a cell is a `tile`-sized axis-aligned box,
 ## its center offset by half a tile from its top-left corner.
 static func cell_center(cell: Vector2i) -> Vector2:
-	var g = Data.GRID
+	var g := Data.GRID
 	var ox: float = float(g.origin_x)
 	var oy: float = float(g.origin_y)
 	if active_mode == MODE_SQUARE:
@@ -64,7 +64,7 @@ static func cell_center(cell: Vector2i) -> Vector2:
 ## MODE_SQUARE: plain floor division by tile size — the exact inverse of cell_center()
 ## above (verified by _test_square_math.gd's round-trip check over every cell).
 static func world_to_cell(pos: Vector2) -> Vector2i:
-	var g = Data.GRID
+	var g := Data.GRID
 	var dx: float = pos.x - float(g.origin_x)
 	var dy: float = pos.y - float(g.origin_y)
 	var col: int
@@ -83,7 +83,7 @@ static func world_to_cell(pos: Vector2) -> Vector2i:
 ## Moved verbatim from Data.in_bounds(), which now re-exports this. Mode-independent:
 ## bounds are a property of cols/rows, not of the projection shape.
 static func in_bounds(c: Vector2i) -> bool:
-	var g = Data.GRID
+	var g := Data.GRID
 	return c.x >= 0 and c.x < int(g.cols) and c.y >= 0 and c.y < int(g.rows)
 
 ## Screen-space delta -> ground-space delta (undoes the Y-squash). Ground space is
@@ -146,7 +146,7 @@ static func screen_dir_to_grid_axes(dir: Vector2) -> Vector2:
 ## with no correction needed — there is nothing for a MODE_SQUARE version of this
 ## function to do. Do not call this while active_mode is MODE_SQUARE.
 static func layer_origin(span: int = 1) -> Vector2:
-	var g = Data.GRID
+	var g := Data.GRID
 	var tw: float = float(g.get("tile_w", 64))
 	var ox: float = float(g.origin_x)
 	var oy: float = float(g.origin_y)
@@ -164,7 +164,7 @@ static func layer_origin(span: int = 1) -> Vector2:
 ## Do not call this while active_mode is MODE_SQUARE; there is no square equivalent
 ## implemented yet.
 static func diamond_corners() -> PackedVector2Array:
-	var g = Data.GRID
+	var g := Data.GRID
 	var tw: float = float(g.get("tile_w", 64))
 	var th: float = float(g.get("tile_h", 32))
 	return PackedVector2Array([
@@ -194,7 +194,7 @@ static func cell_diamond(cell: Vector2i) -> PackedVector2Array:
 ## MODE_SQUARE: the plain axis-aligned rect from the grid's origin, cols, rows and
 ## tile size — there is no diamond to bound.
 static func board_bounds() -> Rect2:
-	var g = Data.GRID
+	var g := Data.GRID
 	var cols: float = float(g.cols)
 	var rows: float = float(g.rows)
 	var ox: float = float(g.origin_x)
