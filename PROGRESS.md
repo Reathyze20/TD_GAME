@@ -516,3 +516,42 @@ Log of tasks completed by run.sh, one entry per run, newest last.
 - verify.sh: PASS (18 pass, 0 fail, 8 known-broken — matches the pre-existing
   baseline exactly).
 - Commit: 88ac943
+
+## 2026-08-29 — S2 research + one more determinism leak fixed
+- Ran a 4-agent research workflow (entry points, game-over capture, a fresh
+  determinism audit, harness conventions) to design S2's driver, plus two empirical
+  spikes (see below) to settle the two open questions the earlier S2-groundwork entry
+  flagged as needing "a real spike, not just a code read."
+- **Spike 1 (positive)**: `godot --headless --fixed-fps 60` gives a byte-identical
+  `_process(delta)` value (exactly 1/60) across two independent runs of a 300-frame
+  harness. All gameplay-critical logic (tower.gd, enemy.gd, defender_unit.gd,
+  projectile.gd, game.gd) runs on `_process`, not `_physics_process`, so this settles
+  the timestep question for the driver.
+- **Spike 2 (positive, the bigger risk)**: research flagged that `create_tween()`
+  Tweens advance via the engine's own per-frame delta with no dt-hook a caller can
+  invoke directly — existing `_test_*.gd` harnesses fall back to real-time-bounded
+  polling loops (`Time.get_ticks_msec()` / `create_timer().timeout`) for exactly this
+  reason (_test_phase7.gd's airplane_mode sky-strike wait). Built a second spike: a
+  0.5s `tween_property` under `--fixed-fps 60`, two runs. Its `finished` signal fired
+  at the identical frame (31) with byte-identical intermediate values both times.
+  Tweens ARE governed by the same deterministic engine delta `--fixed-fps` controls —
+  the driver can advance Tween-gated effects with plain frame-counting, no wall-clock
+  waits needed. Both spikes were one-off harnesses, deleted after use per CLAUDE.md.
+- **One more real bug found and fixed**: the determinism audit found `sfx.gd`'s
+  `play_defeat()` (called on every enemy kill) had the identical wall-clock-vs-
+  `_sim_ms` bug already fixed in `play()` during the earlier S2-groundwork pass, left
+  unpatched. Fixed the same way. Also flipped verify.sh's `ROSTER_KNOWN_STALE` flag
+  off (roster caught up during the S9 commit). verify.sh: 19 pass, 0 fail, 7
+  known-broken. Commit: f48775c.
+- **Research complete, driver not yet built**: full entry-point tracing for all five
+  decision-script actions (build/aim/quick-hit/start-wave/draft), the game-over signal
+  capture pattern (existing harnesses disconnect `game._on_bus_game_over` right after
+  `add_child(game)` to survive the destructive `change_scene_to_file()` teardown), and
+  harness conventions are all documented in this session's research (not yet written
+  to a permanent doc). The one real unresolved design gap: card-draft detection/option
+  discovery has no public API at all — `_show_draft_screen()`'s rolled hand is a
+  throwaway local variable, never stored on the Game instance, only recoverable by
+  reflecting into each Buy button's bound Callable via `Signal.get_connections()`, or
+  by adding a small non-behavioral field to expose it. This is a real design decision,
+  not a mechanical one — surfaced for a judgment call before the driver is built
+  rather than picked unilaterally.
