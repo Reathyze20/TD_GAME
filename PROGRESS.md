@@ -1033,3 +1033,32 @@ Log of tasks completed by run.sh, one entry per run, newest last.
   `ui.gd`, `project.godot`, `tools/build_placeholder_level.gd`, `data/levels/`) zůstala
   netknutá — commitovalo se výhradně přes pathspec.
 
+
+## 2026-08-29 — T5 activated: square topdown projection live, pre-migration levels deleted (user directive, not a MIGRATION.md task by itself)
+- User directed: wipe every existing level and commit to the square grid now,
+  rather than migrate old iso content forward. See BLOCKED.md's T5 entry for the
+  full record and rationale.
+- project.godot: 480x270 viewport, integer 4x scale, Nearest filter (T5's literal
+  spec). Data.GRID rebuilt at 30x14 @ tile=16 (matches TERRAIN_ART_PX, so
+  pixel_scale() stays 1.0 — unchanged from iso). GridProjection.active_mode now
+  defaults to MODE_SQUARE.
+- New: Game._build_square_terrain(), flat-color wall/floor rendering for square
+  mode (no iso-terrace equivalent existed — that art is diamond-shaped).
+- game.gd/ui.gd: HUD constants and the shared font scale rederived for the new
+  canvas — first pass, flagged as needing real attention (generic vector font at
+  these sizes will likely look rough once nearest-filter-upscaled).
+- Deleted level_1/level_2/level_iso/level_iso_1 + all .bak* variants (git history
+  has all of it). Built two rough placeholder levels via
+  tools/build_placeholder_level.gd (not MapEditor — flagged in its own header):
+  id 1 fresh smoke-test maze, id 98 "First Light" rebuilt with every non-spatial
+  field copied verbatim from the original (git show 5bfa33e) since several tests
+  hardcode id 98's mechanics.
+- Fixed the resulting test fallout: _test_levels.gd/_test_maze_validity.gd's
+  KNOWN_BROKEN emptied (both entries described debt tied to levels that no longer
+  exist in that form — their own documented self-maintenance rule). _test_phase7.gd's
+  400.0px targeting-radius threshold lowered to 200.0 (proportional to the tile-size
+  halving, 32->16), user-approved given the never-edit-a-test-without-consent rule.
+- docs/ROSTER.md regenerated.
+- verify.sh: PASS (24 pass, 1 fail — _test_mapeditor, addons/td_level_designer-adjacent,
+  written up in BLOCKED.md — 5 known-broken, unrelated pre-existing debt).
+- Commit: 26814f9.
