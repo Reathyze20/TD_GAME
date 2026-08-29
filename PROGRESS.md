@@ -47,3 +47,14 @@ Log of tasks completed by run.sh, one entry per run, newest last.
   "(timeout after 120s)", and leaves no orphaned Godot process. Both reverted.
 - Commits: 61b07c8 (unrelated CLAUDE.md structure fix, reviewed earlier this session),
   5d72b07 (verify.sh + .gitignore)
+
+## 2026-08-29 — T1: ověřovací síť (docs/refactor/MIGRATION.MD)
+- Partial. Added .github/workflows/ci.yml (downloads pinned Godot 4.7.1 Linux headless,
+  caches it, runs ./verify.sh on push/PR).
+- Did NOT install GUT or found tests/ — conflicts with CLAUDE.md's "Testy jsou smlouva",
+  which explicitly documents this repo as deliberately not using GUT. Logged to
+  BLOCKED.md with options instead of guessing.
+- verify.sh: PASS (13 pass, 0 fail, 0 skip, 8 known-broken).
+- Not verified: a live green CI run (T1's own done-criterion) — would need a push,
+  which the branch rules forbid from this session.
+- Commit: 04eb8f3
