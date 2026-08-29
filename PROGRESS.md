@@ -268,3 +268,35 @@ Log of tasks completed by run.sh, one entry per run, newest last.
   benefit. T4's own "hotovo když" also requires T2's tests to stay green throughout,
   which they have at every step (_test_economy_characterization + every other
   previously-passing fixture, checked after every single commit in this migration).
+
+## 2026-08-29 — T5: GridProjection.MODE_SQUARE added; switch-over blocked
+- Before starting, checked for a docs/core conflict (T5 switches away from isometric,
+  and CLAUDE.md says to flag rather than guess if a task conflicts with docs/core).
+  None found: docs/core/16_isometric_slice.md itself says "Status: PLAN, not
+  built... Not a migration", and CLAUDE.md already anticipates this exact switch (the
+  `_test_legacy_iso_*` rename rule, "Nová čtvercová projekce dostane vlastní
+  fixtures"). Two non-core docs (docs/art_style.md, docs/game_design.md) still say
+  isometric is live — just stale, not something to act on.
+- Implemented the half of T5 with no visual-judgment content: GridProjection now has
+  MODE_ISO (still the live default) and MODE_SQUARE, switched via set_mode(), which
+  keeps GROUND_Y_SCALE in sync (2.0/1.0). cell_center()/world_to_cell()/board_bounds()/
+  screen_dir_to_grid_axes() branch per mode; to_ground()/to_screen()/ground_distance()/
+  ground_dir_to_screen() needed zero changes — already pure functions of
+  GROUND_Y_SCALE, so they're correct for both modes automatically. layer_origin()/
+  diamond_corners()/cell_diamond() stay iso-only — no square wall/terrace visual has
+  been designed yet, so there's nothing correct to write there.
+- Added _test_square_projection.gd/.tscn per CLAUDE.md's own instruction — 18 checks,
+  all pass, self-contained (switches into MODE_SQUARE and back to MODE_ISO around
+  itself, confirmed not to affect any other fixture).
+- **Stopped before**: flipping active_mode live, and the project.godot resolution
+  change (1920x1080 -> 480x270, integer scaling, Nearest filter) — both are genuine
+  visual-design decisions (CLAUDE.md's own autonomous rule: stop on tasks requiring
+  visual judgment), not engineering ones. Data.GRID is authored specifically for
+  1920x1080 (origin_x=960 is literally half of it); flipping the switch today would
+  render a visibly broken board, not a top-down one, and nothing in verify.sh would
+  catch that since no test asserts what the board should look like. Full reasoning,
+  the docs findings, and three options logged to BLOCKED.md.
+- verify.sh: PASS (15 pass, 0 fail, 0 skip, 8 known-broken) — the live game is
+  byte-for-byte unaffected by this commit; active_mode defaults to MODE_ISO and
+  nothing in the running game calls set_mode(MODE_SQUARE).
+- Commit: 684f14a
