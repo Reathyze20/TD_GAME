@@ -1132,6 +1132,17 @@ const ACCENT_STRAND := 4
 ## a lane is a surface the designer paints, not a mass that has to fit its neighbours, so
 ## it needs no autotiling — variants are picked per cell just for texture variety.
 func _build_path_layer() -> void:
+	# The whole function below paints an isometric DIAMOND_DOWN floor from
+	# assets/terrain/iso/ground+lane art, positioned by GridProjection.layer_origin()'s
+	# iso formula. Found 2026-08-29 while giving MapEditor square-mode support: this
+	# function has no MODE_SQUARE guard, so the live square-mode game was ALSO calling
+	# it — painting a real, mispositioned diamond-shaped iso floor layer underneath
+	# _build_square_terrain()'s flat-color ground rect on every level. There is no
+	# square equivalent to paint yet (square terrain art doesn't exist — see
+	# _build_square_terrain()'s own doc comment), so square mode just skips this
+	# entirely, the same way _build_wall_segments() already skips its own iso branch.
+	if GridProjection.active_mode == GridProjection.MODE_SQUARE:
+		return
 	var g = Data.GRID
 	var tw: int = int(g.get("tile_w", 64))
 	var th: int = int(g.get("tile_h", 32))

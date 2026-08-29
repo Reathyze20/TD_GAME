@@ -54,17 +54,28 @@ func _run() -> void:
 			"HighGroundTiles", "PathTiles"]:
 		_check("vrstva %s" % n, ed.get_node_or_null(n) != null)
 
-	print("\n-- vsechny malovaci vrstvy jsou izometricke")
+	# 2026-08-29: mode-aware. Do T5's square-mode editor support this always asserted
+	# ISOMETRIC/DIAMOND_DOWN, because that was the only shape MapEditor ever built —
+	# checking it against the CURRENT projection (Data.GRID has no tile_w/tile_h under
+	# MODE_SQUARE) is what actually proves the editor agrees with the live game, which
+	# is this whole test's point (see the file header).
+	var square: bool = GridProjection.active_mode == GridProjection.MODE_SQUARE
+	print("\n-- vsechny malovaci vrstvy odpovidaji aktivnimu rezimu (%s)"
+		% ("SQUARE" if square else "ISO"))
 	for n in ["BlockTiles", "BlockPath", "BlockSpawn", "BlockGoal",
 			"HighGroundTiles", "PathTiles"]:
 		var l: TileMapLayer = ed.get_node_or_null(n)
 		if l == null or l.tile_set == null:
 			_check("%s ma tileset" % n, false)
 			continue
-		_check("%s je ISOMETRIC" % n,
-			l.tile_set.tile_shape == TileSet.TILE_SHAPE_ISOMETRIC)
-		_check("%s je DIAMOND_DOWN" % n,
-			l.tile_set.tile_layout == TileSet.TILE_LAYOUT_DIAMOND_DOWN)
+		if square:
+			_check("%s je SQUARE" % n,
+				l.tile_set.tile_shape == TileSet.TILE_SHAPE_SQUARE)
+		else:
+			_check("%s je ISOMETRIC" % n,
+				l.tile_set.tile_shape == TileSet.TILE_SHAPE_ISOMETRIC)
+			_check("%s je DIAMOND_DOWN" % n,
+				l.tile_set.tile_layout == TileSet.TILE_LAYOUT_DIAMOND_DOWN)
 
 	print("\n-- blok pokryva spravne bunky")
 	var cells: Array = ME.block_cells(Vector2i(1, 2))

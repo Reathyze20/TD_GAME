@@ -87,14 +87,17 @@ signal analysis_updated
 # Tenhle skript už jen: staví abstraktní dlaždice vrstev, drží split-view náhled
 # (SubViewport se StylizedRenderer — „samsfacee" workflow), validuje, měří a peče.
 
-## Kosočtverečná dlaždice pro abstraktní malování. Levá strana split-view má být čitelná
-## jako plán, ne hezká — hezká je pravá strana.
+## Kosočtverečná dlaždice pro abstraktní malování v MODE_ISO. Levá strana split-view má
+## být čitelná jako plán, ne hezká — hezká je pravá strana.
 ##
 ## KOSOČTVEREC, NE ČTVEREC. Do 21. 8. 2026 se tu kreslil čtverec a vrstvy byly
-## TILE_SHAPE_SQUARE, zatímco hra kreslí 2:1 izometrii. Designér tedy maloval do jiné
+## TILE_SHAPE_SQUARE, zatímco hra kreslila 2:1 izometrii. Designér tedy maloval do jiné
 ## projekce, než jakou dostal — a co hůř, editor si odporoval i sám v sobě: mřížka, cíl,
 ## zóny a teplotní mapa se kreslily čtvercově, ale kruh Routine a trasy nepřátel
 ## izometricky (přes `D.cell_center()`). Půlka obrazu ukazovala něco jiného než druhá.
+##
+## 2026-08-29: hra se vrátila na čtvercovou mřížku (T5), takže tahle past teď hrozí
+## přesně obráceně — proto `_abstract_tile_square()` níž a mode-aware `_abstract_tileset()`.
 static func _abstract_tile(fill: Color, edge: Color, w: int, h: int) -> ImageTexture:
 	var img := Image.create_empty(w, h, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
@@ -121,17 +124,45 @@ static func _abstract_tile(fill: Color, edge: Color, w: int, h: int) -> ImageTex
 			img.set_pixel(x, y, rim if on_edge else body)
 	return ImageTexture.create_from_image(img)
 
+## Stejná myšlenka (průsvitná výplň, pevný okraj) jako `_abstract_tile()`, ale pro
+## MODE_SQUARE — obyčejný obdélník místo kosočtverce, protože v čtvercové mřížce buňka
+## obdélník skutečně je.
+static func _abstract_tile_square(fill: Color, edge: Color, w: int, h: int) -> ImageTexture:
+	var img := Image.create_empty(w, h, false, Image.FORMAT_RGBA8)
+	var body := Color(fill.r, fill.g, fill.b, 0.30)
+	var rim := Color(edge.r, edge.g, edge.b, 0.95)
+	var thick: int = 2 if w <= 96 else 3
+	for y in range(h):
+		for x in range(w):
+			var on_edge: bool = x < thick or x >= w - thick or y < thick or y >= h - thick
+			img.set_pixel(x, y, rim if on_edge else body)
+	return ImageTexture.create_from_image(img)
+
 ## `span` = kolik BUNĚK má dlaždice na stranu. 1 = jedna buňka, 3 = celý stavební blok.
+## Mode-aware od 2026-08-29 (T5 fáze „Full square-mode editor support", rozhodnutí
+## uživatele — viz BLOCKED.md): dřív tahle funkce vždy stavěla TILE_SHAPE_ISOMETRIC
+## a četla `tile_w`/`tile_h`, klíče, které `Data.GRID` v MODE_SQUARE vůbec nemá
+## (`.get()` je tiše nahrazoval starým fallbackem 64/32) — editor tak vždycky malovat
+## kosočtverce, i když hra dávno kreslí čtverce.
 func _abstract_tileset(fill: Color, edge: Color, span: int = 1) -> TileSet:
 	var g := _grid()
-	var w: int = int(g.get("tile_w", 64)) * span
-	var h: int = int(g.get("tile_h", 32)) * span
 	var ts := TileSet.new()
-	ts.tile_shape = TileSet.TILE_SHAPE_ISOMETRIC
-	ts.tile_layout = TileSet.TILE_LAYOUT_DIAMOND_DOWN
+	var w: int
+	var h: int
+	var square: bool = GridProjection.active_mode == GridProjection.MODE_SQUARE
+	if square:
+		var t: int = int(g.get("tile", 32)) * span
+		w = t
+		h = t
+		ts.tile_shape = TileSet.TILE_SHAPE_SQUARE
+	else:
+		w = int(g.get("tile_w", 64)) * span
+		h = int(g.get("tile_h", 32)) * span
+		ts.tile_shape = TileSet.TILE_SHAPE_ISOMETRIC
+		ts.tile_layout = TileSet.TILE_LAYOUT_DIAMOND_DOWN
 	ts.tile_size = Vector2i(w, h)
 	var src := TileSetAtlasSource.new()
-	src.texture = _abstract_tile(fill, edge, w, h)
+	src.texture = _abstract_tile_square(fill, edge, w, h) if square else _abstract_tile(fill, edge, w, h)
 	src.texture_region_size = Vector2i(w, h)
 	src.create_tile(Vector2i.ZERO)
 	# Bez jména hlásí paleta „Zdroj neznámého typu" — zdroj je postavený za běhu, takže
@@ -187,12 +218,21 @@ func art_tile_paths() -> Array[String]:
 			out.append("%s/%s" % [sub, n])
 	return out
 
+## Mode-aware for the same reason as `_abstract_tileset()` above. NOTE this only fixes
+## the TileSet's own geometry (so the layer no longer crashes/misaligns under
+## MODE_SQUARE) — the PNGs themselves under ART_DIRS are still iso-authored diamond art
+## (assets/terrain/iso/), so painted tiles will still look visually wrong until square
+## terrain art actually exists. That is a content gap, not a math one; not fixed here.
 func _art_tileset() -> TileSet:
 	var g := _grid()
 	var ts := TileSet.new()
-	ts.tile_shape = TileSet.TILE_SHAPE_ISOMETRIC
-	ts.tile_layout = TileSet.TILE_LAYOUT_DIAMOND_DOWN
-	ts.tile_size = Vector2i(int(g.get("tile_w", 64)), int(g.get("tile_h", 32)))
+	if GridProjection.active_mode == GridProjection.MODE_SQUARE:
+		ts.tile_shape = TileSet.TILE_SHAPE_SQUARE
+		ts.tile_size = Vector2i(int(g.get("tile", 32)), int(g.get("tile", 32)))
+	else:
+		ts.tile_shape = TileSet.TILE_SHAPE_ISOMETRIC
+		ts.tile_layout = TileSet.TILE_LAYOUT_DIAMOND_DOWN
+		ts.tile_size = Vector2i(int(g.get("tile_w", 64)), int(g.get("tile_h", 32)))
 	var paths := art_tile_paths()
 	for i in range(paths.size()):
 		var p := "%s%s.png" % [ART_ROOT, paths[i]]
@@ -922,13 +962,20 @@ func _lane_cells() -> Array[Vector2i]:
 func _cell_center(cell: Vector2i) -> Vector2:
 	return D.cell_center(cell)
 
-## Kosočtverec jedné buňky pro překryvy. Čtverec by v 2:1 izometrii ukazoval jinam,
-## než kam hra buňku kreslí — a překryv, který lže, je horší než žádný.
-func _cell_diamond(cell: Vector2i, span: int = 1) -> PackedVector2Array:
+## Jedna buňka jako uzavřený obrazec pro překryvy (dnes jen teplotní mapa provozu,
+## `_draw()` níž). Kosočtverec v MODE_ISO — čtverec by v 2:1 izometrii ukazoval jinam,
+## než kam hra buňku kreslí, a překryv, který lže, je horší než žádný — obyčejný čtverec
+## v MODE_SQUARE, kde to skutečně čtverec je.
+func _cell_quad(cell: Vector2i, span: int = 1) -> PackedVector2Array:
 	var g := _grid()
+	var c := D.cell_center(cell)
+	if GridProjection.active_mode == GridProjection.MODE_SQUARE:
+		var half: float = float(g.get("tile", 32)) * 0.5 * span
+		return PackedVector2Array([
+			c + Vector2(-half, -half), c + Vector2(half, -half),
+			c + Vector2(half, half), c + Vector2(-half, half)])
 	var hw: float = float(g.get("tile_w", 64)) * 0.5 * span
 	var hh: float = float(g.get("tile_h", 32)) * 0.5 * span
-	var c := D.cell_center(cell)
 	if span > 1:
 		c = D.cell_center(cell) + Vector2(0.0, hh - float(g.get("tile_h", 32)) * 0.5)
 	return PackedVector2Array([
@@ -1793,14 +1840,25 @@ func _draw() -> void:
 	var w: float = float(g.cols) * t
 	var h: float = float(g.rows) * t
 
-	# Hrací plocha. Izometricky — dřív se tu kreslil ČTVEREC, zatímco hra i kruh Routine
-	# o pár řádků níž pracují v 2:1 kosočtverci, takže mřížka lhala o tom, kde buňka je.
+	# Hrací plocha. Mode-aware od 2026-08-29 (T5 „Full square-mode editor support") —
+	# dřív se tu VŽDY kreslil kosočtverec (`g.tile_w`/`g.tile_h`, přímý přístup na slovník
+	# bez `.get()`, tedy tvrdý pád v MODE_SQUARE, kde tyhle klíče `Data.GRID` nemá).
+	# Předtím, do 21. 8. 2026, to bylo obráceně: kreslil se čtverec, zatímco hra i kruh
+	# Routine pracovaly v 2:1 kosočtverci. Stejná past, obě strany, podruhé už jako
+	# rozvětvení podle `GridProjection.active_mode`, ne jako natvrdo jedna projekce.
 	var cols := int(g.cols)
 	var rows := int(g.rows)
-	# Rohy desky: buňka (0,0) horní, (cols,0) pravá, (cols,rows) dolní, (0,rows) levá.
-	var corner := func(cx: int, cy: int) -> Vector2:
-		return Vector2(ox + (cx - cy) * (float(g.tile_w) * 0.5),
-			oy + (cx + cy) * (float(g.tile_h) * 0.5))
+	var square: bool = GridProjection.active_mode == GridProjection.MODE_SQUARE
+	# Rohy desky: buňka (0,0) horní/levá, (cols,0) pravá, (cols,rows) dolní, (0,rows) levá
+	# (MODE_SQUARE má "horní" a "levá" na stejném rohu — není tu žádný kosočtverečný sklon).
+	var corner: Callable
+	if square:
+		corner = func(cx: int, cy: int) -> Vector2:
+			return Vector2(ox + float(cx) * t, oy + float(cy) * t)
+	else:
+		corner = func(cx: int, cy: int) -> Vector2:
+			return Vector2(ox + (cx - cy) * (float(g.get("tile_w", 64)) * 0.5),
+				oy + (cx + cy) * (float(g.get("tile_h", 32)) * 0.5))
 	draw_polyline(PackedVector2Array([
 		corner.call(0, 0), corner.call(cols, 0), corner.call(cols, rows),
 		corner.call(0, rows), corner.call(0, 0)]), Color(0.4, 0.6, 1.0, 0.5), 3.0)
@@ -1831,7 +1889,7 @@ func _draw() -> void:
 	if show_traffic and _traffic_max > 0:
 		for cell: Vector2i in _traffic:
 			var f := sqrt(float(_traffic[cell]) / float(_traffic_max))
-			draw_colored_polygon(_cell_diamond(cell),
+			draw_colored_polygon(_cell_quad(cell),
 				Color(1.0, 0.85 - 0.6 * f, 0.15, 0.06 + 0.3 * f))
 
 	# Enemy routes from the last analysis — the maze made visible. Spawn end dotted,

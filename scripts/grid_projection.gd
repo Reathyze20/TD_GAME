@@ -7,10 +7,10 @@ extends RefCounted
 ## Two modes exist: MODE_ISO (the 2:1 diamond isometric, live until 2026-08-29) and
 ## MODE_SQUARE (a plain top-down grid, added by T5, now the live default). Switching
 ## active_mode changes cell_center()/world_to_cell()/board_bounds()/
-## screen_dir_to_grid_axes() and, through GROUND_Y_SCALE, every formula built on
-## to_ground()/to_screen() — but NOT layer_origin()/diamond_corners()/cell_diamond(),
-## which remain iso-only (see their own doc comments for why) and must not be called
-## while MODE_SQUARE is active.
+## screen_dir_to_grid_axes()/layer_origin() and, through GROUND_Y_SCALE, every formula
+## built on to_ground()/to_screen() — but NOT diamond_corners()/cell_diamond(), which
+## remain iso-only (see their own doc comments for why) and must not be called while
+## MODE_SQUARE is active.
 ##
 ## Activated 2026-08-29 directly by the user (see BLOCKED.md's T5 entry for the full
 ## record): project.godot now targets a 480x270 canvas, integer-scaled 4x, and
@@ -128,29 +128,35 @@ static func screen_dir_to_grid_axes(dir: Vector2) -> Vector2:
 		return dir
 	return Vector2(dir.x / GROUND_Y_SCALE + dir.y, dir.y - dir.x / GROUND_Y_SCALE)
 
-## Position to give a DIAMOND_DOWN isometric TileMapLayer so its own map_to_local()
-## agrees with cell_center() above, instead of landing half a tile to its right.
-## Godot's own map_to_local() for TILE_LAYOUT_DIAMOND_DOWN returns
-## ((x-y+1)*w/2, (x+y+1)*h/2) — the X term carries a "+1" that cell_center()'s
-## ((x-y)*w/2, (x+y+1)*h/2) does not, so the two disagree by exactly w/2 in X (Y
-## already matches). Offsetting the layer's own `position` by this Vector2 folds that
-## difference away once, instead of it recurring at every call site that reads the
-## layer back out. `span` is how many grid cells wide ONE of the layer's own tiles is:
-## 1 for a normal per-cell layer, a larger value (e.g. Data.BUILD_BLOCK) for a layer
-## whose TileSet tile_size was scaled up by that same span for block-resolution
-## painting — the correction scales with it too, since it is a fraction of the
-## layer's OWN (larger) tile. See docs/MIGRATION_AUDIT.md §1.3 rows 25-30; measured
-## drift (scripts/_probe_align.gd, 2026-08-21) was (32, 0) px at tile_w=64, span=1.
+## Position to give a TileMapLayer so its own map_to_local() agrees with cell_center()
+## above, for whichever cell size that layer's own TileSet was built at.
 ##
-## IS0-ONLY, not mode-aware: a MODE_SQUARE TileMapLayer uses Godot's plain
-## TILE_SHAPE_SQUARE layout, whose map_to_local() already agrees with cell_center()
-## with no correction needed — there is nothing for a MODE_SQUARE version of this
-## function to do. Do not call this while active_mode is MODE_SQUARE.
+## MODE_ISO: a DIAMOND_DOWN layer's map_to_local() returns ((x-y+1)*w/2, (x+y+1)*h/2) —
+## the X term carries a "+1" that cell_center()'s ((x-y)*w/2, (x+y+1)*h/2) does not, so
+## the two disagree by exactly w/2 in X (Y already matches). Offsetting the layer's own
+## `position` by this Vector2 folds that difference away once, instead of it recurring
+## at every call site that reads the layer back out. See docs/MIGRATION_AUDIT.md §1.3
+## rows 25-30; measured drift (scripts/_probe_align.gd, 2026-08-21) was (32, 0) px at
+## tile_w=64, span=1.
+##
+## MODE_SQUARE: a plain TILE_SHAPE_SQUARE layer's map_to_local() already returns
+## ((x+0.5)*t, (y+0.5)*t) — exactly cell_center()'s own formula minus the origin — so no
+## correction term is needed at all, for any span (verified algebraically for
+## Data.BUILD_BLOCK: a span-S layer's tile is S*t wide, and map_to_local(block) =
+## (block+0.5)*S*t equals cell_center(block_center_cell(block)) - origin for the same
+## reason, since block_center_cell's "+floor(S/2)" offset and the "+0.5" tile-center
+## offset combine to the same S*t/2 either way).
+##
+## `span` is how many grid cells wide ONE of the layer's own tiles is: 1 for a normal
+## per-cell layer, a larger value (e.g. Data.BUILD_BLOCK) for a layer whose TileSet
+## tile_size was scaled up by that same span for block-resolution painting.
 static func layer_origin(span: int = 1) -> Vector2:
 	var g := Data.GRID
-	var tw: float = float(g.get("tile_w", 64))
 	var ox: float = float(g.origin_x)
 	var oy: float = float(g.origin_y)
+	if active_mode == MODE_SQUARE:
+		return Vector2(ox, oy)
+	var tw: float = float(g.get("tile_w", 64))
 	return Vector2(ox - tw * 0.5 * span, oy)
 
 ## The four corners of a grid-cell diamond as OFFSETS from a cell's center, in

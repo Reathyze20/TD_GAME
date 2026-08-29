@@ -15,6 +15,10 @@ extends Node2D
 ## Autoload `Data` se v editoru chovat nemusí; `preload` na tentýž skript ano.
 ## GRID, BUILD_BLOCK i převodníky jsou const/static, takže je to plnohodnotná náhrada.
 const D = preload("res://scripts/data.gd")
+## Jen kvůli SQUARE_GROUND_COLOR/SQUARE_TOP_COLOR — viz `_draw_square()` níž. Ty samé
+## konstanty, ne vlastní kopie, aby se barvy nemohly rozejít s tím, co skutečně kreslí
+## `Game._build_square_terrain()`.
+const G = preload("res://scripts/game.gd")
 
 const CELL := 48
 const ATLAS := "res://assets/terrain/high_ground_atlas.png"
@@ -222,9 +226,61 @@ func _draw_iso() -> void:
 		r.append(r[0])
 		draw_polyline(r, Color(1.0, 0.35, 0.4, 0.9), 2.0)
 
+## Náhled hraje přesně to, co dnes kreslí Game._build_square_terrain(): plochá barva
+## podlahy, plochá barva zdí, žádný atlas. Sdílené konstanty (G.SQUARE_GROUND_COLOR/
+## SQUARE_TOP_COLOR), ne vlastní kopie, takže barvy nemůžou s hrou rozejít. Cesta se
+## nekreslí jinou barvou, protože to nedělá ani hra — až bude mít top-down terén
+## skutečný art, přibude sem stejná logika jako u _draw_iso() výš.
+func _draw_square() -> void:
+	var g: Dictionary = D.GRID
+	var t: float = float(g.tile)
+	var ox := _origin.x
+	var oy := _origin.y
+	draw_rect(Rect2(ox, oy, float(g.cols) * t, float(g.rows) * t), G.SQUARE_GROUND_COLOR)
+	for c: Vector2i in _walls.keys():
+		draw_rect(Rect2(ox + float(c.x) * t, oy + float(c.y) * t, t, t), G.SQUARE_TOP_COLOR)
+
+	for z in _zones:
+		var r := PackedVector2Array()
+		for corner in [Vector2i(0, 0), Vector2i(z.size.x, 0),
+				Vector2i(z.size.x, z.size.y), Vector2i(0, z.size.y)]:
+			var cc: Vector2i = z.position + corner
+			r.append(Vector2(ox + float(cc.x) * t, oy + float(cc.y) * t))
+		r.append(r[0])
+		draw_polyline(r, Color(1.0, 0.35, 0.4, 0.9), 2.0)
+		if _spawn_marker != null:
+			var zc := Vector2(ox + (float(z.position.x) + float(z.size.x) * 0.5) * t,
+				oy + (float(z.position.y) + float(z.size.y) * 0.5) * t)
+			var msz := Vector2(_spawn_marker.get_size()) \
+				* maxf(1.0, floorf(t / _spawn_marker.get_width()))
+			draw_texture_rect(_spawn_marker, Rect2(zc - msz / 2.0, msz), false)
+
+	# Rekvizity, seřazené podle y (malíř) — stejný úryvek jako ve staré top-down větvi
+	# níž, protože rekvizita žádnou projekci neřeší, jen kreslí sprite na svojí pozici.
+	for p in _props:
+		var tex: Texture2D = p.tex
+		var sz: Vector2 = Vector2(tex.get_size()) * D.pixel_scale()
+		var at: Vector2 = p.pos
+		if bool(p.flip):
+			draw_set_transform(at, 0.0, Vector2(-1.0, 1.0))
+			draw_texture_rect(tex, Rect2(-sz * 0.5, sz), false, DecorLayer.TINT)
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		else:
+			draw_texture_rect(tex, Rect2(at - sz * 0.5, sz), false, DecorLayer.TINT)
+
+	if D.in_bounds(_objective):
+		var oc := D.cell_center(_objective)
+		if _goal_marker != null:
+			var gsz := Vector2(_goal_marker.get_size()) \
+				* maxf(1.0, floorf(t / _goal_marker.get_width()))
+			draw_texture_rect(_goal_marker, Rect2(oc - gsz / 2.0, gsz), false)
+		draw_circle(oc, t * 0.35, Color("2bd6c0"))
+		draw_circle(oc, t * 0.14, Color.WHITE)
+
 ## Stáhne aktuální stav plátna z MapEditoru. Volá plugin při každé změně otisku.
 func rebuild(ed) -> void:
-	_load_iso_art()
+	if GridProjection.active_mode != GridProjection.MODE_SQUARE:
+		_load_iso_art()
 	_iso_high.clear()
 	_iso_lane.clear()
 	for c in ed._high_cells():
@@ -330,16 +386,23 @@ func drop_art_cache() -> void:
 	_spawn_marker = null
 	_goal_marker = null
 
-## Náhled kreslí TOP-DOWN desku: `CELL = 48`, atlas `high_ground_atlas.png`, dlaždice
-## z `terrain/path` a `terrain/face`. Hra od přechodu na izometrii nic z toho nekreslí,
-## takže od 21. 8. 2026 tenhle panel ukazoval barevný šum, který s výsledkem nesouvisel.
+## Náhled dole kreslil TOP-DOWN desku: `CELL = 48`, atlas `high_ground_atlas.png`,
+## dlaždice z `terrain/path` a `terrain/face`. Ten kód je z DOBY PŘED izometrií — hra
+## od přechodu na izometrii (21. 8. 2026) nic z toho nekreslila, takže tenhle panel
+## ukazoval barevný šum, který s výsledkem nesouvisel. `ISO_NOTICE` to tehdy nahradilo
+## `_draw_iso()`.
 ##
-## Šum je horší než prázdno: vypadá jako informace. Panel proto říká rovnou, na čem je,
-## dokud nedostane izometrickou verzi (znamená to vytáhnout stavbu desky z `game.gd`
-## do samostatného stavitele, který půjde volat i z editoru).
+## 2026-08-29: hra je zase top-down (T5), ale NE ta samá deska — `CELL=48` a
+## `terrain/path`/`terrain/face` jsou z jiné éry (jiná velikost dlaždice, jiný atlas) a
+## dnešní čtvercový terén nemá žádný z těch assetů, jen ploché barvy
+## (`Game._build_square_terrain()`). Ta stará větev proto zůstává mrtvá i teď — přibyla
+## `_draw_square()` jako TŘETÍ, aktuální větev, ne oživení téhle.
 const ISO_NOTICE := true
 
 func _draw() -> void:
+	if GridProjection.active_mode == GridProjection.MODE_SQUARE:
+		_draw_square()
+		return
 	if ISO_NOTICE:
 		_draw_iso()
 		return
