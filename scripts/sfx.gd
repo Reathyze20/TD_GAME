@@ -23,8 +23,21 @@ const POOL_SIZE := 8
 var _streams: Dictionary = {}      # StringName -> AudioStreamWAV
 var _volume_db: Dictionary = {}    # StringName -> float
 var _min_gap: Dictionary = {}      # StringName -> seconds between repeats (anti-spam)
-var _last_ms: Dictionary = {}      # StringName -> last play time
+var _last_ms: Dictionary = {}      # StringName -> last play time, in _sim_ms (NOT wall-clock)
 var _players: Array[AudioStreamPlayer] = []
+
+## Accumulated from `delta`, not Time.get_ticks_msec() — real play barely notices the
+## difference (both track elapsed time closely), but a non-realtime-paced run
+## (docs/refactor/SYSTEMS.MD S2's deterministic simulator, or --fixed-fps generally)
+## would not: the anti-spam throttle below gates whether play() draws from the RNG at
+## all, and gating that on WALL-CLOCK time while everything else runs on SIMULATED
+## time can flip the throttle's outcome between two runs of the same seed — which then
+## desyncs the shared global RNG stream for every draw after it, in systems that have
+## nothing to do with audio. Tracking simulated time here closes that leak.
+var _sim_ms: int = 0
+
+func _process(delta: float) -> void:
+	_sim_ms += int(delta * 1000.0)
 
 func _ready() -> void:
 	# UI clicks and the pause toggle must stay audible while the tree is paused.
@@ -90,7 +103,7 @@ func is_muted() -> bool:
 func play(cue: StringName) -> void:
 	if not _streams.has(cue):
 		return
-	var now: int = Time.get_ticks_msec()
+	var now: int = _sim_ms
 	if now - int(_last_ms.get(cue, -99999)) < int(float(_min_gap.get(cue, 0.05)) * 1000.0):
 		return
 	_last_ms[cue] = now

@@ -70,7 +70,16 @@ var current_fire_cooldown: float
 func _setup_specific(initial_facing: float, initial_arc: float) -> void:
 	facing_angle = initial_facing
 	_spray_angle = initial_facing
-	_rng.randomize()
+	# Derived, not randomize(): two towers at different cells still get independent-
+	# looking jitter (the whole reason this is per-instance and not the global randf()
+	# — see the var comment above), but the SAME cell in the SAME run always derives
+	# the SAME seed. Normal play still looks fully random every time you start a new
+	# level, because GameState.run_seed itself is freshly drawn from the (otherwise
+	# OS-entropy-seeded) global RNG each reset_for_level() — nothing here changes that.
+	# What it buys: a caller that wants a bit-identical replay (docs/refactor/
+	# SYSTEMS.MD S2) only has to seed the ONE global stream before the level loads,
+	# instead of this (or any other per-instance RNG) being unreachable from outside.
+	_rng.seed = hash(Vector2i(col, row)) ^ GameState.run_seed
 	# def.arc_angle always exists (every habit's data defines it), so the old
 	# def.get("arc_angle", initial_arc) always resolved to def.arc_angle in practice —
 	# the initial_arc param was already dead here before this refactor; preserved as-is.

@@ -31,6 +31,18 @@ signal satisfaction_changed(value: float)
 
 var current_level_index := 0
 
+## Drawn fresh per level from the (global) RNG stream — normal play never sets this
+## itself, it just inherits whatever OS-entropy seed Godot auto-randomized at startup,
+## same as before this field existed. Exists so per-instance RNGs that want to avoid
+## lockstep with each other (see Habit._rng, tower.gd) can derive a seed from BOTH a
+## stable per-instance identifier (e.g. grid position) AND this run's seed, instead of
+## each independently calling randomize() against OS entropy: a caller that wants a
+## fully reproducible run (docs/refactor/SYSTEMS.MD S2's deterministic simulator) seeds
+## the global stream once with `seed(x)` before reset_for_level() runs, and every
+## randi()/randf() downstream — including this field — becomes reproducible from that
+## one call, with no other API needed.
+var run_seed := 0
+
 ## True on runs launched from the map editor's Playtest button. Unlocks the F1–F4
 ## designer cheats in game.gd and disables telemetry, so runlog.csv only ever holds
 ## honest runs. Deliberately NOT cleared by reset_for_level — a designer restarting the
@@ -237,6 +249,7 @@ func _ready() -> void:
 	SignalBus.wave_completed.connect(_on_wave_completed)
 
 func reset_for_level(level: LevelData) -> void:
+	run_seed = randi()
 	dopamine = level.start_dopamine
 	focus = level.focus
 	max_focus = level.focus
