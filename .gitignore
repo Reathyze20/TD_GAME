@@ -16,8 +16,15 @@ __pycache__/
 # Temporary headless test harnesses (always deleted after a run, but just in case)
 /_test_*
 
-# verify.sh per-test logs
-/.dev/
+# verify.sh per-test logs. Excludes CONTENTS (not the directory itself, /.dev/*
+# rather than /.dev/) so the screenshots/ carve-out below can actually work — git
+# cannot re-include a path whose PARENT DIRECTORY was excluded, only individual
+# excluded entries within a still-tracked-as-a-directory parent.
+/.dev/*
+# T7 (docs/refactor/MIGRATION.MD) explicitly wants its readability screenshot set
+# committed from inside .dev/ — carved out rather than moving the whole task's
+# output path, since the task's own text names this exact directory.
+!/.dev/screenshots/
 
 # Náhledy a mezivýsledky nástrojů (sprite_cleanup) — do hry se kopíruje přes --apply
 /build/
