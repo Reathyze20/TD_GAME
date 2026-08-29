@@ -867,3 +867,4 @@ Log of tasks completed by run.sh, one entry per run, newest last.
   a `art prompts` jsou nové a oba PASS). `_test_phase3` prošel i tentokrát a hlásí, že se
   má vyřadit z KNOWN_BROKEN; nechávám to na jeho vlastní úkol, protože je označený jako
   flaky, ne rozbitý.
+- Commit: 35b3d8c.
