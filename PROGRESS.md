@@ -750,3 +750,25 @@ Log of tasks completed by run.sh, one entry per run, newest last.
 - verify.sh: PASS (20 pass, 0 fail, 7 known-broken).
 - Commit: d717061. `BLOCKED.md`'s T6/T7/T8 entry updated — T7 now resolved, T6 and
   the T8 checkpoint stay as history.
+
+## 2026-08-29 — T5 follow-up: flat top-down terrain mockup (not in MIGRATION.md itself, requested directly by user to unblock T5's visual-judgment stop)
+- Root-caused why level_1/level_2 never resolve (raised while discussing project
+  state): their `objective`/`high_ground`/`spawn_zones` were correctly migrated in
+  `e3df867` onto a 120x57 grid, but `Data.GRID` was later repointed to 24x24 for the
+  isometric vertical slice — the two real levels were never migrated onto that grid.
+  This is exactly T6, already blocked on T5's own open decision; not a new bug, just
+  traced to its root and written up in BLOCKED.md's T5 entry.
+- Built `scripts/_shot_topdown_mockup.gd`/`.tscn`: a flat-color top-down render of
+  "First Light" (the one level that already fits the 24x24 grid) through
+  `GridProjection.MODE_SQUARE`, reusing `tools/flat_terrain.py`'s exact installed
+  GROUND/LANE/TOP colors (the live iso terrain's own top-face palette) rather than
+  inventing new ones. Pure `Image` pixel-buffer output — no viewport capture needed,
+  so unlike other `_shot_*.gd` this one runs correctly under `--headless` too (still
+  `--main-scene`, never `--script`, for the `Data` autoload).
+- Output: `.dev/screenshots/topdown_mockup_native.png` (768x768) and
+  `topdown_mockup_squint.png` (192x192, gameplay-scale legibility check).
+- Does NOT touch project.godot's resolution or decide camera/board framing — that
+  remains a separate, still-open half of T5's visual call.
+- verify.sh: PASS (20 pass, 0 fail, 7 known-broken) — unchanged from before this
+  change; `_shot_*` scenes are not part of its gate.
+- Commit: (pending, see below).

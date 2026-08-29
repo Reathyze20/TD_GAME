@@ -164,6 +164,27 @@ and back to `MODE_ISO` around itself so nothing else in the suite is affected.
    let a later, dedicated session/task own flipping the switch — matches how this
    entry treats it today.
 
+**Update 2026-08-29 — a first mockup for option 2, still needs your look.**
+Built `scripts/_shot_topdown_mockup.gd`/`.tscn`: renders "First Light" (the one level
+whose data already fits the current 24x24 grid) through `GridProjection.MODE_SQUARE`,
+flat-filled per cell — no terrain texture, no outlines, no side faces, matching
+`docs/art/iso_bible.md` §2b's own "PLOCHÝ STYL" philosophy. The three colors are NOT a
+fresh guess: `GROUND`/`LANE`/`TOP` are the exact RGB values `tools/flat_terrain.py`
+already paints onto the live iso terrain's top face — a top-down view only ever shows a
+top face, so reusing them keeps continuity with art already shipped. Spawn zones and the
+objective get their own small accent-color markers (not terrain colors, gameplay
+markers). Output: `.dev/screenshots/topdown_mockup_native.png` (768x768, one pixel per
+cell at 32px) and `topdown_mockup_squint.png` (192x192, a gameplay-scale legibility
+check). Committed alongside this update.
+
+This answers "does flat-color top-down read clearly" with something concrete, but
+deliberately does NOT touch project.godot's resolution or decide the board's on-screen
+scale/camera framing — that's option 1/3 above, a separate call, and the board here is a
+square 24x24 grid rendered at native aspect ratio, not yet fit into any particular
+16:9 canvas. Still yours to look at and judge, per CLAUDE.md's visual-judgment stop
+rule — I did not decide whether this is the right style, only that it renders correctly
+and is legible.
+
 ## S5 (docs/refactor/SYSTEMS.MD) — "Přepiš stav nepřátel z uzlů na pole struktur" / S6 — "Nahraď jeden-uzel-na-nepřítele jedním MultiMeshInstance2D"
 
 Not started. Two reasons, either alone would be enough to stop and ask rather than guess:
