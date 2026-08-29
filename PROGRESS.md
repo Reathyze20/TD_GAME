@@ -125,3 +125,30 @@ Log of tasks completed by run.sh, one entry per run, newest last.
   Not investigated further — T11 says measure only.
 - verify.sh: PASS (13 pass, 0 fail, 0 skip, 9 known-broken).
 - Commit: 032dddf
+
+## 2026-08-29 — T4 part 1: GridProjection + gameplay-critical sites (in progress)
+- Added scripts/grid_projection.gd (class_name GridProjection extends RefCounted, NOT
+  an autoload — CLAUDE.md forbids adding those without asking). Data.cell_center()/
+  world_to_cell()/in_bounds() now delegate to it, unchanged for every existing caller.
+- Migrated the 9 gameplay-critical hand-written ground-space (*0.5/*2.0) sites the T3
+  audit flagged onto new to_ground()/to_screen()/ground_distance()/
+  ground_dir_to_screen() helpers: has_line_of_sight/cast_to_wall + aiming-mode mouse
+  vector + split-spawn scatter (game.gd), auto-aim + is_point_in_cone + shot-spawn
+  direction (tower.gd), projectile flight direction (projectile.gd). Each is the exact
+  prior formula, algebraically substituted — not rewritten.
+- Verified behavior-preserving by snapshotting every KNOWN_BROKEN test's log before the
+  change and diffing after: _test_los and _test_shadow_occlusion (most directly
+  exercising this code) came back byte-identical; every other difference was a
+  line-number shift in an error backtrace, or one unrelated timing-jitter value in
+  _test_fog_bandwidth's respawn-timer check (same class of real-time race as the
+  already-flaky _test_phase3, unrelated to this change).
+- verify.sh: PASS (14 pass, 0 fail, 0 skip, 8 known-broken — _test_phase3 happened to
+  pass this run, still flaky).
+- **T4 is NOT complete.** ~33 sites remain from the audit: visual-only ground-space
+  squash (turret head/recoil/muzzle, range rings, impact fan, contact shadows,
+  placement preview ellipse), hand-rolled diamond geometry (wall segments, terrace
+  shadow/blocks, static field draw, board_bounds), the Godot TileMapLayer half-tile
+  offset (game.gd + tools/map_editor.gd), and several sites in code the audit found
+  uncalled (decor_layer.gd, wall shadow/face layers, old terrain layer). T4's own
+  "hotovo když" ("v kódu není žádný jiný převod souřadnic") is not yet true. Continuing.
+- Commit: 69e16f5
