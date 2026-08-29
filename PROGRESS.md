@@ -83,3 +83,22 @@ Log of tasks completed by run.sh, one entry per run, newest last.
   KNOWN_BROKEN_TESTS in verify.sh rather than chasing it — out of T2's scope.
 - verify.sh: PASS (13 pass, 0 fail, 0 skip, 9 known-broken).
 - Commit: 4d3f3c7
+
+## 2026-08-29 — T3 (in progress)
+Delegated to a background research agent per the plan's own "Model: opus" annotation
+(read-only codebase audit, well suited to run in parallel with T11 below). Will log
+properly once its findings land and docs/MIGRATION_AUDIT.md is reviewed and written.
+
+## 2026-08-29 — T11: horde perf bench, N=50..1000
+- _perf_horde.gd/.tscn spawns N distractions into the spawn zone (so they walk the
+  actual path) on iso level 99 (default level's objective is out of bounds on the
+  current grid, see T0), measuring wall-clock frametime cumulatively at each N. Same
+  methodology as the existing _perf_probe.gd (wall-clock around process_frame, vsync
+  forced off — TIME_PROCESS reads smoothed/stale on this machine).
+- Results in docs/PERF.md: 50 -> 6.23ms/160 FPS, 100 -> 12.29ms/81 FPS,
+  200 -> 27.29ms/37 FPS, 500 -> 62.76ms/16 FPS, 1000 -> 88.28ms/11 FPS. Worst-frame
+  spikes are notably worse than average at scale (500: 108.91ms worst vs 62.76ms avg;
+  1000: 201.91ms worst vs 88.28ms avg) — real stutter, not just a lower average.
+  Not investigated further — T11 says measure only.
+- verify.sh: PASS (13 pass, 0 fail, 0 skip, 9 known-broken).
+- Commit: 032dddf
