@@ -171,7 +171,7 @@ Already isometric: `floor_tile`, `wall_material`, `tower_focus_pillar` (`assets/
 Still needed:
 - **2 more tower heads** (Focus Pillar is done).
 - **2 enemies × 4 iso walk directions + death.** Today a typical enemy ships ~35 frames
-  across 4 states. `style_bible.md` §4 already measured that our 8–9-frame walks are
+  across 4 states. `style_bible_measured.md` §4 already measured that our 8–9-frame walks are
   above shipped-game practice (4–6) *and* that every extra frame is another chance for
   the generator to drift — so cutting to ~6 is an improvement, not a compromise.
 - **2–3 floor variants**, to kill the wallpaper repetition the pilot exposed.

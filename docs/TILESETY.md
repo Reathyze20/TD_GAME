@@ -45,7 +45,7 @@ Piš **anglicky** — model je na tom trénovaný a česky si vymýšlí.
    `almost plain`. Detailní podlaha spolkne nepřátele.
 4. **Stín musí měnit odstín, ne jen tmavnout.** Přidej `shadow shifts cool blue/violet,
    not a flat black falloff`. Bez týhle věty vyjde stín šedý přechod do černé — přesně
-   tohle na `path_*.png` naměřil `style_audit.py` (2–4° místo cílových 20°+, `style_bible.md`
+   tohle na `path_*.png` naměřil `style_audit.py` (2–4° místo cílových 20°+, `style_bible_measured.md`
    §2). „Nudná" z pravidla 3 znamená málo detailu a nízký kontrast, ne barevně mrtvý stín —
    obojí jde dohromady, jedno není omluva pro druhé.
 

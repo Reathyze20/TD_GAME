@@ -5,7 +5,7 @@
 > assets and live code constants, not eyeballed — where the project's own docs later
 > re-measure something, this file should be updated to match, not the other way round.
 > Full reasoning and traps live in `docs/art/iso_bible.md` (current, isometric) and
-> `docs/art/style_bible.md` (legacy top-down, still true for un-migrated assets).
+> `docs/art/style_bible_measured.md` (legacy top-down, still true for un-migrated assets).
 
 ## Status: two rasters exist — use the isometric one for anything new
 
@@ -76,7 +76,7 @@ rendered as `palette_48.png`). Everything draws from it; nothing gets its own pr
 A 32-color version exists (`palette_32.hex`) but measurably hurts 6 of 10 creatures — use 48.
 
 - **Budget per sprite:** target **~40 colors**, hard ceiling **56** (p90 of measured shipped
-  PixelLab originals — not a stylistic guess, see `style_bible.md` for the measurement).
+  PixelLab originals — not a stylistic guess, see `style_bible_measured.md` for the measurement).
   This is nearly flat across sprite sizes; don't scale the budget by pixel area.
   A generic "≤24 colors" rule is too tight — 88% of source generations would fail it.
 - **Neutrals need explicit grays in the palette.** A gray pixel with near-zero chroma sits
@@ -253,7 +253,7 @@ see those names anywhere, they are stale.
 
 - `docs/art/iso_bible.md` — full isometric direction, per-asset generation recipes
   (`tools/pl_iso.py` `RECIPES`), traps already paid for, current asset checklist.
-- `docs/art/style_bible.md` — the legacy top-down measurements and rules, still authoritative
+- `docs/art/style_bible_measured.md` — the legacy top-down measurements and rules, still authoritative
   for anything not yet migrated.
 - `docs/PIXELLAB.md`, `docs/ART_PIPELINE.md`, `docs/TILESETY.md` — tool-level pipeline docs.
 - `docs/art/palette_48.hex` / `palette_32.hex` — the actual palette files.

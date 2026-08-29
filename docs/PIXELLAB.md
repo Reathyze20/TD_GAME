@@ -484,7 +484,7 @@ Prompt drží materiál mapy (nervová tkáň), **ne kámen** — slova `stone` 
 `lit from above`, `seamless left to right`, `flat side view, no perspective`,
 **`shadow tones shift toward cool blue/violet, never a flat black falloff`** — bez
 téhle fráze generátor stín jen ztmaví do černé (změřeno: `terrain/path/*.png` 2–4°
-posunu odstínu proti cíli 20°+, viz `style_bible.md` §2). Stejná fráze patří i do
+posunu odstínu proti cíli 20°+, viz `style_bible_measured.md` §2). Stejná fráze patří i do
 popisu podlahy (`lower_description`) o pár řádků výš.
 
 ### Postprocess je povinný (`tools/build_wall_face.py`)

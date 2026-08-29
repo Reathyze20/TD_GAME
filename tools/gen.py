@@ -783,7 +783,7 @@ def outline_sprite(a, strength=0.35):
     Ztmavuje se v Oklab, ne nasobenim RGB. Puvodni verze delala mean(RGB)*strength a pak
     clip(8, 70) po kanalech, coz u sytych barev MENI ODSTIN: (255,180,60)*0.35 dá
     (89,63,21), ale strop 70 srazi jen cerveny kanal a z teple oranzove se stane
-    hnedosediva. style_bible.md:33 pritom chce "tmavsi odstin TEZE barvy, ne cerna".
+    hnedosediva. style_bible_measured.md:33 pritom chce "tmavsi odstin TEZE barvy, ne cerna".
 
     Oklch to resi primo: snizi se L, odstin h zustane. Chroma se ale MUSI snizit taky —
     tmava barva s plnou sytosti lezi mimo sRGB a prevod ji na okraji gamutu stoci. Zmereno

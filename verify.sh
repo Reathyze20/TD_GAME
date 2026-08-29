@@ -169,6 +169,26 @@ else
   fi
 fi
 
+echo "== art prompts =="
+# Same shape as the roster check above and for the same reason: docs/art/GENERATION_PLAN.md
+# is generated from docs/art/STYLE_BIBLE.md + data/, so it goes stale silently the moment
+# anyone adds a .tres or edits a prompt rule. scenes/_test_art_prompts.tscn (run in the
+# loop above) checks that the plan is INTERNALLY correct; this checks that it is CURRENT,
+# and that the generator is deterministic — two runs must be byte-identical, or --check
+# itself would be meaningless. PYTHONIOENCODING for the same cp1250 reason as roster.py.
+art_log="$LOG_DIR/art_prompts.log"
+PYTHONIOENCODING=utf-8 python tools/gen_art_prompts.py --check >"$art_log" 2>&1
+art_status=$?
+if [ "$art_status" -ne 0 ]; then
+  echo "FAIL art prompts (exit $art_status) — see $art_log"
+  sed 's/^/  /' "$art_log"
+  fail=$((fail + 1))
+  failed_names+=("art prompts")
+else
+  echo "PASS art prompts"
+  pass=$((pass + 1))
+fi
+
 echo
 echo "== summary =="
 echo "pass: $pass  fail: $fail  skip: $skip  known-broken: $known"

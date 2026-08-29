@@ -504,7 +504,7 @@ světlu, **jeden konzistentní zdroj světla shora** (vršek nejsvětlejší, bo
 spodek skoro ve stínu), zaoblené/zkosené hrany místo pravých úhlů, měkký kontaktní
 stín/AO u paty, drobný rim-light na osvětlené horní hraně.
 
-Tohle je **jiná osa** než hue-shift stínu (`PIXELLAB.md` §5c, `style_bible.md` „Tvar
+Tohle je **jiná osa** než hue-shift stínu (`PIXELLAB.md` §5c, `style_bible_measured.md` „Tvar
 stínu je jiná osa"): hue shift říká *jaký odstín* má stín mít, tenhle odstavec říká
 *podle jakého tvaru* se po objektu rozkládá. Obě pravidla platí zároveň, jedno
 nenahrazuje druhé.

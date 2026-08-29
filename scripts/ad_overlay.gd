@@ -11,7 +11,7 @@ class_name AdOverlay extends Control
 ##
 ## Deliberately drawn OFF the project's style: garish gradient, fat text, emoji. It has
 ## to look like it came from somewhere else, which is also why it never has to meet the
-## art bar in docs/art/style_bible.md.
+## art bar in docs/art/style_bible_measured.md.
 
 signal closed(tapped: bool, seconds_open: float)
 

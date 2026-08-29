@@ -772,3 +772,98 @@ Log of tasks completed by run.sh, one entry per run, newest last.
 - verify.sh: PASS (20 pass, 0 fail, 7 known-broken) — unchanged from before this
   change; `_shot_*` scenes are not part of its gate.
 - Commit: b46e262.
+
+## 2026-08-29 — Generátor PixelLab promptů (zadáno přímo uživatelem, není v MIGRATION.md)
+- **Inventura dat nejdřív, ne odhad.** V `data/` je **32 entit s vizuálním protějškem**:
+  13 distrakcí (12 běžných + 1 boss, `social_media_binge`, jediný `is_boss = true`),
+  15 habitů (8 základních + 7 upgradů — upgrady dnes vlastní art nemají a padají přes
+  `Data.habit_family()` na tier 1) a 4 obránce. `data/ads`, `cards`, `interventions`,
+  `growth` a `insight_cards` **žádný vizuální protějšek nemají** — ani jedna z těch tříd
+  nemá pole na texturu a `AdOverlay` je dokonce schválně mimo styl projektu
+  (`scripts/ad_overlay.gd:12-14`). K tomu 8 kusů, které v `data/` být nemůžou, protože to
+  není obsah, ale podklad: 3 terény, Focus core, Dopamine váček, spawn a 2 dekorace.
+  Celkem **40 položek v plánu**.
+- **`docs/art/STYLE_BIBLE.md`** — jedna centrální norma pro top-down desku. Vizuální jazyk
+  (organická neurální tkáň, ne mechanika, ne doslovný orgán), mapování herních prvků na
+  slovník, pravidlo záře (**svítí jen cesta a to, co hráč postavil**), kontrastní brána,
+  velikosti, kotvy zkopírované doslova z CLAUDE.md, povinný suffix, formy všech 40 entit,
+  nástroje, ceny a fáze. Bloky `<!-- gen:klic -->` jsou strojově čtené, takže je to
+  opravdu jediný zdroj — generátor z něj čte i ceník a dávkování, ne jen text.
+- **Kontrastní pravidlo je číselné, ne slovní**, protože na něm stojí čitelnost desky:
+  `soucet(cesta) - soucet(tkan) >= 60` a kruhový rozdíl odstínů `>= 140°`. Prahy nejsou
+  vymyšlené — jsou odvozené z barev, které dnes reálně instaluje `tools/flat_terrain.py`
+  (tkáň 78, cesta 146, zdi 484), a naměřeno na nich +68 a 147,3°. Práh 150°, který by byl
+  hezčí kulaté číslo, by shipnutá dvojice o 2,7° neprošla.
+- **`tools/gen_art_prompts.py`** — čistá transformace bible + `data/` →
+  `docs/art/GENERATION_PLAN.md`. Nic nevolá a nic negeneruje, vyrábí text. Deterministický
+  z principu, ne náhodou: žádné datum ve výstupu, `hashlib` místo `hash()` (ten je od
+  Pythonu 3.3 solený per proces), `sorted()` na všech globech, `sort_keys` na JSON,
+  zápis vždy `newline="
+"`. `--check` regeneruje dvakrát, porovná to se sebou i se
+  souborem na disku a vrátí 1 při jakémkoli rozdílu.
+- **Tři chyby, které vypadly z ověřování proti skutečnému katalogu PixelLabu**, ne z
+  přemýšlení: `create_1_direction_object` **není** standard za 1 generaci, je pro za
+  20–40; jeho `view` má jiný enum (`top-down | sidescroller`) než `create_character`;
+  a `tile_feature="tileset"` **nejde kombinovat se `style_images`**, takže terén rodinu
+  přes style_images držet nemůže. První návrh měl všechny tři špatně a rozpočet by lhal
+  skoro o polovinu. Důvody jsou zapsané přímo pod tabulkou nástrojů v bibli.
+- **Dvě chyby v pořadí, které našel až vygenerovaný výstup:** (1) `accountability_2`
+  padalo do TÉŽE dávky jako `accountability`, přestože tier 2 potřebuje `init_image_url`
+  z hotového PNG tier 1 — vyřešeno řazením podle hloubky závislosti a zákazem mít v jedné
+  dávce entitu i její `base`; (2) rekvizita ve fázi 1 se vázala na Focus core, který se
+  generuje až ve fázi 2. Obojí teď hlídá `check_order()` a generátor na tom spadne, místo
+  aby to tiše shipnul.
+- **Fáze 0 stojí 40 generací a je jedno jediné volání** — jeden `create_tiles_pro` vyrábí
+  tkáň i axon naráz. Je první proto, že kontrast podlahy je jediné pravidlo, které se
+  nedá opravit později: špatný habit se přegeneruje za 20 generací, špatná podlaha
+  s sebou vezme všechno, co na ní stojí, protože každá postava je proti jejímu jasu
+  vážená. Plán zároveň říká **nulovou variantu**: `tools/flat_terrain.py` dnes instaluje
+  ploché barvy přesně na cílových hodnotách za 0 generací, takže fáze 0 i 1 jdou vynechat
+  úplně, pokud je cíl plochý terén (`user-rogue-tower-jednoduchost`).
+- **Velikost objednávky ≠ velikost na disku, a byla to třetí věc, kterou jsem měl
+  nejdřív špatně.** `ART_PIPELINE.md` §588 píše doslova „64px → ÷2 na 32" a §457 uvádí
+  reálné volání `size:64` (boss `128`) za 20 generací (boss 40). K tomu má
+  `style_character_id` spodní hranici — job spadne, když je `size` menší než obsah kotvy,
+  a kotva `62772f73-…` je 64px postava, takže distrakce se **nesmí** objednat na 32.
+  Tabulka velikostí má proto dva sloupce, `art_px` (cíl) a `gen_px` (objednávka), cena se
+  počítá z objednávky a vychází přesně na čísla, která projekt reálně zaplatil. Test
+  kontroluje obojí a navíc že poměr je 1× nebo přesně 2× — aby půlicí krok nemohl tiše
+  zmizet.
+- **Rozpočet: 40 entit, 26 volání, 600 generací** (pesimisticky, horní hranice pásem;
+  animace se nepočítají, ty jsou vlastní kolo). Fáze 0 = 40, fáze 1 = 60, fáze 2 = 60,
+  fáze 3 = 440.
+- **Nalezen tvrdý rozpor mezi CLAUDE.md a docs/ART_PIPELINE.md o kotvě distrakcí** —
+  ART_PIPELINE.md:105-111 hlásí junk food jako odpískaný (17. 8. 2026, citovaný uživatel)
+  a :277-279 říká, že junk-foodové kotvy „už se nepoužívají" a do `style_character_id`
+  patří `fa8294b1-…`; CLAUDE.md pořád mandátuje `62772f73-…`. Zadání mě pro kotvy
+  výslovně poslalo do CLAUDE.md, takže plán drží CLAUDE.md — ale je to 240 generací
+  na kartě a rozhodnout to musí uživatel. Detaily a jednořádkové přepnutí v BLOCKED.md.
+- **`scripts/_test_art_prompts.gd` + `scenes/_test_art_prompts.tscn`** — 275 kontrol nad
+  vygenerovaným plánem: kotva správné rodiny u každé postavy, nulový výskyt opuštěné kotvy
+  `7ba5d829-…` **v celém souboru** (ne jen v promptech), povinný suffix v každém promptu,
+  žádný hex ani 32barevná paleta, velikosti proti tabulce v bibli (v nadpisu i ve skutečně
+  posílaných parametrech), a bijekce plán ↔ `data/` v obou směrech.
+- **Test byl ověřen i negativně**, protože test, který nemůže spadnout, není test:
+  dočasně jsem plánu ustřihl suffix jednomu promptu, podstrčil zakázanou kotvu a změnil
+  jednu velikost — harness spadl na všech čtyřech místech (exit 1) a `--check` nezávisle
+  nahlásil zvětralost. Obnoveno přegenerováním, což je zároveň důkaz, že determinismus
+  drží.
+- Kvůli tomu, že plán uvádí sám sebe jako důkaz, musel z jeho prózy zmizet doslovný
+  zápis zakázaného UUID i jména 32barevné palety — jinak by kontrola padala na vlastní
+  větu a musela by se oslabit na „jen v promptech“. Slabší kontrola je přesně to, co by
+  tu kotvu jednou pustilo do parametru.
+- **NIC SE V PIXELLABU NEGENEROVALO.** Deny na `mcp__pixellab__*` platí a nebyl obcházen;
+  `data/`, `addons/` ani žádný existující asset se neměnily.
+- `docs/art/style_bible.md` → `docs/art/style_bible_measured.md` (kolize velkých písmen na
+  case-insensitive FS, viz BLOCKED.md), plus 12 souborů s aktualizovaným odkazem.
+  `verify.sh` dostal sekci `== art prompts ==` vedle `== roster ==`, ze stejného důvodu.
+- **Vedlejší nález, neopravený (mimo rozsah):** `tools/roster.py` hledá v levelech
+  `[ext_resource type="Resource" path=...]` s `path` hned za `type`, jenže Godot mezi ně
+  vkládá `uid="uid://…"`, kdykoli cílový zdroj UID má. `docs/ROSTER.md` proto tvrdí, že
+  `doomscroll` je jen v L2 a `social_media_binge` jen jako boss L2, ačkoli level_1 spawnuje
+  oba. Týká se to tří odkazů v `level_1.tres`. Neopravoval jsem to, aby se do commitu o
+  generátoru promptů nepřimíchala změna ROSTER.md.
+- verify.sh: PASS (22 pass, 0 fail, 7 known-broken — 7 předchozích, `_test_art_prompts`
+  a `art prompts` jsou nové a oba PASS). `_test_phase3` prošel i tentokrát a hlásí, že se
+  má vyřadit z KNOWN_BROKEN; nechávám to na jeho vlastní úkol, protože je označený jako
+  flaky, ne rozbitý.

@@ -6,7 +6,7 @@
 #   high_ground_atlas.png  hue shift 8.7°       medián sum(RGB) 145
 #   face/*.png (čelo zdi)  hue shift 10.8-11.2° medián sum(RGB) 124-145
 #
-# Cíl je 20°+ (style_bible.md, stejný práh jako věže/distrakce/obránci). Rozbor palety
+# Cíl je 20°+ (style_bible_measured.md, stejný práh jako věže/distrakce/obránci). Rozbor palety
 # ukázal PROČ je to nízké: světlé i tmavé tóny leží skoro na STEJNÉM odstínu (~257-290°,
 # tedy modro-fialová) — liší se jen jasem. To je přesně "ztmavování do černé": stín
 # NEMĚNÍ odstín, jen snižuje L. Není to tedy jiný materiál, který chybí — je to rotace,

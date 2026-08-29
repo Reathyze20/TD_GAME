@@ -45,7 +45,7 @@ Zbývá zhruba **30 nástrojů**, které mají v tomhle projektu smysl.
 | **měření artu** | `style_audit.py`, `art_check.py` — paleta, obrys, posun odstínu, rastr, kmitání. PixelLab nemá nic, čím by řekl „tenhle sprite nesedí ke zbytku". |
 | **časování animace** | Animation Lab: držení jednotlivých snímků, zarovnání siluet, srovnání pohledů. PixelLab dodá snímky a končí. |
 | **jedna paleta na celý svět** | `sprite_cleanup.py --master` s vážením barevných os. PixelLab paletu napříč postavami nesjednocuje. |
-| **stylová bible jako pravidlo** | `docs/art/style_bible.md` + kontrola rastru. |
+| **stylová bible jako pravidlo** | `docs/art/style_bible_measured.md` + kontrola rastru. |
 
 ### Staví se právě teď
 

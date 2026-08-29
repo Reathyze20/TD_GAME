@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/_test_art_prompts.gd" id="1_artpr"]
+
+[node name="TestArtPrompts" type="Node" unique_id=418277301]
+script = ExtResource("1_artpr")

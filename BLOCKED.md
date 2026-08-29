@@ -3,6 +3,108 @@
 Design decisions found ambiguous or contradictory during autonomous runs.
 Not fixed by guessing — recorded here with options, then moved past.
 
+## Generátor PixelLab promptů (zadáno přímo uživatelem) — pět rozhodnutí, která zadání nepokrývalo
+
+Úkol zněl „postav generátor PixelLab promptů“ a byl dost přesný na to, aby šel udělat
+celý; těchhle pět míst ale zadání nerozhodlo a hádat je by znamenalo zapsat vkus jako
+fakt. Všechno je **hotové a ověřené** — každé rozhodnutí je zapsané v
+`docs/art/STYLE_BIBLE.md` u příslušné tabulky, takže se mění jedním řádkem a
+přegenerováním, ne přepisováním generátoru.
+
+**1. `docs/art/STYLE_BIBLE.md` vs. `docs/art/style_bible.md` — kolize velkých písmen.**
+Zadání chtělo `docs/art/STYLE_BIBLE.md`. Ten soubor **už existoval** pod jménem
+`docs/art/style_bible.md` (67 kB měření 734 shipnutých PNG) a tenhle stroj má
+case-insensitive souborový systém (`fsutil` hlásí case sensitivity disabled na
+`docs/art`) plus `git config core.ignorecase = true`. Ta dvě jména jsou tady **jeden a
+týž soubor**: zapsat nový `STYLE_BIBLE.md` by starý přepsalo a git by to nezaznamenal
+jako nový soubor, jen jako modifikaci toho starého — tedy destrukce bez zisku.
+Možnosti byly tři: (a) přepsat a přijít o měření, (b) pojmenovat nový soubor jinak a
+nesplnit zadání doslova, (c) přejmenovat starý. **Zvolil jsem (c):**
+`git mv docs/art/style_bible.md docs/art/style_bible_measured.md` plus `sed` na 12
+souborů, které na něj odkazovaly (samé komentáře a odkazy v dokumentaci, žádný runtime
+`load()`). Vrácení je `git mv` zpátky a jeden sed. Kdybys chtěl jiné jméno pro to
+měření, je to jediná věc, co se musí přejmenovat.
+
+**1b. `CLAUDE.md` a `docs/ART_PIPELINE.md` si o kotvě distrakcí přímo odporují — a to
+je rozhodnutí, které musíš udělat ty.** Zadání znělo „style anchory podle rodiny, přesně
+jak je má CLAUDE.md — zkopíruj je odtud", takže jsem se držel CLAUDE.md a plán objednává
+distrakce s `62772f73-…`. Ale ART_PIPELINE.md, kam mě CLAUDE.md samo posílá u artových
+úkolů, tvrdí na dvou místech opak:
+
+- `docs/ART_PIPELINE.md:105-111` — *„SMĚR SE MĚNÍ (17. 8. 2026 večer). Junk food je
+  **odpískaný** — uživatel: »ty postavy nemusí mít vzhled jako junk food, to to jen
+  kazí«."* Náhrada je *„Tvor + zařízení, ne potravina."*
+- `docs/ART_PIPELINE.md:277-279` — *„Kotva stylu: `fa8294b1-…` — Broccoli Knight. Tohle
+  id patří do `style_character_id` u **každé** nové příšery. Junk-foodové kotvy z 15. 8.
+  (`62772f73…`, `0ef2d964…`) jsou v kreslené grotesce a **už se nepoužívají**."*
+- `docs/ART_PIPELINE.md:581-587` — starší odstavec, který říká pravý opak a shoduje se
+  s CLAUDE.md.
+
+CLAUDE.md je datované 15. 8., odpískání 17. 8. — takže **CLAUDE.md je pravděpodobně
+neaktualizované**, ne ART_PIPELINE.md špatně. Neopravil jsem ho, protože (a) zadání mě
+výslovně poslalo pro kotvy do CLAUDE.md a (b) CLAUDE.md je tvoje ground truth, do které
+si nepíšu sám. Přepnutí je jednořádkové: v `<!-- gen:anchors -->` změnit `plati_pro`
+u řádku `general` na `defender, distraction, distraction_elite` a u `junk_food` na `nic`,
+pak přegenerovat. **Než se to rozhodne, plán objednává celou rodinu distrakcí kotvou,
+o které jedna ze dvou závazných dokumentací tvrdí, že se nepoužívá** — a je to 12 volání
+po 20 generacích, tedy 240 generací na kartě.
+
+Souvisí s tím i to, že **habity, rekvizity a terén žádnou kotvu nemají a mít ji nemůžou**
+(`style_character_id` bere jediný nástroj v celém katalogu, `create_character`, a věže se
+jím negenerují). De-facto kotvou věží je dnes `style_images` ze souboru, který **není
+v gitu** — `build/iso_art/jobs.json`, klíč `tower_anchor`, a `/build/` je v `.gitignore`.
+Na čerstvém klonu ta kotva neexistuje vůbec, takže rodina věží se z repa reprodukovat
+nedá. Plán to obchází tím, že rodinu drží první vygenerovaný habit (`focus_timer`) a
+zbytek se na něj váže — ale znamená to, že fáze 2 se **musí** doopravdy proběhnout dřív
+než fáze 3, ne že se dá přeskočit.
+
+**2. Obránci nejsou v tabulce velikostí ze zadání.** Zadání dalo dlaždice 16, běžný
+distraction 32, elite 48–64, habit 64, Focus core 96 — obránce (`data/defenders`, 4 kusy)
+nejmenuje. Dal jsem jim **32 px**, protože jsou to vizuálně tatáž třída jako běžná
+distrakce: postava velikosti dvou buněk, která chodí po desce a bije se. Alternativa je
+**48 px**, což je to, co dnes reálně leží na disku (`assets/defenders/*_frame_*.png` jsou
+48×48). Rozdíl je vidět jen vedle sebe — 32 znamená, že obránce je stejně velký jako
+nepřítel, kterého blokuje, 48 znamená, že je o půl hlavy větší. To je herní čitelnost,
+ne technikálie. Řádek `defender` v `<!-- gen:sizes -->`.
+
+**3. Rekvizity taky ne** (Dopamine váček, spawn, dvě dekorace). Dal jsem **16 px** =
+jedna buňka, protože žádná z nich není objekt, se kterým hráč interaguje jinak než že se
+na něj dívá. Kdyby měl být Dopamine váček sbíratelný a nápadný, chce to 32.
+
+**4. „elite 48-64px“ nemá v datech koho popsat.** `DistractionData` má jediný příznak
+tieru, `is_boss`, a nic neleží mezi 70 HP (nejsilnější běžná, `clickbait`) a 900 HP
+(`social_media_binge`). Mezistupeň prostě neexistuje. Vzal jsem tedy **horní hranici
+pásma (64) pro bosse** — repo mu v komentářích samo říká „final-wave elite“
+(`scripts/boss.gd:3`, `scripts/data.gd:448`) — a spodní půlku (48) nechal nevyužitou a
+rezervovanou. Když se elitní tier někdy zavede, přibude `kind` a řádek v tabulce.
+
+**5. Habit 64 px přesahuje stavební blok, a nikdo to zatím neviděl v pohybu.** Blok je
+3×3 buňky = 96 px obrazovky při `pixel_scale` 2.0, hlava 64 art px = 128. Přesah 16 px na
+stranu má precedens (`docs/PIXELLAB.md` §5e, *„strop 24 px padl — hlava smí přesahovat
+buňku“*) a vyšel ze zadání, takže jsem ho nechal — ale je to **vizuální posouzení**, a to
+je podle CLAUDE.md tvoje. Souvisí s tím ještě jedna otevřená věc: `Data.pixel_scale()`
+dnes vrací `ISO_PIXEL_SCALE = 1.0`, ne 2.0. Jestli se s návratem k top-down obnoví
+předizometrický vzorec `GRID.tile / TERRAIN_ART_PX` = 2.0, je pořád půlka T5, která čeká
+na tebe. Tabulka velikostí je proto psaná v **artových pixelech** a sloupec „buňky“ je
+označený jako platný pro ×2 — čísla artu se tím rozhodnutím nemění, jen jejich dopad na
+obrazovce.
+
+**Šestá věc, která ambiguita jen vypadala a není.** CLAUDE.md dává kotvu
+(`style_character_id`) jen dvěma rodinám — obecnou (Broccoli Knight) a junk-food
+distrakcím — a pro habity, terén a rekvizity žádnou. To ale není mezera: `create_character`
+je **jediný nástroj v celém katalogu, který `style_character_id` vůbec bere**, a habity ani
+dlaždice se jím negenerují. Rodinu jim drží `style_images` (dědí styl **i rozměr**,
+`iso_bible.md` §5), což je i důvod, proč je v plánu u každého habitu a rekvizity vidět
+sloupec „závislost“. Test proto vymáhá kotvu jen u postav, ne u všeho.
+
+**A jedna věc, na kterou jsem narazil mimochodem a nesahal na ni:**
+`scripts/_test_zen_pulsar.gd:111` tvrdí, že existuje
+`res://assets/towers/head_zen_pulsar_frame_1.png`. Ten soubor je od instalace izo artu
+v `assets/towers/_topdown_backup/`, kam se loader nikdy nedívá. To je (aspoň část)
+důvodu, proč je `_test_zen_pulsar` v `verify.sh` mezi KNOWN_BROKEN. Podle CLAUDE.md test
+neupravuju bez tvého souhlasu, takže jen hlásím: až se ta regrese bude řešit, tohle je
+nit, za kterou tahat.
+
 ## T6/T7/T8 (docs/refactor/MIGRATION.MD) — a gap noticed late, writing it down rather than pretending it didn't happen
 
 While researching S7, re-read MIGRATION.MD in full and found T6, T7, and T8 were

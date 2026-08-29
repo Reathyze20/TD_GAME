@@ -762,7 +762,7 @@ def _harden_alpha(a: np.ndarray, threshold: int) -> np.ndarray:
 
     ISNET je segmentacni sit pro fotky, takze vraci mekky prechod -- na
     namerenem spritu 32x32 melo alfa 57 ruznych hodnot. To je pro pixel art
-    spatne hned dvakrat: docs/art/style_bible.md chce ostry obrys a Godot by
+    spatne hned dvakrat: docs/art/style_bible_measured.md chce ostry obrys a Godot by
     poloprusvitne okraje pri meritku x3 rozmazal do trojnasobne sire.
     """
     a = a.copy()

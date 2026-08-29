@@ -7,7 +7,7 @@ CO SE MENI A PROC
 
 Hra kreslila bunku jako 48 px obrazovky a 16 px artu, tedy meritko x3. Postava mela
 32 px artu = 2 bunky. Mereni proti latce (1623 originalu z PixelLabu, viz
-docs/art/style_bible.md) ukazalo, ze postava na latce je 59 px vysoka a nase 29 px --
+docs/art/style_bible_measured.md) ukazalo, ze postava na latce je 59 px vysoka a nase 29 px --
 a ze z teto JEDINE volby plyne skoro vsechno ostatni: dvojnasobny sum, trojnasobna
 hustota detailu a obrys, ktery zabira ctvrtinu prisery misto osminy.
 

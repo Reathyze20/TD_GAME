@@ -84,7 +84,7 @@ na kterého ukazují jeho děti.** Totéž platí pro rotaci a loutkovou animaci
 ### 0.7 Obrys posouvá odstín
 
 `outline_sprite` používá `clip(…, 8, 70)` per kanál, takže u sytých barev mění hue —
-`style_bible.md:33` přitom chce „tmavší odstín TÉŽE barvy". Ztmavovat v Oklab L
+`style_bible_measured.md:33` přitom chce „tmavší odstín TÉŽE barvy". Ztmavovat v Oklab L
 (`palette_morph.from_oklch` to už umí). Navíc existují **tři** implementace obrysu a ta
 v produkční cestě (`restore_outline`) obrys nepřidává, jen přebarvuje krajní pixely.
 
