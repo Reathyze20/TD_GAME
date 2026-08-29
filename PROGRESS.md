@@ -58,3 +58,28 @@ Log of tasks completed by run.sh, one entry per run, newest last.
 - Not verified: a live green CI run (T1's own done-criterion) — would need a push,
   which the branch rules forbid from this session.
 - Commit: 04eb8f3
+
+## 2026-08-29 — T2 (MIGRATION.MD) / S1 (SYSTEMS.MD): economy characterization tests
+- One harness covers both — they ask for the same thing at different minimum counts.
+  26 checks on Tolerance (clamping/floor/raise/clear, passive decay incl. fasting's
+  2.5x), Quick Hit (payout curve, cooldown, tolerance spike + permanent floor gain,
+  disabled/game_ended guards), and the defeat-reward formula (downregulation curve,
+  floor-at-1, lean waves = 0, Streak x Tolerance compounding, jackpot/steady-payout
+  schedule, flat dopamine_bonus modifiers), plus one real spawn+kill for wiring.
+- Neutralized this machine's real savegame.tres (Growth Tree ranks would otherwise
+  add perks on top of the formulas under test) by swapping
+  MetaProgression.current_save for a blank in-memory SaveGame for the run — never
+  written to disk, restored after. Most checks fire SignalBus.distraction_defeated
+  directly with a chosen base_reward instead of spawning real DistractionData, so
+  they test the formula, not any one distraction's tuned balance number.
+- Added tools/make_test_scene.gd (PackedScene.pack + ResourceSaver.save) to generate
+  the trivial `_test_*.tscn` wrapper programmatically per CLAUDE.md's "Scény" rule,
+  instead of hand-typing it. Reusable for later fixtures in this plan.
+- Found while re-verifying: _test_phase3 fails intermittently (2 of 5 runs across this
+  session, always "slow expired while blocked: factor reset to 1.0 (got 0.5)") on runs
+  that touched no production code — a real-time-frame-count race
+  (scripts/_test_phase3.gd:171-174 assumes 10 `await process_frame`s always exceeds
+  0.05s of accumulated delta), not something this task caused. Added to
+  KNOWN_BROKEN_TESTS in verify.sh rather than chasing it — out of T2's scope.
+- verify.sh: PASS (13 pass, 0 fail, 0 skip, 9 known-broken).
+- Commit: 4d3f3c7
