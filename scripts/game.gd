@@ -2223,15 +2223,15 @@ func _draw() -> void:
 		var wave_phase := fmod(t * (pulse_speed * 0.25) + phase_offset, 1.0)
 		var wave_r := base_radius * (1.0 + wave_phase * 0.9)
 		var wave_alpha := (1.0 - wave_phase) * 0.3
-		PixelDraw.ellipse(self, objective_pos, wave_r, wave_r * 0.5, Color(core_color.r, core_color.g, core_color.b, wave_alpha), 1.0, 1.5)
+		PixelDraw.ellipse(self, objective_pos, wave_r, wave_r / GridProjection.GROUND_Y_SCALE, Color(core_color.r, core_color.g, core_color.b, wave_alpha), 1.0, 1.5)
 	
 	# Outer Slim Health Arc (Progress Ring)
 	var ring_r := base_radius + 7.0
-	PixelDraw.ellipse(self, objective_pos, ring_r, ring_r * 0.5, Color(1, 1, 1, 0.1), 1.0, 2.0)
+	PixelDraw.ellipse(self, objective_pos, ring_r, ring_r / GridProjection.GROUND_Y_SCALE, Color(1, 1, 1, 0.1), 1.0, 2.0)
 	if focus_ratio > 0.0:
 		var start_angle := -PI / 2.0
 		var end_angle := start_angle + (TAU * focus_ratio)
-		PixelDraw.ellipse(self, objective_pos, ring_r, ring_r * 0.5, core_color, 1.0, 1.2, start_angle, end_angle)
+		PixelDraw.ellipse(self, objective_pos, ring_r, ring_r / GridProjection.GROUND_Y_SCALE, core_color, 1.0, 1.2, start_angle, end_angle)
 
 	if _core_prop_tex != null:
 		# Drawn core: a gold orb cradled in bone ribs. It replaces the three stacked

@@ -438,7 +438,7 @@ func _draw() -> void:
 
 	# Slow / Calm ring
 	if enemy.status_manager != null and enemy.status_manager.has_slow():
-		PixelDraw.ellipse(self, Vector2.ZERO, vr + 6.0, (vr + 6.0) * 0.5, Color(0.3, 0.8, 1.0, 0.7), 1.0, 1.5)
+		PixelDraw.ellipse(self, Vector2.ZERO, vr + 6.0, (vr + 6.0) / GridProjection.GROUND_Y_SCALE, Color(0.3, 0.8, 1.0, 0.7), 1.0, 1.5)
 
 	# Rush chevrons — a hurried distraction has to be legible in a crowd, and it is the
 	# crowd that carries the tell: a solid ring like Calm's would just read as another
