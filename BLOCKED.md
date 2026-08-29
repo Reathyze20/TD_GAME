@@ -106,3 +106,47 @@ and back to `MODE_ISO` around itself so nothing else in the suite is affected.
 3. Treat "T5 complete" as just what's implemented here (the mode infrastructure) and
    let a later, dedicated session/task own flipping the switch — matches how this
    entry treats it today.
+
+## S5 (docs/refactor/SYSTEMS.MD) — "Přepiš stav nepřátel z uzlů na pole struktur" / S6 — "Nahraď jeden-uzel-na-nepřítele jedním MultiMeshInstance2D"
+
+Not started. Two reasons, either alone would be enough to stop and ask rather than guess:
+
+**1. Scope.** S5 asks to rewrite the entire live-enemy representation from
+Node-per-Distraction (current architecture: `scripts/enemy.gd`'s `Distraction`, a full
+`Node2D` with `_process`, its own `cell_path`/`path_index` walk, `StatusManager`,
+`take_damage`/`take_direct_damage`, knockback, animation) to a flat array of structs
+keyed by "distance along path" instead of world position, with targeting reframed as a
+range query over that sorted array. This is not a contained module — it is the game's
+entire enemy simulation loop, and virtually everything this session has touched
+(`GridProjection`'s targeting math, `PathMetrics`, tower cone/LOS checks, the
+`StatusManager`/`ArcProfile` components CLAUDE.md names as the three established
+behavior components) either reads live `Distraction` node state directly or assumes it
+exists as a `Node2D` with a `global_position`. S6 then asks to replace per-node drawing
+with one shared `MultiMeshInstance2D` for the whole horde, which only makes sense once
+S5's array-of-structs exists — the two are really one project split across two lines.
+
+**2. A likely conflict with an established, deliberate rendering choice.**
+CLAUDE.md names `DistractionAnimator` as one of the three existing single-responsibility
+components ("procedurální vektorová kresba nepřátel přímo v Canvas, žádné sprite
+listy" — procedural vector drawing directly on canvas, no sprite lists) — read this
+session at `scripts/components/distraction_animator.gd` (contact shadows, type glow,
+status auras, `_draw_generic_fallback`, all `_draw()`-based vector shapes, not
+textures). `MultiMeshInstance2D` renders many instances of ONE shared `Texture2D` (or a
+`Mesh`) with per-instance transform/color/custom-data — it has no mechanism for
+per-instance arbitrary procedural `_draw()` calls. Implementing S6 as literally
+specified would mean either abandoning `DistractionAnimator`'s whole approach (a
+deliberate choice CLAUDE.md documents, not an oversight to "fix") or pre-baking every
+distraction's current visual state into a texture atlas each frame to feed the
+MultiMesh — a fundamentally different, much more complex rendering architecture that
+the task text doesn't acknowledge needing.
+
+**What I did:** nothing — flagging both before spending any implementation effort,
+since guessing at either the data-model split or the rendering reconciliation risks
+throwing away real work if the actual intent turns out different. T11's own perf
+numbers (docs/PERF.md: 1000 distractions average 88ms/11 FPS, worst-frame 202ms) are
+already on record as the "why bother" baseline these two tasks would be measured
+against, so the motivation is real — just not something to attempt without agreement
+on: (a) whether `DistractionAnimator`'s procedural-vector style is meant to survive
+this, and if so how, and (b) how much of `Distraction`'s current per-node behavior
+(status effects, individual pathing, knockback) needs to keep working identically vs.
+being redesigned as part of the array-of-structs move.
