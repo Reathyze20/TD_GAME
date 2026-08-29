@@ -91,7 +91,7 @@ func _draw() -> void:
 		var rx: float = (5.0 + 8.0 * grow) * _scale
 		for i in range(12):
 			var a: float = TAU * float(i) / 12.0 + 0.31
-			_px(Vector2(cos(a) * rx, sin(a) * rx * 0.5), 1.0,
+			_px(GridProjection.ground_dir_to_screen(a) * rx, 1.0,
 				Color(_color.r, _color.g, _color.b, alpha * 0.85))
 		if _progress < 0.5:
 			var cu: float = 3.0 if _progress < 0.2 else 2.0
