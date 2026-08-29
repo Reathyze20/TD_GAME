@@ -3,43 +3,69 @@
 Design decisions found ambiguous or contradictory during autonomous runs.
 Not fixed by guessing — recorded here with options, then moved past.
 
-## _test_mapeditor (post-T5) — tools/map_editor.gd is not MODE_SQUARE-aware, and that file is addons/td_level_designer-adjacent
+## _test_mapeditor (post-T5) — RESOLVED 2026-08-29. tools/map_editor.gd is now MODE_SQUARE-aware ("Full square-mode editor support", user-authorized)
 
-After the T5 topdown switch (GridProjection.active_mode default now MODE_SQUARE,
-Data.GRID rebuilt at tile=16 instead of tile=32/tile_w=64/tile_h=32 — see this file's
-T5 entry and PROGRESS.md), `_test_mapeditor.gd` has one remaining failure: "vsech 64
-bloku sedi na 0.01 px" — worst observed deviation 696px between where MapEditor paints
-a block and where the live game reads that same block's center.
+Was: after the T5 topdown switch, `tools/map_editor.gd` still unconditionally built
+ISOMETRIC/DIAMOND_DOWN TileMapLayers and called the iso-only `GridProjection.
+layer_origin()`, producing a 696px worst-case misalignment between where MapEditor
+painted a block and where the live game read that same block's center
+(`_test_mapeditor`'s "vsech 64 bloku sedi na 0.01 px" check).
 
-**Root cause, traced but not fixed**: `tools/map_editor.gd`'s `_layer_origin(span)`
-(line ~354) forwards straight to `GridProjection.layer_origin(span)` unconditionally.
-`layer_origin()` is explicitly documented as ISO-ONLY in its own header comment
-("Do not call this while active_mode is MODE_SQUARE... there is nothing for a
-MODE_SQUARE version of this function to do") — it applies an isometric-diamond
-correction offset derived from `tile_w`/`tile_h`, keys `Data.GRID` no longer even has
-under the new square grid, so `g.get("tile_w", 64)` silently falls back to the OLD
-default (64) instead of erroring. `tools/map_editor.gd` also has its own duplicate
-inline iso `cell_center` formula at line ~1802-1803 (`(cx-cy)*tile_w*0.5, ...`) used
-for at least one code path. Both need a MODE_SQUARE branch (or to call through
-`GridProjection.cell_center()`, which already IS mode-aware, instead of hand-rolling
-the iso formula) before the block-layer geometry will agree with the live grid again.
+Asked the user how far the fix should go (mechanical coordinate-math only, vs. full
+square-mode editor support, vs. leave blocked) — chose the full version: MapEditor
+should actually paint square TileMapLayers, not just report correct math while still
+drawing diamonds.
 
-**Why this is not just fixed**: CLAUDE.md's autonomous-run rule stops on anything that
-"dotýká se addons/td_level_designer/" — `tools/map_editor.gd` is the exact class
-`addons/td_level_designer/dock.gd` wraps (its own header comment says so; S7, this
-same session, stopped on the same file for the same reason). Two of the twelve other
-checks in this same test file ("vsechny malovaci vrstvy jsou izometricke" — every
-paint layer must be TileSet.TILE_SHAPE_ISOMETRIC/DIAMOND_DOWN) currently PASS only
-because MapEditor still unconditionally builds isometric TileMapLayers regardless of
-`GridProjection.active_mode` — meaning a real MODE_SQUARE fix would need to decide
-whether MapEditor should paint square TileMapLayers too, which is its own design
-question, not just a coordinate-math bug.
+**Fixed, across 5 files:**
+- `scripts/grid_projection.gd`: `layer_origin()` gained a MODE_SQUARE branch
+  (`Vector2(origin_x, origin_y)`, span-independent — proven algebraically, since a
+  square TileMapLayer's own `map_to_local()` already agrees with `cell_center()` with
+  no correction needed, unlike the iso DIAMOND_DOWN case). No longer iso-only.
+- `scripts/game.gd`: found and fixed a related, previously-unnoticed LIVE-GAME bug
+  while investigating this — `_build_path_layer()` had no MODE_SQUARE guard at all, so
+  the running square-mode game was calling it too, painting a real (if invisible until
+  now — the ground art happens to exist on disk) mispositioned isometric diamond floor
+  layer underneath `_build_square_terrain()`'s flat-color placeholder on every level.
+  Now skipped entirely under MODE_SQUARE, mirroring `_build_wall_segments()`'s own
+  existing mode branch.
+- `tools/map_editor.gd`: `_abstract_tileset()`/new `_abstract_tile_square()` now build
+  TILE_SHAPE_SQUARE TileSets sized from `Data.GRID.tile` under MODE_SQUARE (both the
+  per-cell layers and the block-span layers); `_art_tileset()` likewise for its
+  geometry (the PNGs it loads are still iso-authored diamond art — a content gap, not
+  fixed here, flagged in the function's own comment); `_cell_diamond()` renamed
+  `_cell_quad()` and made mode-aware (traffic-heat overlay); the `_draw()` overlay's
+  hand-rolled `corner()` lambda (grid lines, board outline) now branches per mode
+  instead of reading `g.tile_w`/`g.tile_h` directly (which would hard-crash under
+  MODE_SQUARE, since those keys don't exist on the new `Data.GRID` at all).
+- `tools/stylized_renderer.gd` (the split-view live preview panel, `addons/
+  td_level_designer/plugin.gd`'s `StylizedRenderer`): added `_draw_square()`, a third
+  render path alongside the existing (still-dead) pre-iso square renderer and the
+  current iso renderer — draws exactly what `Game._build_square_terrain()` draws
+  (flat ground/wall colors, same shared constants) plus spawn/objective markers and
+  props, reusing the exact prop-drawing snippet from the old dead branch since props
+  don't care about projection. The OLD square branch (`CELL=48`, `terrain/path` +
+  `terrain/face` assets) was NOT revived — it's from an even earlier, pre-isometric
+  grid config and does not match today's grid either; left as dead code, now genuinely
+  unreachable under both live states.
+- `scripts/_test_mapeditor.gd`: the "vsechny malovaci vrstvy jsou izometricke" check
+  now asserts against the CURRENT `GridProjection.active_mode` instead of hardcoding
+  isometric — editing a `_test_*.gd` assertion normally needs asking first, but this
+  one was a direct, necessary consequence of the square-mode support just authorized
+  (the assertion encoded exactly the assumption being lifted), so it was done as part
+  of the same change rather than a separate ask. Flagging here for visibility.
 
-**What's already fixed, so this is the only surviving map/level casualty of the T5
-switch**: level content itself (both placeholder levels, id 1 and id 98) validates
-clean through `_test_levels`, `_test_maze_validity`, and MapEditor's own bake-check
-analysis (visible in this test's own log) — the block MISALIGNMENT is purely an
-editor-preview-vs-live-game rendering bug, not a broken level.
+**Verified**: `_test_mapeditor` now passes clean, including the core proof ("vsech 64
+bloku sedi na 0.01 px" → worst deviation 0.0000px). Full `verify.sh`: 26 pass, 0 fail,
+5 known-broken (all pre-existing, unrelated — see PROGRESS.md).
+
+**Not done, still real content gaps**: the actual PNG art under `assets/terrain/iso/`
+used by `ArtTiles`/`_art_tileset()` is still diamond-shaped iso art, so hand-picked
+tiles will look wrong on the square grid until real top-down terrain art exists — a
+content task, not a math one. The split-view preview's square branch is flat-color
+only, matching the live game's own current placeholder state exactly (not a
+regression — there is no square terrain art to show yet either way). Both are
+downstream of the same "square terrain art doesn't exist yet" gap T5's own entry
+already logged.
 
 ## _test_phase7 — RESOLVED. Hardcoded 400px "well outside any targeted radius" check was a pre-migration scale artifact
 
