@@ -40,7 +40,7 @@ KNOWN_BROKEN_TESTS=(
   # race in that one status-expiry assertion, unrelated to whatever task is running.
   _test_phase3
 )
-ROSTER_KNOWN_STALE=1
+ROSTER_KNOWN_STALE=0
 
 echo "== import =="
 "$GODOT" --headless --path . --import
