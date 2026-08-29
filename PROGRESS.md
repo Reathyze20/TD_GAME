@@ -657,3 +657,31 @@ Log of tasks completed by run.sh, one entry per run, newest last.
   known-broken this run, as its own documented note says it does; same baseline as
   S3 otherwise).
 - Commit: d9ee110.
+
+## 2026-08-29 — S4: palette-swap shader, mechanical work done and verified (see BLOCKED.md)
+- Research first: `distraction_animator.gd` has two rendering paths — real shipped PNG
+  sprite frames (`draw_texture_rect()` inside `_draw()`) for types with art, pure
+  procedural vector shapes for types without. A texture-remap shader only has pixels
+  to work on for the first path; S4's own wording ("Použitelný na sprity") already
+  scoped it there, no separate decision needed.
+- Built `shaders/palette_swap.gdshader`: matches each pixel against the master
+  48-colour palette by nearest distance, outputs the same index from a per-material
+  `target_palette` uniform. **Real bug found and fixed**: the first version matched by
+  exact equality, on the assumption that "nic nema vlastni paletu" meant byte-exact
+  hits — checked a real shipped sprite (`clickbait_frame_1.png`) directly and found a
+  few `/255` of drift per channel from PNG/import compression even on genuinely
+  on-palette art, so the exact-match version silently left every pixel unchanged (only
+  visible by actually rendering the result — all three "variants" looked identical at
+  first). Nearest-match fixes it and is more robust for real assets generally.
+- `_shot_palette_swap.gd`/`.tscn` renders the same sprite three times (master palette,
+  plus two hue-rotated sets computed from it, +120°/+240°, plain math not PixelLab)
+  and saves a screenshot. Ran it and looked at the result myself to confirm basic
+  technical correctness (three visibly distinct colours, shape preserved) — NOT the
+  same as the stylistic sign-off the task's own spec asks for.
+- **Not claiming complete**: S4's "Hotovo když" (a screenshot judged to show three
+  colour variants) is a visual-judgment call CLAUDE.md says needs a human. Logged to
+  BLOCKED.md with what's left (judge the screenshot, decide whether the demo palettes
+  are worth keeping, decide whether/how to wire this to anything live — none scoped by
+  S4's own text).
+- verify.sh: PASS (20 pass, 0 fail, 7 known-broken).
+- Commit: 14ea8cc.
