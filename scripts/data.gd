@@ -31,31 +31,17 @@ static func build_block(cell: Vector2i) -> Vector2i:
 		int(floorf(float(cell.x) / b)) * b + b / 2,
 		int(floorf(float(cell.y) / b)) * b + b / 2)
 
-## Canonical grid <-> pixel converters (2:1 diamond isometric projection).
-## Unified single source of truth for grid coordinate conversions.
+## Canonical grid <-> pixel converters now live in GridProjection
+## (docs/refactor/MIGRATION.MD T4) — kept here as thin re-exports so the existing
+## Data.* call sites across the codebase don't have to change.
 static func cell_center(cell: Vector2i) -> Vector2:
-	var g = GRID
-	var tw: float = float(g.get("tile_w", 64))
-	var th: float = float(g.get("tile_h", 32))
-	var ox: float = float(g.origin_x)
-	var oy: float = float(g.origin_y)
-	return Vector2(
-		ox + (cell.x - cell.y) * (tw * 0.5),
-		oy + (cell.x + cell.y + 1) * (th * 0.5))
+	return GridProjection.cell_center(cell)
 
 static func world_to_cell(pos: Vector2) -> Vector2i:
-	var g = GRID
-	var tw: float = float(g.get("tile_w", 64))
-	var th: float = float(g.get("tile_h", 32))
-	var dx: float = pos.x - float(g.origin_x)
-	var dy: float = pos.y - float(g.origin_y)
-	var col := int(floorf(dx / tw + dy / th))
-	var row := int(floorf(dy / th - dx / tw))
-	return Vector2i(clampi(col, 0, int(g.cols) - 1), clampi(row, 0, int(g.rows) - 1))
+	return GridProjection.world_to_cell(pos)
 
 static func in_bounds(c: Vector2i) -> bool:
-	var g = GRID
-	return c.x >= 0 and c.x < int(g.cols) and c.y >= 0 and c.y < int(g.rows)
+	return GridProjection.in_bounds(c)
 
 ## Edge of one terrain tile in ART pixels. The tileset pipeline (tools/tiles.py) is built
 ## around this number; changing it means regenerating every tile.

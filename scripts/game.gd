@@ -1511,19 +1511,18 @@ func cast_to_wall(from: Vector2, dir: Vector2, max_dist: float) -> float:
 	var own := platform_at(from)
 	var d := 6.0
 	while d < max_dist:
-		var c := world_to_cell(from + Vector2(dir.x, dir.y * 0.5) * d)
+		var c := world_to_cell(from + GridProjection.to_screen(dir) * d)
 		if high_ground.has(c) and _platform_id.get(c, -1) != own:
 			return d
 		d += 6.0
 	return max_dist
 
 func has_line_of_sight(from: Vector2, to: Vector2) -> bool:
-	var dx := to.x - from.x
-	var dy := (to.y - from.y) * 2.0
-	var dist := sqrt(dx * dx + dy * dy)
+	var ground_vec := GridProjection.to_ground(to - from)
+	var dist := ground_vec.length()
 	if dist < 0.001:
 		return true
-	var dir := Vector2(dx, dy) / dist
+	var dir := ground_vec / dist
 	return cast_to_wall(from, dir, dist) >= dist
 
 func assign_path(d: Distraction) -> void:
@@ -3547,9 +3546,7 @@ func _update_aiming_process() -> void:
 		return
 	var mouse_pos: Vector2 = get_global_mouse_position()
 	var habit_pos: Vector2 = aiming_habit.global_position
-	var dx: float = mouse_pos.x - habit_pos.x
-	var dy: float = (mouse_pos.y - habit_pos.y) * 2.0
-	var ground_vec := Vector2(dx, dy)
+	var ground_vec := GridProjection.to_ground(mouse_pos - habit_pos)
 	if ground_vec.length_squared() > 1.0:
 		aiming_habit.facing_angle = ground_vec.angle()
 		var dist: float = ground_vec.length()
@@ -4129,7 +4126,7 @@ func spawn_split(parent: Distraction, index: int) -> void:
 	# Fan them apart so a split reads as several bodies rather than one that got smaller.
 	var spread: float = Data.GRID.tile * 0.3
 	var angle: float = TAU * (float(index) + 0.5) / float(maxi(1, parent.def.split_count))
-	child.position += Vector2(cos(angle), sin(angle) * 0.5) * spread
+	child.position += GridProjection.ground_dir_to_screen(angle) * spread
 	child.global_position = child.position
 	Mirror.mark(&"split", parent.type_key)
 

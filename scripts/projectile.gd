@@ -99,7 +99,7 @@ func setup_directional(_game: Node, dir_angle: float, max_dist: float, wp: int, 
 	# `direction_vec` NENI jednotkovy, a to zamerne: krok `speed * delta` tim zustava
 	# v POZEMNICH jednotkach, takze `max_travel_distance` i game.cast_to_wall() (ktery
 	# pracuje "in ground space") plati dal beze zmeny.
-	direction_vec = Vector2(cos(dir_angle), sin(dir_angle) * 0.5)
+	direction_vec = GridProjection.ground_dir_to_screen(dir_angle)
 	rotation = direction_vec.angle()
 	max_travel_distance = max_dist
 	distance_traveled = 0.0

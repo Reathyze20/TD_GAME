@@ -172,15 +172,14 @@ func _tick_auto_aim(delta: float) -> void:
 	for d in game.get_live_distractions():
 		if not is_instance_valid(d) or d.dead:
 			continue
-		# Ground space, matching is_point_in_cone: the projection is 2:1, so a raw screen
-		# vector would aim the cone above everything it was pointed at.
-		var dx: float = d.global_position.x - global_position.x
-		var dy: float = (d.global_position.y - global_position.y) * 2.0
-		if sqrt(dx * dx + dy * dy) > current_attack_range:
+		# Ground space, matching is_point_in_cone: the projection squashes screen-Y, so
+		# a raw screen vector would aim the cone above everything it was pointed at.
+		var ground_vec := GridProjection.to_ground(d.global_position - global_position)
+		if ground_vec.length() > current_attack_range:
 			continue
 		if not game.is_pos_visible(d.global_position):
 			continue
-		sum += Vector2(dx, dy)
+		sum += ground_vec
 		n += 1
 	if n == 0:
 		return
@@ -258,15 +257,14 @@ func start_break(duration: float, forced: bool) -> void:
 
 ## Vector math filtering for directional cone sector in 2:1 ground space.
 func is_point_in_cone(target_pos: Vector2) -> bool:
-	var dx := target_pos.x - global_position.x
-	var dy := (target_pos.y - global_position.y) * 2.0
-	var dist := sqrt(dx * dx + dy * dy)
+	var ground_vec := GridProjection.to_ground(target_pos - global_position)
+	var dist := ground_vec.length()
 	if dist > current_attack_range:
 		return false
 	if dist < 1.0:
 		return true
 	var facing_dir := Vector2.RIGHT.rotated(facing_angle)
-	var target_dir := Vector2(dx, dy).normalized()
+	var target_dir := ground_vec.normalized()
 	var angle_diff := absf(facing_dir.angle_to(target_dir))
 	if angle_diff > deg_to_rad(arc_angle / 2.0):
 		return false
@@ -435,7 +433,7 @@ func _fire() -> void:
 	# a proti ni se meri zasahy na nepratelich, kteri u zeme taky stoji. Zvednout zrod
 	# na vysku hlavne by znamenalo, ze strely prolétnou nad nepritelem hned u veze.
 	# Vizualni skok prekryje zaseh u usti (muzzle flash v _draw()).
-	var dir := Vector2(cos(shot_angle), sin(shot_angle) * 0.5)
+	var dir := GridProjection.ground_dir_to_screen(shot_angle)
 	var perp := dir.orthogonal()
 	var side_offset := -5.0 if _barrel_side == 0 else 5.0
 	var spawn_pos := global_position + (perp * side_offset) + (dir * 22.0)
