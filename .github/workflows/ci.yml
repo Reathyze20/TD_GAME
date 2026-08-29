@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      GODOT_VERSION: 4.7.1-stable
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache Godot binary
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: godot-bin
+          key: godot-${{ env.GODOT_VERSION }}-linux
+
+      - name: Download Godot
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p godot-bin
+          curl -fL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip"
+          unzip -q godot.zip -d godot-bin
+
+      - name: Run verify.sh
+        env:
+          GODOT: ${{ github.workspace }}/godot-bin/Godot_v${{ env.GODOT_VERSION }}_linux.x86_64
+        run: |
+          chmod +x "$GODOT" verify.sh
+          ./verify.sh
