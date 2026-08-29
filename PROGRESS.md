@@ -300,3 +300,35 @@ Log of tasks completed by run.sh, one entry per run, newest last.
   byte-for-byte unaffected by this commit; active_mode defaults to MODE_ISO and
   nothing in the running game calls set_mode(MODE_SQUARE).
 - Commit: 684f14a
+
+## 2026-08-29 — T9: path metrics extracted into scripts/path_metrics.gd
+- T5's chain (T6/T7/T8) is stalled on the blocked visual-design decisions, but T9's own
+  text says "Nezávisí na renderu" (doesn't depend on rendering) — confirmed genuinely
+  unblocked, so continued here instead of idling.
+- Researched first: found at least 5 independent reimplementations of "is there a
+  path / how long is it" (tools/map_editor.gd's hand-rolled BFS + traffic/detour-factor
+  analysis at _analyze(); scripts/_test_levels.gd's inline connectivity loop over
+  astar.get_id_path; one-line wrapper duplicates in _test_sink.gd, _test_trod.gd,
+  _test_iso_math.gd) — and confirmed NOTHING anywhere computes real-world path length;
+  every existing "length" check measures Array.size() (step count), not distance.
+  Also confirmed tools/map_editor.gd's _bake_to_level() does NOT check connectivity at
+  all today — a level can be baked with an unreachable spawn zone; only _test_levels.gd
+  would ever catch it. That gap is T10's to close, not T9's, but worth having found.
+- Added scripts/path_metrics.gd (class_name PathMetrics, mirrors GridProjection's
+  shape): is_contiguous(), path_length() (real distance, not cell count),
+  distance_along()/position_at_distance() (T9's "position at distance X" query,
+  clamped to the path ends, linearly interpolated), shortest_path()/is_reachable()
+  (unweighted 4-connectivity BFS over an arbitrary solid-cell set — no Game, no
+  AStarGrid2D reference needed).
+- Deliberately did NOT touch game.gd's live weighted AStarGrid2D routing (genuinely
+  different question — honors path_off_lane_cost, tightly coupled to live repathing)
+  or migrate the 5 existing duplicate implementations onto the new module in this same
+  change (map_editor.gd's BFS is the most promising future consolidation, since it's
+  already unweighted like this one — but that's a real behavior-surface change to the
+  level editor worth its own pass, paced the same way T4/T5 split large changes).
+- _test_path_metrics.gd/.tscn: 37 checks (T9 asks for 20+), including the three named
+  degenerate cases explicitly: length-1 path, a path doubling back over itself, and a
+  small maze with a dead-end branch that must not fool shortest_path.
+- verify.sh: PASS (15 pass, 0 fail, 9 known-broken — _test_phase3's established
+  flakiness triggered this run, unrelated).
+- Commit: 865eea3
