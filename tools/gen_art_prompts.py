@@ -40,7 +40,7 @@ PLAN = os.path.join(ROOT, "docs", "art", "GENERATION_PLAN.md")
 # ads/cards/interventions/growth/insight_cards nemaji pole na texturu a nekresli se ze
 # spritu (AdOverlay je dokonce schvalne mimo styl projektu) -- viz STYLE_BIBLE.md §8.
 DATA_KINDS = {
-    "distractions": ("distraction", "distraction_elite"),
+    "distractions": ("distraction", "distraction_boss"),
     "habits": ("habit",),
     "defenders": ("defender",),
 }

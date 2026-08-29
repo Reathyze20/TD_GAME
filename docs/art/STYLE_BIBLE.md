@@ -186,11 +186,11 @@ o ní hádat.
 | kind | art_px | gen_px | bunky_pri_x2 | zdroj |
 |---|---|---|---|---|
 | distraction | 32 | 64 | 2 | zadání — „běžný distraction 32px“; ART_PIPELINE.md §588 „64px → ÷2 na 32“ |
-| distraction_elite | 64 | 128 | 4 | zadání — „elite 48-64px“; ART_PIPELINE.md §457 „size:64 (boss 128)“ |
+| distraction_boss | 64 | 128 | 4 | `is_boss = true` v datech; ART_PIPELINE.md §457 „size:64 (boss 128)“ |
 | habit | 64 | 64 | 4 | zadání — „habit 64px“; věže se generovaly rovnou na 64 |
 | focus_core | 96 | 96 | 6 | zadání — „Focus core 96px“ |
-| defender | 32 | 64 | 2 | odvozeno, viz BLOCKED.md; půlení stejné jako u distrakcí |
-| prop | 16 | 32 | 1 | odvozeno, viz BLOCKED.md; 16 px se negeneruje přímo, viz níž |
+| defender | 32 | 64 | 2 | rozhodl uživatel 29. 8. 2026 — `gen_px` stejně jako habity |
+| prop | 32 | 32 | 2 | rozhodl uživatel 29. 8. 2026 — 32 px, bez kotvy |
 
 <!-- /gen:sizes -->
 
@@ -208,15 +208,43 @@ totéž — je to jediné místo, kde se ta dvě čísla smějí lišit, a má t
 Cena se počítá z **`gen_px`**, ne z `art_px`, a vychází přesně na čísla, která tenhle
 projekt reálně zaplatil: distrakce 20 generací, boss 40 (`ART_PIPELINE.md` §457-458).
 
-- **`distraction_elite` má dnes jediného obyvatele: `social_media_binge`.** V datech
-  neexistuje žádný mezistupeň — `DistractionData` má jediný příznak tieru, `is_boss`,
-  a nic neleží mezi 70 HP (nejsilnější běžná) a 900 HP (boss). Spodní půlka pásma (48)
-  je proto zatím nevyužitá a rezervovaná.
-- **Habit 64 px přesahuje stavební blok.** Blok je 3×3 buňky = 96 px obrazovky při ×2,
-  hlava 64 art px = 128. Přesah 16 px na stranu je vědomý a má precedens
-  (`PIXELLAB.md` §5e, „strop 24 px padl — hlava smí přesahovat buňku“).
+- **Pásmo „elite" 48–64 px je zrušené** (uživatel, 29. 8. 2026): v `data/` nikdy
+  neexistovalo. `DistractionData` má jediný příznak tieru, `is_boss`, a nic neleží mezi
+  70 HP (nejsilnější běžná, `clickbait`) a 900 HP (`social_media_binge`). Zůstal tedy
+  `distraction_boss` — a ten už není vymyšlené pásmo, ale **přímý odraz dat**: kdo má
+  `is_boss = true`, je boss. Kdyby boss spadl na 32 px jako běžná distrakce, byl by na
+  desce k nerozeznání od notifikace, a to je právě ta informace, kterou má velikost nést.
 - Strana každého spritu musí být **násobek nebo čistý dělitel 16**
-  (`style_bible_measured.md`, „Pravidlo nula: rastr“). 16 / 32 / 64 / 96 to splňují.
+  (`style_bible_measured.md`, „Pravidlo nula: rastr“). 32 / 64 / 96 to splňují.
+
+### 5a. Přesah: nahoru a dozadu ano, do stran nikdy
+
+*Rozhodl uživatel 29. 8. 2026.*
+
+Habit má 64 art px = 128 px obrazovky při ×2, ale stavební blok je 3×3 buňky = 96.
+Šestnáct pixelů na každou stranu tedy někam přetéct musí. Kam smí:
+
+<!-- gen:overhang -->
+
+| směr | povoleno | proč |
+|---|---|---|
+| nahoru | ano | koruna, prstenec, výběžky — nad blokem nic není a hloubka se čte z y-sortu |
+| dozadu (nad severní hranu) | ano | to, co je za věží, je stejně zakryté tělem věže |
+| doleva | ne | ukradlo by to sousední stavební místo |
+| doprava | ne | totéž |
+| dopředu (přes jižní hranu) | ne | zakrylo by to cestu a nepřítele, který po ní jde |
+
+<!-- /gen:overhang -->
+
+Pravidlo není estetické, je to **ochrana čitelnosti mřížky**. Blok 3×3 je jednotka,
+kterou hráč klikáním vybírá; jakmile do něj vyčnívá soused, přestane být jasné, co se
+kliknutím trefí. Nahoru a dozadu se přeteče do prostoru, kde stejně nic interaktivního
+není. Dopředu ne, protože jižní hrana je ta, ke které se chodí — a habit, který zakrývá
+distrakci, ruší přesně to rozhodování, kvůli kterému tam stojí.
+
+**Prakticky pro prompt:** objekt má být zakotvený u spodní hrany plátna a růst vzhůru,
+ne vycentrovaný. Šířka obsahu se drží do **96 z 128 px** (tři čtvrtiny plátna), výška
+smí plátno využít celé.
 
 ## 6. Style anchor — jeden na celý projekt
 
@@ -233,7 +261,7 @@ ne obcházený tady.
 
 | rodina | style_character_id | co to je | plati_pro |
 |---|---|---|---|
-| general | fa8294b1-c3ec-4ae5-92fb-39570ced0f65 | Broccoli Knight, obránce z Nutrition Guild — jediná kotva projektu. Ověřeno 29. 8. 2026 přes get_character: 64x64, 8 směrů, kompletní | defender, distraction, distraction_elite |
+| general | fa8294b1-c3ec-4ae5-92fb-39570ced0f65 | Broccoli Knight, obránce z Nutrition Guild — jediná kotva projektu. Ověřeno 29. 8. 2026 přes get_character: 64x64, 8 směrů, kompletní | defender, distraction, distraction_boss |
 | ODPISKANA_junkfood_a | 62772f73-28d8-442b-add6-f33684f16415 | clickbait varianta A — junk-food rodina, zrušena 17. 8. 2026 spolu s celým junk-food směrem | nic |
 | ODPISKANA_junkfood_b | 0ef2d964-dd67-4132-97b9-39083228db14 | clickbait_b, sesterská reference téže zrušené rodiny | nic |
 | ODPISKANA_scroller | 7ba5d829-5a10-4ed9-b038-52978ec20782 | jednooká scrollerka, obvazový styl — nejstarší opuštěná rodina | nic |
@@ -320,7 +348,7 @@ váží.
 | comparison | distraction | general | clickbait | a bleached cyan mimic blob wearing a half finished copy of another creature, edges unresolved |
 | jackpot | distraction | general | clickbait | a crimson gland with three swollen lobes and one bright wet core, pulsing on a slow rhythm |
 | adult_content | distraction | general | clickbait | a heavy orange sac with hooked barbs and a slick membrane, low to the ground and dragging |
-| social_media_binge | distraction_elite | general | clickbait | a violet colonial mass of fused spores, many eyes, a shielding outer membrane, dragging a train of smaller buds behind it |
+| social_media_binge | distraction_boss | general | clickbait | a violet colonial mass of fused spores, many eyes, a shielding outer membrane, dragging a train of smaller buds behind it |
 | focus_timer | habit | - | prop_focus_core | a round glial cell body with one coiled process wound like a spring and a single warm amber node, working in bursts |
 | mindfulness | habit | - | focus_timer | a round glial cell under a wide crown of fine violet dendritic processes, reaching over everything nearby |
 | exercise | habit | - | focus_timer | a thick walled glial body with a glowing orange core showing through the membrane, heavy and slow |
@@ -369,7 +397,7 @@ meet the art bar“). Nejsou to opomenuté entity, jsou to entity bez vizuální
 | habit | mcp__pixellab__create_1_direction_object | pro | get_object(object_id) | view=top-down |
 | defender | mcp__pixellab__create_character | pro | get_character(character_id) | view=low top-down, outline=single color black outline |
 | distraction | mcp__pixellab__create_character | pro | get_character(character_id) | view=low top-down, outline=single color black outline |
-| distraction_elite | mcp__pixellab__create_character | pro | get_character(character_id) | view=low top-down, outline=single color black outline |
+| distraction_boss | mcp__pixellab__create_character | pro | get_character(character_id) | view=low top-down, outline=single color black outline |
 
 <!-- /gen:tools -->
 
@@ -402,7 +430,7 @@ jako *„front-facing low top-down RPG perspective, zero isometric tilt“*
 | habit | item_descriptions v jednom create_1_direction_object | 4 | build/iso_art/jobs.json, dávky towers_b a towers_c |
 | defender | vlastní volání | 1 | create_character je vždy jedna postava |
 | distraction | vlastní volání | 1 | create_character je vždy jedna postava |
-| distraction_elite | vlastní volání | 1 | create_character je vždy jedna postava |
+| distraction_boss | vlastní volání | 1 | create_character je vždy jedna postava |
 
 <!-- /gen:batching -->
 
@@ -450,7 +478,7 @@ download URL.
 | phase | title | kinds | gate |
 |---|---|---|---|
 | 0 | Focus core a jeden habit | focus_core, id:focus_timer | focus_timer i Focus core stojí na ploché zdi (TOP, 484) a dotýkají se jí — mezi spodkem obsahu a začátkem stínu není ani řádek holé zdi — a jejich tělo neleží do +-60 jasu od podkladu. Teprve pak se generuje cokoli dalšího. |
-| 1 | Zbytek rejstříku | habit, distraction, distraction_elite, defender, prop | Každá vygenerovaná postava má siluetu rozeznatelnou od ostatních v kontaktním listu v herním měřítku a jas nad pásmem cesty (146). |
+| 1 | Zbytek rejstříku | habit, distraction, distraction_boss, defender, prop | Každá vygenerovaná postava má siluetu rozeznatelnou od ostatních v kontaktním listu v herním měřítku a jas nad pásmem cesty (146). |
 
 <!-- /gen:phases -->
 

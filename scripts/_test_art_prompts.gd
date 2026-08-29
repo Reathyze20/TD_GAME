@@ -25,7 +25,7 @@ const BIBLE_PATH := "res://docs/art/STYLE_BIBLE.md"
 ## napsané dvakrát: kdyby to test importoval z generátoru, ověřoval by generátor sám
 ## proti sobě.
 const DATA_KINDS := {
-	"distractions": ["distraction", "distraction_elite"],
+	"distractions": ["distraction", "distraction_boss"],
 	"habits": ["habit"],
 	"defenders": ["defender"],
 }

@@ -24,10 +24,10 @@ Rozpad podle druhu:
 |---|---|---|---|---|
 | defender | 4 | 4 | 80 | 32 px |
 | distraction | 12 | 12 | 240 | 32 px |
-| distraction_elite | 1 | 1 | 40 | 64 px |
+| distraction_boss | 1 | 1 | 40 | 64 px |
 | focus_core | 1 | 1 | 40 | 96 px |
 | habit | 15 | 5 | 100 | 64 px |
-| prop | 4 | 1 | 20 | 16 px |
+| prop | 4 | 1 | 20 | 32 px |
 
 ## Co platí pro každé jedno volání
 
@@ -317,15 +317,15 @@ a broccoli knight in riveted armour, florets first, a wall that soaks hits and p
 a pathogen dominated by one huge lidless eye with a barbed rim, pink, armoured against fast small hits; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 7. `decor_knot` — prop, 16 px
+### 7. `decor_knot` — prop, 32 px
 
 | | |
 |---|---|
 | nástroj | `mcp__pixellab__create_1_direction_object` |
 | mode | `pro` |
 | vyzvednutí | `get_object(object_id)` |
-| velikost na disku | 16 art px (STYLE_BIBLE.md §5, kind `prop`) |
-| velikost objednávky | 32 px — a pak **půlit přesně jednou** na 16 |
+| velikost na disku | 32 art px (STYLE_BIBLE.md §5, kind `prop`) |
+| velikost objednávky | 32 px, bez půlení |
 | kotva | žádná — není to postava, rodinu drží dědičnost níž |
 | závislost | style_images = hotové PNG entity prop_focus_core (dědí styl i rozměr) |
 | dávka | `prop_03` |
@@ -352,15 +352,15 @@ a pathogen dominated by one huge lidless eye with a barbed rim, pink, armoured a
 a small tangled knot of fibres resting on the tissue, scenery only; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 8. `decor_synapse` — prop, 16 px
+### 8. `decor_synapse` — prop, 32 px
 
 | | |
 |---|---|
 | nástroj | `mcp__pixellab__create_1_direction_object` |
 | mode | `pro` |
 | vyzvednutí | `get_object(object_id)` |
-| velikost na disku | 16 art px (STYLE_BIBLE.md §5, kind `prop`) |
-| velikost objednávky | 32 px — a pak **půlit přesně jednou** na 16 |
+| velikost na disku | 32 art px (STYLE_BIBLE.md §5, kind `prop`) |
+| velikost objednávky | 32 px, bez půlení |
 | kotva | žádná — není to postava, rodinu drží dědičnost níž |
 | závislost | style_images = hotové PNG entity prop_focus_core (dědí styl i rozměr) |
 | dávka | `prop_03` — jede v už otevřeném volání |
@@ -527,15 +527,15 @@ the same cell escalated, the coil tighter and doubled, the amber node brighter, 
 a round glial cell under a wide crown of fine violet dendritic processes, reaching over everything nearby; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 13. `prop_dopamine` — prop, 16 px
+### 13. `prop_dopamine` — prop, 32 px
 
 | | |
 |---|---|
 | nástroj | `mcp__pixellab__create_1_direction_object` |
 | mode | `pro` |
 | vyzvednutí | `get_object(object_id)` |
-| velikost na disku | 16 art px (STYLE_BIBLE.md §5, kind `prop`) |
-| velikost objednávky | 32 px — a pak **půlit přesně jednou** na 16 |
+| velikost na disku | 32 art px (STYLE_BIBLE.md §5, kind `prop`) |
+| velikost objednávky | 32 px, bez půlení |
 | kotva | žádná — není to postava, rodinu drží dědičnost níž |
 | závislost | style_images = hotové PNG entity prop_focus_core (dědí styl i rozměr) |
 | dávka | `prop_03` — jede v už otevřeném volání |
@@ -562,15 +562,15 @@ a round glial cell under a wide crown of fine violet dendritic processes, reachi
 a synaptic vesicle, a small round warm amber droplet swollen to bursting, translucent membrane; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 14. `prop_spawn` — prop, 16 px
+### 14. `prop_spawn` — prop, 32 px
 
 | | |
 |---|---|
 | nástroj | `mcp__pixellab__create_1_direction_object` |
 | mode | `pro` |
 | vyzvednutí | `get_object(object_id)` |
-| velikost na disku | 16 art px (STYLE_BIBLE.md §5, kind `prop`) |
-| velikost objednávky | 32 px — a pak **půlit přesně jednou** na 16 |
+| velikost na disku | 32 art px (STYLE_BIBLE.md §5, kind `prop`) |
+| velikost objednávky | 32 px, bez půlení |
 | kotva | žádná — není to postava, rodinu drží dědičnost níž |
 | závislost | style_images = hotové PNG entity prop_focus_core (dědí styl i rozměr) |
 | dávka | `prop_03` — jede v už otevřeném volání |
@@ -1325,14 +1325,14 @@ a hollow blue spore husk that hovers, no legs, a sharp vibrating rim, and nothin
 the same cell escalated, more golden fibres, fraying further down the column; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
-### 35. `social_media_binge` — distraction_elite, 64 px
+### 35. `social_media_binge` — distraction_boss, 64 px
 
 | | |
 |---|---|
 | nástroj | `mcp__pixellab__create_character` |
 | mode | `pro` |
 | vyzvednutí | `get_character(character_id)` |
-| velikost na disku | 64 art px (STYLE_BIBLE.md §5, kind `distraction_elite`) |
+| velikost na disku | 64 art px (STYLE_BIBLE.md §5, kind `distraction_boss`) |
 | velikost objednávky | 128 px — a pak **půlit přesně jednou** na 64 |
 | kotva | `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (general) |
 | závislost | style_images = hotové PNG entity clickbait (dědí styl i rozměr) |

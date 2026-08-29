@@ -964,3 +964,35 @@ Log of tasks completed by run.sh, one entry per run, newest last.
 - verify.sh: `terrain contrast` (nová), `_test_art_prompts`, `roster regex`, `roster`,
   `art prompts` PASS. 16 pass / 9 fail — pády jsou pořád ty level-dependentní.
 
+## 2026-08-29 — D: zbytek rozhodnutí z BLOCKED.md (rozhodl uživatel)
+- **Obránci: `gen_px` stejně jako habity = 64.** Kontrola ukázala, že to tak už bylo —
+  nebylo co měnit, jen se v tabulce přepsal zdroj z „odvozeno, viz BLOCKED.md" na
+  rozhodnutí uživatele. `art_px` zůstává 32, takže obránce se generuje na 64 a půlí se
+  jednou; to je zároveň přesně spodní hranice, kterou vyžaduje kotva (64×64, ověřeno v B).
+- **Rekvizity: 32 px, bez kotvy, `create_1_direction_object`.** Změna z 16 na 32
+  (`bunky_pri_x2` tím z 1 na 2). `gen_px` je taky 32, tedy bez půlení — stejně jako
+  habity, které jedou týmž nástrojem a taky se generují rovnou na cílové velikosti.
+  Původní důvod pro `gen_px = 32` u 16px rekvizit (16 px se negeneruje čistě) na 32 px
+  odpadá. Kotvu rekvizity nemají a mít nemůžou, `style_character_id` bere jen
+  `create_character`.
+- **Pásmo „elite" 48–64 zrušeno.** V `data/` nikdy neexistovalo: `DistractionData` má
+  jediný příznak tieru, `is_boss`, a mezi 70 HP a 900 HP nic neleží. `kind` se proto
+  přejmenoval `distraction_elite` → **`distraction_boss`** (bible, generátor i test) a
+  jeho zdroj v tabulce je teď `is_boss = true` v datech, ne vymyšlené pásmo. Velikost
+  zůstává 64/128 — kdyby boss spadl na 32 jako běžná distrakce, byl by na desce
+  k nerozeznání od notifikace, což je přesně ta informace, kterou má velikost nést.
+- **Přesah habitu: nahoru a dozadu ano, do stran a dopředu nikdy** (STYLE_BIBLE.md §5a,
+  strojově čtená tabulka `<!-- gen:overhang -->`). Není to estetika, je to ochrana
+  čitelnosti mřížky: blok 3×3 je jednotka, kterou hráč klikáním vybírá, a jakmile do něj
+  vyčnívá soused, přestane být jasné, co se kliknutím trefí. Dopředu ne, protože jižní
+  hrana je ta, ke které se chodí — habit zakrývající distrakci ruší přesně to
+  rozhodování, kvůli kterému tam stojí. Prakticky: objekt kotvený u spodní hrany plátna,
+  šířka obsahu do 96 ze 128 px, výška smí plátno využít celé.
+- **`style_bible_measured.md` ponechán beze změny**, podle zadání.
+- **CLAUDE.md: nová sekce „Názvy souborů"** — dva soubory se nikdy nesmí lišit jen
+  velikostí písmen, protože projekt běží na Windows (case-insensitive FS,
+  `core.ignorecase = true`), kde jsou `Foo.md` a `foo.md` jeden a týž soubor.
+- Rozpočet beze změny: 37 entit, 24 volání, 520 generací. Rekvizity z 16 na 32 px cenu
+  neposunuly — `create_1_direction_object` je `pro` v obou případech.
+- verify.sh: 17 pass / 9 fail; všechny moje brány PASS, pády jsou pořád level-dependentní.
+

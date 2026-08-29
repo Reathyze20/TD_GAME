@@ -51,6 +51,14 @@ upozorni mě místo hádání.
 - Levely se autorují v scenes/MapEditor.tscn a bakují. NEPIŠ level .tres ručně.
 - Po přidání obsahu vždy přegeneruj ROSTER.md přes tools/roster.py.
 
+## Názvy souborů
+- **Dva soubory se nikdy nesmí lišit jen velikostí písmen.** Projekt běží na Windows,
+  kde je souborový systém case-insensitive (`fsutil` to potvrzuje) a `git config
+  core.ignorecase` je `true`. `Foo.md` a `foo.md` jsou tady **jeden a týž soubor**:
+  zápis do jednoho přepíše druhý a git novou cestu vůbec nezaznamená. Naráželo se na to
+  29. 8. 2026 u `STYLE_BIBLE.md` vs. `style_bible.md` — vyřešeno přejmenováním na
+  `style_bible_measured.md`.
+
 ## Scény
 - Needituj .tscn ručně, neměň uid= ani ext_resource ID.
 - Nové scény programově: PackedScene.pack() + ResourceSaver.save() v tools/.
