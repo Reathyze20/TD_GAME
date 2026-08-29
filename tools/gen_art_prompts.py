@@ -117,6 +117,7 @@ def load_bible(path=BIBLE):
         "suffix": _fence(text, "suffix", "suffix"),
         "negative": _fence(text, "negative", "negative"),
         "why0": _block(text, "why0").strip(),
+        "gate0": _block(text, "gate0").strip(),
     }
     for r in b["forms"]:
         if r["kind"] not in b["sizes"]:
@@ -468,6 +469,8 @@ def render(bible, records):
         w("")
         if ph["phase"] == "0":
             w(bible["why0"])
+            w("")
+            w(bible["gate0"])
             w("")
         for r in rows:
             w("### %d. `%s` — %s, %d px" % (r["order"], r["id"], r["kind"], r["size"]))

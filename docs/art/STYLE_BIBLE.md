@@ -477,7 +477,7 @@ download URL.
 
 | phase | title | kinds | gate |
 |---|---|---|---|
-| 0 | Focus core a jeden habit | focus_core, id:focus_timer | focus_timer i Focus core stojí na ploché zdi (TOP, 484) a dotýkají se jí — mezi spodkem obsahu a začátkem stínu není ani řádek holé zdi — a jejich tělo neleží do +-60 jasu od podkladu. Teprve pak se generuje cokoli dalšího. |
+| 0 | Focus core a jeden habit | focus_core, id:focus_timer | ZASTAVIT A NECHAT ROZHODNOUT UŽIVATELE. Povinný krok je popsaný pod tabulkou fáze v plánu; bez jeho schválení se negeneruje ani jeden další kus rejstříku. K tomu technicky: obojí stojí na ploché zdi (TOP, 484) a dotýká se jí — mezi spodkem obsahu a začátkem stínu není ani řádek holé zdi — a tělo neleží do +-60 jasu od podkladu. |
 | 1 | Zbytek rejstříku | habit, distraction, distraction_boss, defender, prop | Každá vygenerovaná postava má siluetu rozeznatelnou od ostatních v kontaktním listu v herním měřítku a jas nad pásmem cesty (146). |
 
 <!-- /gen:phases -->
@@ -514,6 +514,44 @@ desce a zmenší se to do herního měřítka". Ta otázka se zodpoví na jednom
 generací; zodpovídat ji na čtyřiceti stojí 600.
 
 <!-- /gen:why0 -->
+
+<!-- gen:gate0 -->
+
+### Povinný krok na konci fáze 0 — bez něj se dál nejde
+
+*Zadal uživatel 29. 8. 2026.*
+
+1. Vygeneruj **jen** ty dva kusy, které fáze 0 vyjmenovává. Nic víc.
+2. Ke každému vyrob **kontaktní list se dvěma verzemi vedle sebe**: sprite v `gen_px`
+   tak, jak přišel z generátoru, a týž sprite po downsamplu na `art_px`. Obojí v herním
+   měřítku, tedy zvětšené `Data.pixel_scale()`, na plochém terénu z `flat_terrain.py` —
+   ne na bílém pozadí. Snímek dělej v **1920×1080**, jinak výřezy minou
+   (`iso_bible.md` §2e).
+3. **Předlož to uživateli a počkej.** Otázka zní: je downsample přijatelný?
+4. Do schválení se **negeneruje ani jeden další kus rejstříku**. Ne polovina, ne „jen
+   ještě jeden na porovnání" — nic.
+
+**Pozor, tenhle krok dnes u obou entit fáze 0 neměří to, co má.** `focus_core` má
+`gen_px` 96 a `art_px` 96; `focus_timer` má 64 a 64. U obou je tedy **downsample žádný**
+a obě verze kontaktního listu vyjdou identické. Downsample, na který se ta otázka ptá,
+reálně nastává jen u postav — obránci a distrakce se generují na 64 a půlí na 32, boss
+128 → 64.
+
+Jsou dvě cesty, jak to spravit, obě na jeden řádek v tomhle souboru, a je to
+**rozhodnutí uživatele**, ne moje:
+
+- **přidat do fáze 0 jednu postavu** — nabízí se `id:broccoli_knight`, protože je to
+  zároveň kotva a kořen rodiny obránců, takže vzniknout musí stejně první. Cena +20
+  generací a brána začne měřit skutečný downsample 64 → 32.
+- **nebo dát `focus_core` `gen_px` 192** a půlit na 96. Cenu to nezmění vůbec (nad 64 px
+  je to `pro_velky` = 40 tak jako tak) a odpovídá to obecnému pravidlu „generuj na
+  dvojnásobku a půl přesně jednou“ víc než dnešní 96 → 96.
+
+Do rozhodnutí zůstává fáze 0 přesně tak, jak byla zadaná — dva kusy, žádná postava —
+a krok 2 se u nich odbývá tím, že obě verze budou stejné. Zbytek brány (dotyk podkladu,
+jas proti zdi) měří dál a smysl má.
+
+<!-- /gen:gate0 -->
 
 ## 11. Co se nepřebírá z izo bible
 

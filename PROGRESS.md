@@ -996,3 +996,40 @@ Log of tasks completed by run.sh, one entry per run, newest last.
   neposunuly — `create_1_direction_object` je `pro` v obou případech.
 - verify.sh: 17 pass / 9 fail; všechny moje brány PASS, pády jsou pořád level-dependentní.
 
+## 2026-08-29 — E: nová fáze 0 se schvalovací bránou (zadal uživatel)
+- Fáze 0 je teď **Focus core a jeden habit** (`prop_focus_core`, `focus_timer`), 60
+  generací, 2 volání. Do plánu se propisuje nový strojově čtený blok
+  `<!-- gen:gate0 -->` — vlastní oddíl „Povinný krok na konci fáze 0", ne jen věta
+  v tabulce, aby ho nešlo přehlédnout.
+- **Znění brány**: vygenerovat jen ty dva kusy; ke každému vyrobit kontaktní list se
+  dvěma verzemi vedle sebe (v `gen_px` a po downsamplu na `art_px`), v herním měřítku
+  a na plochém terénu z `flat_terrain.py`, snímek v 1920×1080 (jinak výřezy minou,
+  `iso_bible.md` §2e); předložit uživateli a **počkat**; do schválení negenerovat ani
+  jeden další kus rejstříku.
+- **Nahlášená vada zadání, neopravená vlastní úvahou:** u obou entit fáze 0 je
+  `gen_px == art_px` (Focus core 96/96, focus_timer 64/64), takže **není co
+  downsamplovat** a obě verze kontaktního listu vyjdou identické. Downsample, na který
+  se brána ptá, nastává jen u postav (obránci a distrakce 64 → 32, boss 128 → 64).
+  Zapsáno přímo do bloku brány včetně dvou jednořádkových cest ven, protože je to
+  rozhodnutí uživatele:
+  1. přidat do fáze 0 `id:broccoli_knight` — je to zároveň kotva a kořen rodiny obránců,
+     takže vzniknout musí stejně první; cena +20 a brána začne měřit skutečný downsample;
+  2. nebo dát `focus_core` `gen_px` 192 a půlit na 96 — **cenu to nezmění vůbec** (nad
+     64 px je to `pro_velky` = 40 tak jako tak) a odpovídá to pravidlu „generuj na
+     dvojnásobku a půl přesně jednou" víc než dnešní 96 → 96.
+  Do rozhodnutí zůstává fáze 0 přesně jak byla zadaná; zbytek brány (dotyk podkladu, jas
+  proti zdi) měří dál a smysl má.
+- Rozpočet beze změny: 37 entit, 24 volání, 520 generací.
+- verify.sh: 17 pass / 9 fail — moje brány všechny PASS.
+
+### Stav po bodech A–E
+- **Rozpočet plánu: 600 → 520 generací**, 26 → 24 volání, 40 → 37 entit.
+- **`./verify.sh` nemůže projít celý a není to touhle prací.** 9 padajících fixtures
+  (`_test_effort`, `_test_level_simulator`, `_test_levels`, `_test_mapeditor`,
+  `_test_maze_validity`, `_test_phase7`, `_test_streak`, `_test_taxonomy`, `_test_trod`)
+  stojí na tom, že čtyři bakované levely nahradil jeden placeholder `level_1.tres`.
+  Před tou migrací jich padalo 0. Ani jeden z nich nečte nic z toho, co body A–E měnily.
+- Nezakomitovaná práce druhé session (`scripts/game.gd`, `data.gd`, `grid_projection.gd`,
+  `ui.gd`, `project.godot`, `tools/build_placeholder_level.gd`, `data/levels/`) zůstala
+  netknutá — commitovalo se výhradně přes pathspec.
+
