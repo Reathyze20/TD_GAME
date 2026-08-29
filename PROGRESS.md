@@ -152,3 +152,31 @@ Log of tasks completed by run.sh, one entry per run, newest last.
   uncalled (decor_layer.gd, wall shadow/face layers, old terrain layer). T4's own
   "hotovo když" ("v kódu není žádný jiný převod souřadnic") is not yet true. Continuing.
 - Commit: 69e16f5
+
+## 2026-08-29 — T4 part 2: visual-only ground-space sites (in progress)
+- Migrated tower.gd's 8-direction head aim, recoil offset, muzzle kick, muzzle flash
+  direction, and wedge-preview ray directions onto ground_dir_to_screen()/to_screen();
+  the range-ring and placement-preview ellipse radii (game.gd, tower.gd) now divide by
+  the named GridProjection.GROUND_Y_SCALE constant instead of a bare 0.5 literal; the
+  impact particle burst's splat direction (impact_fx.gd). Added
+  GridProjection.screen_dir_to_grid_axes() for enemy.gd's note_heading() (8-way
+  walk-cycle facing) — a related but distinct formula, verified against source first.
+- Deliberately did NOT touch defender_unit.gd:511 (0.42, eyeballed art constant, not
+  the 2:1 squash) or distraction_animator.gd:192-195 (1.45 drop, same reason) — forcing
+  either onto GROUND_Y_SCALE would be an actual behavior change. Also deferred the two
+  draw_set_transform(..., Vector2(1.0, 0.5)) canvas-transform sites in tower.gd
+  (pedestal shadow, muzzle flash halo) — same squash, different code shape, wanted each
+  verified on its own rather than batched blind.
+- Verified three ways: full verify.sh unchanged (14 pass, 0 fail, 8 known-broken);
+  every KNOWN_BROKEN log diffed byte-identical against a pre-change snapshot (one
+  exception, the same _test_fog_bandwidth timing-jitter value already seen in part 1);
+  and a real screenshot from _shot_aim.tscn (built specifically to check 8-direction
+  head art) shows all 8 towers still facing their assigned angles correctly, range-ring
+  ellipse still a proper 2:1 ellipse.
+- Commit: 749ff29
+- **Still remaining for T4**: the TileMapLayer half-tile offset, hand-rolled diamond
+  geometry (~7 sites), the 2 deferred canvas-transform sites, and the uncalled-code
+  sites. Pausing here for now — this is a large, high-risk task and a good amount of
+  it has been done with heavy verification each step; the remainder deserves the same
+  care in a focused follow-up rather than being rushed at the end of an already long
+  session.
