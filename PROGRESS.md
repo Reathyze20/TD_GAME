@@ -362,3 +362,65 @@ Log of tasks completed by run.sh, one entry per run, newest last.
   as fixed.
 - verify.sh: PASS (16 pass, 0 fail, 9 known-broken).
 - Commit: 82c67b3
+
+## 2026-08-29 — S8: save/load round-trip — found and fixed two real bugs, one real incident
+- Researched the mechanic first: S8's own text names "built towers, Tolerance,
+  dopamine, wave progress" as what must round-trip. Confirmed none of that is ever
+  persisted anywhere — SaveGame/MetaProgression is 100% cross-run meta-progression
+  (Insight, Growth Tree, unlocked levels/stars). No mid-run save/resume feature exists
+  to test. Tested SaveGame itself instead — real, existing, never tested before today.
+- **Found two real, compounding bugs in SaveGame.load_save()**: (1) ResourceLoader's
+  default cache mode returns whatever was cached for a path the first time anything
+  loaded it in-process, ignoring later writes entirely. (2) CACHE_MODE_REPLACE looks
+  like the fix but isn't — verified via get_instance_id() that it returns the SAME
+  object instance every time and only overwrites fields the file explicitly mentions;
+  ResourceSaver omits any @export field equal to its script default, so a field going
+  from non-default back to default between saves keeps its stale prior value under
+  REPLACE, silently. CACHE_MODE_IGNORE is the actual fix (verified: genuinely fresh
+  instance each time). Both bugs are invisible in real play (one load_save() call per
+  process launch) but are exactly what save-then-reload-within-a-run does.
+- **Real incident, twice, while investigating**: my property-based test round-tripped
+  through the REAL user://savegame.tres directly at first. A naive backup/restore step
+  (existence-check only, not content) reported success while the file was actually
+  left corrupted — traced to a SEPARATE, pre-existing bug in my own earlier
+  _test_economy_characterization.gd (T2): it swaps MetaProgression.current_save for a
+  blank object for perk isolation, documented at the time as "never written to disk"
+  — wrong. game.do_quick_hit() calls Hints.show_hint("quick_hit") ->
+  MetaProgression.mark_hint_seen() -> current_save.write_savegame() the first time
+  that hint fires, landing on the REAL save path while current_save was the swapped
+  blank object. Restoring the in-memory reference afterward did nothing for what had
+  already hit disk. This overwrote my real save (Insight, Growth Tree, level stars)
+  down to just a couple of hint ids, twice, before being traced to this file. Both
+  times fully recovered — the original content happened to still be visible verbatim
+  earlier in this session's own conversation history, and was independently confirmed
+  field-by-field via SaveGame's own loader afterward.
+- **Fixed both**: scripts/save_game.gd now uses CACHE_MODE_IGNORE.
+  _test_economy_characterization.gd now backs up the real save file's raw BYTES in
+  _ready() (before anything runs) and restores them unconditionally on every exit path
+  (normal completion and watchdog timeout) — confirmed via checksum, not just
+  existence, that this harness's own run leaves the real file byte-identical.
+- **Checked for the same exposure elsewhere**: grepped every show_hint() call site in
+  game.gd (first_build, first_aim, first_lean, no_routine, boss_shield, quick_hit,
+  first_draft) against every current _test_*.gd. Only my own T2 harness calls
+  do_quick_hit(); the one other live risk (first_lean) is only reachable through the
+  real wave-start method, which _test_phase7.gd's lean_wave coverage bypasses by
+  setting the GameState flag directly. No other current test is exposed.
+- **Residual risk, not fixed here, worth knowing**: this is a general class of danger
+  — ANY future test that instantiates Game.tscn, triggers a not-yet-seen hint (most
+  directly do_quick_hit(), or a real lean-wave/boss-shield/draft/build/aim/no-Routine
+  moment), and either doesn't restore MetaProgression.current_save's on-disk backing
+  at all, or (like the T2 bug) restores the in-memory reference without also
+  restoring the disk bytes, can silently corrupt this developer's real save file
+  again. A systemic fix (e.g. an environment-variable-driven override for
+  SaveGame.SAVE_PATH during headless test runs, so no test can ever reach the real
+  path at all) would close this permanently; not done here since it's materially
+  bigger than "add a test" and touches how every future test that cares about
+  MetaProgression would be written. Flagging for whoever picks up more save-related
+  work next, rather than guessing at that design now.
+- _test_save_round_trip.gd/.tscn: 100 migration-stable random states, all
+  round-tripping cleanly with CACHE_MODE_IGNORE; never touches the real save path at
+  all (a dedicated scratch path instead) — the safer design this whole investigation
+  converged on.
+- verify.sh: PASS (17 pass, 0 fail, 9 known-broken). Real save file confirmed
+  byte-identical (md5) before and after the full suite run.
+- Commits: fc9511f (the SaveGame fix + new test), 7f2c563 (the T2 harness fix)
