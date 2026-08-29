@@ -180,3 +180,54 @@ Log of tasks completed by run.sh, one entry per run, newest last.
   it has been done with heavy verification each step; the remainder deserves the same
   care in a focused follow-up rather than being rushed at the end of an already long
   session.
+
+## 2026-08-29 — T4 part 3: diamond geometry, TileMapLayer offset, remaining squash sites
+- Ran a research + adversarial-verification workflow: 4 parallel read-only agents (one
+  per remaining site group) proposed diffs, then an independent verifier checked each
+  against the live source. The verifier correctly rejected several call-site diffs for
+  referencing GridProjection methods that didn't exist yet (layer_origin,
+  diamond_corners, cell_diamond, board_bounds) — but those same 4 methods, proposed as
+  standalone additions, verified safe in isolation, and the verifier's own algebra check
+  on the "broken" call-site diffs confirmed they'd be correct once the methods existed.
+  Applied by hand in the right order: added the 4 methods first, then wired up the call
+  sites — re-verifying each snippet against the actual current file myself before
+  editing, not just trusting the agents' quotes.
+- Added to GridProjection: layer_origin(span) (the Godot TileMapLayer half-tile
+  DIAMOND_DOWN correction — was two independently hand-written copies in game.gd and
+  tools/map_editor.gd that could silently drift apart; proven algebraically identical
+  for span=1 and span=Data.BUILD_BLOCK=3, now one shared source), diamond_corners()/
+  cell_diamond(cell) (the 4-point diamond offset math hand-written at 5 draw sites), and
+  board_bounds() (verbatim move — kept as the exact same float-op sequence rather than
+  reconstructed from the corner primitives, since it feeds Camera2D limits).
+- Migrated onto them: _build_path_layer, tools/map_editor.gd's _layer_origin (now a
+  one-line delegate), _build_wall_segments, TerraceShadow._draw, _draw_static_field
+  (both diamond blocks), _draw_placement_preview's 3x3 block outline, board_bounds.
+- Also migrated 3 deferred draw_set_transform squash sites (tower.gd pedestal shadow +
+  muzzle flash) plus 3 more the verification sweep found genuinely missed (game.gd's
+  objective/Focus-core glow; distraction_animator.gd's type-glow and boredom-halo
+  auras) and one inside the function this session's T4 part 2 entry had excluded for
+  ITS OTHER eyeballed constants (distraction_animator.gd's contact-shadow bob scale —
+  its own comment says "(2:1 projection)", confirmed distinct from the 1.45 drop
+  distance that was the actual reason for the earlier exclusion).
+- NOT touched: defender_unit.gd's 0.42 (still genuinely eyeballed, not 2:1), and 3
+  PixelDraw.ellipse-radius squashes expressed as a second-argument multiply rather than
+  a transform scale or corner offset (game.gd wave_r/ring_r at ~2251/2255/2259,
+  distraction_animator.gd's Slow/Calm ring at ~441) — same idea, different code shape,
+  left for a follow-up.
+- Verified: clean import; full verify.sh unchanged (14 pass, 0 fail, 8 known-broken,
+  _test_mapeditor still green — it specifically asserts editor/game layer positions
+  agree, exactly what layer_origin() now unifies); every KNOWN_BROKEN log diffed against
+  a pre-change snapshot (only line-number shifts from the net -25 lines removed, plus
+  the same recurring timing-jitter value); and a real screenshot (_shot_iso_board.tscn)
+  shows terraces, wall faces, the placement-preview diamond, and the Routine ring all
+  rendering correctly.
+- Also produced (workflow, catalog-only, feeds S9's docs/DEBT.md later): confirmed-dead
+  code with zero call sites anywhere (_build_decor_layer, _build_wall_shadow_layer,
+  _build_wall_face_layer, _build_terrain_layer/_build_corner_terrain), and 3 live
+  square-math oddities correctly out of scope for T4 to fix (_build_shadow_occluders —
+  invisible today since both iso levels set shadows=false; the intervention whole-board
+  Rect2; _draw()'s square-derived w/h/base_radius locals).
+- verify.sh: PASS (14 pass, 0 fail, 0 skip, 8 known-broken).
+- Commit: 4a543fd
+- T4 is now close to complete: only the 3 ellipse-radius squash sites above remain from
+  the audit's original inventory.
