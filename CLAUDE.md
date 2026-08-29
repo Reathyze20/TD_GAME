@@ -15,6 +15,7 @@ Učí to skrz level design, ne skrz text. Veškerý text pro hráče je anglicky
 | generování/import artu | docs/ART_PIPELINE.md, docs/PIXELLAB.md |
 | dlaždice, terrain, corner rendering | docs/TILESETY.md |
 | co reálně shipuje | docs/ROSTER.md (GENEROVANÝ, needituj ručně) |
+| psaní nebo úprava testů | docs/REFACTOR_PLAN.md („Verification pattern") |
 
 docs/core/ je ground truth. Píšu ho já. Když je úkol v rozporu s ním,
 upozorni mě místo hádání.
@@ -77,6 +78,10 @@ zdokumentovaný v `docs/REFACTOR_PLAN.md` pod „Verification pattern":
 - Když test selže, oprav kód. NIKDY neupravuj `_test_*` skript, aby prošel, bez mého souhlasu.
 - Dočasný jednorázový harness po použití smaž (i `.gd.uid` sidecar); pojmenované fixtures
   výše jsou trvalé regresní testy a zůstávají.
+- Výjimka pro migraci na top-down: fixtures `iso math` a `iso slice` testují
+  izometrickou projekci, kterou migrace ruší. Neruš je — přejmenuj je na
+  `_test_legacy_iso_*` (skript i scénu) a ve verify.sh je přeskoč.
+  Nová čtvercová projekce dostane vlastní fixtures.
 
 ## PixelLab
 - Katalog: @https://api.pixellab.ai/mcp/docs
@@ -124,3 +129,14 @@ Nespouštěj je jako závaznou kontrolu, dokud je sám nezavedeš a neřekneš m
 ## tools/ — Python vs GDScript
 Python: práce se soubory a obrázky mimo engine (PixelLab import, roster, atlasy).
 GDScript: cokoli, co potřebuje Godot API (TileSet, SpriteFrames, PackedScene).
+
+## Autonomní běh — pravidla
+- Pracuješ na větvi, na které jsem tě spustil. NIKDY ji nepřepínej, neresetuj, nepushuj.
+- Po KAŽDÉM dokončeném úkolu: ./verify.sh musí projít. Pak commit. Jeden úkol = jeden commit.
+- Když verify.sh selže a neopravíš to do 3 pokusů: zapiš důvod do BLOCKED.md a přejdi na další úkol.
+- Po každém úkolu připiš řádek do PROGRESS.md: datum, úkol, hotovo/blokováno, hash commitu.
+- ZASTAV a zapiš do BLOCKED.md, pokud: úkol vyžaduje vizuální posouzení, chce smazat
+  soubor v data/, dotýká se addons/td_level_designer/, nebo si nejsi jistý záměrem.
+- Když u úkolu narazíš na návrhové rozhodnutí, které není jednoznačné, NEHÁDEJ.
+  Zapiš možnosti a jejich důsledky do BLOCKED.md a přejdi na další úkol.
+- Nikdy negeneruj assety v PixelLabu.
