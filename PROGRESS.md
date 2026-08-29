@@ -424,3 +424,46 @@ Log of tasks completed by run.sh, one entry per run, newest last.
 - verify.sh: PASS (17 pass, 0 fail, 9 known-broken). Real save file confirmed
   byte-identical (md5) before and after the full suite run.
 - Commits: fc9511f (the SaveGame fix + new test), 7f2c563 (the T2 harness fix)
+
+## 2026-08-29 — S2 groundwork: two determinism bugs fixed; driver not built yet
+- Researched feasibility before touching anything: no physics-engine dependency
+  anywhere in combat/targeting (all manual math — good), clean directly-callable
+  build/quick-hit entry points needing no faked input (good), but the research
+  identified concrete non-determinism leaks that would make "same seed twice, same
+  result" provably false no matter how good a driver script is.
+- **Fixed**: (1) tower.gd's per-tower `_rng` (feeds actual shot trajectory via
+  ArcProfile.lane_angle -> hit/miss, NOT cosmetic) was calling `randomize()` against
+  OS entropy at build time — now seeded from `hash(grid position) ^
+  GameState.run_seed`, preserving the original "avoid lockstep between towers" intent
+  while making it reproducible when run_seed is deterministic. (2) sfx.gd's per-cue
+  anti-spam throttle gated a shared-global-RNG draw behind real `Time.get_ticks_msec()`
+  — under non-realtime pacing (a fixed-timestep simulator) this could silently
+  skip/take an extra draw on the SAME global stream every other system reads from
+  (jackpot rolls, spawn-cell picks, burnout lapses), desyncing everything after it in
+  a way that would be very hard to trace back to audio code. Now gated on an internal
+  simulated-time accumulator instead. Added `GameState.run_seed` (drawn fresh each
+  `reset_for_level()`) as the one new piece of API — a future caller doing `seed(x)`
+  before loading a level makes both of these, and the game's other shared-stream
+  draws, reproducible from that single call.
+- Verified behavior-preserving: full verify.sh unchanged; every KNOWN_BROKEN log
+  diffed byte-identical against a pre-change snapshot (one exception, the same
+  recurring timing-jitter value already seen throughout this session).
+- **Not done**: the actual S2 driver, and a real design gap the research surfaced —
+  the task text's "kam postavit co, kdy zmáčknout Quick Hit" undersells what a
+  decision script needs to express. Wave-advance (`_on_start_wave_pressed`) has no
+  automatic trigger except a specific "autoplay" distraction archetype, so a
+  simulated level would stall in the build phase forever without an explicit
+  wave-advance action in the script format; draft-card interstitials
+  (`_on_card_picked`/`_on_draft_skip`) are a similar gap. Also unverified: whether
+  Godot's `--fixed-fps` actually produces bit-identical per-frame deltas across two
+  runs (needed since `_update_tolerance` and similar systems accumulate real
+  `_process` delta, not simulated ticks) — a real spike, not just a code read. And a
+  design note for whoever builds the driver: Tween-gated effects (interventions'
+  0.22s impact delay) don't advance under a hand-rolled "call every node's _process
+  myself" driver — the existing `_test_*` harnesses already have to special-case this
+  (`_test_phase7.gd`'s genuine 900ms real-time wait), which argues for driving the
+  simulation through the real engine loop (`--fixed-fps`) rather than reimplementing
+  per-node update dispatch by hand. This is real, separately-scoped work — a fuller
+  task than these two bugfixes, left for a dedicated follow-up.
+- verify.sh: PASS (18 pass, 0 fail, 8 known-broken).
+- Commit: 2c0b35e
