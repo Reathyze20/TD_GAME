@@ -51,7 +51,27 @@ static func save_exists() -> bool:
 
 static func load_save() -> SaveGame:
 	if save_exists():
-		var res = ResourceLoader.load(SAVE_PATH)
+		# CACHE_MODE_IGNORE, not the default REUSE: ResourceLoader caches by path, so
+		# once anything in this process has loaded SAVE_PATH once (MetaProgression's
+		# own _ready() always does, at boot), a later load_save() call with the
+		# default cache mode silently returns that SAME STALE object instead of
+		# re-reading whatever write_savegame() most recently wrote to disk.
+		#
+		# CACHE_MODE_REPLACE looks like the fix but is NOT enough: it still hands back
+		# the SAME cached object instance (verified — get_instance_id() matches across
+		# calls) and only overwrites the fields the file explicitly mentions.
+		# ResourceSaver omits any @export field that equals its script-declared
+		# default (e.g. `sfx_muted = false` never appears in the .tres at all) — so a
+		# field that goes from non-default to default between two saves keeps its
+		# STALE prior value forever under REPLACE, silently. IGNORE is the one mode
+		# that returns a genuinely fresh instance, so an omitted field correctly falls
+		# back to its real script default instead of an old cached value.
+		#
+		# Both failure modes are invisible in normal play (one load_save() call per
+		# process launch — nothing to be stale relative to yet) but are exactly what
+		# saving and reloading within a single run does. Found by
+		# scripts/_test_save_round_trip.gd (S8, docs/refactor/SYSTEMS.MD).
+		var res = ResourceLoader.load(SAVE_PATH, "", ResourceLoader.CACHE_MODE_IGNORE)
 		if res is SaveGame:
 			var save: SaveGame = res
 			save.migrate()

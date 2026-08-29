@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/_test_save_round_trip.gd" id="1_4n6qf"]
+
+[node name="TestSaveRoundTrip" type="Node" unique_id=1516323208]
+script = ExtResource("1_4n6qf")
