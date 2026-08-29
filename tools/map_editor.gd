@@ -345,21 +345,14 @@ func scaffold_starter_map() -> void:
 ## Pozice malovací vrstvy tak, aby `map_to_local()` vracelo TENTÝŽ bod jako
 ## `Data.cell_center()`.
 ##
-## ZMĚŘENO 21. 8. 2026, ne odvozeno z dokumentace. Godot pro izometrický DIAMOND_DOWN
-## vrací střed dlaždice jako `((x-y+1)*w/2, (x+y+1)*h/2)`, kdežto kanonický převod hry
-## je `((x-y)*w/2, (x+y+1)*h/2)`. V ose y se shodují, v ose x se liší o **půl dlaždice**
-## — obojí je samo o sobě konzistentní, ale dohromady ne, a používá se obojí najednou.
-##
-## Posun se proto sráží tady, jednou a měřitelně, místo aby se s ním počítalo v každém
-## překryvu zvlášť.
-##
-## Pozn.: `scripts/game.gd` má tentýž rozdíl neopravený — podlaha tam leží o 32 px
-## vpravo od věží, jádra a tras, které se kreslí přes `Data.cell_center()`. Viz
-## `scripts/_probe_align.gd`.
+## Vzorec teď žije v `GridProjection.layer_origin()` (ZMĚŘENO 21. 8. 2026, ne odvozeno
+## z dokumentace — viz `scripts/_probe_align.gd` a `docs/MIGRATION_AUDIT.md` §1.3
+## řádky 25-30). Tohle je tenký wrapper, aby volání níže (`_layer_origin(D.BUILD_BLOCK)`
+## / `_layer_origin(1)`) nemusela znát `D.GRID` napřímo — a hlavně aby `scripts/game.gd`
+## (`path_layer.position`) sdílel stejnou funkci, takže se ty dvě kopie nemůžou
+## rozejít, jak se stávalo, dokud byl vzorec napsaný ručně na obou místech zvlášť.
 func _layer_origin(span: int) -> Vector2:
-	var g := _grid()
-	return Vector2(float(g.origin_x) - float(g.get("tile_w", 64)) * 0.5 * span,
-		float(g.origin_y))
+	return GridProjection.layer_origin(span)
 
 ## Buňky, které blok pokrývá.
 static func block_cells(b: Vector2i) -> Array[Vector2i]:

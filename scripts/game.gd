@@ -502,14 +502,13 @@ func _build_wall_segments() -> void:
 		return
 	var tex: Texture2D = load(mat_path)
 	var floor_tex: Texture2D = load("res://assets/iso_pilot/floor_tile.png") if ResourceLoader.exists("res://assets/iso_pilot/floor_tile.png") else tex
-	var g = Data.GRID
-	var tw: float = float(g.get("tile_w", 64))
-	var th: float = float(g.get("tile_h", 32))
-
 	var solid := {}
 	for c: Vector2i in level.high_ground:
 		if c != level.objective:
 			solid[c] = true
+
+	var corners := GridProjection.diamond_corners()
+	var lift := Vector2(0.0, WALL_HEIGHT)
 
 	for c: Vector2i in solid:
 		var pos := Data.cell_center(c)
@@ -517,10 +516,10 @@ func _build_wall_segments() -> void:
 		# Top plateau cap
 		var top := IsoTopSegment.new()
 		top.pts = PackedVector2Array([
-			Vector2(0.0, -th * 0.5 - WALL_HEIGHT),
-			Vector2(tw * 0.5, -WALL_HEIGHT),
-			Vector2(0.0, th * 0.5 - WALL_HEIGHT),
-			Vector2(-tw * 0.5, -WALL_HEIGHT)
+			corners[0] - lift,
+			corners[1] - lift,
+			corners[2] - lift,
+			corners[3] - lift
 		])
 		top.tex = floor_tex
 		top.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -530,17 +529,17 @@ func _build_wall_segments() -> void:
 
 		# South-East face (facing down-right) exposed when c + (1, 0) is not solid
 		if not solid.has(c + Vector2i(1, 0)):
-			_spawn_wall_segment(pos, Vector2(tw * 0.5, 0.0), Vector2(0.0, th * 0.5), tex, 1.0)
+			_spawn_wall_segment(pos, corners[1], corners[2], tex, 1.0)
 
 		# South-West face (facing down-left) exposed when c + (0, 1) is not solid
 		if not solid.has(c + Vector2i(0, 1)):
-			_spawn_wall_segment(pos, Vector2(-tw * 0.5, 0.0), Vector2(0.0, th * 0.5), tex, 0.72)
+			_spawn_wall_segment(pos, corners[3], corners[2], tex, 0.72)
 
 		# Back walls if at boundaries
 		if c.y == 0 and not solid.has(c + Vector2i(0, -1)):
-			_spawn_wall_segment(pos, Vector2(0.0, -th * 0.5), Vector2(tw * 0.5, 0.0), tex, 1.0)
+			_spawn_wall_segment(pos, corners[0], corners[1], tex, 1.0)
 		if c.x == 0 and not solid.has(c + Vector2i(-1, 0)):
-			_spawn_wall_segment(pos, Vector2(0.0, -th * 0.5), Vector2(-tw * 0.5, 0.0), tex, 0.72)
+			_spawn_wall_segment(pos, corners[0], corners[3], tex, 0.72)
 
 
 ## One drawn block per solid cell, y-sorted, back to front.
@@ -583,19 +582,10 @@ class TerraceShadow extends Node2D:
 	var steps: Dictionary = {}
 
 	func _draw() -> void:
-		var g = Data.GRID
-		var tw: float = float(g.get("tile_w", 64))
-		var th: float = float(g.get("tile_h", 32))
 		# Studený a průsvitný, nikdy černý — neutrálně černý stín čte jako díra v desce,
 		# modře posunutý jako stín. Převzato z WallShadow, kde to stálo playtest.
 		for cell: Vector2i in steps:
-			var p: Vector2 = Data.cell_center(cell)
-			draw_colored_polygon(PackedVector2Array([
-				p + Vector2(0.0, -th * 0.5),
-				p + Vector2(tw * 0.5, 0.0),
-				p + Vector2(0.0, th * 0.5),
-				p + Vector2(-tw * 0.5, 0.0)
-			]), Color(0.016, 0.027, 0.063, float(steps[cell])))
+			draw_colored_polygon(GridProjection.cell_diamond(cell), Color(0.016, 0.027, 0.063, float(steps[cell])))
 
 
 ## Kolik buněk daleko stín dosáhne a jak silný je v každém kroku. První krok zhruba
@@ -1189,7 +1179,9 @@ func _build_path_layer() -> void:
 	# náhledy stavění, indikátory.
 	#
 	# Změřeno 21. 8. 2026 (`scripts/_probe_align.gd`): rozdíl (32, 0) u každé buňky.
-	path_layer.position = Vector2(g.origin_x - float(tw) * 0.5, g.origin_y)
+	# Vzorec teď žije v `GridProjection.layer_origin()` — `tools/map_editor.gd` počítá
+	# tentýž posun stejnou funkcí, takže se ty dvě kopie nemůžou rozejít.
+	path_layer.position = GridProjection.layer_origin()
 	path_layer.z_index = Z_PATH
 	add_child(path_layer)
 
@@ -1379,19 +1371,10 @@ class PlacementOverlay extends Node2D:
 ## Kresli se JEDNOU, z _build_field(). Kdyz sem neco pribude, musi to byt taky staticke.
 func _draw_static_field(cv: CanvasItem) -> void:
 	var g = Data.GRID
-	var tw: float = float(g.get("tile_w", 64))
-	var th: float = float(g.get("tile_h", 32))
 
 	for cells: Array in spawn_zone_cells:
 		for c: Vector2i in cells:
-			var pos := Data.cell_center(c)
-			var diamond := PackedVector2Array([
-				pos + Vector2(0.0, -th * 0.5),
-				pos + Vector2(tw * 0.5, 0.0),
-				pos + Vector2(0.0, th * 0.5),
-				pos + Vector2(-tw * 0.5, 0.0)
-			])
-			cv.draw_colored_polygon(diamond, Color(0.9, 0.3, 0.4, 0.18))
+			cv.draw_colored_polygon(GridProjection.cell_diamond(c), Color(0.9, 0.3, 0.4, 0.18))
 
 	# Telegraf: trod, ktery se otevre PRISTI vlnu. Kresli se v barve pruhu, ale skoro
 	# pruhledne -- ma se to cist jako "tudy to zacina prosvitat", ne jako hotova cesta.
@@ -1401,13 +1384,7 @@ func _draw_static_field(cv: CanvasItem) -> void:
 		for c: Vector2i in soon.cells:
 			if lane_cells.has(c) or high_ground.has(c) or not _in_bounds(c):
 				continue
-			var tp := Data.cell_center(c)
-			cv.draw_colored_polygon(PackedVector2Array([
-				tp + Vector2(0.0, -th * 0.5),
-				tp + Vector2(tw * 0.5, 0.0),
-				tp + Vector2(0.0, th * 0.5),
-				tp + Vector2(-tw * 0.5, 0.0)
-			]), Color(0.85, 0.66, 0.31, 0.16))
+			cv.draw_colored_polygon(GridProjection.cell_diamond(c), Color(0.85, 0.66, 0.31, 0.16))
 
 	# Tecky po blocich 3x3 v isometricem prostoru
 	var b: int = Data.BUILD_BLOCK
@@ -1422,20 +1399,18 @@ func _draw_placement_preview(cv: CanvasItem) -> void:
 	var sel = GameState.selected_habit
 	if sel == null or not _in_bounds(_hover_cell):
 		return
-	var g = Data.GRID
-	var tw: float = float(g.get("tile_w", 64))
-	var th: float = float(g.get("tile_h", 32))
 	var ok: bool = _can_build(_hover_cell) and GameState.can_afford(Data.get_habit(sel).build_cost) \
 		and GameState.can_reserve_bandwidth(Data.get_habit(sel).bandwidth_cost)
 	var tint := Color(0.35, 1.0, 0.55) if ok else Color(1.0, 0.4, 0.4)
 
 	# Hover block 3x3 diamond vertices
 	var b: int = Data.BUILD_BLOCK
+	var corners := GridProjection.diamond_corners()
 	var elevation := Vector2(0.0, WALL_HEIGHT) if high_ground.has(_hover_cell) else Vector2.ZERO
-	var v_top := Data.cell_center(_hover_cell - Vector2i(b / 2, b / 2)) + Vector2(0.0, -th * 0.5) - elevation
-	var v_right := Data.cell_center(_hover_cell + Vector2i(b / 2, -(b / 2))) + Vector2(tw * 0.5, 0.0) - elevation
-	var v_bottom := Data.cell_center(_hover_cell + Vector2i(b / 2, b / 2)) + Vector2(0.0, th * 0.5) - elevation
-	var v_left := Data.cell_center(_hover_cell + Vector2i(-(b / 2), b / 2)) + Vector2(-tw * 0.5, 0.0) - elevation
+	var v_top := Data.cell_center(_hover_cell - Vector2i(b / 2, b / 2)) + corners[0] - elevation
+	var v_right := Data.cell_center(_hover_cell + Vector2i(b / 2, -(b / 2))) + corners[1] - elevation
+	var v_bottom := Data.cell_center(_hover_cell + Vector2i(b / 2, b / 2)) + corners[2] - elevation
+	var v_left := Data.cell_center(_hover_cell + Vector2i(-(b / 2), b / 2)) + corners[3] - elevation
 
 	var diamond := PackedVector2Array([v_top, v_right, v_bottom, v_left])
 	cv.draw_colored_polygon(diamond, Color(tint.r, tint.g, tint.b, 0.20))
@@ -2274,7 +2249,7 @@ func _draw() -> void:
 			Rect2(objective_pos + Vector2(-csz.x * 0.5, -csz.y + tile * 0.5), csz), false, tint)
 	else:
 		# Main Inner Glowing Core in 2:1 projection squash
-		draw_set_transform(objective_pos, 0.0, Vector2(1.0, 0.5))
+		draw_set_transform(objective_pos, 0.0, Vector2(1.0, 1.0 / GridProjection.GROUND_Y_SCALE))
 		draw_circle(Vector2.ZERO, base_radius * pulse_scale * 1.2, Color(core_color.r, core_color.g, core_color.b, 0.2))
 		draw_circle(Vector2.ZERO, base_radius * pulse_scale * 0.65, core_color)
 		draw_circle(Vector2.ZERO, base_radius * pulse_scale * 0.3, Color.WHITE)
@@ -2441,15 +2416,7 @@ var _cam_drag_origin := Vector2.ZERO
 
 ## Obálka desky ve světových souřadnicích — rohy izometrického kosočtverce.
 func board_bounds() -> Rect2:
-	var g = Data.GRID
-	var cols: float = float(g.cols)
-	var rows: float = float(g.rows)
-	var tw: float = float(g.get("tile_w", 64))
-	var th: float = float(g.get("tile_h", 32))
-	var ox: float = float(g.origin_x)
-	var oy: float = float(g.origin_y)
-	return Rect2(ox - rows * tw * 0.5, oy,
-		(cols + rows) * tw * 0.5, (cols + rows) * th * 0.5)
+	return GridProjection.board_bounds()
 
 func _build_camera() -> void:
 	var b := board_bounds()

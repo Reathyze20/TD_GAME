@@ -808,7 +808,7 @@ func _draw() -> void:
 	# dolu -- spolu s prazdnym okrajem spritu (viz _measure_foot_pad) to udelalo sest
 	# radku hole zeme mezi vezi a jejim stinem a vez se vznasela.
 	draw_set_transform(_lift_origin + Vector2(base_r * 0.16, base_r * 0.10), 0.0,
-		Vector2(1.0, 0.5))
+		Vector2(1.0, 1.0 / GridProjection.GROUND_Y_SCALE))
 	draw_circle(Vector2.ZERO, base_r * 1.15, Color(0.01, 0.01, 0.04, 0.15))
 	draw_circle(Vector2.ZERO, base_r * 0.85, Color(0.01, 0.01, 0.04, 0.35))
 	draw_set_transform(_lift_origin, 0.0, Vector2.ONE)
@@ -898,7 +898,7 @@ func _draw() -> void:
 		var mf_r := 1.6 * mf_units
 		var halo := Color(1.0, 0.62, 0.22, _muzzle_flash_alpha * 0.5)
 		var core := Color(1.0, 0.93, 0.72, _muzzle_flash_alpha)
-		draw_set_transform(_lift_origin + flash_tip, 0.0, Vector2(1.0, 0.5))
+		draw_set_transform(_lift_origin + flash_tip, 0.0, Vector2(1.0, 1.0 / GridProjection.GROUND_Y_SCALE))
 		draw_circle(Vector2.ZERO, mf_r * 2.0, halo)
 		draw_circle(Vector2.ZERO, mf_r, core)
 		draw_set_transform(_lift_origin, 0.0, Vector2.ONE)

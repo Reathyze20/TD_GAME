@@ -174,7 +174,7 @@ func _draw_type_glow(r: float, strength: float) -> void:
 	for i in range(steps):
 		var t := float(i) / float(steps)
 		var rad := r * (1.75 - t * 0.95)
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.5))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 1.0 / GridProjection.GROUND_Y_SCALE))
 		draw_circle(Vector2.ZERO, rad, Color(col.r, col.g, col.b, 0.10 * strength))
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
@@ -193,7 +193,7 @@ func _draw_contact_shadow(r: float, strength: float) -> void:
 	var alpha: float = (0.22 if enemy.is_flying else 0.42) * strength
 	# Dynamic bobbing: shadow gently tightens on upward steps for physical ground anchor (2:1 projection)
 	var bob: float = 1.0 - absf(sin(_time * 6.0)) * (0.06 if enemy.is_flying else 0.12)
-	draw_set_transform(Vector2(0.0, drop), 0.0, Vector2(bob, 0.5 * bob))
+	draw_set_transform(Vector2(0.0, drop), 0.0, Vector2(bob, bob / GridProjection.GROUND_Y_SCALE))
 	# 3-tier soft shadow (core, mid-body, soft rim)
 	draw_circle(Vector2.ZERO, r * 1.15, Color(0.01, 0.01, 0.04, alpha * 0.25))
 	draw_circle(Vector2.ZERO, r * 0.85, Color(0.01, 0.01, 0.04, alpha * 0.65))
@@ -432,7 +432,7 @@ func _draw() -> void:
 	# -------------------------------------------------- Status Aura Overlays
 	# Boredom halo
 	if enemy.status_manager != null and enemy.status_manager.has_boredom():
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 0.5))
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 1.0 / GridProjection.GROUND_Y_SCALE))
 		draw_circle(Vector2.ZERO, vr + 7.0, Color(0.55, 0.58, 0.62, 0.35))
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
