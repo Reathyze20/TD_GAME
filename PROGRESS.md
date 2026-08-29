@@ -771,4 +771,4 @@ Log of tasks completed by run.sh, one entry per run, newest last.
   remains a separate, still-open half of T5's visual call.
 - verify.sh: PASS (20 pass, 0 fail, 7 known-broken) — unchanged from before this
   change; `_shot_*` scenes are not part of its gate.
-- Commit: (pending, see below).
+- Commit: b46e262.
