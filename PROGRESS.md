@@ -467,3 +467,52 @@ Log of tasks completed by run.sh, one entry per run, newest last.
   task than these two bugfixes, left for a dedicated follow-up.
 - verify.sh: PASS (18 pass, 0 fail, 8 known-broken).
 - Commit: 2c0b35e
+
+## 2026-08-29 — S9: cleanup audit against CLAUDE.md's own rules (SYSTEMS.MD)
+- Ran a multi-agent audit (parallel scan across scripts/ for missing type hints,
+  hardcoded values vs @export, $Node/signal-bus coupling, Godot 3 idioms; adversarial
+  verify pass on each proposed fix) — 54 findings, 17 confirmed mechanically safe,
+  11 rejected by the audit's own verification on a scanner formatting bug (their
+  "current code" field was literally the string "undefined"), 13 hardcoded-vs-@export
+  judgment calls, 3 signal-bus judgment calls, 0 Godot-3 idioms (migration already
+  clean).
+- **Applied**: the mechanical type-hint fixes — return types (`exposed_habit() ->
+  Habit`), parameter types (`DefenderUnit`, `MapEditor`, `Game`), and `=` -> `:=` on
+  locals with a genuinely concrete static type — across game.gd, barracks.gd,
+  enemy.gd, distraction_animator.gd, grid_projection.gd, level_validator.gd, and
+  ~30 dev/test-harness scripts (`_shot_*`, `_perf_*`, `_play_*`, `_test_*`). Two of
+  the audit's rejected findings (barracks.gd:108/116, enemy.gd:373) were
+  independently re-verified against live source and applied too.
+- **Real finding made while applying this, not by the audit**: this project's
+  GDScript setup treats a variable type *inferred as Variant* as a compile ERROR,
+  not a warning. Several of the audit's own "adversarially verified safe" `:=`
+  conversions — mirror.gd, defender_unit.gd, projectile.gd, enemy.gd, build_spot.gd,
+  barracks.gd — actually broke compilation (cascading into ~11 unrelated test
+  failures on the first verify.sh run, since these are non-autoload scripts whose
+  class_name registration every Game-instantiating test depends on). Extrapolating
+  the same "mechanical" pattern to sibling lines myself across dev/test harnesses
+  surfaced more of the same, several as a **120s hang** rather than a clean error
+  (a script parse failure means the scene's `_ready()` never completes, so
+  verify.sh's per-test timeout is what actually kills it — looks exactly like a
+  stuck test until you read the real `.dev/<test>.log`). Four concrete failure
+  shapes, all documented in docs/DEBT.md with the full file list: untyped
+  Dictionary/Array indexing, `GDScript.new()`, `load(path).instantiate()` without
+  an explicit type annotation, and a method call on an under-typed receiver (e.g.
+  `var game: Node` instead of `Game` — the callee's own concrete return type
+  doesn't help if the receiver itself is generic). Every one of these was caught by
+  actually running verify.sh, not by static reasoning — the compiler is the ground
+  truth here, not an agent's (or my own) semantic analysis.
+- **Not applied, cataloged in docs/DEBT.md instead**: 9 of the audit's rejected
+  findings (plausibly safe but not independently re-verified given the gotcha
+  above — includes a 46-line bulk finding in game.gd that needs a line-by-line
+  check, not a blanket pass); all 13 hardcoded-vs-@export judgment calls (Quick
+  Hit, Burnout, Tolerance decay, Routine radius, aim-fatigue, sinking-walls,
+  hands-off-finale, wave-bonus constants — real balance numbers with no @export
+  override, but whether each should be exposed vs. deliberately uniform is a
+  design call); all 3 signal-bus coupling judgment calls (one genuinely worth
+  fixing — enemy.gd's disrupt-target search reaches three levels into the tower
+  system's internals — two are consistent, codebase-wide idioms rather than
+  isolated shortcuts).
+- verify.sh: PASS (18 pass, 0 fail, 8 known-broken — matches the pre-existing
+  baseline exactly).
+- Commit: 88ac943
