@@ -633,3 +633,27 @@ Log of tasks completed by run.sh, one entry per run, newest last.
 - **Not done, and not this task's job**: fixing levels 1/2's objective-bounds bug.
   Flagging here since it also blocks part of S7's own literal completion bar (see
   that entry below).
+
+## 2026-08-29 — S7: wave spawn-shape schema, partial completion (see BLOCKED.md)
+- Added `WaveCurveEntryData.SpawnShape` (`STREAM`/`CLUSTER`/`BURST`), propagated
+  through `Data.build_waves()` onto the runtime `SpawnBatchData`, consumed by a new
+  `Game._spawn_time_for(group, k)` computing each spawn's time into the wave
+  differently per shape. `STREAM` (the default, and what every existing `wave_curve`
+  row uses since none set `shape`) reproduces the exact pre-existing formula — pure
+  addition, zero behavior change for anything currently authored.
+- **Two parts stopped on, logged to `BLOCKED.md` rather than guessed at**: extending
+  `tools/map_editor.gd`'s bake-check validator to understand the new field, and
+  authoring example level content that actually uses `CLUSTER`/`BURST`. Both would
+  touch `tools/map_editor.gd`, which `addons/td_level_designer/dock.gd`'s own header
+  comment confirms is the exact class its editor dock directly wraps — CLAUDE.md's
+  autonomous-run rule to stop for anything touching `addons/td_level_designer`
+  territory applies even though the file itself lives under `tools/`, not `addons/`.
+- Confirmed the change introduces no NEW simulation errors (S7's own completion bar,
+  "S2 simulátor odehraje všechny levely bez chyby," is separately blocked on levels
+  1/2's pre-existing pathfinding defect from S3 — unrelated to this task, not fixed
+  here): `_test_level_simulator.gd` (S2's determinism proof, in verify.sh) still
+  passes unchanged.
+- verify.sh: PASS (19 pass, 0 fail, 8 known-broken — `_test_phase3` flaked into
+  known-broken this run, as its own documented note says it does; same baseline as
+  S3 otherwise).
+- Commit: d9ee110.
