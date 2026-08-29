@@ -555,3 +555,54 @@ Log of tasks completed by run.sh, one entry per run, newest last.
   by adding a small non-behavioral field to expose it. This is a real design decision,
   not a mechanical one — surfaced for a judgment call before the driver is built
   rather than picked unilaterally.
+
+## 2026-08-29 — S2: deterministic level simulator driver (functionally complete)
+- User chose the non-behavioral fix for the draft-discovery gap: added
+  `game._draft_options: Array[CardData]`, set alongside `_draft_overlay` in
+  `_build_draft_overlay()`, cleared in `_close_draft()` — commit daf798b.
+- Built `scripts/level_simulator.gd` (`class_name LevelSimulator`) and
+  `scripts/sim_strategy.gd` (`class_name SimStrategy`, a small per-frame-tick
+  interface: `on_build_tick`/`on_wave_tick`/`on_draft`). `LevelSimulator.run(level_id,
+  seed, strategy)` seeds the shared global RNG stream first (so
+  `GameState.reset_for_level()`'s own `run_seed = randi()` draw becomes reproducible
+  too), instantiates Game.tscn, disconnects `Game._on_bus_game_over` and connects its
+  own handler right after the level is ready (the same pattern `_test_phase3.gd` /
+  `_test_phase4.gd` use to survive `change_scene_to_file()`'s otherwise-destructive
+  teardown), then drives frames one at a time, calling the strategy's hook each tick.
+  Wraps the exact functions the UI calls for build/aim/quick-hit/start-wave/draft — no
+  gameplay logic is reimplemented.
+- Two baseline strategies: `SimStrategyPassive` (builds nothing, starts the wave
+  immediately) and `SimStrategyQuickHitSpam` (same, but presses Quick Hit every
+  tick) — both plausible candidates for S3's three named strategies.
+- `_test_level_simulator.gd` proves S2's own literal bar directly: level 98, one
+  seed, run twice per strategy, outcome fields (victory/focus/max_focus/tolerance
+  /dopamine/kills/wave) bit-identical. True for both strategies — confirmed.
+- **One real bug found and fixed while wiring this up**: `LevelSimulator.run()`
+  originally never disconnected its own `_on_game_over` from `SignalBus.game_over`
+  when it finished — harmless for a single run, but S3's actual use case (calling
+  `run()` repeatedly across many levels/strategies) would have left every prior run's
+  stale callback still firing (against that run's already-freed `game`) every time a
+  LATER run's game instance emitted `game_over`. Fixed before it could bite S3.
+- **A `frame` field on the result dict does NOT reproduce bit-identically** between
+  two runs of the same seed (observed off by ~10-20 frames) even though every other
+  field matches exactly — most likely autoload state (Mirror's history, not reset
+  between `run()` calls) rather than genuine gameplay non-determinism. Out of scope
+  for what S2 actually requires (the spec only asks for victory/Focus/Tolerance
+  /Dopamine), so the test's equality check excludes it and this is documented in the
+  test's own header rather than silently ignored. Worth a closer look if frame-level
+  reproduction is ever actually needed (S3 does not need it).
+- verify.sh needed one small extension: `--fixed-fps` has no GDScript-runtime
+  equivalent (it's a process-launch-time-only CLI flag), so `_test_level_simulator`
+  needed a special case (`FIXED_FPS_TESTS`) to get that flag plus a longer timeout.
+  Real per-run wall-clock cost for this test varies noticeably with machine load —
+  the identical, already-proven-correct check flipped between comfortably-fast and
+  watchdog-timeout across three attempts at increasing budgets before settling on a
+  generous one (480s test watchdog / 520s verify.sh timeout).
+- verify.sh: PASS (20 pass, 0 fail, 7 known-broken — one more PASS than the usual
+  baseline, for the new test).
+- Commits: daf798b (`_draft_options`), 5e2fb9e (the driver).
+- **Not done**: S3 itself (docs/refactor/SYSTEMS.MD) — sweep every level × three
+  strategies through this driver and write docs/BALANCE.md. This driver is what S3
+  was blocked on; S3 can now start. A third strategy (something between "build
+  nothing" and "spam Quick Hit" — e.g. "build cheap towers evenly," per S3's own
+  wording) still needs writing.
