@@ -332,3 +332,33 @@ Log of tasks completed by run.sh, one entry per run, newest last.
 - verify.sh: PASS (15 pass, 0 fail, 9 known-broken — _test_phase3's established
   flakiness triggered this run, unrelated).
 - Commit: 865eea3
+
+## 2026-08-29 — T10: render-independent maze-validity validator
+- Researched the mechanic before writing anything: "hráč nemůže cestu úplně zazdít"
+  reads like it could describe a live player action. Confirmed it doesn't — grepped
+  every astar.set_point_solid() call site; only Game._build_field() (authored
+  high_ground, once, at load) and the sinking-walls spike (which only ever REMOVES
+  solid cells, per docs/core/17_living_map.md). No live action ever adds a new solid
+  cell, so this is already structurally guaranteed; the real risk is an AUTHORED
+  high_ground layout sealing a spawn zone at design time, which is what got built.
+- Also confirmed: tools/map_editor.gd's _analyze() already computes this exact
+  "unreachable spawn cells" question as an advisory-only BLOCKER row, but
+  _bake_to_level() never gates on it — a level can be saved broken today, and only
+  _test_levels.gd's live smoke test would ever catch it.
+- Added scripts/level_validator.gd (class_name LevelValidator, built on T9's
+  PathMetrics): unreachable_spawn_cells(level) mirrors Game._build_field()'s own
+  spawn-cell filter exactly, is_fully_reachable() is the boolean form. No Game
+  instantiation needed — this is the render-independent version of what
+  _test_levels.gd already checks live.
+- Deliberately did NOT wire LevelValidator into map_editor.gd's _bake_to_level() to
+  make it a hard save-time gate — that changes live editor behavior the user actively
+  works in, a bigger decision than "add a validator" alone. Flagging as a real,
+  identified follow-up rather than doing it here.
+- _test_maze_validity.gd/.tscn: validates every level in data/levels/, reusing the
+  same KNOWN_BROKEN entries as _test_levels.gd (level_1/level_2, same root cause since
+  T0); both playable levels (98, 99) pass. Also proves the validator isn't a rubber
+  stamp: a synthetic level with a high_ground ring fully sealing a spawn cell is
+  correctly flagged, and opening exactly one gap in that ring is correctly detected
+  as fixed.
+- verify.sh: PASS (16 pass, 0 fail, 9 known-broken).
+- Commit: 82c67b3
