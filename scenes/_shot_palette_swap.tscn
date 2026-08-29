@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/_shot_palette_swap.gd" id="1_ufhoa"]
+
+[node name="ShotPaletteSwap" type="Node" unique_id=433178988]
+script = ExtResource("1_ufhoa")

@@ -211,3 +211,51 @@ unchanged after this change, since level 98's wave_curve never sets a non-defaul
 3. Treat "S7 complete" as the schema + runtime behavior implemented here, with the
    validator/content half a separate, explicitly-scoped follow-up — matches how this
    entry (and T5's) already treats a partial completion.
+
+## S4 (docs/refactor/SYSTEMS.MD) — "Shader v shaders/... Hotovo když: scéna existuje, screenshot ukazuje tři barevné varianty."
+
+Everything mechanical is done and verified working; the literal completion bar
+("screenshot ukazuje tři barevné varianty") asks for a screenshot to be looked at and
+judged, which is CLAUDE.md's own stop condition ("ZASTAV... pokud úkol vyžaduje
+vizuální posouzení").
+
+**Research first, since this task's applicability was genuinely unclear**:
+`scripts/components/distraction_animator.gd` has TWO rendering paths — real shipped
+PNG sprite frames (loaded via `_load_set()`, drawn with `draw_texture_rect()` inside a
+custom `_draw()`) for distraction types that ship art (the junk-food family, per
+CLAUDE.md's PixelLab section), and a pure procedural-vector fallback
+(`_draw_generic_fallback()`, plain `draw_circle`/`draw_polygon` calls with explicit
+`Color` values, no texture) for types that don't. A texture-remap shader only has
+pixels to remap on the first path — S4's own wording ("Použitelný na sprity
+distractions") already scopes it there correctly, so no separate decision was needed
+about the procedural path.
+
+**Built**: `shaders/palette_swap.gdshader` — a `canvas_item` shader that matches each
+pixel against the master 48-colour palette (`docs/art/palette_48.hex`, compiled in as
+`MASTER_PALETTE`) by NEAREST distance (not exact match — a real shipped sprite,
+`clickbait_frame_1.png`, checked directly, carries a few `/255` of drift per channel
+from PNG/import compression even though it was authored on-palette; an exact-match
+version, tried first, silently left every pixel unchanged) and outputs the
+corresponding entry from a per-material `target_palette` uniform. Works on any
+CanvasItem, Sprite2D or manual `draw_texture_rect()` alike, since a CanvasItem's
+material shader applies to everything that node draws.
+
+`scripts/_shot_palette_swap.gd`/`.tscn` renders `clickbait_frame_1.png` three times —
+master palette unchanged, plus two hue-rotated alternative sets (+120°/+240°, computed
+once from the master's own colours via plain HSV math, not PixelLab) — and saves
+`build/palette_swap_variants.png` (gitignored, like every other `_shot_*` output).
+Ran it and looked at the result myself to confirm basic technical correctness (three
+sprites actually render, at three visibly different colours, same shape/detail
+preserved) — that is NOT the same thing as the stylistic sign-off CLAUDE.md wants a
+human for, so I'm not calling this "done," just "mechanically correct and ready to be
+judged." The two alternative palettes are an arbitrary first choice (a symmetric hue
+split), not a proposal for what the game should actually ship.
+
+**What's left, for a human:** open `build/palette_swap_variants.png` (regenerate with
+`godot --path . --main-scene res://scenes/_shot_palette_swap.tscn`, NOT
+`--headless`, same as every other `_shot_*` scene) and judge whether this is the right
+kind/degree of recolour, whether the two demo palettes are worth keeping as real
+in-game variants or were just a convenient way to prove the shader works, and whether
+it should be wired up to anything live (a cosmetic settings option, a seasonal/event
+recolour, a Tolerance-linked "increasingly numb" desaturation akin to `Sfx.juice_factor()` — none of that is scoped by S4's own text, which only asks for the shader
+and the demo scene).
