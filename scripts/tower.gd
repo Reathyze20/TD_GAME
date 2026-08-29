@@ -643,7 +643,7 @@ func _current_head_tex() -> Texture2D:
 ## ose. Tentyz prepocet uz dela vetev `head_aims` o kus niz (`screen_aim`) -- kdyby se ty
 ## dva rozesly, vez by mirila jinam, nez ukazuje jeji vlastni kuzel.
 func _head_dir_name() -> String:
-	var screen_aim: float = Vector2(cos(_aim), sin(_aim) * 0.5).angle()
+	var screen_aim: float = GridProjection.ground_dir_to_screen(_aim).angle()
 	var idx: int = int(round(screen_aim / (PI / 4.0))) % 8
 	if idx < 0:
 		idx += 8
@@ -793,7 +793,7 @@ func _draw() -> void:
 				Vector2(0, -dr), Vector2(dr, 0), Vector2(0, dr), Vector2(-dr, 0)])
 			draw_colored_polygon(diamond, main_col)
 		if show_range_indicator:
-			PixelDraw.ellipse(self, Vector2.ZERO, def.range, def.range * 0.5, Color(main_col.r, main_col.g, main_col.b, 0.7), 1.0, 2.5)
+			PixelDraw.ellipse(self, Vector2.ZERO, def.range, def.range / GridProjection.GROUND_Y_SCALE, Color(main_col.r, main_col.g, main_col.b, 0.7), 1.0, 2.5)
 		if not in_routine:
 			var flash_a := (sin(Time.get_ticks_msec() * 0.008) * 0.35) + 0.65
 			draw_string(ThemeDB.fallback_font, Vector2(-34, -base_r - 14), "⚠ NO ROUTINE",
@@ -830,8 +830,8 @@ func _draw() -> void:
 	if head_tex != null and not def.aoe and def.head_aims:
 		var head_tint := Color(0.6, 0.6, 0.6, 0.6) if resting else Color.WHITE
 		var art_facing: float = ART_FACING.get(_head_art_key(), -PI / 2.0)
-		var screen_aim: float = Vector2(cos(_aim), sin(_aim) * 0.5).angle()
-		_draw_head_sprite(head_tex, head_tint, screen_aim - art_facing, Vector2(dir.x, dir.y * 0.5) * recoil_offset)
+		var screen_aim: float = GridProjection.ground_dir_to_screen(_aim).angle()
+		_draw_head_sprite(head_tex, head_tint, screen_aim - art_facing, GridProjection.to_screen(dir) * recoil_offset)
 	elif head_tex != null and (def.aoe or not def.head_aims):
 		# Heads that do not aim: AoE pulses (the sprite's own animation carries the life)
 		# and directional habits whose art would read wrong spinning — the Tome fires its
@@ -845,7 +845,7 @@ func _draw() -> void:
 		# u usti a na letici strele. Posun je zplostely (izo) a jde PROTI vystrelu.
 		var kick := Vector2.ZERO
 		if not _head_dirs.is_empty() and _recoil > 0.001:
-			kick = Vector2(cos(_aim), sin(_aim) * 0.5) * (-_recoil * 5.0)
+			kick = GridProjection.ground_dir_to_screen(_aim) * (-_recoil * 5.0)
 		_draw_head_sprite(head_tex, Color(0.6, 0.6, 0.6, 0.6) if resting else Color.WHITE,
 			0.0, kick)
 	elif def.aoe: # Mindfulness / Meditation Crystal Orb (vector fallback)
@@ -884,7 +884,7 @@ func _draw() -> void:
 		var head_h: float = 0.0
 		if head_tex != null:
 			head_h = float(head_tex.get_size().y) * Data.pixel_scale()
-		var flat_dir := Vector2(dir.x, dir.y * 0.5)
+		var flat_dir := GridProjection.to_screen(dir)
 		var flash_tip := (flat_dir * (tile * 0.72)) + (flat_dir.orthogonal() * side_offset) 			+ Vector2(0.0, -head_h * 0.46)
 		# Zablesk je TEPLY a MALY, a splaskava ve trech krocich.
 		#
@@ -970,7 +970,7 @@ func _draw_wedge(radius: float, center_angle: float, fov_degrees: float, fill_co
 	for i: int in range(num_segments + 1):
 		var t: float = float(i) / float(num_segments)
 		var a: float = lerpf(start_angle, end_angle, t)
-		var dirv := Vector2(cos(a), sin(a) * 0.5)
+		var dirv := GridProjection.ground_dir_to_screen(a)
 		var r := radius
 		if game != null:
 			r = game.cast_to_wall(global_position, Vector2.RIGHT.rotated(a), radius)
@@ -992,7 +992,7 @@ func _draw_wedge(radius: float, center_angle: float, fov_degrees: float, fill_co
 			PixelDraw.line(self, Vector2.ZERO, pts[1], line_color, 1.0, 2.5)
 			PixelDraw.line(self, Vector2.ZERO, pts[pts.size() - 1], line_color, 1.0, 2.5)
 			# Center aiming axis line
-			var center_dirv := Vector2(cos(center_angle), sin(center_angle) * 0.5)
+			var center_dirv := GridProjection.ground_dir_to_screen(center_angle)
 			var center_r := radius
 			if game != null:
 				center_r = game.cast_to_wall(global_position, Vector2.RIGHT.rotated(center_angle), radius)

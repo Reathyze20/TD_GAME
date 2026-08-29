@@ -251,8 +251,9 @@ func note_heading(dir: Vector2) -> void:
 	# Grid -X (-1, 0) -> screen (-32, -16) (Facing.WEST)
 	# Grid +Y (0, 1) -> screen (-32, +16) (Facing.SOUTH)
 	# Grid -Y (0, -1) -> screen (+32, -16) (Facing.NORTH)
-	var u := dir.x * 0.5 + dir.y
-	var v := dir.y - dir.x * 0.5
+	var axes := GridProjection.screen_dir_to_grid_axes(dir)
+	var u := axes.x
+	var v := axes.y
 	if absf(u) > absf(v):
 		facing = Facing.EAST if u > 0.0 else Facing.WEST
 	else:

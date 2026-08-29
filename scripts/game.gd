@@ -1446,7 +1446,7 @@ func _draw_placement_preview(cv: CanvasItem) -> void:
 	var pr: float = _preview_radius(sel_def)
 	if pr > 0.0:
 		var centre := Data.cell_center(_hover_cell) - elevation
-		PixelDraw.ellipse(cv, centre, pr, pr * 0.5, Color(tint.r, tint.g, tint.b, 0.6))
+		PixelDraw.ellipse(cv, centre, pr, pr / GridProjection.GROUND_Y_SCALE, Color(tint.r, tint.g, tint.b, 0.6))
 
 func cell_center(cell: Vector2i) -> Vector2:
 	return Data.cell_center(cell)

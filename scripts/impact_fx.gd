@@ -50,7 +50,7 @@ func play(color: Color, scale_mult: float = 1.0, travel: Vector2 = Vector2.ZERO,
 			var base: float = _splat_dir.angle()
 			var a: float = base + randf_range(-1.22, 1.22)
 			var sp: float = randf_range(40.0, 150.0) * scale_mult
-			dir = Vector2(cos(a), sin(a) * 0.5) * sp
+			dir = GridProjection.ground_dir_to_screen(a) * sp
 		# Whole art pixels only — a death burst throws a few double-size chunks.
 		var size := 1
 		if scale_mult > 1.0 and randf() < 0.4:

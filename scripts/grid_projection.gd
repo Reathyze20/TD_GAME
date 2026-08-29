@@ -70,3 +70,11 @@ static func ground_distance(a: Vector2, b: Vector2) -> float:
 ## its length already being correct in screen space for that step to land right.
 static func ground_dir_to_screen(angle_ground: float) -> Vector2:
 	return to_screen(Vector2.RIGHT.rotated(angle_ground))
+
+## Decomposes a screen-space direction into its (grid +X, grid +Y) axis components —
+## the same skew world_to_cell() applies to a position, but for a direction rather
+## than a point. Used to classify a movement vector into one of the four grid-cardinal
+## facings (see Enemy.note_heading()): grid +X and -X land on screen SE/NW diagonals,
+## grid +Y and -Y on SW/NE, because the projection tilts the axes.
+static func screen_dir_to_grid_axes(dir: Vector2) -> Vector2:
+	return Vector2(dir.x / GROUND_Y_SCALE + dir.y, dir.y - dir.x / GROUND_Y_SCALE)
