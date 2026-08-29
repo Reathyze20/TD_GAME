@@ -606,3 +606,30 @@ Log of tasks completed by run.sh, one entry per run, newest last.
   was blocked on; S3 can now start. A third strategy (something between "build
   nothing" and "spam Quick Hit" — e.g. "build cheap towers evenly," per S3's own
   wording) still needs writing.
+
+## 2026-08-29 — S3: balance sweep, complete
+- Wrote the third baseline strategy (`SimStrategyCheapEven`) and `_balance_sweep.gd`,
+  which sweeps every level in `Data` (ids 1, 2, 98, 99 — everything the game currently
+  has) through all three strategies at one fixed seed via S2's `LevelSimulator` and
+  writes `docs/BALANCE.md`.
+- First attempt used S2's own 36000-frame default cap; levels 1 and 2 immediately
+  spammed `Can't get id path... out of bounds` and burned the full cap three times
+  each (a live-fire confirmation of `_test_levels.gd`'s own pre-existing
+  `KNOWN_BROKEN` entry — the objective cell for both sits outside the level's 24x24
+  grid, docs/core/16 — not something this task introduced or should fix). Killed the
+  run, dropped the sweep's own cap to 10800 frames (3 sim-minutes — comfortably above
+  what a real, working level needs per S2's own data, but far cheaper for a level that
+  provably cannot resolve), and documented the known-debt attribution directly in
+  `docs/BALANCE.md`'s own header so the TIMEOUT rows aren't a mystery on their own.
+- Levels 98/99 resolved normally with genuinely differentiated, sensible results:
+  First Light (98) WINS outright under "build cheap towers evenly" (67 kills, wave 4,
+  full Focus) and LOSES identically under "build nothing" and "spam Quick Hit" (Quick
+  Hit does not restore Focus, so spamming it changes nothing about survival on this
+  level). The Isometric Vertical Slice (99) loses under all three but survives
+  meaningfully longer under cheap-towers (wave 3, 84 kills) than either other
+  strategy (wave 1, 0 kills).
+- verify.sh: PASS (20 pass, 0 fail, 7 known-broken — same baseline as after S2).
+- Commit: ed69d84.
+- **Not done, and not this task's job**: fixing levels 1/2's objective-bounds bug.
+  Flagging here since it also blocks part of S7's own literal completion bar (see
+  that entry below).
