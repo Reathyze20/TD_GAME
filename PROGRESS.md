@@ -719,3 +719,34 @@ Log of tasks completed by run.sh, one entry per run, newest last.
   own two pieces — the instinct was already in place before this re-read.)
 - No commit for this entry beyond the PROGRESS.md/BLOCKED.md writes themselves — this
   is the checkpoint action itself, not new code.
+
+## 2026-08-29 — T7: readability screenshot set, complete
+- User explicitly authorized resolving T7's `.gitignore` conflict by carving out
+  `.dev/screenshots/` rather than moving the task's output path — proceeded with that.
+- `scripts/_shot_readability.gd`/`.tscn`: for each of the 4 levels in `Data`, builds a
+  few cheap towers (same idea as `SimStrategyCheapEven` from S2/S3, inlined directly
+  since this tool needs the `Game` node kept alive for the screenshot rather than torn
+  down by `LevelSimulator.run()`), starts wave 1, lets ~2.5 sim-seconds pass, then
+  saves a base screenshot plus blurred/desaturated/silhouette variants. 16 PNGs total.
+  Generated, not judged — the task's own instruction.
+- **The `.gitignore` fix needed to be a real fix, not just an addition**: `/.dev/`
+  excludes the whole directory, and a `!` negation cannot re-include a path whose
+  PARENT directory was excluded — confirmed with `git check-ignore` showing the first
+  attempt's negation line was silently having no effect at all. Fixed by excluding
+  `/.dev/*`'s contents instead of the directory itself, then verified every other
+  `.dev/` scratch file is still correctly ignored and only `screenshots/` isn't.
+- **A real bug found and fixed, the same failure class S9's audit catalogued**:
+  `Image.duplicate()` returns the base `Resource` type, not `Image`, so
+  `var out := img.duplicate()` infers `Resource` — a compile error that was silently
+  swallowed by `tools/make_test_scene.gd`'s own error handling, producing a
+  SCRIPTLESS packed scene that then crashed the engine with a completely unrelated,
+  confusing "Unreferenced static string" error when run. Found by reading the
+  generated `.tscn` directly (no script attached at all) instead of trusting the
+  crash message, which pointed nowhere near the actual cause. Fixed with an explicit
+  `var out: Image = img.duplicate()` in all three affected functions.
+- Levels 1/2 still throw their known, pre-existing pathfinding errors during their
+  shots (expected, survived the same way S2's `LevelSimulator` does) — screenshots
+  still generate correctly despite them.
+- verify.sh: PASS (20 pass, 0 fail, 7 known-broken).
+- Commit: d717061. `BLOCKED.md`'s T6/T7/T8 entry updated — T7 now resolved, T6 and
+  the T8 checkpoint stay as history.

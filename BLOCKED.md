@@ -37,35 +37,28 @@ levels onto yet. Attempting T6 now would mean guessing at exactly the same open
 questions T5 already stopped on, just from the other end. Options are the same three
 already listed under T5's entry; T6 becomes doable the moment one of them is chosen.
 
-**T7 — "Rozšiř dev screenshot skript o tři varianty: rozostřenou, odbarvenou,
-siluetovou. Vygeneruj sadu pro každý level do .dev/screenshots/ a commitni. Hotovo
-když: obrázky existují. NEPOSUZUJ je — to udělám já."** Explicitly does NOT need my
-judgment (the task says so itself) and isn't blocked by T5/T6 the way T6 is — but has
-a real, concrete conflict: `.dev/` is gitignored (`.gitignore:20`, added this same
-session as part of T0, for `verify.sh`'s own log output) and T7 explicitly says
-`commitni` (commit) the generated set into `.dev/screenshots/`. Committing files into
-a gitignored directory needs either an explicit `git add -f` (fighting the ignore
-rule every time, easy to get wrong) or a `.gitignore` negation pattern
-(`!/.dev/screenshots/`) carved out of a directory that's otherwise deliberately
-untracked scratch output (`verify.sh`'s per-test logs, `ROSTER.md`'s generated
-scratch copy) — not a decision to make unilaterally, since it either weakens `.dev/`'s
-"nothing here is ever committed" guarantee or means the path in T7's own text is
-wrong and the set belongs somewhere already-tracked instead (e.g. `docs/screenshots/`).
+**T7 — RESOLVED.** Was: "Rozšiř dev screenshot skript o tři varianty: rozostřenou,
+odbarvenou, siluetovou. Vygeneruj sadu pro každý level do .dev/screenshots/ a
+commitni." — explicitly did not need visual judgment (the task says so itself,
+"NEPOSUZUJ je — to udělám já") but had a real, concrete conflict: `.dev/` was
+gitignored (`.gitignore:20`, added this same session as part of T0) and T7 explicitly
+says `commitni` the generated set into `.dev/screenshots/`. User explicitly authorized
+the `.gitignore` carve-out approach ("chci aby si udělal screenshoty"). Implemented as
+`scripts/_shot_readability.gd`/`.tscn`, generating a base + blur/desaturate/silhouette
+set for all 4 levels (16 PNGs), committed at `d717061`. The negation needed a real fix,
+not just an addition — `/.dev/` excludes the whole directory, and `!` cannot re-include
+a path whose parent was excluded; fixed by excluding `/.dev/*`'s contents instead.
+Full detail in PROGRESS.md's own T7 entry, including a real `Image.duplicate()`
+Variant-inference bug found and fixed along the way (same failure class as S9's audit).
 
-**What I did:** nothing implemented for any of the three — T6 is genuinely blocked,
-T7 needs a directory/gitignore decision before its otherwise-mechanical work should
-start, and T8 is handled by this entry existing. Not attempting a guess at either open
-question given how each task's own author (this same project's CLAUDE.md and its
-task-writer) has repeatedly said not to.
+**T6 remains blocked** — transitively on T5's own already-logged, still-open decision
+(see the T5 entry above): T6 asks to migrate existing levels onto "the new grid," but
+T5's own square-projection switch was deliberately left un-activated pending a human
+visual judgment. Attempting T6 would mean guessing at exactly the same open questions
+T5 already stopped on. Options are the same three already listed under T5's entry.
 
-**Options:**
-1. For T7: pick between `git add -f` per generation run, a `.gitignore` carve-out for
-   `.dev/screenshots/` specifically, or moving the actual output path to somewhere
-   already tracked (`docs/screenshots/`) and treating T7's literal path as a typo/stale
-   reference to fix rather than follow. Any of the three unblocks T7's mechanical work
-   immediately once chosen.
-2. For T6: resolve T5's blocked resolution/rescale/visual-style decision first (see
-   the T5 entry's own three options) — T6 has no independent path forward before that.
+**T8's checkpoint** stays as written above — a historical record of the gap, not
+something to revisit now that the summary it asked for has been written.
 
 ## T1 (docs/refactor/MIGRATION.MD) — "Nainstaluj GUT pro Godot 4 do addons/. Založ tests/."
 
