@@ -84,10 +84,33 @@ Log of tasks completed by run.sh, one entry per run, newest last.
 - verify.sh: PASS (13 pass, 0 fail, 0 skip, 9 known-broken).
 - Commit: 4d3f3c7
 
-## 2026-08-29 — T3 (in progress)
-Delegated to a background research agent per the plan's own "Model: opus" annotation
-(read-only codebase audit, well suited to run in parallel with T11 below). Will log
-properly once its findings land and docs/MIGRATION_AUDIT.md is reviewed and written.
+## 2026-08-29 — T3: perspective inventory audit (read-only)
+- Delegated to a background research agent (opus, per the plan's own "Model: opus"
+  annotation), then spot-checked line-for-line against source before writing
+  docs/MIGRATION_AUDIT.md myself (the agent has no Write access) — every claim checked
+  matched exactly, including verbatim comment text.
+- ~42 coordinate-conversion sites outside Data.cell_center()/world_to_cell(), 17 of
+  them hand-written ground-space *0.5/*2.0 conversions, 9 gameplay-critical. Plus a
+  second, independent projection (Godot's own TileMapLayer DIAMOND_DOWN) corrected by
+  a half-tile layer offset.
+- Baked levels: schema is perspective-agnostic (grid Vector2i/Rect2i throughout except
+  one unused `decor.pos` field). level_1/level_2 sit on a dead ~120x57 grid — this is
+  the exact root cause already logged in T0's KNOWN_BROKEN_TESTS — and need a rescale
+  (tools/regrid_levels.py is the existing precedent), not a reprojection.
+- Y-sort and elevation (WALL_HEIGHT): both purely visual. base_habit.gd documents that
+  an earlier attempt to move the lift into `position` was reverted because `position`
+  is simultaneously the y-sort key and what every range/targeting check measures from.
+- High Ground: a real mechanic (blocks A*, only buildable terrain, blocks LOS via
+  cast_to_wall/has_line_of_sight with slab-based self-exemption, mutable at runtime by
+  the sinking-walls spike) — but through occlusion, never through height. No height
+  term exists in any range/damage formula.
+- **Flagged for a human decision before T4/T5**: targeting/LOS are already in ground
+  space (2:1-corrected), but Routine gating, Brain Fog visibility, intervention AoE and
+  guard zones are still raw screen-space circles. No document says this split is
+  intentional. A top-down migration silently makes these two currently-disagreeing
+  radius families agree — worth deciding on purpose rather than by default.
+- verify.sh: PASS (13 pass, 0 fail, 0 skip, 9 known-broken) — docs-only change.
+- Commit: 7914373
 
 ## 2026-08-29 — T11: horde perf bench, N=50..1000
 - _perf_horde.gd/.tscn spawns N distractions into the spawn zone (so they walk the
