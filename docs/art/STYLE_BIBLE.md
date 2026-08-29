@@ -79,6 +79,44 @@ Dvě věci na téhle tabulce nejsou vkus:
    zadarmo, kterou izo deska musela zachraňovat červeným nápisem „Build only on high
    ground“ (`iso_bible.md` §3). Matnost dělá to, že se hráčovy věže na té ploše neztratí.
 
+## 2a. Habity vs. distractions rozlišuje SILUETA, ne kotva
+
+Kotva je pro celý projekt jedna (§6). Rozdíl mezi tím, co hráč postavil, a tím, co na něj
+jde, proto **nesmí** stát na tom, že by se generovalo z jiné reference — musí být v kresbě
+samotné, a musí přežít i to nejhorší, co s ní hra udělá.
+
+<!-- gen:silhouette -->
+
+| | Habits (gliové buňky) | Distractions (patogeny) |
+|---|---|---|
+| obrys siluety | kulatý, uzavřený, souvislý | ostrý, zubatý, roztřepený |
+| směr tvarů | dovnitř, obalující, sedící | ven, bodající, valící se vpřed |
+| zóna palety | teplá polovina (jantar, zlatá, oranžová, teal) | studená a jedovatá (magenta, violet, kyselá zelená, ledová azurová) |
+| silueta v černé | poznat kruh nebo hrozen kruhů | poznat hrot, trn nebo cíp |
+
+<!-- /gen:silhouette -->
+
+**Proč zrovna silueta, a ne barva:** protože barva je to první, o co hra hráče připraví.
+
+1. **Brain Fog zakrývá skoro celou desku.** Vidět je jen to, na co dosáhne světlo — jádro,
+   usazené Anchory, pracující habity (`TOWER_LIGHT_RADIUS = 150`) a obránci (90).
+   `docs/core/14` to říká natvrdo: *„Enemies **never** emit light. They are the dark
+   arriving."* Distrakci tedy hráč neuvidí nikdy celou a nikdy nasvícenou — uvidí ji
+   v okamžiku, kdy vstoupí do **jeho** světla, na kraji radiálního dopadu, kde je jas
+   stlačený a sytost sražená. Z kresby v tu chvíli zbývá tvar.
+2. **Tolerance barvu vysává i mimo mlhu** (`shaders/flatten.gdshader`) — a dělá to právě
+   tehdy, když je hráč v úzkých, tedy když na rozpoznání záleží nejvíc. Systém, který stojí
+   na odstínu, selže přesně v nejhorší možný okamžik.
+3. **Sprite je na obrazovce 64 px a jede.** Na dvou buňkách v pohybu nemá jemný odstín kam
+   se projevit; obrys ano.
+
+Takže: **v brainfogu je silueta jediná spolehlivě čitelná informace.** Barevná zóna palety
+je druhá vrstva, která pomůže, když světlo je — ne první, na které se staví.
+
+Praktický důsledek pro prompt: tvarová slova („round", „closed", „nested" vs. „barbed",
+„jagged", „hooked") nesou víc než barevná a mají v popisu stát dřív. Barva se pojmenovává
+slovem a zbytek dodělá `color_image_url` (§7).
+
 ## 3. Pravidlo záře
 
 > **Září jen cesta a to, co hráč postavil. Nic jiného.**
@@ -181,21 +219,38 @@ projekt reálně zaplatil: distrakce 20 generací, boss 40 (`ART_PIPELINE.md` §
 - Strana každého spritu musí být **násobek nebo čistý dělitel 16**
   (`style_bible_measured.md`, „Pravidlo nula: rastr“). 16 / 32 / 64 / 96 to splňují.
 
-## 6. Style anchory — podle rodiny, ne jeden univerzální
+## 6. Style anchor — jeden na celý projekt
 
-Zkopírováno doslova z `CLAUDE.md` (řádky 95–103). **Necituj je zpaměti, ber je odsud nebo
-z CLAUDE.md.** `style_character_id` bere **jen `mode="pro"`**.
+Zkopírováno doslova z `CLAUDE.md`. **Necituj je zpaměti, ber je odsud nebo z CLAUDE.md.**
+`style_character_id` bere **jen `mode="pro"`**.
+
+Rozhodnuto uživatelem 29. 8. 2026: **jedna kotva pro celý projekt**. Junk-food větev je
+odpískaná — nebyla to jen výměna reference, ale celý směr, který `docs/ART_PIPELINE.md`
+§3b zrušil už 17. 8. 2026 (*„Junk food je odpískaný"*). CLAUDE.md tou dobou zůstalo
+neaktualizované a mandátovalo zrušenou kotvu dál; tenhle rozpor je teď vyřešený v CLAUDE.md,
+ne obcházený tady.
 
 <!-- gen:anchors -->
 
 | rodina | style_character_id | co to je | plati_pro |
 |---|---|---|---|
-| general | fa8294b1-c3ec-4ae5-92fb-39570ced0f65 | Broccoli Knight, obránce z Nutrition Guild — obecná kotva stylu | defender |
-| junk_food | 62772f73-28d8-442b-add6-f33684f16415 | clickbait varianta A, obří magentové oko — junk-food rodina distrakcí, odsouhlasená uživatelem 15. 8. 2026 | distraction, distraction_elite |
-| junk_food_alt | 0ef2d964-dd67-4132-97b9-39083228db14 | clickbait_b, sesterská reference — jde použít jako druhá | distraction, distraction_elite |
-| FORBIDDEN | 7ba5d829-5a10-4ed9-b038-52978ec20782 | jednooká scrollerka, obvazový styl — jiná, opuštěná rodina, nikdy nepoužívat | nic |
+| general | fa8294b1-c3ec-4ae5-92fb-39570ced0f65 | Broccoli Knight, obránce z Nutrition Guild — jediná kotva projektu. Ověřeno 29. 8. 2026 přes get_character: 64x64, 8 směrů, kompletní | defender, distraction, distraction_elite |
+| ODPISKANA_junkfood_a | 62772f73-28d8-442b-add6-f33684f16415 | clickbait varianta A — junk-food rodina, zrušena 17. 8. 2026 spolu s celým junk-food směrem | nic |
+| ODPISKANA_junkfood_b | 0ef2d964-dd67-4132-97b9-39083228db14 | clickbait_b, sesterská reference téže zrušené rodiny | nic |
+| ODPISKANA_scroller | 7ba5d829-5a10-4ed9-b038-52978ec20782 | jednooká scrollerka, obvazový styl — nejstarší opuštěná rodina | nic |
 
 <!-- /gen:anchors -->
+
+**Řádek s `plati_pro = nic` je zákaz, ne archiv.** Ta tři id se nesmí objevit nikde —
+ani v promptu, ani v parametru, ani v próze plánu. `scripts/_test_art_prompts.gd` to
+kontroluje na celém vygenerovaném souboru, ne jen na promptech, protože kotva se do
+volání dostane parametrem, a ten by kontrola omezená na text promptu minula.
+
+**Kotva má spodní hranici velikosti a `gen_px` na ní přesně sedí.** Job spadne hned, když
+je `size` menší než obsah kotvy. Čtecí dotaz z 29. 8. 2026 vrátil `size: 64x64px`, takže
+64 je minimum — a `gen_px` je u distrakcí i obránců **přesně 64**, u bosse 128. Tabulka
+v §5 tím pádem platí beze změny; kdyby kdokoli `gen_px` snížil na cílových 32, každé
+jedno volání by spadlo hned na startu.
 
 **Terén, věže a rekvizity kotvu nemají a mít nemají.** Nejsou to postavy —
 `style_character_id` na ně nesedí ani parametrem. Rodinu jim drží `style_images`, které
@@ -257,19 +312,19 @@ váží.
 | avocado_monk | defender | general | broccoli_knight | an avocado monk with wrapped fists and a stone pit core, calm, mends the defenders around it |
 | chilli_berserker | defender | general | broccoli_knight | a chilli berserker with two burning knives and no patience, thin and fast, every slash keeps searing |
 | garlic_mage | defender | general | broccoli_knight | an ivory garlic bulb sage with a root staff, its pungent air slows everything shuffling through it |
-| clickbait | distraction | junk_food | - | a pathogen dominated by one huge lidless eye with a barbed rim, pink, armoured against fast small hits |
-| notification | distraction | junk_food | clickbait | the smallest and fastest spore of the swarm, a hard red shell and one twitching cilium, almost nothing to it |
-| phantom_buzz | distraction | junk_food | clickbait | a hollow blue spore husk that hovers, no legs, a sharp vibrating rim, and nothing at all inside it |
-| autoplay | distraction | junk_food | clickbait | an amber spore chain of three fused capsules that keeps unrolling forward, each capsule budding the next |
-| fomo | distraction | junk_food | clickbait | a darting magenta filament with a bright head and a dissolving tail, already half gone before it arrives |
-| energy_drink | distraction | junk_food | clickbait | a swollen teal cyst under pressure, ribbed, with a torn neck venting, faster the more damaged it is |
-| just_one_more | distraction | junk_food | clickbait | a violet cluster of four loosely bound spores pulling apart at the seams, about to become four of itself |
-| doomscroll | distraction | junk_food | clickbait | a long green ciliated ribbon that flows head first, segmented, with no visible end to it |
-| group_chat | distraction | junk_food | clickbait | a knot of six small green spores sharing one membrane, all of them mouths, none of them a head |
-| comparison | distraction | junk_food | clickbait | a bleached cyan mimic blob wearing a half finished copy of another creature, edges unresolved |
-| jackpot | distraction | junk_food | clickbait | a crimson gland with three swollen lobes and one bright wet core, pulsing on a slow rhythm |
-| adult_content | distraction | junk_food | clickbait | a heavy orange sac with hooked barbs and a slick membrane, low to the ground and dragging |
-| social_media_binge | distraction_elite | junk_food | clickbait | a violet colonial mass of fused spores, many eyes, a shielding outer membrane, dragging a train of smaller buds behind it |
+| clickbait | distraction | general | - | a pathogen dominated by one huge lidless eye with a barbed rim, pink, armoured against fast small hits |
+| notification | distraction | general | clickbait | the smallest and fastest spore of the swarm, a hard red shell and one twitching cilium, almost nothing to it |
+| phantom_buzz | distraction | general | clickbait | a hollow blue spore husk that hovers, no legs, a sharp vibrating rim, and nothing at all inside it |
+| autoplay | distraction | general | clickbait | an amber spore chain of three fused capsules that keeps unrolling forward, each capsule budding the next |
+| fomo | distraction | general | clickbait | a darting magenta filament with a bright head and a dissolving tail, already half gone before it arrives |
+| energy_drink | distraction | general | clickbait | a swollen teal cyst under pressure, ribbed, with a torn neck venting, faster the more damaged it is |
+| just_one_more | distraction | general | clickbait | a violet cluster of four loosely bound spores pulling apart at the seams, about to become four of itself |
+| doomscroll | distraction | general | clickbait | a long green ciliated ribbon that flows head first, segmented, with no visible end to it |
+| group_chat | distraction | general | clickbait | a knot of six small green spores sharing one membrane, all of them mouths, none of them a head |
+| comparison | distraction | general | clickbait | a bleached cyan mimic blob wearing a half finished copy of another creature, edges unresolved |
+| jackpot | distraction | general | clickbait | a crimson gland with three swollen lobes and one bright wet core, pulsing on a slow rhythm |
+| adult_content | distraction | general | clickbait | a heavy orange sac with hooked barbs and a slick membrane, low to the ground and dragging |
+| social_media_binge | distraction_elite | general | clickbait | a violet colonial mass of fused spores, many eyes, a shielding outer membrane, dragging a train of smaller buds behind it |
 | focus_timer | habit | - | terrain_spine | a round glial cell body with one coiled process wound like a spring and a single warm amber node, working in bursts |
 | mindfulness | habit | - | focus_timer | a round glial cell under a wide crown of fine violet dendritic processes, reaching over everything nearby |
 | exercise | habit | - | focus_timer | a thick walled glial body with a glowing orange core showing through the membrane, heavy and slow |

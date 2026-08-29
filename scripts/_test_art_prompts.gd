@@ -158,8 +158,15 @@ func _run() -> void:
 		sizes[row.get("kind", "")] = int(row.get("art_px", "0"))
 		gen_sizes[row.get("kind", "")] = int(row.get("gen_px", "0"))
 	var anchors := {}
+	## Zakázané kotvy se nevyjmenovávají tady — poznají se podle `plati_pro = nic`
+	## v bibli. Kdyby byl v testu pevný seznam, přibyla by jednou čtvrtá odpískaná
+	## kotva do bible a test by o ní nevěděl.
+	var forbidden: PackedStringArray = []
 	for row in _bible_table(bible, "anchors"):
-		anchors[row.get("rodina", "")] = row.get("style_character_id", "")
+		var id: String = row.get("style_character_id", "")
+		anchors[row.get("rodina", "")] = id
+		if row.get("plati_pro", "") == "nic":
+			forbidden.append(id)
 	var family_of := {}
 	var kind_of := {}
 	for row in _bible_table(bible, "forms"):
@@ -174,8 +181,9 @@ func _run() -> void:
 
 	_check("bible: povinný suffix se načetl", suffix.length() > 40, "%d znaků" % suffix.length())
 	_check("bible: tabulka velikostí se načetla", sizes.size() >= 5, "%d tříd" % sizes.size())
-	_check("bible: tabulka kotev se načetla", anchors.has("FORBIDDEN") and anchors.size() >= 3,
-		"%d rodin" % anchors.size())
+	_check("bible: tabulka kotev se načetla", anchors.size() >= 2, "%d řádků" % anchors.size())
+	_check("bible: aspoň jedna kotva je označená jako odpískaná", forbidden.size() >= 1,
+		"%d zakázaných" % forbidden.size())
 	_check("bible: aspoň jeden kind je postava", character_kinds.size() > 0,
 		", ".join(PackedStringArray(character_kinds.keys())))
 
@@ -195,11 +203,12 @@ func _run() -> void:
 			want_id != "" and got == want_id, got if got != "" else "CHYBÍ")
 	_check("nějaké postavy vůbec v plánu jsou", char_count > 0, "%d postav" % char_count)
 
-	print("\n-- 2. opuštěná kotva se v plánu neobjevuje --")
-	var forbidden: String = anchors.get("FORBIDDEN", "")
-	_check("bible zná zakázanou kotvu", forbidden.length() == 36, forbidden)
-	_check("celý GENERATION_PLAN.md neobsahuje %s" % forbidden,
-		forbidden != "" and not plan.contains(forbidden))
+	print("\n-- 2. žádná odpískaná kotva se v plánu neobjevuje --")
+	for bad in forbidden:
+		_check("kotva %s má tvar uuid" % bad, bad.length() == 36)
+		## Celý soubor, ne jen prompty: kotva se do volání dostane PARAMETREM, takže
+		## kontrola omezená na text promptu by ji minula přesně tam, kde škodí.
+		_check("celý GENERATION_PLAN.md neobsahuje %s" % bad, not plan.contains(bad))
 
 	print("\n-- 3. každý prompt obsahuje povinný suffix --")
 	for r in records:

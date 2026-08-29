@@ -25,7 +25,14 @@ souborů, které na něj odkazovaly (samé komentáře a odkazy v dokumentaci, �
 `load()`). Vrácení je `git mv` zpátky a jeden sed. Kdybys chtěl jiné jméno pro to
 měření, je to jediná věc, co se musí přejmenovat.
 
-**1b. `CLAUDE.md` a `docs/ART_PIPELINE.md` si o kotvě distrakcí přímo odporují — a to
+**1b. VYRESENO 29. 8. 2026 uzivatelem. `CLAUDE.md` a `docs/ART_PIPELINE.md` si o kotve
+distrakci odporovaly.** Rozhodnuti: jedina kotva pro cely projekt je
+`fa8294b1-…` (Broccoli Knight), obe junk-food kotvy jsou odpiskane. CLAUDE.md upraveno
+tak, aby odpovidalo ART_PIPELINE.md; `<!-- gen:anchors -->` prepnuto, plan pregenerovan;
+rozdil habits vs distractions nese silueta a barevna zona palety (STYLE_BIBLE.md §2a).
+Zaznam nize zustava jako doklad, na cem to stalo.
+
+**Puvodni zapis:** `CLAUDE.md` a `docs/ART_PIPELINE.md` si o kotvě distrakcí přímo odporují — a to
 je rozhodnutí, které musíš udělat ty.** Zadání znělo „style anchory podle rodiny, přesně
 jak je má CLAUDE.md — zkopíruj je odtud", takže jsem se držel CLAUDE.md a plán objednává
 distrakce s `62772f73-…`. Ale ART_PIPELINE.md, kam mě CLAUDE.md samo posílá u artových
@@ -57,6 +64,17 @@ Na čerstvém klonu ta kotva neexistuje vůbec, takže rodina věží se z repa 
 nedá. Plán to obchází tím, že rodinu drží první vygenerovaný habit (`focus_timer`) a
 zbytek se na něj váže — ale znamená to, že fáze 2 se **musí** doopravdy proběhnout dřív
 než fáze 3, ne že se dá přeskočit.
+
+**1c. Kotva sama si odporuje v `view` — drobnost, ale zapisuju ji, ať se na ni nepřijde
+podruhé.** Čtecí dotaz `get_character` z 29. 8. 2026 vrátil u `fa8294b1-…`
+**`view: high top-down`**, zatímco její vlastní popis v témže záznamu říká *„strictly
+front-facing **low top-down** RPG perspective (aligned straight to square grid, zero
+45-degree isometric tilt)"* — a `docs/ART_PIPELINE.md:457`, tedy volání, které shipnutou
+rodinu skutečně vyrobilo, posílá `view:"low top-down"`. Plán drží **`low top-down`**,
+protože to je to, co říká text kotvy i doložené produkční volání; uložený `view` je
+nejspíš překlep při jejím vzniku. V `mode="pro"` je `view` stejně jen měkké vodítko
+a kotva dominuje, takže to prakticky nic nemění — ale kdyby někdy vyšly postavy
+v jiném náklonu než dnešní rejstřík, tohle je první místo, kam se podívat.
 
 **2. Obránci nejsou v tabulce velikostí ze zadání.** Zadání dalo dlaždice 16, běžný
 distraction 32, elite 48–64, habit 64, Focus core 96 — obránce (`data/defenders`, 4 kusy)

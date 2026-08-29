@@ -92,17 +92,20 @@ zdokumentovaný v `docs/REFACTOR_PLAN.md` pod „Verification pattern":
 - Master paleta: `docs/art/palette_48.hex` (48 barev, i jako `docs/art/palette_48.png`).
   Vše z ní čerpá, nic nemá vlastní paletu. `palette_32.hex` existuje, ale měřitelně škodí
   6 z 10 příšer — nepoužívat.
-- Style anchor (`style_character_id`, bere ho jen `mode="pro"`) — podle rodiny, ne jeden
-  univerzální:
-  - obecná **kotva stylu**: `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (Broccoli Knight,
-    obránce z Nutrition Guild)
-  - **junk-food rodina distrakcí** (od 15. 8. 2026, uživatelem odsouhlasená):
-    `62772f73-28d8-442b-add6-f33684f16415` (clickbait varianta A, obří magentové oko).
-    Sesterská reference `0ef2d964-dd67-4132-97b9-39083228db14` (clickbait_b) jde použít
-    jako druhá. **Ne**používat starou `7ba5d829-5a10-4ed9-b038-52978ec20782`
-    (jednooká scrollerka, obvazový styl — jiná, opuštěná rodina).
-  - izometrický terén/terasa se řídí `docs/art/iso_bible.md`, ne `character_id` — jsou to
-    dlaždice, ne postavy.
+- Style anchor (`style_character_id`, bere ho jen `mode="pro"`) — **jediná kotva pro celý
+  projekt**: `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (Broccoli Knight, obránce z Nutrition
+  Guild). Patří do `style_character_id` u **každé** postavy — obránce i distrakce.
+  Ověřeno 29. 8. 2026 přes `get_character`: 64×64, 8 směrů, kompletní, tedy použitelná.
+  - **Odpískané kotvy — v žádném promptu ani parametru:**
+    `62772f73-28d8-442b-add6-f33684f16415` a `0ef2d964-dd67-4132-97b9-39083228db14`
+    (junk-food rodina, zrušena 17. 8. 2026 spolu s celým junk-food směrem),
+    `7ba5d829-5a10-4ed9-b038-52978ec20782` (jednooká scrollerka, obvazový styl).
+  - **Rozdíl mezi rodinami nenese kotva, ale silueta a barevná zóna palety.** Habity kulaté
+    a teplé, distrakce ostré a studeně jedovaté. Proč zrovna silueta: viz
+    `docs/art/STYLE_BIBLE.md` §2a.
+  - Terén, věže a rekvizity kotvu nemají a mít nemůžou — `style_character_id` bere jediný
+    nástroj v katalogu (`create_character`) a ty se jím negenerují. Rodinu jim drží
+    `style_images`.
 
 ## Ověření — po KAŽDÉ změně
 Godot binárka NENÍ v PATH na tomhle stroji. Console build (kvůli stdoutu):

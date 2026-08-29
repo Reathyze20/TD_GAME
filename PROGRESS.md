@@ -902,3 +902,37 @@ Log of tasks completed by run.sh, one entry per run, newest last.
   `_test_taxonomy`, `_test_trod`) stojí na tom, že čtyři levely nahradil jeden placeholder —
   s touhle změnou nesouvisí, roster.py engine vůbec nenačítá.
 
+## 2026-08-29 — B: jedna kotva pro celý projekt (rozhodl uživatel)
+- **Rozhodnutí**: `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (Broccoli Knight) je jediná kotva.
+  `62772f73-…` i `0ef2d964-…` jsou odpískané spolu s celým junk-food směrem, který
+  `docs/ART_PIPELINE.md` §3b zrušil už 17. 8. 2026. **CLAUDE.md se upravilo podle
+  ART_PIPELINE.md, ne naopak** — bylo neaktualizované, ne špatné.
+- **Čtecí dotaz do PixelLabu** (jediné povolené volání, `get_character`, 0 generací).
+  MCP nástroje v session nejsou — použita dokumentovaná náhradní cesta, přímý
+  streamable-HTTP JSON-RPC (`docs/PIXELLAB.md` §1), skript jen ve scratchpadu a s tvrdou
+  pojistkou `ALLOWED = {"get_character"}`. Výsledek: **`size: 64x64px`, 8 směrů,
+  `status: completed`** — kotva je kompletní, tedy použitelná jako `style_character_id`.
+- **Spodní hranice `gen_px` tím platí beze změny.** Job spadne, když je `size` menší než
+  obsah kotvy; obsah je 64, a `gen_px` je u distrakcí i obránců přesně 64, u bosse 128.
+  Kdyby kdokoli `gen_px` snížil na cílových 32 px, spadlo by každé jedno volání hned na
+  startu. Zapsáno do STYLE_BIBLE.md §6 i jako kontrola v testu.
+- **Nový nález z téhož dotazu**: kotva má uložený `view: high top-down`, ale její vlastní
+  popis i produkční volání v `ART_PIPELINE.md:457` říkají `low top-down`. Plán drží
+  `low top-down`; rozpor zapsán do BLOCKED.md.
+- **STYLE_BIBLE.md §2a** — rozdíl habits vs. distractions nese **silueta a barevná zóna
+  palety**, ne jiná kotva. Habity kulaté, uzavřené, teplé; distrakce ostré, roztřepené,
+  studeně jedovaté. Zdůvodnění není estetické: `docs/core/14` říká *„Enemies never emit
+  light. They are the dark arriving"* — distrakci hráč nikdy neuvidí nasvícenou, jen
+  v okamžiku vstupu do **svého** světla, na kraji radiálního dopadu, kde je jas stlačený
+  a sytost sražená. K tomu Tolerance vysává barvu (`shaders/flatten.gdshader`) právě když
+  je hráč v úzkých. Systém stojící na odstínu tedy selže přesně v nejhorší okamžik;
+  v brainfogu je silueta jediná spolehlivě čitelná informace.
+- **Test zobecněn**: zakázané kotvy se už nevyjmenovávají v testu, poznají se podle
+  `plati_pro = nic` v bibli — jinak by čtvrtá odpískaná kotva přibyla do bible a test by
+  o ní nevěděl. Kontroluje se **celý** vygenerovaný soubor, ne jen prompty: kotva se do
+  volání dostane parametrem.
+- Plán přegenerován, všech 17 postav (13 distrakcí + 4 obránci) veze `general`.
+- verify.sh: `_test_art_prompts`, `roster regex`, `roster`, `art prompts` PASS.
+  16 pass / 9 fail — všech 9 pádů jsou level-dependentní testy po migraci levelů, s touhle
+  změnou nesouvisí.
+

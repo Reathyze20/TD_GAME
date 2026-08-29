@@ -552,7 +552,7 @@ a broccoli knight in riveted armour, florets first, a wall that soaks hits and p
 | vyzvednutí | `get_character(character_id)` |
 | velikost na disku | 32 art px (STYLE_BIBLE.md §5, kind `distraction`) |
 | velikost objednávky | 64 px — a pak **půlit přesně jednou** na 32 |
-| kotva | `62772f73-28d8-442b-add6-f33684f16415` (junk_food) |
+| kotva | `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (general) |
 | závislost | žádná, tohle je kořen rodiny |
 | dávka | samostatné volání |
 | cena | 20 generací (tier `pro`) |
@@ -569,7 +569,7 @@ a broccoli knight in riveted armour, florets first, a wall that soaks hits and p
   "outline": "single color black outline",
   "seed": 88817,
   "size": 64,
-  "style_character_id": "62772f73-28d8-442b-add6-f33684f16415",
+  "style_character_id": "fa8294b1-c3ec-4ae5-92fb-39570ced0f65",
   "view": "low top-down"
 }
 ```
@@ -834,7 +834,7 @@ the same cell escalated, two more bodies in the nest, the teal membrane brighter
 | vyzvednutí | `get_character(character_id)` |
 | velikost na disku | 32 art px (STYLE_BIBLE.md §5, kind `distraction`) |
 | velikost objednávky | 64 px — a pak **půlit přesně jednou** na 32 |
-| kotva | `62772f73-28d8-442b-add6-f33684f16415` (junk_food) |
+| kotva | `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (general) |
 | závislost | style_images = hotové PNG entity clickbait (dědí styl i rozměr) |
 | dávka | samostatné volání |
 | cena | 20 generací (tier `pro`) |
@@ -851,7 +851,7 @@ the same cell escalated, two more bodies in the nest, the teal membrane brighter
   "outline": "single color black outline",
   "seed": 32329,
   "size": 64,
-  "style_character_id": "62772f73-28d8-442b-add6-f33684f16415",
+  "style_character_id": "fa8294b1-c3ec-4ae5-92fb-39570ced0f65",
   "view": "low top-down"
 }
 ```
@@ -871,7 +871,7 @@ a heavy orange sac with hooked barbs and a slick membrane, low to the ground and
 | vyzvednutí | `get_character(character_id)` |
 | velikost na disku | 32 art px (STYLE_BIBLE.md §5, kind `distraction`) |
 | velikost objednávky | 64 px — a pak **půlit přesně jednou** na 32 |
-| kotva | `62772f73-28d8-442b-add6-f33684f16415` (junk_food) |
+| kotva | `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (general) |
 | závislost | style_images = hotové PNG entity clickbait (dědí styl i rozměr) |
 | dávka | samostatné volání |
 | cena | 20 generací (tier `pro`) |
@@ -888,7 +888,7 @@ a heavy orange sac with hooked barbs and a slick membrane, low to the ground and
   "outline": "single color black outline",
   "seed": 10849,
   "size": 64,
-  "style_character_id": "62772f73-28d8-442b-add6-f33684f16415",
+  "style_character_id": "fa8294b1-c3ec-4ae5-92fb-39570ced0f65",
   "view": "low top-down"
 }
 ```
@@ -982,7 +982,7 @@ a chilli berserker with two burning knives and no patience, thin and fast, every
 | vyzvednutí | `get_character(character_id)` |
 | velikost na disku | 32 art px (STYLE_BIBLE.md §5, kind `distraction`) |
 | velikost objednávky | 64 px — a pak **půlit přesně jednou** na 32 |
-| kotva | `62772f73-28d8-442b-add6-f33684f16415` (junk_food) |
+| kotva | `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (general) |
 | závislost | style_images = hotové PNG entity clickbait (dědí styl i rozměr) |
 | dávka | samostatné volání |
 | cena | 20 generací (tier `pro`) |
@@ -999,7 +999,7 @@ a chilli berserker with two burning knives and no patience, thin and fast, every
   "outline": "single color black outline",
   "seed": 47378,
   "size": 64,
-  "style_character_id": "62772f73-28d8-442b-add6-f33684f16415",
+  "style_character_id": "fa8294b1-c3ec-4ae5-92fb-39570ced0f65",
   "view": "low top-down"
 }
 ```
@@ -1019,7 +1019,7 @@ a bleached cyan mimic blob wearing a half finished copy of another creature, edg
 | vyzvednutí | `get_character(character_id)` |
 | velikost na disku | 32 art px (STYLE_BIBLE.md §5, kind `distraction`) |
 | velikost objednávky | 64 px — a pak **půlit přesně jednou** na 32 |
-| kotva | `62772f73-28d8-442b-add6-f33684f16415` (junk_food) |
+| kotva | `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (general) |
 | závislost | style_images = hotové PNG entity clickbait (dědí styl i rozměr) |
 | dávka | samostatné volání |
 | cena | 20 generací (tier `pro`) |
@@ -1036,7 +1036,7 @@ a bleached cyan mimic blob wearing a half finished copy of another creature, edg
   "outline": "single color black outline",
   "seed": 85912,
   "size": 64,
-  "style_character_id": "62772f73-28d8-442b-add6-f33684f16415",
+  "style_character_id": "fa8294b1-c3ec-4ae5-92fb-39570ced0f65",
   "view": "low top-down"
 }
 ```
@@ -1056,7 +1056,7 @@ a long green ciliated ribbon that flows head first, segmented, with no visible e
 | vyzvednutí | `get_character(character_id)` |
 | velikost na disku | 32 art px (STYLE_BIBLE.md §5, kind `distraction`) |
 | velikost objednávky | 64 px — a pak **půlit přesně jednou** na 32 |
-| kotva | `62772f73-28d8-442b-add6-f33684f16415` (junk_food) |
+| kotva | `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (general) |
 | závislost | style_images = hotové PNG entity clickbait (dědí styl i rozměr) |
 | dávka | samostatné volání |
 | cena | 20 generací (tier `pro`) |
@@ -1073,7 +1073,7 @@ a long green ciliated ribbon that flows head first, segmented, with no visible e
   "outline": "single color black outline",
   "seed": 24123,
   "size": 64,
-  "style_character_id": "62772f73-28d8-442b-add6-f33684f16415",
+  "style_character_id": "fa8294b1-c3ec-4ae5-92fb-39570ced0f65",
   "view": "low top-down"
 }
 ```
@@ -1128,7 +1128,7 @@ the same cell escalated, the wall thicker and the orange core burning brighter t
 | vyzvednutí | `get_character(character_id)` |
 | velikost na disku | 32 art px (STYLE_BIBLE.md §5, kind `distraction`) |
 | velikost objednávky | 64 px — a pak **půlit přesně jednou** na 32 |
-| kotva | `62772f73-28d8-442b-add6-f33684f16415` (junk_food) |
+| kotva | `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (general) |
 | závislost | style_images = hotové PNG entity clickbait (dědí styl i rozměr) |
 | dávka | samostatné volání |
 | cena | 20 generací (tier `pro`) |
@@ -1145,7 +1145,7 @@ the same cell escalated, the wall thicker and the orange core burning brighter t
   "outline": "single color black outline",
   "seed": 25904,
   "size": 64,
-  "style_character_id": "62772f73-28d8-442b-add6-f33684f16415",
+  "style_character_id": "fa8294b1-c3ec-4ae5-92fb-39570ced0f65",
   "view": "low top-down"
 }
 ```
@@ -1202,7 +1202,7 @@ an ivory garlic bulb sage with a root staff, its pungent air slows everything sh
 | vyzvednutí | `get_character(character_id)` |
 | velikost na disku | 32 art px (STYLE_BIBLE.md §5, kind `distraction`) |
 | velikost objednávky | 64 px — a pak **půlit přesně jednou** na 32 |
-| kotva | `62772f73-28d8-442b-add6-f33684f16415` (junk_food) |
+| kotva | `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (general) |
 | závislost | style_images = hotové PNG entity clickbait (dědí styl i rozměr) |
 | dávka | samostatné volání |
 | cena | 20 generací (tier `pro`) |
@@ -1219,7 +1219,7 @@ an ivory garlic bulb sage with a root staff, its pungent air slows everything sh
   "outline": "single color black outline",
   "seed": 69814,
   "size": 64,
-  "style_character_id": "62772f73-28d8-442b-add6-f33684f16415",
+  "style_character_id": "fa8294b1-c3ec-4ae5-92fb-39570ced0f65",
   "view": "low top-down"
 }
 ```
@@ -1239,7 +1239,7 @@ a knot of six small green spores sharing one membrane, all of them mouths, none 
 | vyzvednutí | `get_character(character_id)` |
 | velikost na disku | 32 art px (STYLE_BIBLE.md §5, kind `distraction`) |
 | velikost objednávky | 64 px — a pak **půlit přesně jednou** na 32 |
-| kotva | `62772f73-28d8-442b-add6-f33684f16415` (junk_food) |
+| kotva | `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (general) |
 | závislost | style_images = hotové PNG entity clickbait (dědí styl i rozměr) |
 | dávka | samostatné volání |
 | cena | 20 generací (tier `pro`) |
@@ -1256,7 +1256,7 @@ a knot of six small green spores sharing one membrane, all of them mouths, none 
   "outline": "single color black outline",
   "seed": 61556,
   "size": 64,
-  "style_character_id": "62772f73-28d8-442b-add6-f33684f16415",
+  "style_character_id": "fa8294b1-c3ec-4ae5-92fb-39570ced0f65",
   "view": "low top-down"
 }
 ```
@@ -1276,7 +1276,7 @@ a crimson gland with three swollen lobes and one bright wet core, pulsing on a s
 | vyzvednutí | `get_character(character_id)` |
 | velikost na disku | 32 art px (STYLE_BIBLE.md §5, kind `distraction`) |
 | velikost objednávky | 64 px — a pak **půlit přesně jednou** na 32 |
-| kotva | `62772f73-28d8-442b-add6-f33684f16415` (junk_food) |
+| kotva | `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (general) |
 | závislost | style_images = hotové PNG entity clickbait (dědí styl i rozměr) |
 | dávka | samostatné volání |
 | cena | 20 generací (tier `pro`) |
@@ -1293,7 +1293,7 @@ a crimson gland with three swollen lobes and one bright wet core, pulsing on a s
   "outline": "single color black outline",
   "seed": 64549,
   "size": 64,
-  "style_character_id": "62772f73-28d8-442b-add6-f33684f16415",
+  "style_character_id": "fa8294b1-c3ec-4ae5-92fb-39570ced0f65",
   "view": "low top-down"
 }
 ```
@@ -1348,7 +1348,7 @@ the same cell escalated, the dendritic crown denser and wider, the violet deeper
 | vyzvednutí | `get_character(character_id)` |
 | velikost na disku | 32 art px (STYLE_BIBLE.md §5, kind `distraction`) |
 | velikost objednávky | 64 px — a pak **půlit přesně jednou** na 32 |
-| kotva | `62772f73-28d8-442b-add6-f33684f16415` (junk_food) |
+| kotva | `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (general) |
 | závislost | style_images = hotové PNG entity clickbait (dědí styl i rozměr) |
 | dávka | samostatné volání |
 | cena | 20 generací (tier `pro`) |
@@ -1365,7 +1365,7 @@ the same cell escalated, the dendritic crown denser and wider, the violet deeper
   "outline": "single color black outline",
   "seed": 15044,
   "size": 64,
-  "style_character_id": "62772f73-28d8-442b-add6-f33684f16415",
+  "style_character_id": "fa8294b1-c3ec-4ae5-92fb-39570ced0f65",
   "view": "low top-down"
 }
 ```
@@ -1385,7 +1385,7 @@ the smallest and fastest spore of the swarm, a hard red shell and one twitching 
 | vyzvednutí | `get_character(character_id)` |
 | velikost na disku | 32 art px (STYLE_BIBLE.md §5, kind `distraction`) |
 | velikost objednávky | 64 px — a pak **půlit přesně jednou** na 32 |
-| kotva | `62772f73-28d8-442b-add6-f33684f16415` (junk_food) |
+| kotva | `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (general) |
 | závislost | style_images = hotové PNG entity clickbait (dědí styl i rozměr) |
 | dávka | samostatné volání |
 | cena | 20 generací (tier `pro`) |
@@ -1402,7 +1402,7 @@ the smallest and fastest spore of the swarm, a hard red shell and one twitching 
   "outline": "single color black outline",
   "seed": 2923,
   "size": 64,
-  "style_character_id": "62772f73-28d8-442b-add6-f33684f16415",
+  "style_character_id": "fa8294b1-c3ec-4ae5-92fb-39570ced0f65",
   "view": "low top-down"
 }
 ```
@@ -1457,7 +1457,7 @@ the same cell escalated, more golden fibres, fraying further down the column; or
 | vyzvednutí | `get_character(character_id)` |
 | velikost na disku | 64 art px (STYLE_BIBLE.md §5, kind `distraction_elite`) |
 | velikost objednávky | 128 px — a pak **půlit přesně jednou** na 64 |
-| kotva | `62772f73-28d8-442b-add6-f33684f16415` (junk_food) |
+| kotva | `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (general) |
 | závislost | style_images = hotové PNG entity clickbait (dědí styl i rozměr) |
 | dávka | samostatné volání |
 | cena | 40 generací (tier `pro_velky`) |
@@ -1474,7 +1474,7 @@ the same cell escalated, more golden fibres, fraying further down the column; or
   "outline": "single color black outline",
   "seed": 42287,
   "size": 128,
-  "style_character_id": "62772f73-28d8-442b-add6-f33684f16415",
+  "style_character_id": "fa8294b1-c3ec-4ae5-92fb-39570ced0f65",
   "view": "low top-down"
 }
 ```
