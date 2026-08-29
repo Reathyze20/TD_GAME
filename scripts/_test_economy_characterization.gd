@@ -7,22 +7,50 @@ extends Node
 ## drifting. Deliberately does NOT judge whether the numbers are good — only that they
 ## stay what they are today.
 ##
-## Two things this harness controls for, because both would otherwise make the exact
-## numbers below depend on whoever's machine runs it rather than on the code:
+## Three things this harness controls for, because all would otherwise make the exact
+## numbers below depend on whoever's machine runs it (or corrupt real player data)
+## rather than testing the code:
 ##  * MetaProgression.current_save is swapped for a blank SaveGame for the duration of
-##    the run (never written to disk) — a real save with Growth Tree ranks would add
-##    perks (extra bandwidth, tolerance-decay rate, dopamine bonus cards) on top of the
-##    formulas under test.
+##    the run — a real save with Growth Tree ranks would add perks (extra bandwidth,
+##    tolerance-decay rate, dopamine bonus cards) on top of the formulas under test.
+##  * That swap alone is NOT enough to keep the real save file untouched on disk: this
+##    harness calls game.do_quick_hit() and spawns/kills distractions, and both paths
+##    can trigger a FIRST-TIME hint (Hints.show_hint -> MetaProgression.mark_hint_seen),
+##    which writes the CURRENT (blank, swapped-in) current_save straight to
+##    user://savegame.tres via SaveGame.write_savegame() — restoring the in-memory
+##    reference afterward does nothing for what already hit disk. Found the hard way:
+##    this silently overwrote the real save with a near-empty one every time this
+##    harness ran. Fixed by backing up the real file's raw bytes before the swap and
+##    restoring them unconditionally afterward, including on watchdog timeout — the
+##    same lesson _test_save_round_trip.gd (S8) documents at more length.
 ##  * Most reward-formula checks fire SignalBus.distraction_defeated directly with a
 ##    chosen base_reward, instead of spawning a real DistractionData. That tests the
 ##    ECONOMY FORMULA, not any one distraction's tuned balance number — a content
 ##    rebalance should not have to touch this file. One real spawn+kill at the end
 ##    confirms the wiring itself still connects a kill to a payout.
 
+const SAVE_PATH := "user://savegame.tres"
+
 var completed := false
 var fails := 0
+var _save_backup: PackedByteArray
+var _had_save_file := false
+
+func _restore_disk_save() -> void:
+	if _had_save_file:
+		var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+		f.store_buffer(_save_backup)
+		f.close()
+	elif FileAccess.file_exists(SAVE_PATH):
+		DirAccess.remove_absolute(SAVE_PATH)
 
 func _ready() -> void:
+	_had_save_file = FileAccess.file_exists(SAVE_PATH)
+	if _had_save_file:
+		var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
+		_save_backup = f.get_buffer(f.get_length())
+		f.close()
+
 	var wd := Timer.new()
 	wd.wait_time = 60.0
 	wd.one_shot = true
@@ -30,6 +58,7 @@ func _ready() -> void:
 	wd.timeout.connect(func():
 		if not completed:
 			print("FAILED: watchdog fired")
+			_restore_disk_save()
 			get_tree().quit(1))
 	wd.start()
 	call_deferred("_run")
@@ -306,6 +335,10 @@ func _run() -> void:
 		GameState.dopamine > before_real, "%d -> %d" % [before_real, GameState.dopamine])
 
 	MetaProgression.current_save = real_save
+	_restore_disk_save()
+	_check("the real savegame.tres (if one existed) was restored to disk afterward",
+		_had_save_file == FileAccess.file_exists(SAVE_PATH))
+
 	completed = true
 	print("\n%s (%d failures)" % ["PASSED" if fails == 0 else "FAILED", fails])
 	get_tree().quit(1 if fails > 0 else 0)
