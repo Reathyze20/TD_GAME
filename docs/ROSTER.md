@@ -12,13 +12,13 @@
 | `autoplay` | Autoplay | 12 | 110.0 | 0 | 0 | 2 | 1 | — | **nikde** |
 | `clickbait` | Clickbait | 70 | 55.0 | 4 | 2 | 9 | 3 | golem | **nikde** |
 | `comparison` | Comparison | 48 | 64.0 | 0 | 0 | 7 | 3 | — | **nikde** |
-| `doomscroll` | Doomscroll | 40 | 68.0 | 4 | 0 | 5 | 2 | — | L1(w1) |
+| `doomscroll` | Doomscroll | 40 | 68.0 | 4 | 0 | 5 | 2 | — | L1(w1) L98(w3) |
 | `energy_drink` | Energy Drink | 30 | 105.0 | 1 | 0 | 6 | 2 | energiser, overdrive | **nikde** |
 | `fomo` | FOMO | 22 | 168.0 | 0 | 0 | 11 | 0 | — | **nikde** |
 | `group_chat` | Group Chat | 45 | 55.0 | 2 | 1 | 8 | 3 | disruptor | **nikde** |
 | `jackpot` | Jackpot | 55 | 62.0 | 3 | 3 | 14 | 4 | — | **nikde** |
 | `just_one_more` | Just One More | 34 | 72.0 | 0 | 0 | 2 | 2 | — | **nikde** |
-| `notification` | Notification | 5 | 140.0 | 0 | 0 | 1 | 1 | — | **nikde** |
+| `notification` | Notification | 5 | 140.0 | 0 | 0 | 1 | 1 | — | L98(w1) |
 | `phantom_buzz` | Phantom Buzz | 8 | 125.0 | 2 | 0 | 3 | 1 | letec | **nikde** |
 | `social_media_binge` | Social Media Binge | 900 | 50.0 | 6 | 4 | 40 | 15 | BOSS | **nikde** |
 

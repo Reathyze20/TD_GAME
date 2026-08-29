@@ -297,7 +297,11 @@ func _test_airplane_mode(game: Game) -> void:
 		is_instance_valid(a) and is_instance_valid(b))
 	if is_instance_valid(a) and is_instance_valid(b):
 		var d: float = a.global_position.distance_to(game.objective_pos)
-		_check("the far one is well outside any targeted radius", d > 400.0, "(%.0f px)" % d)
+		# 200.0, not the original 400.0: T5's topdown switch halved Data.GRID.tile
+		# (32 -> 16), so a threshold tied to screen distance halves with it. User-approved
+		# 2026-08-29. Habit/tower attack ranges themselves are NOT rescaled by this — a
+		# separate, larger, not-yet-done part of the T5 migration (see BLOCKED.md).
+		_check("the far one is well outside any targeted radius", d > 200.0, "(%.0f px)" % d)
 		_check("both are frozen, wherever they stand",
 			is_zero_approx(a.status_manager.move_scale())
 			and is_zero_approx(b.status_manager.move_scale()),

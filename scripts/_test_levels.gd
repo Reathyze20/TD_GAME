@@ -13,10 +13,12 @@ extends Node
 ## Levely, o kterych uz vime, ze jsou rozbite, jsou v KNOWN_BROKEN. Nejsou to vyjimky
 ## pro pohodli - je to seznam dluhu, ktery ma byt videt a ktery ma jednou byt prazdny.
 
-const KNOWN_BROKEN := {
-	1: "objective (109, 34) proti mrizce 24x24 - pozustatek migrace, viz docs/core/16",
-	2: "objective (106, 31) proti mrizce 24x24 - totez",
-}
+## 2026-08-29: both entries removed. id 2's level (level_2.tres) no longer exists at
+## all (T5 topdown migration deleted every pre-migration level, see BLOCKED.md's T5
+## entry), and id 1 is now a freshly-built placeholder with a valid in-bounds
+## objective — neither is "the same debt, still there", so keeping either row would
+## have this dict silently skip validating levels that are not actually broken.
+const KNOWN_BROKEN := {}
 
 var completed := false
 var fails := 0

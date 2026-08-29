@@ -40,15 +40,24 @@ const ACCENT      := Color("9bd0ff")   ## Neutral highlight, headings.
 # A real scale rather than ad-hoc sizes. Six steps is enough for a game HUD and stops
 # the "is this 15 or 16px?" drift that makes a UI feel unconsidered.
 
-const FS_DISPLAY := 46
-const FS_TITLE   := 30
-const FS_HEAD    := 20
-const FS_BODY    := 15
-const FS_SMALL   := 13
-const FS_MICRO   := 11
+## T5 topdown migration (2026-08-29): project.godot's canvas shrank 1920x1080 -> 480x270
+## (exactly /4) for the square-projection pixel-art rescale — GridProjection.gd's own
+## header comment and BLOCKED.md's T5 entry cover why. These six sizes were tuned for the
+## old canvas and are divided by the same /4 here so nothing overflows its container at
+## the new resolution; not a fresh design pass. At native pixel sizes this small a
+## generic vector fallback font will likely look rough once nearest-filter-upscaled 4x —
+## a real, flagged follow-up (candidates: a dedicated small pixel font, or splitting HUD
+## text onto a viewport that isn't subject to the low-res rescale), not something to
+## silently call finished.
+const FS_DISPLAY := 12
+const FS_TITLE   := 8
+const FS_HEAD    := 5
+const FS_BODY    := 4
+const FS_SMALL   := 3
+const FS_MICRO   := 3
 
-const RADIUS     := 8
-const RADIUS_SM  := 5
+const RADIUS     := 2
+const RADIUS_SM  := 1
 
 # ---------------------------------------------------------------- style boxes
 

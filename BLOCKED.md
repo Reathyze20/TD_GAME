@@ -3,6 +3,56 @@
 Design decisions found ambiguous or contradictory during autonomous runs.
 Not fixed by guessing — recorded here with options, then moved past.
 
+## _test_mapeditor (post-T5) — tools/map_editor.gd is not MODE_SQUARE-aware, and that file is addons/td_level_designer-adjacent
+
+After the T5 topdown switch (GridProjection.active_mode default now MODE_SQUARE,
+Data.GRID rebuilt at tile=16 instead of tile=32/tile_w=64/tile_h=32 — see this file's
+T5 entry and PROGRESS.md), `_test_mapeditor.gd` has one remaining failure: "vsech 64
+bloku sedi na 0.01 px" — worst observed deviation 696px between where MapEditor paints
+a block and where the live game reads that same block's center.
+
+**Root cause, traced but not fixed**: `tools/map_editor.gd`'s `_layer_origin(span)`
+(line ~354) forwards straight to `GridProjection.layer_origin(span)` unconditionally.
+`layer_origin()` is explicitly documented as ISO-ONLY in its own header comment
+("Do not call this while active_mode is MODE_SQUARE... there is nothing for a
+MODE_SQUARE version of this function to do") — it applies an isometric-diamond
+correction offset derived from `tile_w`/`tile_h`, keys `Data.GRID` no longer even has
+under the new square grid, so `g.get("tile_w", 64)` silently falls back to the OLD
+default (64) instead of erroring. `tools/map_editor.gd` also has its own duplicate
+inline iso `cell_center` formula at line ~1802-1803 (`(cx-cy)*tile_w*0.5, ...`) used
+for at least one code path. Both need a MODE_SQUARE branch (or to call through
+`GridProjection.cell_center()`, which already IS mode-aware, instead of hand-rolling
+the iso formula) before the block-layer geometry will agree with the live grid again.
+
+**Why this is not just fixed**: CLAUDE.md's autonomous-run rule stops on anything that
+"dotýká se addons/td_level_designer/" — `tools/map_editor.gd` is the exact class
+`addons/td_level_designer/dock.gd` wraps (its own header comment says so; S7, this
+same session, stopped on the same file for the same reason). Two of the twelve other
+checks in this same test file ("vsechny malovaci vrstvy jsou izometricke" — every
+paint layer must be TileSet.TILE_SHAPE_ISOMETRIC/DIAMOND_DOWN) currently PASS only
+because MapEditor still unconditionally builds isometric TileMapLayers regardless of
+`GridProjection.active_mode` — meaning a real MODE_SQUARE fix would need to decide
+whether MapEditor should paint square TileMapLayers too, which is its own design
+question, not just a coordinate-math bug.
+
+**What's already fixed, so this is the only surviving map/level casualty of the T5
+switch**: level content itself (both placeholder levels, id 1 and id 98) validates
+clean through `_test_levels`, `_test_maze_validity`, and MapEditor's own bake-check
+analysis (visible in this test's own log) — the block MISALIGNMENT is purely an
+editor-preview-vs-live-game rendering bug, not a broken level.
+
+## _test_phase7 — RESOLVED. Hardcoded 400px "well outside any targeted radius" check was a pre-migration scale artifact
+
+Was: `_check("the far one is well outside any targeted radius", d > 400.0, ...)`
+(line 300), calibrated against the old 1920x1080/tile=32 canvas — 400px on the new
+480x270/tile=16 board (T5) is 83% of the entire canvas width, not "clearly out of
+range" the way it was before. Not a real regression, just a stale threshold. User
+approved lowering it to 200.0 (proportional to the tile-size halving) 2026-08-29,
+with a comment noting habit/tower attack ranges themselves are NOT rescaled by this —
+a separate, larger, not-yet-done part of the T5 migration (those ranges are still
+authored at their old absolute-pixel values, e.g. mindfulness's 260px cited in
+_test_trod.gd's own comment — now more than half the new board's width).
+
 ## Generátor PixelLab promptů (zadáno přímo uživatelem) — pět rozhodnutí, která zadání nepokrývalo
 
 Úkol zněl „postav generátor PixelLab promptů“ a byl dost přesný na to, aby šel udělat

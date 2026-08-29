@@ -386,7 +386,7 @@ func _build_background_layer() -> void:
 	plate.name = "BackgroundPlate"
 	plate.color = Color("0d1017")
 	plate.position = Vector2.ZERO
-	plate.size = Vector2(1920, 1080)
+	plate.size = Vector2(480, 270)
 	plate.z_index = Z_BACKGROUND
 	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(plate)
@@ -495,6 +495,12 @@ func _build_wall_segments() -> void:
 		if is_instance_valid(n):
 			n.queue_free()
 	_wall_nodes.clear()
+	# MODE_SQUARE has no terrace art to fall back to: TERRACE_BLOCK_PATH/CAP are
+	# diamond-shaped iso sprites (docs/art/iso_bible.md §5's building kit) and do not
+	# fit a square cell. See _build_square_terrain()'s own doc comment.
+	if GridProjection.active_mode == GridProjection.MODE_SQUARE:
+		_build_square_terrain()
+		return
 	# Drawn terrace block (PixelLab building kit) if installed, else the old
 	# code-drawn parallelograms. See _spawn_terrace_block for why the drawn kit is
 	# allowed to supply geometry here when docs/art/iso_bible.md §5 otherwise forbids it.
@@ -650,6 +656,50 @@ func _build_terrace_blocks() -> void:
 		spr.position = Data.cell_center(c)
 		entities.add_child(spr)
 		_wall_nodes.append(spr)
+
+
+## Flat top-down fill for MODE_SQUARE — a first-pass placeholder standing in for a real
+## art pass, per the visual-judgment call BLOCKED.md's T5 entry stops on. Colors are not
+## invented here: GROUND/TOP are the exact RGB values tools/flat_terrain.py already
+## paints onto the live iso terrain's own TOP FACE (docs/art/iso_bible.md §2b) — a
+## top-down view only ever shows a top face, so reusing them keeps continuity with art
+## already shipped instead of guessing fresh. Same colors scripts/_shot_topdown_mockup.gd
+## already put in front of the user for this exact decision.
+const SQUARE_GROUND_COLOR := Color8(20, 17, 41)
+const SQUARE_TOP_COLOR := Color8(184, 165, 135)
+
+class SquareTerrain extends Node2D:
+	var solid: Dictionary = {}
+	var ox := 0
+	var oy := 0
+	var tile := 16
+	var cols := 0
+	var rows := 0
+
+	func _draw() -> void:
+		draw_rect(Rect2(ox, oy, cols * tile, rows * tile), Game.SQUARE_GROUND_COLOR)
+		for c: Vector2i in solid.keys():
+			draw_rect(Rect2(ox + c.x * tile, oy + c.y * tile, tile, tile), Game.SQUARE_TOP_COLOR)
+
+
+func _build_square_terrain() -> void:
+	var g = Data.GRID
+	var solid := {}
+	for c: Vector2i in level.high_ground:
+		if c != level.objective:
+			solid[c] = true
+
+	var terrain := SquareTerrain.new()
+	terrain.name = "SquareTerrain"
+	terrain.z_index = Z_TERRAIN
+	terrain.solid = solid
+	terrain.ox = int(g.origin_x)
+	terrain.oy = int(g.origin_y)
+	terrain.tile = int(g.tile)
+	terrain.cols = int(g.cols)
+	terrain.rows = int(g.rows)
+	add_child(terrain)
+	_wall_nodes.append(terrain)
 
 
 func _spawn_wall_segment(world_pos: Vector2, p1: Vector2, p2: Vector2, tex: Texture2D, shade: float) -> void:
@@ -1737,7 +1787,7 @@ func _build_fog_layer() -> void:
 	# Half-res mask: light edges are soft by nature, and the fog shader samples linearly.
 	_light_viewport = SubViewport.new()
 	_light_viewport.name = "FogLightMask"
-	_light_viewport.size = Vector2i(960, 540)
+	_light_viewport.size = Vector2i(240, 135)
 	_light_viewport.disable_3d = true
 	_light_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	_light_viewport.render_target_clear_mode = SubViewport.CLEAR_MODE_ALWAYS
@@ -1747,7 +1797,7 @@ func _build_fog_layer() -> void:
 	# not black, and any non-black floor would read as "everything slightly lit".
 	var floor_rect := ColorRect.new()
 	floor_rect.color = Color.BLACK
-	floor_rect.size = Vector2(960, 540)
+	floor_rect.size = Vector2(240, 135)
 	_light_viewport.add_child(floor_rect)
 
 	_light_canvas = LightMaskCanvas.new()
@@ -1767,8 +1817,8 @@ func _build_fog_layer() -> void:
 	_fog_rect.material = _fog_mat
 	# Oversized by the maximum screen-shake amplitude, so a lurching frame never shows a
 	# clean strip of world at the edge of the darkness.
-	_fog_rect.position = Vector2(-24, -24)
-	_fog_rect.size = Vector2(1920 + 48, 1080 + 48)
+	_fog_rect.position = Vector2(-6, -6)
+	_fog_rect.size = Vector2(480 + 12, 270 + 12)
 	_fog_rect.z_index = Z_FOG
 	_fog_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# Explicitly opted OUT of the cast-shadow Light2D system (see the block comment above
@@ -3181,10 +3231,10 @@ func _open_panel(cell: Vector2i, bs: BuildSpot) -> void:
 
 	var panel := UI.panel(UI.BORDER_HI, 1)
 	panel.position = Vector2(
-		clampf(cell_center(cell).x - 100.0, 10.0, 1920.0 - 270.0),
-		clampf(cell_center(cell).y - g.tile * 2.2, g.tile * 0.5, 1080.0 - 320.0)
+		clampf(cell_center(cell).x - 25.0, 3.0, 480.0 - 68.0),
+		clampf(cell_center(cell).y - g.tile * 2.2, g.tile * 0.5, 270.0 - 80.0)
 	)
-	panel.custom_minimum_size = Vector2(240, 0)
+	panel.custom_minimum_size = Vector2(60, 0)
 	_hud_root.add_child(panel)
 	_active_panel = panel
 	_panel_cell = cell
@@ -3786,8 +3836,8 @@ func _build_wave_preview() -> void:
 	_wave_preview_panel = UI.panel(UI.BORDER, 1)
 	# Right edge, just under the top bar — clear of the tower panel's clamp range and
 	# the Start Wave corner.
-	_wave_preview_panel.position = Vector2(1920.0 - 286.0, float(_HUD_TOP_H) + 10.0)
-	_wave_preview_panel.custom_minimum_size = Vector2(266, 0)
+	_wave_preview_panel.position = Vector2(480.0 - 72.0, float(_HUD_TOP_H) + 3.0)
+	_wave_preview_panel.custom_minimum_size = Vector2(67, 0)
 	_hud_root.add_child(_wave_preview_panel)
 	_wave_preview_box = VBoxContainer.new()
 	_wave_preview_box.add_theme_constant_override("separation", 4)
@@ -4345,7 +4395,7 @@ func do_quick_hit() -> void:
 	else:
 		_flash("+%d Cheap Dopamine… baseline Tolerance +%d" % [payout, int(QUICK_HIT_FLOOR_GAIN)],
 			Color("ffcc00"))
-	_pop_text(Vector2(1920 - 150, 1080 - 100), "+%d Cheap Dopamine" % payout, Color("ffcc00"))
+	_pop_text(Vector2(480 - 38, 270 - 25), "+%d Cheap Dopamine" % payout, Color("ffcc00"))
 
 ## The shrinking number on the button is the lesson made visible — the player watches
 ## their own cheap source pay less every time they reach for it.
@@ -5718,8 +5768,8 @@ func _update_glitch(delta: float) -> void:
 
 # ---------------------------------------------------------------- HUD (built in code)
 
-const _HUD_TOP_H := 68
-const _HUD_BOTTOM_H := 96
+const _HUD_TOP_H := 17
+const _HUD_BOTTOM_H := 24
 
 # ---------------------------------------------------------------- speed & pause
 #
@@ -5839,15 +5889,15 @@ func _build_hud() -> void:
 		var badge := UI.label(
 			"DESIGNER MODE — F1 +500 Dopamine · F2 +10 Insight · F3 turbo 5× · F4 clear wave · F5/F6 Tolerance -/+ · F7 sinking walls · telemetry off",
 			UI.FS_SMALL, Color("ffb454"))
-		badge.position = Vector2(24, _HUD_TOP_H + 4)
+		badge.position = Vector2(6, _HUD_TOP_H + 1)
 		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_hud_root.add_child(badge)
 
 	# Smaller than it was: a full-width 46px banner across the middle of the field covered
 	# the very thing the message is telling you to look at.
 	_message_label = UI.label("", UI.FS_TITLE, UI.TEXT, HORIZONTAL_ALIGNMENT_CENTER)
-	_message_label.position = Vector2(0, 150)
-	_message_label.size = Vector2(1920, 80)
+	_message_label.position = Vector2(0, 38)
+	_message_label.size = Vector2(480, 20)
 	_message_label.modulate.a = 0.0
 	_hud_root.add_child(_message_label)
 
@@ -5882,21 +5932,21 @@ func _build_top_bar() -> void:
 	bar.add_theme_stylebox_override("panel",
 		UI.flat(Color(UI.SURFACE.r, UI.SURFACE.g, UI.SURFACE.b, 0.96), UI.BORDER, 0, 0))
 	bar.position = Vector2.ZERO
-	bar.size = Vector2(1920, _HUD_TOP_H)
+	bar.size = Vector2(480, _HUD_TOP_H)
 	# STOP, not IGNORE: world_to_cell() clamps out-of-grid coordinates back into the grid,
 	# so a click that fell through the bar resolved to row 0 and acted on the field.
 	bar.mouse_filter = Control.MOUSE_FILTER_STOP
 	_hud_root.add_child(bar)
 
 	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 24)
-	margin.add_theme_constant_override("margin_right", 24)
-	margin.add_theme_constant_override("margin_top", 8)
-	margin.add_theme_constant_override("margin_bottom", 8)
+	margin.add_theme_constant_override("margin_left", 6)
+	margin.add_theme_constant_override("margin_right", 6)
+	margin.add_theme_constant_override("margin_top", 2)
+	margin.add_theme_constant_override("margin_bottom", 2)
 	bar.add_child(margin)
 
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 18)
+	row.add_theme_constant_override("separation", 4)
 	row.alignment = BoxContainer.ALIGNMENT_BEGIN
 	margin.add_child(row)
 
@@ -5988,21 +6038,21 @@ func _build_bottom_bar() -> void:
 	var bar := PanelContainer.new()
 	bar.add_theme_stylebox_override("panel",
 		UI.flat(Color(UI.SURFACE.r, UI.SURFACE.g, UI.SURFACE.b, 0.96), UI.BORDER, 0, 0))
-	bar.position = Vector2(0, 1080 - _HUD_BOTTOM_H)
-	bar.size = Vector2(1920, _HUD_BOTTOM_H)
+	bar.position = Vector2(0, 270 - _HUD_BOTTOM_H)
+	bar.size = Vector2(480, _HUD_BOTTOM_H)
 	# Same reason as the top bar: the gaps between buttons used to build towers on row 18.
 	bar.mouse_filter = Control.MOUSE_FILTER_STOP
 	_hud_root.add_child(bar)
 
 	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 24)
-	margin.add_theme_constant_override("margin_right", 24)
-	margin.add_theme_constant_override("margin_top", 12)
-	margin.add_theme_constant_override("margin_bottom", 12)
+	margin.add_theme_constant_override("margin_left", 6)
+	margin.add_theme_constant_override("margin_right", 6)
+	margin.add_theme_constant_override("margin_top", 3)
+	margin.add_theme_constant_override("margin_bottom", 3)
 	bar.add_child(margin)
 
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
+	row.add_theme_constant_override("separation", 3)
 	margin.add_child(row)
 
 	for i in range(Data.HABIT_ORDER.size()):

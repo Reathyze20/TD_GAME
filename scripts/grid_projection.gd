@@ -4,37 +4,38 @@ extends RefCounted
 ## place that converts a grid cell to a screen position, a screen position back to a
 ## cell, or corrects for the board's projection, is meant to go through here.
 ##
-## Two modes exist: MODE_ISO (the current 2:1 diamond isometric, still the live
-## default) and MODE_SQUARE (a plain top-down grid, added by T5). Switching
+## Two modes exist: MODE_ISO (the 2:1 diamond isometric, live until 2026-08-29) and
+## MODE_SQUARE (a plain top-down grid, added by T5, now the live default). Switching
 ## active_mode changes cell_center()/world_to_cell()/board_bounds()/
 ## screen_dir_to_grid_axes() and, through GROUND_Y_SCALE, every formula built on
 ## to_ground()/to_screen() — but NOT layer_origin()/diamond_corners()/cell_diamond(),
-## which remain iso-only (see their own doc comments for why).
+## which remain iso-only (see their own doc comments for why) and must not be called
+## while MODE_SQUARE is active.
 ##
-## T5 deliberately stops at "the square math exists and is tested" — it does NOT flip
-## active_mode to MODE_SQUARE by default, and does not touch project.godot's
-## resolution/scaling/filter settings. Both of those are real visual-design decisions
-## (see PROGRESS.md's T5 entry and BLOCKED.md): the live grid, HUD, and art are all
-## authored against a 1920x1080 canvas, and switching projections while leaving that
-## unresolved would render a visibly broken board, not a top-down one — that call
-## needs a human, not an autonomous guess. See docs/MIGRATION_AUDIT.md for the full
-## inventory this was built from, and its §1.4 for a second open question T5 does not
-## resolve either: several radii (Routine, Brain Fog, intervention AoE, guard zones)
-## still measure raw screen-space distance rather than routing through
+## Activated 2026-08-29 directly by the user (see BLOCKED.md's T5 entry for the full
+## record): project.godot now targets a 480x270 canvas, integer-scaled 4x, and
+## Data.GRID was re-derived at tile=16 (matching TERRAIN_ART_PX, so pixel_scale()
+## stays 1.0 — unchanged from iso, no sprite-scale jump). What's still rough: the
+## actual WALL VISUAL in square mode is a flat-color placeholder
+## (Game._build_terrace_blocks()'s MODE_SQUARE branch), not the iso terrace art (which
+## is diamond-shaped and does not fit a square cell), and every level was deleted
+## pending real content authored for this grid. See docs/MIGRATION_AUDIT.md for the
+## full inventory this was built from, and its §1.4 for a second open question T5 did
+## not resolve either: several radii (Routine, Brain Fog, intervention AoE, guard
+## zones) still measure raw screen-space distance rather than routing through
 ## to_ground()/ground_distance() below — mode-independent today, deliberately.
 
 enum { MODE_ISO, MODE_SQUARE }
 
-## Which projection is live. Default MODE_ISO — see the file header for why T5 does
-## not flip this. Change via set_mode(), never by writing this directly, so
+## Which projection is live. Change via set_mode(), never by writing this directly, so
 ## GROUND_Y_SCALE stays in sync with it.
-static var active_mode: int = MODE_ISO
+static var active_mode: int = MODE_SQUARE
 
 ## How much the board's projection squashes screen-Y relative to true "ground"
 ## distance. 2.0 for MODE_ISO's 2:1 diamond; 1.0 for MODE_SQUARE, where screen space
 ## already IS ground space, so to_ground()/to_screen() become the identity. Kept in
 ## sync with active_mode by set_mode() — do not assign this directly.
-static var GROUND_Y_SCALE := 2.0
+static var GROUND_Y_SCALE := 1.0
 
 ## Switches the live projection. Only ever called by test fixtures today (T5 does not
 ## call this in the running game) — see the file header.

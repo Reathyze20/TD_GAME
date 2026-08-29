@@ -10,10 +10,12 @@ extends Node
 ## ktery ma jednou byt prazdny; drzet ho v obou souborech synchronizovany je zamerne
 ## levnejsi nez sdilet ho pres preload, protoze kazdy soubor zustava citelny sam o sobe.
 
-const KNOWN_BROKEN := {
-	1: "objective (109, 34) proti mrizce 24x24 - pozustatek migrace, viz docs/core/16",
-	2: "objective (106, 31) proti mrizce 24x24 - totez",
-}
+## 2026-08-29: both entries removed. id 2's level (level_2.tres) no longer exists at
+## all (T5 topdown migration deleted every pre-migration level, see BLOCKED.md's T5
+## entry), and id 1 is now a freshly-built placeholder with a valid in-bounds
+## objective — neither is "the same debt, still there", so keeping either row would
+## have this dict silently skip validating levels that are not actually broken.
+const KNOWN_BROKEN := {}
 
 var completed := false
 var fails := 0

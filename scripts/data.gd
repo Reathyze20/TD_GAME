@@ -2,20 +2,23 @@ extends Node
 # Autoload "Data": loads every .tres under res://data/ once at startup and exposes it
 # through typed getters. Balancing now happens by editing .tres resources in the
 # Inspector (or adding new ones) rather than editing this file.
-# Target Canvas Resolution: 1920x1080 (1080p widescreen canvas)
+# Target Canvas Resolution: 480x270 (T5, GridProjection.MODE_SQUARE, integer-scaled 4x
+# to a 1920x1080 window) — see GridProjection.gd's header and BLOCKED.md's T5 entry.
 
-## 40x19 grid = 1920x912px. origin_y must clear the top HUD bar, or row 0 renders behind
-## it — and row 0 is a spawn row on both levels, so distractions would appear from under
-## the chrome. Keep this >= Game._HUD_TOP_H; the grid then ends at 68+912 = 980, just
-## above the bottom bar at 1080-96 = 984.
+## 30x14 grid @ tile=16, matching TERRAIN_ART_PX exactly so pixel_scale() below comes out
+## to 1.0 — the SAME value iso used, so sprite scale does not jump across the switch.
+## origin_y must clear the top HUD bar (>= Game._HUD_TOP_H, 17) or row 0 renders behind
+## it; the grid then ends at 17+224=241, comfortably above the bottom bar at
+## 270-24=246. Not a multiple of BUILD_BLOCK(3) in rows (14, not 15) — 229px of
+## available height between the two bars does not divide cleanly by both 16 and 3 at
+## once, so the bottom row is 2 cells short of a full block. First-pass placeholder
+## dimensions, not a final board size — revisit once real level content exists.
 const GRID := {
-	"cols": 24,
-	"rows": 24,
-	"tile": 32,
-	"tile_w": 64,
-	"tile_h": 32,
-	"origin_x": 960,
-	"origin_y": 120,
+	"cols": 30,
+	"rows": 14,
+	"tile": 16,
+	"origin_x": 0,
+	"origin_y": 17,
 }
 
 ## Kolik BUNEK ma strana jednoho stavebniho bloku.
