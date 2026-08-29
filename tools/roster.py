@@ -116,15 +116,38 @@ def load(sub, defaults):
     return out
 
 
-def levels():
-    """Which level each distraction appears in, and from which wave."""
+# Godot vklada `uid="uid://..."` MEZI `type=` a `path=`, kdykoli ma cilovy zdroj UID --
+# a ma ho jen nekdy (z 13 distrakci ho nesou tri). Puvodni vzor tady vyzadoval `path=`
+# hned za `type="Resource"`, takze prave ty tri radky tise preskakoval a ROSTER.md pak
+# tvrdil, ze doomscroll je jen v L2 a social_media_binge jen jako boss L2, ackoli je
+# level_1 spawnoval taky. Vzor proto nesmi predepisovat, co mezi atributy lezi -- jen
+# ze to nesmi prelezt pres `]`, tedy mimo tenhle jeden ext_resource.
+# Regresi hlida tools/test_roster.py proti tools/_fixtures/level_uid_fixture.tres.
+EXT_DISTRACTION_RE = re.compile(
+    r'\[ext_resource\b[^\]]*?\btype="Resource"'
+    r'[^\]]*?\bpath="res://data/distractions/([a-z_0-9]+)\.tres"'
+    r'[^\]]*?\bid="([^"]+)"[^\]]*\]')
+
+
+def distraction_ext_ids(text):
+    """ext_resource id -> distraction id, pro jeden .tres jako text."""
+    return {ext_id: name for name, ext_id in EXT_DISTRACTION_RE.findall(text)}
+
+
+def levels(paths=None):
+    """Which level each distraction appears in, and from which wave.
+
+    `paths` je tu kvuli testovatelnosti: bez nej se bere zivy obsah data/levels/,
+    s nim se da pustit nad fixture, ktera v data/ lezet nesmi.
+    """
     where = {}
-    for p in sorted(glob.glob(os.path.join(ROOT, "data", "levels", "level_*.tres"))):
+    if paths is None:
+        paths = sorted(glob.glob(os.path.join(ROOT, "data", "levels", "level_*.tres")))
+    for p in paths:
         if p.endswith(".bak") or ".bak" in p:
             continue
         text = io.open(p, encoding="utf-8").read()
-        ext = dict(re.findall(r'\[ext_resource type="Resource" path="res://data/distractions/([a-z_0-9]+)\.tres" id="([^"]+)"', text))
-        ext = {v: k for k, v in ext.items()}
+        ext = distraction_ext_ids(text)
         lvl = os.path.basename(p)[:-5].replace("level_", "L")
         for block in text.split("[sub_resource")[1:]:
             m = re.search(r'distraction = ExtResource\("([^"]+)"\)', block)

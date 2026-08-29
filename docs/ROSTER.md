@@ -8,19 +8,19 @@
 
 | id | jméno | HP | rychlost | comp | rat | Dopamin | Focus dmg | archetyp | kde |
 |---|---|---|---|---|---|---|---|---|---|
-| `adult_content` | Adult Content | 60 | 50.0 | 5 | 2 | 12 | 5 | — | L1(w1) L2(w9) |
-| `autoplay` | Autoplay | 12 | 110.0 | 0 | 0 | 2 | 1 | — | L1(w1) L2(w2) Liso(w4) |
-| `clickbait` | Clickbait | 70 | 55.0 | 4 | 2 | 9 | 3 | golem | L1(w1) L2(w4) |
-| `comparison` | Comparison | 48 | 64.0 | 0 | 0 | 7 | 3 | — | Liso(w3) |
-| `doomscroll` | Doomscroll | 40 | 68.0 | 4 | 0 | 5 | 2 | — | L2(w5) |
-| `energy_drink` | Energy Drink | 30 | 105.0 | 1 | 0 | 6 | 2 | energiser, overdrive | Liso(w2) |
-| `fomo` | FOMO | 22 | 168.0 | 0 | 0 | 11 | 0 | — | Liso(w2) |
-| `group_chat` | Group Chat | 45 | 55.0 | 2 | 1 | 8 | 3 | disruptor | L1(w1) L2(w11) |
-| `jackpot` | Jackpot | 55 | 62.0 | 3 | 3 | 14 | 4 | — | L1(w1) |
-| `just_one_more` | Just One More | 34 | 72.0 | 0 | 0 | 2 | 2 | — | Liso(w3) |
-| `notification` | Notification | 5 | 140.0 | 0 | 0 | 1 | 1 | — | L1(w1) L2(w1) Liso(w1) Liso_1(w1) |
-| `phantom_buzz` | Phantom Buzz | 8 | 125.0 | 2 | 0 | 3 | 1 | letec | L1(w1) L2(w7) |
-| `social_media_binge` | Social Media Binge | 900 | 50.0 | 6 | 4 | 40 | 15 | BOSS | L2(boss) |
+| `adult_content` | Adult Content | 60 | 50.0 | 5 | 2 | 12 | 5 | — | **nikde** |
+| `autoplay` | Autoplay | 12 | 110.0 | 0 | 0 | 2 | 1 | — | **nikde** |
+| `clickbait` | Clickbait | 70 | 55.0 | 4 | 2 | 9 | 3 | golem | **nikde** |
+| `comparison` | Comparison | 48 | 64.0 | 0 | 0 | 7 | 3 | — | **nikde** |
+| `doomscroll` | Doomscroll | 40 | 68.0 | 4 | 0 | 5 | 2 | — | L1(w1) |
+| `energy_drink` | Energy Drink | 30 | 105.0 | 1 | 0 | 6 | 2 | energiser, overdrive | **nikde** |
+| `fomo` | FOMO | 22 | 168.0 | 0 | 0 | 11 | 0 | — | **nikde** |
+| `group_chat` | Group Chat | 45 | 55.0 | 2 | 1 | 8 | 3 | disruptor | **nikde** |
+| `jackpot` | Jackpot | 55 | 62.0 | 3 | 3 | 14 | 4 | — | **nikde** |
+| `just_one_more` | Just One More | 34 | 72.0 | 0 | 0 | 2 | 2 | — | **nikde** |
+| `notification` | Notification | 5 | 140.0 | 0 | 0 | 1 | 1 | — | **nikde** |
+| `phantom_buzz` | Phantom Buzz | 8 | 125.0 | 2 | 0 | 3 | 1 | letec | **nikde** |
+| `social_media_binge` | Social Media Binge | 900 | 50.0 | 6 | 4 | 40 | 15 | BOSS | **nikde** |
 
 ## Habity (věže)
 

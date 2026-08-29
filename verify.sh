@@ -133,6 +133,25 @@ for scene in scenes/_test_*.tscn; do
   fi
 done
 
+echo "== roster regex =="
+# Runs BEFORE the roster generation below, on purpose: if roster.py's .tres reading is
+# broken, the generated ROSTER.md is confidently wrong rather than absent, and comparing
+# it against the tracked copy proves nothing. This checks the reader against a fixture
+# (tools/_fixtures/, .gdignore'd so it can never become game content) that carries both
+# ext_resource spellings Godot emits — with and without uid= between type= and path=.
+regex_log="$LOG_DIR/roster_regex.log"
+PYTHONIOENCODING=utf-8 python tools/test_roster.py >"$regex_log" 2>&1
+regex_status=$?
+if [ "$regex_status" -ne 0 ]; then
+  echo "FAIL roster regex (exit $regex_status) — see $regex_log"
+  grep "FAIL" "$regex_log" | sed 's/^/  /'
+  fail=$((fail + 1))
+  failed_names+=("roster regex")
+else
+  echo "PASS roster regex"
+  pass=$((pass + 1))
+fi
+
 echo "== roster =="
 roster_tmp="$LOG_DIR/ROSTER.md.generated"
 # PYTHONIOENCODING: on this machine python's stdout defaults to the legacy

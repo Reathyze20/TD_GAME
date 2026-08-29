@@ -1,0 +1,42 @@
+[gd_resource type="Resource" script_class="LevelData" load_steps=9 format=3]
+
+; FIXTURE, ne obsah hry. Nacita ji jen tools/test_roster.py.
+; Lezi v tools/_fixtures/, ktery ma .gdignore, takze ji Godot vubec neskenuje a
+; Data._list_files("res://data/levels/") ji nikdy neuvidi -- fixture pro obsahovy
+; generator NESMI lezet v data/, jinak by se stala obsahem hry.
+;
+; Smysl: tri ext_resource se stejnym tvarem, jaky Godot realne zapisuje.
+;   * notification  -- BEZ uid= (stary tvar, stary regex ho nasel)
+;   * doomscroll    -- S uid= mezi type= a path= (novy tvar, stary regex ho MINUL)
+;   * social_media_binge -- S uid=, pouzity jako boss
+; Presne tahle trojice je duvod, proc ROSTER.md tvrdil, ze doomscroll je jen v L2.
+
+[ext_resource type="Script" path="res://scripts/resources/level_data.gd" id="1_lvl"]
+[ext_resource type="Script" path="res://scripts/resources/wave_data.gd" id="2_wave"]
+[ext_resource type="Script" path="res://scripts/resources/spawn_batch_data.gd" id="3_batch"]
+[ext_resource type="Resource" path="res://data/distractions/notification.tres" id="4_notif"]
+[ext_resource type="Resource" uid="uid://dgleeiqemlmu" path="res://data/distractions/doomscroll.tres" id="5_doom"]
+[ext_resource type="Resource" uid="uid://ckum75qqup48o" path="res://data/distractions/social_media_binge.tres" id="6_boss"]
+
+[sub_resource type="Resource" id="Batch_notif"]
+script = ExtResource("3_batch")
+distraction = ExtResource("4_notif")
+count = 5
+from_wave = 1
+
+[sub_resource type="Resource" id="Batch_doom"]
+script = ExtResource("3_batch")
+distraction = ExtResource("5_doom")
+count = 3
+from_wave = 4
+
+[sub_resource type="Resource" id="Wave_1"]
+script = ExtResource("2_wave")
+batches = Array[Resource]([SubResource("Batch_notif"), SubResource("Batch_doom")])
+
+[resource]
+script = ExtResource("1_lvl")
+id = 7
+display_name = "UID Fixture"
+waves = Array[Resource]([SubResource("Wave_1")])
+boss = ExtResource("6_boss")

@@ -868,3 +868,37 @@ Log of tasks completed by run.sh, one entry per run, newest last.
   má vyřadit z KNOWN_BROKEN; nechávám to na jeho vlastní úkol, protože je označený jako
   flaky, ne rozbitý.
 - Commit: 35b3d8c.
+
+## 2026-08-29 — A: roster.py čte ext_resource s uid= (zadáno uživatelem)
+- **Chyba**: `tools/roster.py` hledal `[ext_resource type="Resource" path=...]` s `path`
+  hned za `type`. Godot mezi ně vkládá `uid="uid://…"`, kdykoli má cílový zdroj UID —
+  a ten ho má jen někdy (z 13 distrakcí tři: doomscroll, energy_drink,
+  social_media_binge). Ty tři řádky se tiše přeskakovaly.
+- **Dopad, změřený na datech z HEAD** (4 levely, izolovaně starý vs. nový vzor, aby se to
+  nemíchalo s probíhající migrací levelů): `doomscroll` L2(w5) → **L1(w1) L2(w5)
+  Liso_1(w3)**, `energy_drink` Liso(w2) → **L1(w1) Liso(w2)**, `social_media_binge`
+  L2(boss) → **L1(boss) L2(boss)**. Tři řádky ze třinácti, přesně ty tři s UID.
+- **Oprava**: `EXT_DISTRACTION_RE` nepředepisuje, co mezi atributy leží — jen že to nesmí
+  přelézt přes `]`, tedy mimo jeden ext_resource. `levels()` dostal volitelný `paths`,
+  aby šel pustit nad fixture.
+- **Test**: `tools/test_roster.py` + `tools/_fixtures/level_uid_fixture.tres`. Fixture nese
+  oba tvary, které Godot zapisuje (s uid= i bez), a test drží starý vzor jako literál a
+  **dokazuje, že na fixture selhává** — test, který projde i na rozbité verzi, nic nehlídá.
+  Navíc kontroluje past, na kterou by šlo naletět při opravě: vzor nesmí spojit `path`
+  z jednoho ext_resource s `id` z následujícího.
+- **Fixture NESMÍ ležet v `data/levels/`** — autoload `Data` načítá celý ten adresář, takže
+  by se z ní stal obsah hry. Leží v `tools/_fixtures/` vedle `.gdignore`, kam Godot vůbec
+  nekouká.
+- `verify.sh` dostal sekci `== roster regex ==` **před** generováním rosteru: když je čtečka
+  rozbitá, vygenerovaný ROSTER.md je sebejistě špatně, ne chybějící, a porovnání se
+  sledovanou kopií nedokazuje nic.
+- `docs/ROSTER.md` přegenerován. Sloupec „kde" je teď u 12 z 13 distrakcí **nikde**, což
+  není důsledek téhle opravy — je to stav `data/levels/`, kde po migraci zůstal jediný
+  placeholder `level_1.tres` s jedinou distrakcí. Až přibydou skutečné levely, přegenerovat
+  znovu.
+- verify.sh: `roster regex` PASS (nová), `roster` PASS, `_test_art_prompts` PASS,
+  `art prompts` PASS. Zbylých 9 pádů (`_test_effort`, `_test_level_simulator`,
+  `_test_levels`, `_test_mapeditor`, `_test_maze_validity`, `_test_phase7`, `_test_streak`,
+  `_test_taxonomy`, `_test_trod`) stojí na tom, že čtyři levely nahradil jeden placeholder —
+  s touhle změnou nesouvisí, roster.py engine vůbec nenačítá.
+
