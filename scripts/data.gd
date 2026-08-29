@@ -443,6 +443,7 @@ func build_waves(level: LevelData) -> Array[WaveData]:
 			batch.distraction = curve.distraction
 			batch.count = roundi(curve.base_count + curve.growth_per_wave * (wave_index - curve.from_wave))
 			batch.spacing = curve.spacing
+			batch.shape = curve.shape
 			wave.groups.append(batch)
 		# One-off elite unit, not curve-scaled — enters partway into the final wave,
 		# after the player has already engaged the regular horde.

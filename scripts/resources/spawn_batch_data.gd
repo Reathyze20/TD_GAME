@@ -5,3 +5,5 @@ class_name SpawnBatchData extends Resource
 @export var distraction: DistractionData
 @export var count: int = 0
 @export var spacing: float = 0.2
+## Copied from the authoring WaveCurveEntryData row — see its SpawnShape doc comment.
+@export var shape: WaveCurveEntryData.SpawnShape = WaveCurveEntryData.SpawnShape.STREAM

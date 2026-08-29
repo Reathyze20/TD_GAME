@@ -3429,6 +3429,29 @@ func _cancel_aiming() -> void:
 
 # ---------------------------------------------------------------- waves
 
+## Shared pacing constants for WaveCurveEntryData.SpawnShape.CLUSTER/BURST — one
+## curve for the whole roster, like ArcProfile's damage/rate/knockback exponents, not
+## per-level content (S7, docs/refactor/SYSTEMS.MD).
+const WAVE_CLUSTER_SIZE := 5          ## Enemies per cluster before a gap.
+const WAVE_CLUSTER_INNER_MULT := 0.2  ## Within-cluster spacing, as a fraction of `spacing`.
+const WAVE_CLUSTER_GAP_MULT := 2.0    ## Between-cluster gap, in multiples of a full cluster's span.
+const WAVE_BURST_STAGGER := 0.02      ## Seconds between "simultaneous" BURST spawns — just enough to avoid same-frame overlap, independent of `spacing`.
+
+## Spawn time (seconds into the wave) for the k-th (0-based) spawn of `group`, per its
+## SpawnShape. STREAM reproduces the pre-S7 formula exactly, so any row that never
+## sets `shape` schedules identically to before this existed.
+func _spawn_time_for(group: SpawnBatchData, k: int) -> float:
+	match group.shape:
+		WaveCurveEntryData.SpawnShape.CLUSTER:
+			var cluster_index := k / WAVE_CLUSTER_SIZE
+			var pos_in_cluster := k % WAVE_CLUSTER_SIZE
+			return cluster_index * (group.spacing * WAVE_CLUSTER_SIZE * WAVE_CLUSTER_GAP_MULT) \
+				+ (pos_in_cluster + 1) * (group.spacing * WAVE_CLUSTER_INNER_MULT)
+		WaveCurveEntryData.SpawnShape.BURST:
+			return k * WAVE_BURST_STAGGER
+		_:
+			return (k + 1) * group.spacing
+
 func _start_wave() -> void:
 	if wave_index >= level.waves.size():
 		return
@@ -3466,7 +3489,7 @@ func _start_wave() -> void:
 	for group: SpawnBatchData in wave.groups:
 		for k in range(group.count):
 			var sc: Vector2i = _random_spawn_cell()
-			spawn_queue.append({"time": (k + 1) * group.spacing, "type": group.distraction.id, "spawn": sc})
+			spawn_queue.append({"time": _spawn_time_for(group, k), "type": group.distraction.id, "spawn": sc})
 	spawn_queue.sort_custom(func(a, b): return a.time < b.time)
 	wave_time = 0.0
 	wave_spawning = true

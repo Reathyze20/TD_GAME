@@ -150,3 +150,64 @@ on: (a) whether `DistractionAnimator`'s procedural-vector style is meant to surv
 this, and if so how, and (b) how much of `Distraction`'s current per-node behavior
 (status effects, individual pathing, knockback) needs to keep working identically vs.
 being redesigned as part of the array-of-structs move.
+
+## S7 (docs/refactor/SYSTEMS.MD) — "Přidej do wave resource pole pro tvar spawnu... Zachovej validaci... Hotovo když: validátor projde, S2 simulátor odehraje všechny levely bez chyby."
+
+Two of the task's three parts done; two specific pieces stopped on, for two different
+reasons — neither a guess.
+
+**1. Extending the level-authoring validator touches `addons/td_level_designer`
+territory.** The only existing wave-curve validation lives in
+`tools/map_editor.gd`'s bake-check function (`wave_curve is empty`, `wave1_total <= 0`,
+etc.) — and `addons/td_level_designer/dock.gd`'s own header comment says the real
+logic "stays in tools/map_editor.gd; this binds to the MapEditor node of the edited
+scene," i.e. the addon dock is a thin UI skin directly wrapping that exact class, not a
+separate system that happens to share a name. CLAUDE.md's autonomous-run rules say to
+stop for anything that "dotýká se addons/td_level_designer/" — extending that
+validator to actively check the new field (e.g. flagging a nonsensical shape/count
+combination at bake time) would touch precisely that class, so I didn't.
+
+**2. Authoring example level content using the new shapes needs the baking
+pipeline, which is the same territory.** CLAUDE.md's hard rule is "Levely... NIKDY
+nehardcoduj... Levely se autorují v scenes/MapEditor.tscn a bakují... NEPIŠ level
+.tres ručně" — so adding a CLUSTER/BURST row to an existing level's `wave_curve` isn't
+something to do by hand-editing the `.tres`, and the tool that WOULD do it correctly
+(`tools/map_editor.gd`'s baking, again) is the same file item 1 stops on.
+
+**What I did:** implemented the part that's pure code, not level-authoring or
+level-validation — a `WaveCurveEntryData.SpawnShape` enum (`STREAM`/`CLUSTER`/`BURST`),
+copied through onto the runtime `SpawnBatchData` by `Data.build_waves()`, and consumed
+by a new `Game._spawn_time_for(group, k)` that computes each spawn's time into the
+wave differently per shape (`STREAM` reproduces the exact pre-S7 formula, so every
+existing row — none of which ever sets `shape` — schedules identically to before this
+field existed; `CLUSTER`/`BURST` are new, shared engineering constants in game.gd, the
+same "one curve for the whole roster" category as `ArcProfile`'s exponents, not
+per-level content). "Zachovej validaci" is satisfied in the narrow sense that mattered
+here — nothing about existing validation behavior changed, since no existing data
+exercises the new field — but not extended to actively validate the new field itself,
+per point 1 above.
+
+"S2 simulátor odehraje všechny levely bez chyby" is not fully reachable regardless of
+this task: S3's balance sweep (this same session, prior task) already confirmed live
+that levels 1 and 2 throw real `AStarGrid2D` errors during simulation from a
+pre-existing, already-tracked defect (`_test_levels.gd`'s own `KNOWN_BROKEN` dict — the
+objective cell sits outside the level's 24x24 grid, docs/core/16), unrelated to
+anything S7 touches. Confirmed instead that this change introduces no NEW simulation
+errors: `_test_level_simulator.gd` (S2's own determinism proof, which plays level 98
+through S2's `LevelSimulator` twice per strategy) is part of verify.sh and still passes
+unchanged after this change, since level 98's wave_curve never sets a non-default
+`shape`.
+
+**Options for whoever picks up the validator/content-authoring half:**
+1. Extend `tools/map_editor.gd`'s bake-check to understand `shape` (e.g. warn on a
+   `CLUSTER`/`BURST` row with a very small `count`, where the effect would be
+   indistinguishable from `STREAM`) as a small, explicit, human-reviewed change to that
+   file — the actual logic this entry stops on is tiny once someone's eyes are on it.
+2. Author one or two real levels' wave curves through `MapEditor.tscn`'s own UI using
+   the new shapes, bake them, and let S3's sweep (already built) show whether
+   `CLUSTER`/`BURST` produce a meaningfully different result from `STREAM` at the same
+   `count` — the constants in `game.gd` (`WAVE_CLUSTER_SIZE` etc.) are a first guess,
+   not tuned against anything real yet.
+3. Treat "S7 complete" as the schema + runtime behavior implemented here, with the
+   validator/content half a separate, explicitly-scoped follow-up — matches how this
+   entry (and T5's) already treats a partial completion.
