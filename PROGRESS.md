@@ -2757,3 +2757,171 @@ jen commitnutou kopii. `_test_art_prompts.tscn`: `PASSED (0 failures, 37 záznam
   opravený/rozšířený text), `scripts/_test_art_prompts.gd` (sekce 7 + parsování
   sloupce `nástroj`).
 - Commit: 860d4d1
+
+## 2026-08-30 — P8b: světla a dostřel přeškálovány na skutečnou desku (diagnóza ověřena v enginu)
+
+**Status P8b: pořád `blocked`, `Needs-me: yes`** — a to je očekávaný výsledek, ne
+neúspěch. Fixture spadl ze 3 selhání na 2; zbylá dvě jsou dokazatelně neopravitelná
+z kódu.
+
+### 1. Nejdřív ověřit, ne opravovat
+
+Diagnóza z `d960aea` vznikla čistě čtením kódu a **nikdy neběžela**. Než jsem sáhl na
+jedinou konstantu, napsal jsem jednorázový harness (`_diag_p8b`), který instancuje
+`Game.tscn` a vypíše skutečnost. **Engine potvrdil aritmetiku na číslici:**
+
+| tvrzení diagnózy | naměřeno |
+|---|---|
+| objective (28,7) → jádro (456,137) | `objective_pos=(456.0, 137.0)` |
+| disk jádra 330 px pokryje 35 z 50 bloků | `core disc lights 35 of 50 blocks` |
+| tři spoty ve 292 / 292 / 144 px, všechny v Routine | `292.0 / 292.0 / 144.0`, `in_routine=true` ×3 |
+| lampa habitu přidá 1 → 36 | `36 lit blocks` |
+| arc 15→120 při facing 0 → 36→36 | `36 -> 36`, přidané bloky `[]` |
+| otočení na PI → −0 / +7 | `−0 / +9` (směr i podstata sedí; +9 vs +7 je tím, že diagnóza měřila při jiném arcu) |
+| všechny tmavé bloky mají `dx ≤ −48` | 14 tmavých bloků, všechny `dx ≤ −336` |
+
+Navíc se **vyvrátila věta z `KNOWN_BROKEN.md`** „the arc dial has no effect on lighting
+whatsoever": tentýž habit otočený na západ dá `arc 15 / 60 / 120 → 38 / 43 / 50` bloků.
+Dial funguje; fixture ho jen měří ve směru, kde ho disk jádra celý pohltí. Opraveno
+přímo v `docs/KNOWN_BROKEN.md`.
+
+**Ponaučení, které si odnes:** diagnóza postavená jen na čtení kódu může být úplně
+správná — ale dokud neběžela, nevíš to. Deset minut harnessu je levnějších než kolo
+práce špatným směrem.
+
+### 2. Přeškálování — faktor je ODVOZENÝ, ne odhadnutý
+
+T5 (`26814f9`) zmenšil `GRID.tile` z 32 na 16 px a nechal `BUILD_BLOCK` na 3. Jeden
+stavební blok tím spadl z **96 px desky na 48 px** (plocha 9216 → 2304 px², tedy přesně
+půlka v každém lineárním rozměru). Každý rádius, který znamená „dosáhne na N bloků", se
+proto dělí **přesně dvěma**. Žádné ladění, žádné fitování na konkrétní level.
+
+| | bylo | je |
+|---|---|---|
+| `Game.CORE_ROUTINE_RADIUS` | 330 | **165** |
+| `Game.ANCHOR_ROUTINE_RADIUS` | 260 | **130** |
+| `Game.TOWER_LAMP_RADIUS` | 56 | **28** |
+| `Game.DEFENDER_LIGHT_RADIUS` | 90 | **45** |
+| `Game.PROJECTILE_LIGHT_RADIUS` | 26 | **13** |
+| `HabitData.range` default | 360 | **180** |
+| 12× authorovaný `range` v `data/habits/` | 260–560 | **130–280** |
+
+Dopad na mlhu: disk jádra **35 → 18** z 50 bloků (průměrem přes všechny možné pozice
+objective 87 % → 45 %; před T5 seděla ta hodnota na 38 %). Mlha je zase mechanika,
+která může selhat.
+
+Dvě věci, které z toho vypadly navíc a stojí za zapamatování:
+- `TOWER_LAMP_RADIUS` 28 je pod 48px roztečí bloků, takže habit teď svítí **přesně na
+  vlastní blok** — což jeho komentář vždycky tvrdil. Při 56 na 48px mřížce rozdával
+  čtyři sousední bloky zdarma. Totéž `DEFENDER_LIGHT_RADIUS`.
+- 165 schválně **není násobek 48**: rádius přesně na stavební mřížce položí celý
+  prstenec bloků na `vzdálenost == rádius`, kde o členství rozhoduje `<=` na floatové
+  shodě.
+
+`sight ⊇ fire` drží dál a je to strukturální, ne šťastná náhoda: `WEDGE_LIGHT_SCALE`
+(1,0) a `LIGHT_SKIRT` (1,35) jsou **poměry** proti dosahu, takže se kužel i světlo
+zkrátily společně. Ověřeno měřením — kontrola „the firing edge is lit along its whole
+length" prošla, 0 z 6 sond ve tmě, i s poloviční délkou kužele (to byla reálná obava:
+`_lit_cells` má rozlišení 48 px, takže kratší kužel je na kvantizaci citlivější).
+
+`data/habits/anchor.tres` má `range` svázaný s `ANCHOR_ROUTINE_RADIUS` (support habit
+kreslí Routine rádius jako range ring) — obojí 130. Jeho anglický popisek „Extends your
+Routine 260px" přepsán na 130px, jinak by hráči lhal.
+
+### 3. Co to opravilo a co ne
+
+**Zelené:** selhání č. 1 „level has an empty spot outside the Routine". (19,7) je ve
+144 px uvnitř, (10,4) a (10,10) ve 292 px venku.
+
+**Pořád červené a prokazatelně neopravitelné z kódu:** obě arc kontroly. Přepočítáno
+znovu, tentokrát už s novým dosahem 180 (diagnóza počítala při 360):
+
+| `CORE_ROUTINE_RADIUS` | spot, který `_find_spot` vybere | tmavé bloky NA VÝCHOD od něj |
+|---|---|---|
+| < 144 | žádný → habit se nepostaví | — |
+| 144 … 291 | (19,7) | **žádné** |
+| ≥ 292 | (10,4) | **žádné** |
+
+Jádro sedí na `x = 28` z 30 sloupců, všechny tři build spoty jsou na západ od něj, a
+fixture kužel míří na východ. Aby byl spot vůbec postavitelný, musí ho disk jádra
+obsáhnout — a ten stejný disk pak nutně obsáhne i všechno mezi spotem a jádrem.
+Zkrácení dosahu to jen zhoršuje. **Vazba je layout levelu, ne konstanta.**
+
+### 4. Fallout — dva testy zčervenaly, a NEUPRAVIL jsem je
+
+`_test_sink` a `_test_taxonomy` nově padají. Nejde o bug v mé změně a **nejde ani
+o charakterizační hodnotu, která se posunula** — oběma selže *předpoklad*: staví habit
+na build spot, který je teď mimo Routine, takže se nepostaví a všechno za tím spadne.
+
+Podstatné je, PROČ dosud procházely: **jejich zeleň byla artefakt té samé rozbité
+konstanty.** Ani jeden z nich není o Routine bráně (jeden testuje propadající se zdi,
+druhý taxonomii útoků), ale ani jeden si bránu nevypíná — a nemusel, protože Routine
+o poloměru 330 pokrývala celou desku a bránu tím fakticky neutralizovala. P8b tu
+plošnou výjimku odebral. Osm jiných fixtures (`_test_phase2/4/6/7`,
+`_test_suppression`, `_test_nutrition_guild`, `_test_horde_renderer`,
+`_test_deep_reading`) si `routine_gates_enabled = false` nastavuje samo — přesně na
+tohle ten přepínač je.
+
+Našel jsem u nich ještě druhou, starší vadu: oba hledají level `id == 99`, který od T5
+neexistuje. Smyčka nic nenajde, `current_level_index` zůstane 0 a **oba běží na
+`level_1`**, pro který psané nebyly. Jejich vlastní hlavička ale pořád tvrdí „Jede na
+iso levelu (id 99)". Stejná třída vady jako osiřelé `_test_*.gd` z P0d: vypadá to jako
+pokrytí, ale měří se něco jiného.
+
+Jednořádková oprava (`game.routine_gates_enabled = false`) by obojí vyřešila, ale je to
+úprava `_test_*`, aby prošel — a to bez tvého svolení nedělám. **Neuvedl jsem je ani do
+`KNOWN_BROKEN_TESTS` ve `verify.sh`**: ten seznam je výslovně na *pre-existující* dluh
+a přidat do něj vlastní čerstvou breakage je jen tišší forma téhož. Rozhodni ty.
+
+### 5. Vedlejší nález: `tools/roster.py` měl zvětralý default
+
+`HABIT_DEFAULTS["range"]` bylo `160.0`, zatímco skutečný default `HabitData.range` byl
+`360.0` — `ROSTER.md` tedy u `focus_timer` (jediného habitu, který si range neauthoruje)
+**200 px podstřeloval**, a to už dávno před P8b. Ostatní hodnoty v té tabulce sedí
+přesně. Opraveno na 180.0 a okomentováno, že je to ruční kopie script defaultů, kterou
+nic automaticky nehlídá.
+
+### 6. Sweep — co má stejnou vadu, ale NEZMĚNIL jsem to
+
+Autorizace zněla „světla + dostřel". Tyhle nesou po T5 stejný scale mismatch, ale ani
+jedno není světlo ani dostřel, takže potřebují vlastní rozhodnutí:
+- `Game.CUE_PULL_RADIUS` 220 na plátně 480×270 — bylo 11 % šířky, teď 46 %.
+- `HabitData.guard_radius` 240 / 280 — poměr k dostřelu se **obrátil**: 0,67× → 1,33×.
+- `DefenderData` `move_speed` 85–100, `chase_speed` 170–240, `heal_radius` 84,
+  `ward_radius` 96, rychlosti distrakcí.
+- `Game.EXPOSED_DISRUPT_RADIUS` 110, `Game.CAM_PAN_SPEED` 900 px/s.
+
+### 7. Playability — měřeno, ne odhadováno
+
+Přeškálování má reálnou cenu na obou shipnutých levelech, a je fér ji přiznat:
+- `level_1` (`routine_gates` zapnuté): **1 ze 3** build spotů v Routine. Anchor na
+  jediném dostupném spotu (19,7) dosáhne 130 px, ostatní spoty jsou 152 px daleko — o
+  22 px vedle. Level se tím fakticky smrskl na jeden postavitelný habit.
+- `level_98` „First Light": **0 ze 2** spotů v Routine (nejbližší 198 px). Dnes to
+  nevadí, protože má `fog = false` i `routine_gates = false`.
+
+Obojí je obsah, ne kód: oba levely postavil `tools/build_placeholder_level.gd`, ne
+MapEditor, a ani jeden nebyl nikdy authorovaný proti Routine, která by něco omezovala —
+při rádiusu 330 omezovat nemohla. Přeautorování `level_1` je stop podmínka z CLAUDE.md.
+
+### 8. Čísla
+
+- verify.sh PŘED: **pass 37, fail 0, known-broken 4, flaky 0**
+- verify.sh PO (finální běh po commitu): **pass 34, fail 3, known-broken 4, flaky 0**
+  - `_test_sink`, `_test_taxonomy` — moje, záměrně, viz bod 4.
+  - `_test_art_prompts` — **NENÍ moje.** Padá na „má design constraints" u každé
+    entity, tedy na rozjeté práci druhé session v `STYLE_BIBLE.md` /
+    `GENERATION_PLAN.md` / `gen_art_prompts.py`, které měla v pracovním stromě
+    necommitnuté. S rádiusy ani dostřelem to nesouvisí (`range` se do
+    `GENERATION_PLAN.md` vůbec nepromítá — ověřeno).
+  - `roster` v mezirunu padal a je zase zelený: přegenerovaný `docs/ROSTER.md`
+    je součástí commitu.
+- `_test_fog_bandwidth`: **3 selhání → 2**, zůstává v `KNOWN_BROKEN_TESTS`.
+- Soubory: `scripts/game.gd`, `scripts/resources/habit_data.gd`, 12× `data/habits/*.tres`,
+  `tools/roster.py`, `docs/ROSTER.md`, `docs/KNOWN_BROKEN.md`,
+  `docs/refactor/PATHFINDING.MD`.
+- Jednorázový harness `_diag_p8b.gd`/`.tscn` po měření **nešel smazat** — `rm` mi
+  odmítl permission systém. Zůstal netrackovaný a **nikdy nebyl nastagovaný**;
+  `verify.sh` ho neuvidí (orphan check iteruje jen `scripts/_test_*.gd`). Smaž ho
+  prosím ručně, nebo mi to povol.
+- Commit: 612a043
