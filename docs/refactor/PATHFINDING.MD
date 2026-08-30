@@ -131,7 +131,7 @@ a že nedosažitelné buňky nemají záznam. Bench: přepočet pod 5 ms na nejv
 ## P2 — anti-block validace zdí
 Model: opus
 Needs-me: no
-Status: todo
+Status: done
 Zeď nesmí odříznout žádný aktivní spawn. Union-find nebo lokální re-BFS.
 Hotovo: _test_antiblock projede každou legální pozici a ověří obojí směr.
 Bench: kontrola jedné zdi pod 1 ms.
@@ -139,7 +139,14 @@ Bench: kontrola jedné zdi pod 1 ms.
 ## P3 — dirty-region přepočet
 Model: sonnet
 Needs-me: no
-Status: todo
+Status: obsolete
+BLOCKED.md — čísla z P2 (rychlé stavění, reálná mapa): plný přepočet ~550-560 µs/zeď,
+strop ~1800 zdí/s, to je ~0,55 % intervalu mezi kliky rychlého hráče (10/s). Pod
+hranicí s velkou rezervou — složitost dirty-region kódu by kupovala výkon, který
+nechybí. NENÍ TO FINÁLNÍ jako u T6: P4 bude tenhle přepočet volat mnohem častěji
+(za jednotku, možná za snímek) a na jiné velikosti volání záleží úplně jinak.
+Poslední slovo má P4, ne P2 — pokud tam čísla ukážou jinak, tenhle úkol se otevře
+znovu, ne nahradí novým.
 Hotovo: výsledek je bit-identický s full rebuildem (to je ten test) a je rychlejší.
 
 ## P4 — jednotky na flow fieldu

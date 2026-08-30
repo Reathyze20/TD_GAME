@@ -769,3 +769,64 @@ summary line is now identical from run to run, so any change in it is real.
 allowed to elapse — and delete the `FLAKY_TESTS` entry. It is a two-line change to a
 `_test_*` fixture, so it needs your say-so. Until then the list has exactly one member and
 verify.sh says so on every run.
+
+## P3 (docs/refactor/PATHFINDING.MD) — closed as OBSOLETE 2026-08-30, but REVISITABLE, not final (unlike T6)
+
+Different in kind from T6's closure above, on purpose: T6 was closed because its
+subject stopped existing (the old-grid levels were deleted). P3's subject — a faster,
+incremental way to recompute reachability after one wall changes — still exists and
+could still be worth building; the numbers below just say it is not worth building
+YET, against the only call pattern that exists TODAY (P2's anti-block check, called
+once per player wall placement). The user's own instruction when assigning this
+measurement named the reopening condition explicitly: P4 ("jednotky na flow fieldu")
+will call this recompute far more often — per unit, plausibly per frame — and that is
+a genuinely different load profile than "once per click". **The final word belongs to
+P4, not to this entry.** If P4's numbers say the full rebuild is too slow at
+per-unit/per-frame call rates, P3 reopens with those numbers as its justification; it
+does not get re-invented as a new task with a new number.
+
+### The numbers, measured in P2 (`scripts/_test_antiblock.gd`'s bench sections)
+
+* **Single check, real map** (`Data.GRID` 30x14, `level_1.tres`'s real 27 walls and 4
+  spawn cells): **559.5 µs average over 50 runs** — a full `FlowField` rebuild with the
+  candidate wall added, exactly what `AntiBlockValidator.would_block()` does today.
+  P2's own budget was 1000 µs; this clears it with roughly 44% of the budget to spare
+  even *without* any dirty-region optimization.
+* **Rapid sequential building, real map** — 30 real, individually-validated wall
+  placements built up one after another (each seeing the previous one already
+  committed, the way a player's session actually grows the wall set): **550.3 µs
+  average per wall**, i.e. a **computational ceiling of ~1817 walls/second** if the
+  anti-block check were the only cost in placing a wall at all.
+* **Compared against the only "how fast can a player place something" reference that
+  exists in this codebase** — habit building is one `InputEventMouseButton.pressed`
+  per placement in `game.gd`'s `_unhandled_input()`; there is no drag-paint anywhere,
+  so a 60fps-frame-bound ceiling would be answering a question this game's UI does not
+  ask. Against a generous sustained-clicking reference of 10 clicks/second (a citation
+  for scale, not a claim about this game's players — there is nothing yet to measure a
+  real player against), one placement's 100 ms budget spends **~0.55%** of it on the
+  anti-block check. The other 99.45% is human reaction time and click handling this
+  codebase does not have code for yet, not anything a smarter recompute could shrink.
+
+### Why this clears "pod hranicí" and what that hranice actually is
+
+No numeric threshold was handed down in advance, so the judgment call itself is
+recorded here rather than hidden behind a bare pass/fail: "under the threshold" is
+read as *the anti-block check could never be the perceptible bottleneck in a human's
+build interaction, by more than an order of magnitude of margin* — 0.55% of a
+fast-clicker's interval is not "a little under", it is two orders of magnitude under.
+Simplicity beats cleverness precisely when the clever version's win is unmeasurable
+against the actual use pattern; that is the case here, for THIS call pattern.
+
+### What "reopening" for P4 will actually need
+
+`AntiBlockValidator.would_block()` is one candidate wall against one static field. P4
+would need this same reachability question answered for potentially every unit, every
+frame, against a field that is not changing between those queries (units move, walls
+do not, between one wall-placement and the next) — a completely different cost shape:
+"one FlowField per gameplay-relevant board mutation, read many times between
+mutations" rather than "one FlowField per query". That reframes the actual
+optimization target away from what P3 as originally written asked for ("dirty-region"
+patching of the SAME field after a SINGLE cell changes) and toward "don't rebuild a
+field that has not changed at all between two reads" — a cache-invalidation question,
+not a recompute-speed question. Flagging this now so whoever picks P4 back up does not
+assume P3's original framing is still the right one to reopen unmodified.

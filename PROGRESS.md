@@ -1709,3 +1709,52 @@ neexistují), nástroj by neměl nad čím pracovat, a „Hotovo když" kritéri
   před pokusem.
 - verify.sh: PASS (30 pass, 0 fail, 5 known-broken, 0 flaky).
 - Commit: e6de895.
+
+## 2026-08-30 — P2 hotovo: anti-block validace zdí + P3 uzavřen jako obsoletní (revizovatelně, ne finálně)
+
+- `scripts/anti_block_validator.gd` (`AntiBlockValidator`) — jedna otázka: „kdyby se
+  tahle buňka stala zdí, ztratil by nějaký aktivní spawn cestu k cíli?" Znovupoužívá
+  `FlowField` (P1) místo druhého algoritmu: sestaví pole s kandidátem přidaným do
+  `blocked` a zkontroluje KAŽDÝ aktivní spawn. `active_spawns` je obyčejné pole, ne
+  čtení z `LevelData` — nic dnes nerozlišuje aktivní/neaktivní spawn (to přináší až
+  P6), takže modul zůstává na vlnách záměrně nezávislý.
+- **Zvolena třetí cesta, ne „union-find nebo lokální re-BFS" ze zadání:** plný
+  přepočet celého pole přes `FlowField`. Odůvodnění v hlavičce modulu i v BLOCKED.md —
+  union-find neumí levně odbourat zeď (a bourání zdí ve hře existuje), lokální BFS
+  musí konzervativně uvažovat o neprošlé oblasti (riziko subtilní chyby), a plný
+  přepočet už dnes komfortně splňuje rozpočet bez téhle složitosti.
+- `scripts/_test_antiblock.gd` + `.tscn`, tři části:
+  - **Korektnost na syntetickém bludišti se DVĚMA nezávislými spawny** (šest řádků
+    ASCII v komentáři, čitelné bez počítání buněk): mezera A na jednom místě, mezera B
+    na jiném, tak aby zazdění jedné mezery odřízlo JEN jeden spawn. To dokazuje, že se
+    kontrolují OBA spawny, ne jen `active_spawns[0]`. **Vyčerpávající sweep přes všech
+    17 volných kandidátních buněk** (ne pár příkladů) proti nezávisle odvozené pravdě
+    (přímo v testu, ne přes `AntiBlockValidator` samotný) — 17 sedí přesně s ručním
+    výpočtem před spuštěním.
+  - **Bench jedné zdi na reálné mapě** (`Data.GRID` 30x14, `level_1.tres`, 27 zdí, 4
+    spawn buňky): **559,5 µs průměr přes 50 běhů**, limit 1000 µs — 44 % rozpočtu ve
+    zbytku, BEZ jakékoli dirty-region optimalizace.
+  - **Bench rychlého stavění** (žádáno navíc k P2): 30 skutečných, postupně
+    committovaných zdí (každá vidí tu předchozí v `blocked`, přesně jak roste zeď
+    hráči) — **550,3 µs/zeď průměr**, strop **~1817 zdí/s** čistě z výpočtu. Srovnáno
+    s jediným reálným referenčním bodem, co ve hře existuje: stavba habitu je JEDEN
+    klik (`InputEventMouseButton` v `game.gd::_unhandled_input`), nikde žádné tažení
+    po snímcích. Proti rychlému klikání (10/s, citační referenční hodnota, ne měření
+    reálného hráče — nic takového dnes neexistuje) spotřebuje kontrola **~0,55 %**
+    intervalu mezi kliky.
+- **Ověřeno, že vyčerpávající sweep opravdu něco chytí:** dočasně omezena kontrola jen
+  na `active_spawns[0]`. Padly přesně dva testy: explicitní „mezera B" kontrola a
+  sweep se 4 konkrétními nesouhlasícími buňkami (`(3,3)`, `(1,4)`, `(2,4)`, `(3,4)` —
+  všechny na straně spawnu B, přesně jak se čekalo). Vráceno zpět, diff čistý.
+- **Rozhodnutí o P3 (přesně podle tvého zadání):** čísla jsou hluboko pod hranicí —
+  jedna kontrola má skoro polovinu rozpočtu v rezervě a rychlé stavění stojí kontrolu
+  necelé procento intervalu mezi kliky. `docs/refactor/PATHFINDING.MD`: P3 →
+  `Status: obsolete`. **Není to finální uzavření jako u T6** (kde předmět úkolu úplně
+  zanikl) — P3ovo téma dál existuje, jen se dnes nevyplácí. Napsáno explicitně do
+  BLOCKED.md i do zadání P3: poslední slovo má P4 (bude tenhle přepočet volat mnohem
+  častěji, možná za jednotku/snímek — jiný profil zátěže), a pokud tam čísla ukážou
+  jinak, úkol se OTEVŘE ZNOVU s těmi čísly jako odůvodněním, nenahradí se novým.
+- Do BLOCKED.md přidána i poznámka pro budoucí P4: skutečná optimalizační otázka tam
+  nejspíš nebude „dirty-region patch jedné buňky" (jak P3 zní doslova), ale „necachovat
+  pole, které se mezi dvěma čteními vůbec nezměnilo" — jiná otázka, jiné řešení.
+- verify.sh: PASS (31 pass, 0 fail, 5 known-broken, 0 flaky).
