@@ -1172,3 +1172,4 @@ Log of tasks completed by run.sh, one entry per run, newest last.
   které může dát jen uživatel. `next_task.py` teď hlásí P1 (taky `Needs-me: yes`).
 - verify.sh: PASS (26 pass, 0 fail, 5 known-broken; `_test_phase3` v tomhle běhu prošel —
   je vedený jako flaky, ne rozbitý, takže ze seznamu nemizí).
+- Commit: 09d5629.
