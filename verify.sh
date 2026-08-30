@@ -104,8 +104,46 @@ _is_known_broken() {
 }
 
 shopt -s nullglob
+echo "== orphan test scripts =="
+# Every scripts/_test_*.gd needs the scenes/_test_*.tscn that runs it. The loop above
+# iterates over SCENES, so a script without one is never executed: it looks like a fixture
+# in any file listing, reports nothing, and inflates the apparent coverage. A test that
+# verifies nothing while looking like one is worse than no test at all, so this is a FAIL
+# and not a note.
+#
+# Found 2026-08-30 (P0d): _test_iso_math.gd and _test_game_iso_slice.gd had sat in
+# scripts/ since the iso pilot (405df22) with no scene EVER committed for either -- both
+# were `extends SceneTree` harnesses for --script, the mode CLAUDE.md's verification
+# pattern forbids. They were deleted; this check is what stops the next pair from lasting
+# as long.
+orphan_scripts=()
+for script in scripts/_test_*.gd; do
+  base=$(basename "$script" .gd)
+  if [ ! -f "scenes/$base.tscn" ]; then
+    orphan_scripts+=("$script")
+  fi
+done
+if [ ${#orphan_scripts[@]} -ne 0 ]; then
+  echo "FAIL orphan test scripts (${#orphan_scripts[@]}) - each needs scenes/<name>.tscn, or delete it (with its .gd.uid):"
+  for o in "${orphan_scripts[@]}"; do
+    echo "  - $o"
+  done
+  fail=$((fail + 1))
+  failed_names+=("orphan test scripts")
+else
+  echo "PASS orphan test scripts"
+  pass=$((pass + 1))
+fi
+
 for scene in scenes/_test_*.tscn; do
   name=$(basename "$scene" .tscn)
+  # DEAD CLAUSE ON PURPOSE (P0d, 2026-08-30). Nothing in scenes/ is named
+  # _test_legacy_* today and `skip` has been 0 in every run since the square migration.
+  # It was written for a rename that never happened -- the two iso harnesses it was meant
+  # to catch turned out to have no .tscn at all and were deleted rather than renamed, see
+  # CLAUDE.md. Kept anyway: it costs one glob test per scene and it is the agreed way to
+  # park a fixture whose subject a migration has retired, which P8's segment work may yet
+  # need. If you find it still matching nothing years from now, that is not a bug.
   case "$name" in
     _test_legacy_*)
       echo "SKIP $name"

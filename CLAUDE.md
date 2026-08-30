@@ -80,16 +80,21 @@ zdokumentovaný v `docs/REFACTOR_PLAN.md` pod „Verification pattern":
   watchdogem (vypadá to jako hang, není to hang).
 - Existující fixtures (neruš, nepřejmenovávej bez důvodu): phase2/3/4/6/7 refaktory,
   suppression stream, nutrition guild, zen pulsar, deep reading, fog & bandwidth, LOS,
-  taxonomy, levels, streak, trod, mapeditor, iso math/slice.
+  taxonomy, levels, streak, trod, mapeditor.
 - `scenes/_shot_*.tscn` dělají vizuální snapshoty (žádný pass/fail), `scenes/_play_*.tscn`
   jsou manuální playtesty — nepleť je s `_test_*`.
 - Když test selže, oprav kód. NIKDY neupravuj `_test_*` skript, aby prošel, bez mého souhlasu.
 - Dočasný jednorázový harness po použití smaž (i `.gd.uid` sidecar); pojmenované fixtures
   výše jsou trvalé regresní testy a zůstávají.
-- Výjimka pro migraci na top-down: fixtures `iso math` a `iso slice` testují
-  izometrickou projekci, kterou migrace ruší. Neruš je — přejmenuj je na
-  `_test_legacy_iso_*` (skript i scénu) a ve verify.sh je přeskoč.
-  Nová čtvercová projekce dostane vlastní fixtures.
+- **Iso fixtures už neexistují** (P0d, 30. 8. 2026). Dřív tu stálo pravidlo přejmenovat
+  `iso math` a `iso slice` na `_test_legacy_iso_*` a ve verify.sh je přeskočit. To
+  pravidlo bylo postavené na omylu: ani jedna z nich nikdy nebyla fixture podle vzoru
+  výš. Obě jsou `extends SceneTree` s `_initialize()`, tedy harnessy pro `--script`
+  (režim, který tenhle dokument o pár řádků výš zakazuje), přišly s iso pilotem
+  (`405df22`) a **odpovídající `.tscn` k nim nikdy neexistovala** — v gitu není ani
+  jedna, ani smazaná. verify.sh iteruje přes `scenes/_test_*.tscn`, takže obě celou
+  dobu tiše NEBĚŽELY a jen vypadaly jako pokrytí. Smazané v P0d; verify.sh teď osiřelý
+  `_test_*.gd` bez scény hlásí jako FAIL, takže se to nemůže opakovat.
 
 ## PixelLab
 - Katalog: @https://api.pixellab.ai/mcp/docs

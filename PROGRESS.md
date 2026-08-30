@@ -1392,3 +1392,61 @@ Pak zpátky opraveno a přegenerováno.
 - verify.sh: PASS (28 pass, 0 fail, 5 known-broken).
 - Status P0c: `todo` → `done`.
 - Commit: 88c70b4.
+
+## 2026-08-30 — P0d hotovo: iso legacy smazané, verify.sh hlídá osiřelé test skripty
+
+### Nález, který zadání upřesňuje
+
+Zadání i moje původní hlášení předpokládaly, že scény k `_test_iso_math.gd` a
+`_test_game_iso_slice.gd` zmizely při čistce po T5. **Nezmizely — nikdy neexistovaly.**
+`git log --all --diff-filter=AD -- "scenes/*iso*"` nezná ani jednu, ani jako smazanou.
+
+Obě jsou `extends SceneTree` s `_initialize()`, tedy harnessy pro `--script` — režim,
+který CLAUDE.md o pár řádků nad tou výjimkou sám zakazuje („Spouštěj přes `--main-scene`,
+NIKDY přes `--script`"). `_test_game_iso_slice.gd` si dokonce ručně preloaduje
+`data.gd`, `game_state.gd`, `signal_bus.gd` a spol., což je přesně obcházení toho, že
+v `--script` režimu autoloady neexistují. Přišly s iso pilotem (`405df22`) a nikdy
+neběžely, protože verify.sh iteruje přes `scenes/_test_*.tscn`.
+
+Pravidlo v CLAUDE.md o přejmenování na `_test_legacy_iso_*` tedy stálo na omylu — mluvilo
+o „fixtures", které fixtures podle vlastního vzoru toho dokumentu nikdy nebyly. Uživatel
+to sám označil za chybu v zadání; tohle je konkrétní podoba té chyby.
+
+### Co se udělalo
+
+1. Smazané `scripts/_test_iso_math.gd`, `_test_game_iso_slice.gd` a oba `.gd.uid`
+   sidecary (přes `git rm`, ne ručně).
+2. CLAUDE.md: výjimka nahrazena poznámkou, co se skutečně stalo, i s tím, že `.tscn`
+   nikdy neexistovala. Ze seznamu trvalých fixtures vypadlo „iso math/slice"; **zbytek
+   seznamu jsem nechal být** — rozšiřovat ho o dnes existující fixtures nebylo zadané a
+   udělalo by z jedné neúplnosti jinou.
+3. `verify.sh`: klauzule `_test_legacy_*` **zůstává** a má nad sebou komentář, že dnes
+   netrefuje nic (`skip` je 0 v každém běhu od čtvercové migrace), proč se přesto nechává
+   a že to není chyba, až ji za rok někdo najde prázdnou.
+4. `verify.sh`: nová kontrola `== orphan test scripts ==` — každý `scripts/_test_*.gd`
+   musí mít `scenes/_test_*.tscn`, jinak FAIL i s cestou k souboru a návodem.
+
+Kontrolu jsem dal **před** smyčku testů, ne za ni: je to strukturální kontrola sady samé,
+ne test hry, a strukturální vada má padnout dřív, než se osm minut něco spouští.
+
+### Ověřeno, že to chytá
+
+Založil jsem dočasný `scripts/_test_p0d_orphan_probe.gd` bez scény a pustil celý
+verify.sh:
+
+```
+== orphan test scripts ==
+FAIL orphan test scripts (1) - each needs scenes/<name>.tscn, or delete it (with its .gd.uid):
+  - scripts/_test_p0d_orphan_probe.gd
+...
+pass: 27  fail: 1  skip: 0  known-broken: 6
+failed:
+  - orphan test scripts
+verify exit=1
+```
+
+Probe (i jeho `.gd.uid`) pak smazaný a verify.sh pustil znovu načisto.
+
+- verify.sh: PASS (28 pass, 0 fail, 6 known-broken — `_test_phase3` v tomhle běhu
+  padl, je vedený jako flaky).
+- Status P0d: `todo` → `done`.

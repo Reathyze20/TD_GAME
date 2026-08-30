@@ -67,7 +67,7 @@ Nález zapiš do PROGRESS.md tak jako tak.
 ## P0d — úklid iso legacy
 Model: sonnet
 Needs-me: no
-Status: todo
+Status: done
 
 scripts/_test_iso_math.gd a scripts/_test_game_iso_slice.gd nemají .tscn,
 takže se nespouštějí. Iso projekce je pryč.
