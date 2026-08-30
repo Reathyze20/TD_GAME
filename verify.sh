@@ -28,15 +28,32 @@ mkdir -p "$LOG_DIR"
 # test is fixed for real; if a task's own scope covers one of these, fix it
 # and remove it as part of that task's commit.
 KNOWN_BROKEN_TESTS=(
+  # The T0 baseline's shared root cause is GONE. All seven original entries failed for
+  # one reason (level_1/level_2's objective sat outside the 24x24 grid, so AStarGrid2D
+  # threw "out of bounds" for any harness spawning on the default level). The square
+  # migration rebuilt level_1 with a valid objective, and _test_los and _test_phase4
+  # went green and stayed green (4 consecutive clean runs) -- removed. The five below
+  # still fail, but every one of them now fails for its OWN, different reason, listed
+  # per entry so this list stops asserting a cause that no longer exists.
+
+  # "focus_timer/exercise still aims its head and fires plain bolts" (x4) -- art/behaviour
+  # expectation, not pathfinding.
   _test_deep_reading
+  # Two real light-cone bugs: rotating a habit moves the lit set asymmetrically
+  # (-0 cells, +7), and widening the arc 15 deg -> 120 deg lights the SAME 36 cells,
+  # i.e. arc width has no effect at all. Suspect square-projection fallout; unproven.
   _test_fog_bandwidth
-  _test_los
-  _test_phase4
+  # "Cannot call method 'get_size' on a null value" -- a texture fails to load, so this
+  # is a missing/renamed asset, not a logic failure.
   _test_shadow_occlusion
+  # Knockback pushes a body 26px straight into a wall ((-26.0, 0.0)); the other three
+  # knockback checks pass. Also suspect square-projection fallout; unproven.
   _test_suppression
+  # "the base has head art" -- same art-expectation class as _test_deep_reading.
   _test_zen_pulsar
+
   # Flaky, not reliably broken: passed 3 of 5 full-suite runs, always on the same
-  # check ("slow expired while blocked: factor reset to 1.0 (got 0.5)") — a real-time
+  # check ("slow expired while blocked: factor reset to 1.0 (got 0.5)") -- a real-time
   # race in that one status-expiry assertion, unrelated to whatever task is running.
   _test_phase3
 )

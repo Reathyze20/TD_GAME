@@ -1101,3 +1101,36 @@ Log of tasks completed by run.sh, one entry per run, newest last.
   so ArtTiles-painted tiles will look visually wrong on the square grid until real
   top-down terrain art exists — a content gap, not a math one, logged in BLOCKED.md.
 - Commit: f8601e0.
+
+## 2026-08-30 — verify.sh known-broken list re-baselined after the square migration
+- First fully green run since the migration: **25 pass, 0 fail, 0 skip, 6 known-broken,
+  exit 0**. Ran it before touching anything, on the other session's committed state.
+- verify.sh itself flagged two entries as passing ("was KNOWN-BROKEN — remove it from
+  verify.sh's list"). Re-ran both three more times each in isolation before believing it:
+  `_test_los` 3/3 clean, `_test_phase4` 3/3 clean, so 4/4 counting the suite run.
+  Removed both from KNOWN_BROKEN_TESTS.
+- They pass for a real, explainable reason, not by luck: the T0 baseline recorded ONE
+  shared root cause for all seven original entries — level_1/level_2's `objective` lying
+  outside the 24x24 grid, so `AStarGrid2D.get_id_path()` threw "out of bounds" whenever a
+  harness spawned on the default level. The square migration rebuilt level_1 with a valid
+  objective, which kills that cause outright.
+- **That is the finding worth the entry:** the same root cause is dead for the other five
+  too, so the list was asserting a reason that no longer applies to any of them. Read all
+  five logs; each now fails for its own separate reason, and two of them look like real
+  regressions nobody has looked at:
+  - `_test_fog_bandwidth` — rotating a habit moves the lit set asymmetrically (-0 cells,
+    +7), and widening the arc 15° → 120° lights **the same 36 cells**, i.e. arc width has
+    no effect on lighting at all. Suspect square-projection fallout; unproven.
+  - `_test_suppression` — knockback shoves a body 26px straight into a wall ((-26.0, 0.0));
+    the other three knockback checks pass. Same suspicion, also unproven.
+  - `_test_shadow_occlusion` — "Cannot call method 'get_size' on a null value": a texture
+    fails to load. Missing/renamed asset, not logic.
+  - `_test_deep_reading` (x4) and `_test_zen_pulsar` — art expectations ("still aims its
+    head and fires plain bolts", "the base has head art").
+  Each reason is now written next to its own entry in verify.sh, so the list documents
+  what is actually wrong instead of a cause that was fixed for it by someone else.
+- Did NOT chase the two suspected regressions in this task — separate scope, and both
+  need a decision about whether the fix belongs to the migration or to the fog/knockback
+  systems themselves.
+- verify.sh: PASS (25 pass, 0 fail, 6 known-broken).
+- Commit: 9855303.
