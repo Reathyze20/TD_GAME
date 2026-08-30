@@ -1450,3 +1450,4 @@ Probe (i jeho `.gd.uid`) pak smazaný a verify.sh pustil znovu načisto.
 - verify.sh: PASS (28 pass, 0 fail, 6 known-broken — `_test_phase3` v tomhle běhu
   padl, je vedený jako flaky).
 - Status P0d: `todo` → `done`.
+- Commit: e987e81.
