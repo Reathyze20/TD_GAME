@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/_test_horde_renderer.gd" id="1_sym47"]
+
+[node name="TestHordeRenderer" type="Node" unique_id=2113673621]
+script = ExtResource("1_sym47")

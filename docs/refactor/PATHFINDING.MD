@@ -151,11 +151,72 @@ je O(1) na jednotku i při N=1000.
 ## P5 — vykreslování hordy přes MultiMeshInstance2D
 Model: sonnet
 Needs-me: no
-Status: todo
+Status: done
 
 Nahraď jeden-uzel-na-nepřítele jedním `MultiMeshInstance2D` na hordu.
 
 Hotovo když: bench N=500 je **aspoň 3× rychlejší** než baseline z T11.
+
+**Předpoklad z CLAUDE.md ("žádné sprite listy") je zastaralý.** `distraction_animator.gd`
+dnes kreslí `_draw_sprite_frames()`, kdykoli na disku existuje art (`if not
+_frame_textures.is_empty(): ...; return`) — sedm ručně kódovaných `_draw_*` funkcí je
+FALLBACK pro typ bez artu, a podle `docs/ROSTER.md`/`assets/distractions/` ho dnes
+nepoužívá ani jeden živý typ. Nešlo tedy o konflikt s MultiMesh (ten umí jen JEDNU
+texturu na instanci), jen o zastaralý komentář — stojí za samostatnou opravu, není to
+úkol P5.
+
+Zvolená architektura: `HordeAtlas` (`scripts/components/horde_atlas.gd`) skládá za běhu
+sdílenou atlasovou texturu ze všech chůzových snímků (south/north/east — west je
+zrcadlené east, stejná konvence jako předtím), líně a inkrementálně po prvním živém
+výskytu daného (typ, varianta). `HordeRenderer` (`scripts/components/horde_renderer.gd`)
+drží TŘI `MultiMeshInstance2D`: tělo (atlas + `shaders/horde_atlas.gdshader`, UV rect
+per-instance přes `MultiMesh.custom_data`), glow a stín (sdílené procedurální radiální
+textury, per-instance barva/alfa). Přepisuje se každý snímek z `Game._process()` (na
+konci, PO spawnování vlny — nový spawn je tak v batchi hned, ne o snímek později).
+
+Do batch spadá živá, zdravá, neblokovaná distrakce s artem — to pokrývá „jen jde",
+naprostou většinu populace. VYŘAZENO (zůstává na starém per-node `_draw()`, beze změny):
+umírající tělo (death frames), distrakce blokovaná Allym (attack loop), typ bez artu
+(procedurální fallback), a stavové aury (Boredom halo, Slow ring, Rush/Overdrive
+chevrony, Reframe ring) — ty se týkají jen zlomku populace i v rušné vlně. Hit-flash
+zůstal v batchi: `MultiMesh` má nativní per-instance barvu, přesně to, co potřebuje.
+
+**Druhá páka, nezávislá na MultiMeshi:** `Distraction`/`DistractionAnimator` volaly
+`queue_redraw()` bezpodmínečně každý snímek, ačkoli přesun `CanvasItem` redraw
+NEVYŽADUJE (Godot přetransformuje stejný cache draw-list zdarma). Obě teď volají
+`queue_redraw()` jen když `needs_own_redraw()`/`_needs_own_redraw()` vrátí true (aktivní
+stav, attack loop, procedurální fallback, běžící disrupt/haste/life/autoplay). Prostý
+chodec bez stavu dnes z pohybového ticku nenaplánuje ŽÁDNÝ redraw.
+
+Y-sort kompromis (nevyhnutelný — jeden `CanvasItem` má jednu pozici v pořadí kreslení,
+nemůže nahradit 500 nezávisle seřazených uzlů): tělová vrstva kreslí na pevné z-vrstvě
+NAD habity/alies/neb batchovanými distrakcemi a POD projektily — distrakce jsou vždy
+navrchu habitů. Vědomá ztráta přesnosti výměnou za čitelnost hordy (hráč musí vidět, co
+se řítí na bludiště). Glow/stín jdou ještě níž, pod všechny jednotky bez y-sortu vůbec —
+to je BLÍŽ k vlastnímu ideálu `docs/core/01_rendering_and_depth.md` ("stíny jsou jen
+z-index, nikdy y-sort"), ne dál od něj: starý per-node kreslič je řadil SPOLU s tělem.
+
+Vizuální zjednodušení (zdokumentovaná, ne tichá): stín ztratil jemné časové „bob"
+zvlnění (pár procent měřítka na nízko-alfa fleku, na hordě neviditelné); glow/stín jsou
+jedna pre-baked měkká radiální textura místo původních 3-4 tvrdých prstenů — blízko v
+hustotě a stopě, ne pixel-identické. Ověřeno okem přes `scenes/_shot_crowd.tscn`
+(`.dev/screenshots/p5_crowd_120.png`, `p5_crowd_9.png`) a samostatným zrcadlovým testem
+(`.dev/screenshots/p5_mirror_compare.png` — west je opravdu horizontální zrcadlo east,
+ověřeno flipnutím zachyceného ořezu v softwaru a diffem proti east ořezu).
+
+Bench (`scripts/_perf_horde.gd` nezměněn): **N=500 avg 62.76→11.32ms, 5,5× rychlejší
+než T11 baseline** (cíl byl 3×). N=1000: 88.28→22.25ms (4,0×). Zisk roste s N až do 500,
+pak se mírně zužuje na 1000 — sedí to s mechanismem (batch draw calls škálují s počtem
+obsazených řádků, ne s N; zbylá O(N) práce v `HordeRenderer.rebuild()` a pohybu je
+levná, ale při N=1000 už měřitelná). Plné číslo i tabulka T11→P4→P5 v `docs/PERF.md`.
+
+Regresní testy (`_test_suppression`, `_test_taxonomy`, `_test_sink`, ekonomika) zůstaly
+zelené beze změny assertion — tohle je vykreslovací změna, na herní logice nic nesahá.
+Nový `_test_horde_renderer` (`scripts/_test_horde_renderer.gd` +
+`scenes/_test_horde_renderer.tscn`) ověřuje samotný nový mechanismus: batch-eligibilitu,
+packing do atlasu, vyřazení při zablokování a návrat po uvolnění, že aktivní stav
+vynutí `needs_own_redraw()` i když tělo zůstává v batchi, hit-flash tint a
+south/north/east/west (zrcadlo) výběr snímku.
 
 ## P3 — dirty-region přepočet  [ROZHODNUTÍ, NE IMPLEMENTACE]
 Model: sonnet

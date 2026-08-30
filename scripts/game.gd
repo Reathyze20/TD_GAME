@@ -78,6 +78,14 @@ var _distractions: Array[Distraction] = []
 # added later in the tree, so they always render above the field.
 var entities: Node2D
 
+## Batched horde body/glow/shadow renderer (P5, docs/refactor/PATHFINDING.MD) — a
+## sibling of `entities`, not a child of it: see horde_renderer.gd's own Y-sort header
+## for why a MultiMeshInstance2D batch cannot live inside a y-sorted container the same
+## way an individual Distraction node did. Added to the tree right after `entities` so
+## it draws above every z=0 main entity but below projectiles/world UI, which are added
+## later still. Rebuilt once per frame from _process(), below.
+var horde_renderer: HordeRenderer
+
 var projectile_pool: ObjectPool
 var impact_fx_pool: ObjectPool
 var burst_pool: ObjectPool
@@ -242,6 +250,9 @@ func _ready() -> void:
 	entities.name = "Entities"
 	entities.y_sort_enabled = true
 	add_child(entities)
+	horde_renderer = HordeRenderer.new()
+	horde_renderer.name = "HordeRenderer"
+	add_child(horde_renderer)
 	# After entities, so the placement preview draws above terrain AND units. The corner
 	# terrain tiles overhang half a cell past their vertex, so anything painted in
 	# Game._draw() — which renders below every child — gets clipped by tissue near walls;
@@ -3602,6 +3613,10 @@ func _process(delta: float) -> void:
 	_update_fog(delta)
 	_sync_shadow_lights()
 	_check_wave_progress()
+	# After the wave-spawn block above: a distraction spawned THIS frame is already in
+	# `_distractions` by now, so it lands in this same frame's batch instead of popping
+	# in one frame late (P5, docs/refactor/PATHFINDING.MD — see horde_renderer.gd).
+	horde_renderer.rebuild(_distractions)
 	queue_redraw()
 	_update_hover()
 

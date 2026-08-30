@@ -1876,3 +1876,135 @@ neexistují), nástroj by neměl nad čím pracovat, a „Hotovo když" kritéri
   `_test_fog_bandwidth`, `_test_shadow_occlusion`, `_test_zen_pulsar`, žádný z nich
   se P4 netýká — 0 flaky).
 - Commit: 9d47688.
+
+## 2026-08-30 — P5 hotovo: horda přes MultiMeshInstance2D
+
+Nahradil jsem jeden-uzel-na-nepřítele vykreslování batchovaným
+`MultiMeshInstance2D` — viz `docs/refactor/PATHFINDING.MD`'s P5 pro terse shrnutí,
+tady je plná verze.
+
+**Investigace, která úkolu předcházela** (proč to NENÍ konflikt s CLAUDE.md, viz i
+`scripts/components/distraction_animator.gd`): `_draw()` má "art on disk wins over
+the procedural body" — `if not _frame_textures.is_empty(): _draw_sprite_frames(r);
+return`. Sedm ručně kódovaných `_draw_*` funkcí (notification, phantom_buzz,
+autoplay, doomscroll, adult_content, social_media_binge, group_chat) je FALLBACK pro
+typ bez artu na disku. Zkontrolováno proti `docs/ROSTER.md` a `assets/distractions/`:
+každý ze sedmi má dnes reálné PixelLab snímky (`<id>_frame_1.png`,
+`<id>_east_frame_1.png`, `<id>_north_frame_1.png`, `<id>_death_frame_1.png`), stejně
+jako každý jiný typ v rosteru — fallback je dnes mrtvý kód na každém reálném
+playthroughu. **CLAUDE.md's vlastní řádek "žádné sprite listy" u
+`DistractionAnimator` je tedy zastaralý** — stojí za samostatnou opravu dokumentace,
+není to práce P5 (a nemám na CLAUDE.md sahat sám).
+
+**Architektura — tři vrstvy, ne jedna, a proč:**
+- `scripts/components/horde_atlas.gd` (`HordeAtlas`, static/sdílený přes celý proces
+  stejně jako `DistractionAnimator._frame_cache`/`AnimTuning`): skládá za běhu
+  jednu sdílenou atlasovou `ImageTexture` (2048×2048) ze VŠECH chůzových snímků
+  (south/north/east — west je east zrcadlené, stejná konvence jako dřív), líně a
+  inkrementálně, po prvním živém výskytu daného (typ, varianta). Znovupoužívá
+  `DistractionAnimator.load_frame_set()` (vytažené ze `_load_set()`, teď `static`) —
+  STEJNÁ cache, kterou čte i legacy per-node fallback, takže se atlas s ním nemůže
+  nikdy rozejít v tom, co existuje na disku.
+- `scripts/components/horde_renderer.gd` (`HordeRenderer`, jeden na `Game`, sourozenec
+  `entities`, ne dítě — viz Y-sort níž): tři `MultiMeshInstance2D` — **tělo** (atlas +
+  `shaders/horde_atlas.gdshader`, UV rect per instanci přes `MultiMesh.custom_data`,
+  zrcadlení přes zápornou X škálu transformu místo shaderové větve), **glow** a
+  **stín** (sdílené procedurální radiální textury — stejný vzor jako "8×8 soft dot"
+  dopaminové burst tečky z `docs/core/01`, per-instance barva/alfa/velikost). Přepis
+  `rebuild()` běží jednou za snímek z `Game._process()`, na KONCI (po spawnovacím
+  bloku vlny — nově spawnutá distrakce je tak v batchi hned, ne o snímek později:
+  Godot volá VŠECHNY `_process()` dřív, než začne kreslit, takže i kdyby
+  `_draw()` naspawnuté distrakce běžel dřív, `is_batch_eligible()` (která zabalí
+  packing do atlasu jako vedlejší efekt) i tak stihne proběhnout skrz `rebuild()`
+  dřív, než render fáze cokoli skutečně nakreslí).
+- `shaders/horde_atlas.gdshader`: pěti-řádkový `vertex()` — `UV =
+  INSTANCE_CUSTOM.xy + UV * INSTANCE_CUSTOM.zw`. Žádný `fragment()` override,
+  vestavěný default vzorkuje `TEXTURE` na tomhle UV a násobí `COLOR` (nativní
+  per-instance tint — hit-flash zdarma).
+
+**Kdo je v batchi a kdo ne** (`DistractionAnimator.is_batch_eligible()`): živá,
+zdravá, neblokovaná distrakce s artem — naprostá většina populace v ustáleném stavu
+("jen jde"). VYŘAZENO, zůstává na starém per-node `_draw()` beze změny: umírající
+tělo (death frames — hrstka najednou), blokovaná Allym (attack loop), typ bez artu
+(procedurální fallback), a stavové aury (Boredom halo, Slow ring, Rush/Overdrive
+chevrony, Reframe ring — kreslí je `DistractionAnimator._draw()` dál, i pro
+batchovanou instanci, protože se týkají jen zlomku populace). Hit-flash zůstal v
+batchi celý — `MultiMesh` má nativní per-instance barvu, přesně to, co potřeba,
+žádný overlay navíc.
+
+**Druhá páka, nezávislá na MultiMeshi — a možná stejně důležitá:** `Distraction.
+_process()` (pohybová větev, `_fly()`) a `DistractionAnimator._process()` volaly
+`queue_redraw()` bezpodmínečně KAŽDÝ snímek. Přesun `CanvasItem` ale redraw
+NEVYŽADUJE — Godot přetransformuje stejný cache draw-list na nové pozici zadarmo.
+Přidal jsem `_needs_own_redraw()`/`needs_own_redraw()`: true jen když je pořád co
+kreslit (aktivní stav, attack loop, procedurální fallback, běžící
+disrupt/haste/life/autoplay archetyp). Prostý chodec bez stavu dnes ze svého
+pohybového ticku nenaplánuje ŽÁDNÝ redraw — `_draw()` se pro něj nezavolá vůbec.
+
+**Y-sort kompromis** (zdokumentováno i v `horde_renderer.gd`'s hlavičce a v
+`docs/refactor/PATHFINDING.MD`): jeden `CanvasItem` má jednu pozici v pořadí
+kreslení, nemůže nahradit 500 nezávisle seřazených uzlů. Stará per-node verze nechala
+KAŽDOU distrakci seřadit se proti KAŽDÉMU habitu zvlášť (vysoká hlava věže trčící do
+sousedního políčka dráhy správně schovávala/byla schovaná chodcem, co tudy zrovna
+šel). Batch tohle udělat nemůže — žádný per-instance sort klíč neexistuje. Zvolený
+kompromis: tělová vrstva kreslí na PEVNÉ z-vrstvě nad KAŽDÝM habitem/allym/
+nebatchovanou distrakcí a pod projektily — distrakce jsou vždy navrchu habitů.
+Skutečná, vědomá ztráta přesnosti výměnou za čitelnost hordy: hráč musí vidět, co se
+řítí na bludiště, a schovaná přicházející horda za sprajtem věže je horší selhání
+než obrácený případ (a je to běžnější konvence v horda/TD hrách obecně). Glow a stín
+jdou ještě níž, na vlastní pevnou vrstvu POD všechny jednotky bez y-sortu vůbec — což
+je paradoxně BLÍŽ vlastnímu ideálu `docs/core/01_rendering_and_depth.md` ("stíny
+jsou jen z-index, nikdy y-sort") než byl starý per-node kreslič, který je řadil
+SPOLU s tělem (stejný uzel, stejné `_draw()`).
+
+**Vizuální zjednodušení** (zdokumentovaná, ne tichá): stín ztratil jemné časové
+"bob" zvlnění (pár procent měřítka na nízko-alfa fleku pod nohama, na hordě
+neviditelné, nestojí za per-instance animovaný transform); glow a stín jsou JEDNA
+pre-baked měkká radiální textura místo původního zásobníku 3-4 tvrdých prstenů —
+blízko v hustotě a stopě, ne pixel-identické. **Ověřeno okem, ne jen tvrzením**
+(vlastní pravidlo této role): `scenes/_shot_crowd.tscn` (existující fixture, nezměněn)
+spuštěn s n=120 a n=9 → `.dev/screenshots/p5_crowd_120.png`, `p5_crowd_9.png` — těla,
+glow i stín se kreslí, správně tvarované, nic vzhůru nohama ani rozbité. Zrcadlení
+(west = east zrcadlené) ověřeno samostatně: dočasný harness (smazán po použití, viz
+`CLAUDE.md`) vynutil facing S/N/E/W na čtyřech instancích, screenshot ořezán přesně
+na E a W tělo přes grid matematiku, W ořez horizontálně flipnut v Pythonu (PIL) a
+diffnut proti E — `.dev/screenshots/p5_mirror_compare.png` ukazuje, že se shodují
+(asymetrický tmavý akcent na kraji sprajtu přistane na správné straně v obou).
+
+**Bench** (`scripts/_perf_horde.gd` nezměněn — stejná metodika, stejné N, level 99,
+vsync off; plná tabulka a rozbor v `docs/PERF.md`):
+
+| N | T11 avg (ms) | P4 avg (ms) | P5 avg (ms) | T11→P5 |
+|---|---|---|---|---|
+| 50 | 6.23 | 6.27 | 2.13 | 2.9× |
+| 100 | 12.29 | 12.38 | 2.98 | 4.1× |
+| 200 | 27.29 | 25.19 | 4.82 | 5.7× |
+| 500 | 62.76 | 52.64 | **11.32** | **5.5×** |
+| 1000 | 88.28 | 65.76 | 22.25 | 4.0× |
+
+Cíl byl N=500 avg ≥ 3× rychlejší než T11 (≤ ~20.9ms) — naměřeno 11.32ms, **5,5×**,
+pohodlně splněno. Worst frame stejný vzorec (N=500: 108.91→17.77ms, 6,1×). Zisk roste
+s N až do 500, pak se mírně zužuje na 1000 (pořád 4,0×/3,0× nad T11/P4) — sedí s
+mechanismem: batch draw calls škálují s počtem obsazených řádků na poli, ne s N;
+zbylá O(N) práce (`HordeRenderer.rebuild()`'s smyčka přes živé distrakce, plus
+pohyb/status tick v `Distraction._process()`) je levná (stejný druh "N levných
+dictionary/array čtení", který P4's vlastní bench už ověřil jako v pořádku při
+N=1000), ale při N=1000 se začíná trochu projevovat.
+
+**Regrese:** žádná. Tohle je čistě vykreslovací změna, herní logiku nemění — spawn,
+pohyb (P4's `current_cell`/flow field), damage, statusy, smrt, split, disrupt/haste
+archetypy jedou beze změny. `_test_suppression`, `_test_taxonomy`, `_test_sink` a
+ekonomické testy zelené BEZE ZMĚNY svých assercí.
+
+**Nový test** `scripts/_test_horde_renderer.gd` + `scenes/_test_horde_renderer.tscn`
+(postavený přes `tools/make_test_scene.gd`, per CLAUDE.md's "Scény" pravidlo) — ověřuje
+samotný nový mechanismus, ne pixely: plochý chodec je batch-eligible a `HordeAtlas` ho
+opravdu zabalí (neprázdný UV rect i pixel size), `HordeRenderer.batch_count()` sedí na
+počet živých batchovaných těl, zablokování vyřadí z batche a uvolnění vrátí zpět,
+aktivní Boredom status vynutí `needs_own_redraw()` i když tělo zůstává v batchi,
+hit-flash tint se mění a vrací na bílou, a south/north/east/west (west = zrcadlené
+east) výběr snímku sedí na to, co dřív dělal `_draw_sprite_frames()`.
+
+- verify.sh: PASS (33 pass, 0 fail, 4 known-broken — `_test_deep_reading`,
+  `_test_fog_bandwidth`, `_test_shadow_occlusion`, `_test_zen_pulsar`, žádný z nich
+  se P5 netýká — 0 flaky).

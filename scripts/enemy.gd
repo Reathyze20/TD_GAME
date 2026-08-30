@@ -170,6 +170,23 @@ func _prune_blockers() -> void:
 	if blockers.size() != before:
 		is_blocked = not blockers.is_empty()
 
+## Whether this node's OWN _draw() (life_left ring, autoplay ring, disrupt/haste
+## charge tells — see _draw()'s header) has anything time-varying left to show this
+## frame. P5 (docs/refactor/PATHFINDING.MD): movement used to call queue_redraw()
+## unconditionally every frame, but repositioning a CanvasItem does NOT require a
+## redraw — Godot re-transforms the same cached draw command list at the new position
+## for free — so that call was re-issuing an almost-always-empty draw list for every
+## live, undamaged, archetype-less distraction, every frame. The disrupt/haste and
+## life/autoplay tells genuinely animate continuously while active, so those keep an
+## unconditional redraw for as long as the archetype/timer is live; a plain walker
+## with none of them now schedules zero redraws from its own movement tick, matching
+## DistractionAnimator.needs_own_redraw()'s identical reasoning one node over.
+func _needs_own_redraw() -> bool:
+	if (_life_left > 0.0 and def.lifetime_seconds > 0.0) \
+			or (_autoplay_left > 0.0 and def.autoplay_seconds > 0.0):
+		return true
+	return def.disrupt_interval > 0.0 or def.haste_interval > 0.0
+
 func _process(delta: float) -> void:
 	if dead:
 		if _awaiting_death_anim:
@@ -240,7 +257,8 @@ func _process(delta: float) -> void:
 	else:
 		position += to / dist * step
 		note_heading(to / dist)
-	queue_redraw()
+	if _needs_own_redraw():
+		queue_redraw()
 
 ## Which way this distraction is travelling, as one of four compass directions. The
 ## animator picks its walk cycle from it — without this every creature moonwalked east
@@ -434,7 +452,8 @@ func _fly(delta: float) -> void:
 		return
 	position += to / dist * step
 	note_heading(to / dist)
-	queue_redraw()
+	if _needs_own_redraw():
+		queue_redraw()
 
 ## Boredom damage callback — StatusManager emits this per source, so the habit that
 ## applied the dot gets panel credit. Routes through take_direct_damage() so the

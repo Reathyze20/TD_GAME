@@ -130,6 +130,15 @@ func _load_frame_textures() -> void:
 	_frame_textures = _frames_south
 
 func _load_set(base_id: String, suffix: String, dir_suffix: String) -> Array[Texture2D]:
+	return load_frame_set(base_id, suffix, dir_suffix)
+
+## Static half of the above — same cache, same path convention. Pulled out for P5
+## (docs/refactor/PATHFINDING.MD): HordeAtlas needs to pack these exact textures into
+## its runtime atlas for the batched MultiMesh render path, and calling into THIS
+## loader (rather than re-deriving the file-path convention a second time) guarantees
+## the atlas can never disagree with what the individual per-node fallback would draw —
+## one cache, read by both.
+static func load_frame_set(base_id: String, suffix: String, dir_suffix: String) -> Array[Texture2D]:
 	var key := base_id + "|" + suffix + "|" + dir_suffix
 	if _frame_cache.has(key):
 		return _frame_cache[key]
@@ -223,25 +232,112 @@ func _set_key(dir_suffix: String) -> String:
 		return ""
 	return String(enemy.def.id) + _variant_suffix + dir_suffix
 
-func _draw_sprite_frames(r: float) -> void:
+## Frame/facing/mirror/offset selection, shared by the legacy per-node sprite draw
+## below AND the batched MultiMesh path (P5, docs/refactor/PATHFINDING.MD) — ONE
+## function, so the two can never disagree about which frame an artist's AnimTuning
+## says should be showing right now. Empty Dictionary if there is nothing to draw
+## (walk cycle but no facing has any frames at all — should not happen in practice,
+## but _facing_frames() already has to handle the "no art" case for the caller).
+func _select_frame() -> Dictionary:
 	var pick := _facing_frames()
 	if enemy.is_blocked and not _frames_attack.is_empty():
 		pick = [_frames_attack, enemy.facing == Distraction.Facing.WEST, "_attack"]
 	var frames: Array[Texture2D] = pick[0]
 	if frames.is_empty():
-		return
+		return {}
 	var mirror: bool = pick[1]
-	var key := _set_key(pick[2])
+	var dir_suffix: String = pick[2]
+	var key := _set_key(dir_suffix)
 	var slot: int = int(_time * tuning().fps_for(key, SPRITE_FPS))
 	var idx: int = tuning().frame_at(key, frames.size(), slot, true)
-	var tex: Texture2D = frames[idx]
-	var off := tuning().offset_for(key, idx)
+	return {"tex": frames[idx], "mirror": mirror, "dir_suffix": dir_suffix, "idx": idx,
+		"offset": tuning().offset_for(key, idx)}
+
+func _draw_sprite_frames(r: float) -> void:
+	var sel := _select_frame()
+	if sel.is_empty():
+		return
+	var tex: Texture2D = sel["tex"]
+	var mirror: bool = sel["mirror"]
+	var off: Vector2i = sel["offset"]
 	if mirror:
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2(-1.0, 1.0))
 		_draw_texture_centred(tex, r, 1.0, off)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	else:
 		_draw_texture_centred(tex, r, 1.0, off)
+
+# ---------------------------------------------------------------- P5 batch support
+# (docs/refactor/PATHFINDING.MD) — the surface HordeRenderer reads to draw this
+# creature's walking body through the shared MultiMesh instead of this node's own
+# _draw(). See horde_renderer.gd's own header for which instances qualify and why.
+
+## True while this instance's BODY should be drawn by the batch instead of here.
+## Also the trigger that packs this (type, variant)'s walk frames into HordeAtlas —
+## called every frame from both this node's own _draw() (to decide whether to skip
+## its heavy drawing) and from HordeRenderer.rebuild() (to decide whether to include
+## this instance), so packing happens exactly once, on whichever runs first, and both
+## call sites always agree.
+func is_batch_eligible() -> bool:
+	if enemy == null or enemy.def == null or enemy.dead or _dying or enemy.is_blocked:
+		return false
+	if _frame_textures.is_empty():
+		return false  # no walking art at all — stays on the procedural fallback path
+	return HordeAtlas.ensure_packed(String(enemy.def.id), _variant_suffix)
+
+## Everything HordeRenderer needs to place one instance's body quad this frame, or an
+## empty Dictionary if is_batch_eligible() is false (caller should leave this instance
+## on the legacy per-node path for this frame).
+func batch_frame_data() -> Dictionary:
+	if not is_batch_eligible():
+		return {}
+	var sel := _select_frame()
+	if sel.is_empty():
+		return {}
+	return {
+		"base_id": String(enemy.def.id),
+		"variant": _variant_suffix,
+		"dir_suffix": sel["dir_suffix"],
+		"frame_idx": sel["idx"],
+		"mirror": sel["mirror"],
+		"offset": sel["offset"],
+	}
+
+## The same overbright-white hit-flash tint _draw_texture_centred applies to the
+## legacy path's draw_texture_rect() call — MultiMesh's native per-instance colour is
+## exactly this, so a batched instance needs no separate hit-flash overlay at all.
+func hit_flash_color() -> Color:
+	if _hit_flash_timer <= 0.0:
+		return Color.WHITE
+	var flash_intensity: float = clampf(_hit_flash_timer / 0.15, 0.0, 1.0)
+	return Color(1.0 + flash_intensity * 2.5, 1.0 + flash_intensity * 2.5,
+		1.0 + flash_intensity * 2.5, 1.0)
+
+## Public wrapper — HordeRenderer needs this to size the batched glow/shadow quads the
+## same way the legacy per-node draw sizes its own.
+func visual_radius() -> float:
+	if enemy == null or enemy.def == null:
+		return 0.0
+	return _visual_radius(enemy.def.radius)
+
+## Whether an overlay this node still owns (status auras, procedural fallback body,
+## the attack loop, a death animation) needs a fresh _draw() this frame. A batched,
+## idle, unstatused instance returns false — its body/glow/shadow are the horde
+## batch's job now, and nothing else here is animating, so scheduling a redraw would
+## just re-issue the same empty draw list every frame for nothing. This is the actual
+## per-node cost P5 set out to remove: see this file's _process() and horde_renderer.gd.
+func needs_own_redraw() -> bool:
+	if _dying:
+		return true
+	if enemy == null or enemy.dead:
+		return false
+	if not is_batch_eligible():
+		return true  # fallback body (procedural or attack loop) animates every frame
+	var sm := enemy.status_manager
+	if sm != null and (sm.has_boredom() or sm.has_slow() or sm.has_haste() \
+			or sm.extra_factor > 1.0 or sm.has_reframe()):
+		return true
+	return false
 
 func _draw_texture_centred(tex: Texture2D, r: float, glow: float = 1.0,
 		off: Vector2i = Vector2i.ZERO) -> void:
@@ -332,7 +428,14 @@ func _process(delta: float) -> void:
 	if _hit_flash_timer > 0.0:
 		_hit_flash_timer -= delta
 
-	queue_redraw()
+	# P5 (docs/refactor/PATHFINDING.MD): _time and the hit-flash countdown above always
+	# advance — HordeRenderer's per-frame rebuild() reads both directly off this node
+	# for a batched instance's frame pick and tint, with no need for _draw() to ever
+	# run. Redraw is only scheduled when there is still something ONLY this node's own
+	# _draw() can show: the procedural fallback body, the attack loop, or an active
+	# status aura. See needs_own_redraw()'s own header for the reasoning.
+	if needs_own_redraw():
+		queue_redraw()
 
 # ---------------------------------------------------------------- death animation
 #
@@ -422,12 +525,21 @@ func _draw() -> void:
 			_draw_death_frames(r)
 		return
 
-	_draw_type_glow(vr, 1.0)
-	_draw_contact_shadow(vr, 1.0)
+	# P5 (docs/refactor/PATHFINDING.MD): a batch-eligible instance's glow, shadow, hit
+	# flash and body are drawn by HordeRenderer's shared MultiMeshInstance2D instead —
+	# see is_batch_eligible()'s own header. Everything below this check (status auras,
+	# the reframe ring further down) still belongs to THIS node either way: they only
+	# apply to whichever slice of the population currently carries that status, so
+	# skipping them here would cost nothing measurable and they are not what P5 set
+	# out to batch.
+	var batched := is_batch_eligible()
+	if not batched:
+		_draw_type_glow(vr, 1.0)
+		_draw_contact_shadow(vr, 1.0)
 
-	# Apply Hit Flash modulation tint
-	if _hit_flash_timer > 0.0:
-		draw_circle(Vector2.ZERO, vr + 4.0, Color(1, 1, 1, 0.8))
+		# Apply Hit Flash modulation tint
+		if _hit_flash_timer > 0.0:
+			draw_circle(Vector2.ZERO, vr + 4.0, Color(1, 1, 1, 0.8))
 
 	# -------------------------------------------------- Status Aura Overlays
 	# Boredom halo
@@ -469,9 +581,12 @@ func _draw() -> void:
 
 	# -------------------------------------------------- Hand-authored sprite frames
 	# Art on disk wins over the procedural body. The status auras above still draw, so a
-	# sprited enemy keeps its Boredom halo and Slow ring; only the body is replaced.
+	# sprited enemy keeps its Boredom halo and Slow ring; only the body is replaced. A
+	# batched instance's body is the horde MultiMesh's job now (P5) — this node drew
+	# only the overlays above (if any were active this frame) and stops here.
 	if not _frame_textures.is_empty():
-		_draw_sprite_frames(r)
+		if not batched:
+			_draw_sprite_frames(r)
 		return
 
 	# -------------------------------------------------- Multi-Part Vector Animations
