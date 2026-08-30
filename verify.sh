@@ -49,9 +49,6 @@ KNOWN_BROKEN_TESTS=(
   # be run headless), and WITH a renderer toggling shadow_enabled changes the picture by
   # exactly 0.0000. First red: 5d72b07 headless / 26814f9 zero-delta.
   _test_shadow_occlusion
-  # Knockback shoves a body 26px straight into a wall ((-26.0, 0.0)); the other three
-  # knockback checks pass. Real. First red: 26814f9.
-  _test_suppression
   # assets/towers/head_zen_pulsar_frame_1..8.png are gone; head_zen_pulsar.png survives.
   # A genuinely missing file, not an expectation. First red: 0465a23.
   _test_zen_pulsar

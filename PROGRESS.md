@@ -1775,3 +1775,104 @@ neexistují), nástroj by neměl nad čím pracovat, a „Hotovo když" kritéri
 - Ověřeno: žádné duplicitní `## ` nadpisy, `tools/next_task.py
   docs/refactor/PATHFINDING.MD` vrací `P4|sonnet|no`.
 - Detaily a varování pro příště v BLOCKED.md.
+
+## 2026-08-30 — P4 hotovo: jednotky na flow fieldu, věže cílí přes prostorový hash, knockback opraven
+
+- **Pozice = `Vector2` na mřížce, ne skalár/pole.** `scripts/enemy.gd` (`Distraction`):
+  `cell_path: Array` + `path_index` odstraněny, nahrazeny jedním `current_cell:
+  Vector2i`. Advancuje se JEN při dojezdu na cíl aktuálního kroku (mirror starého
+  `path_index += 1`), NIKDY re-derivováno z `world_to_cell(position)` každý snímek —
+  malý `_scatter` offset (anti-clump) by jinak posouval hranici buňky o pár pixelů
+  dřív/později a řezal animaci chůze v rozích. `set_cell_path()` smazána.
+- **Směr = čtení z `FlowField` (P1), ne per-jednotkový A*.** `game.gd`: nové
+  `var flow_field: FlowField`, přestavováno `_rebuild_flow_field()` při stavbě levelu
+  a znovu jen tam, kde se za běhu mění `high_ground` — to je dnes JEN `_set_sunk()`
+  (spike klesajících zdí). `Distraction._process()`: `flow_field.has_cell(current_cell)`
+  false → idle (stejná záchranná síť jako dřív prázdné `cell_path`); jinak
+  `next_cell = current_cell + flow_field.direction(current_cell)`, `_reach_core()`
+  když `current_cell == objective_cell`. `astar` (`AStarGrid2D`, VÁŽENÝ,
+  `path_off_lane_cost`) zůstává živý jen pro build-fázové náhledy tras
+  (`_compute_path_previews`) a dev sondy (`_test_sink.gd`, `_test_trod.gd` na něj
+  sahají přímo) — živý pohyb ho už nikdy nevolá.
+- **`assign_path()` smazána** (3 volání nahrazena přímým nastavením `current_cell`
+  nebo úplně zrušena). `spawn_distraction()`: `d.current_cell = spawn_cell`.
+  `spawn_split()`: dítě nic neslicuje z rodičovy trasy (žádná trasa už neexistuje) —
+  dostane rodičovu AKTUÁLNÍ buňku (`world_to_cell(parent.position)`, stejně jako dřív
+  pro pozici) a čte STEJNÉ sdílené pole jako rodič, takže "pokračuje, nezačíná znovu"
+  vyjde samo bez bookkeepingu. Guard proti soft-locku zůstal (dítě na nedosažitelné
+  buňce se rovnou uklidí), jen přepsán na `flow_field.has_cell()`.
+- **`_open_trod()` už pole vůbec nepřestavuje** ani neprochází živé distrakce — trod
+  jen přeřadí už VOLNÉ buňky na `lane_cells` (`_open_trod`'s vlastní guard nikdy
+  nesahá na `high_ground`), takže nevážený flow field vidí identickou mapu před i po.
+  **Reálná změna chování** oproti před-P4 stavu: živé jednotky teď VŽDY jdou surově
+  nejkratší cestou (nevážené pole je slepé k `lane_cells`), takže otevření trodu je
+  na svoji stranu už nepřetáhne — dřív ano, přes vážený `astar.get_id_path()`.
+  `_test_trod.gd` na to nenaráží, protože kontroluje jen váženou preview trasu
+  (`game.astar.get_id_path()` přímo), ne žádnou živou jednotku — ověřeno spuštěním,
+  zůstává zelený.
+- **Knockback do zdi opraven doopravdy** (`docs/KNOWN_BROKEN.md`'s
+  `_test_suppression` záznam). Příčina: `apply_knockback()` kontroloval jen CÍLOVOU
+  buňku; `Data.GRID.tile`=16px < `KNOCK_BUDGET`=26px, takže šťouchnutí start vedle
+  jednobuněčné zdi mohlo protunelovat, aniž by cíl kdy byl ta zeď. Oprava
+  (`_knockback_crosses_wall()`): vzorkuje celou trasu šťouchnutí po krocích
+  `Data.GRID.tile / 4.0` (dost jemně, že jednobuněčná zeď nemůže celá propadnout mezi
+  dva vzorky bez ohledu na fázi) — narazí-li KDEKOLI na `high_ground`, CELÉ šťouchnutí
+  se zamítne (poloha nehne), stejný all-or-nothing duch jako dřív (`_knock_left` se
+  odečte i přesto — zablokovaná rána nekupuje zadarmo druhý pokus). **Žádná assertion
+  v `_test_suppression.gd` se neměnila** — test teď prochází beze změny svého kódu:
+  `and never into a wall ((0.0, 0.0))`.
+- **Zaměřování věží nad prostorovým hashem.** `game.gd`: `_distraction_hash`
+  (`Vector2i` buňka → `Array[Distraction]`), přestavovaný jednou za snímek na začátku
+  `Game._process()` (ne per-dotaz — víc habitů ve stejném snímku sdílí jednu
+  přestavbu). `query_distractions_near(center, radius)` prochází jen OBSAZENÉ buňky
+  v poloměru. `tower.gd`: `_aoe_targets()`, `has_enemy_in_cone()`, `_tick_auto_aim()`
+  z něj čtou kandidáty místo plného skenu `get_live_distractions()` — přesný cone
+  test, řazení podle vzdálenosti a ořez na `_profile.aoe_targets` beze změny.
+  **Přínos na TÉTO mapě je reálný, ale skromný**: habity mají dosah 260-560px proti
+  hřišti 480×224px (`data/habits/*.tres`), takže dotaz stejně obsáhne většinu desky —
+  hash pomáhá tím, že vynechá PRÁZDNÉ buňky, což u hordy pochodující jednou řadou
+  znamená zlomek živého počtu, ne zlomek plochy. `defender_unit.gd` (Ally engagement,
+  opačný směr dotazu) a `projectile.gd` (hit detekce po dráze střely, vlastní
+  pořadí/fog logika, autorský komentář ji sám označuje za "the game's hottest" loop)
+  záměrně NEDOTČENY — mimo doslovný rozsah "věže cílí" a riziko rozbití jemné logiky
+  by nekoupilo nic měřitelného na téhle velikosti mapy.
+- **Upravené testy** (ne obcházení assercí, jen aktualizace na novou reprezentaci
+  pozice — stejná chování se ověřují jinou cestou):
+  - `scripts/_test_taxonomy.gd`: `kids[0].cell_path.is_empty()` →
+    `game.flow_field.has_cell(kids[0].current_cell)`; simulace "rodič bez cesty"
+    (`stuck.cell_path = []; stuck.path_index = 0`) → `stuck.current_cell = wall_cell`
+    (buňka, kterou BFS jako blocked nikdy nenavštíví); "orphans" kontrola stejně
+    přepsána na `not flow_field.has_cell(...)`.
+  - `scripts/_test_sink.gd`: kontrola "žádný krok cesty nevede zdí" iterovala
+    `d.cell_path` přímo — nahrazeno ruční trasováním od `d.current_cell` k
+    `objective_cell` přes `flow_field.direction()` (stejný postup, jakým se řídí
+    živá distrakce), kontroluje `high_ground` na každé navštívené buňce.
+  - `scripts/animation_test.gd` (dev harness, ne `_test_*`, není v verify.sh, ale
+    nechat ho rozbitý by bylo špatně): dostal `flow_field`/`objective_cell`/
+    `high_ground` pole jako mock `game`, `_march_field` postavený jednou v `_ready()`;
+    tlačítko pauzy teď přepíná `flow_field = _march_field / null` pro všechny naráz
+    místo `set_cell_path([])` na každé zvlášť.
+- **Bench T11 zopakován** (`scripts/_perf_horde.gd` nezměněn — stejná metodika, stejné
+  N). Zapsáno do `docs/PERF.md` (nová sekce "P4" + zachovaný T11 baseline + zachovaná
+  P1/P2 sekce, kterou by harness jinak přepsal — psáno ručně, ne přes harness, aby se
+  nic neztratilo). Avg frame: **lepší od N=200 výš** (N=200: 27.29→25.19ms; N=500:
+  62.76→52.64ms, −16 %; N=1000: 88.28→65.76ms, −26 %), na N=50/100 na místě (±1 %).
+  Worst frame stejný vzorec kromě N=50 (+2.4ms) — ten samý krok má `spawn+path`
+  901.3ms (o tři řády víc než každý další krok, 2-16ms) — engine warm-up prvního
+  snímku po těžkém spawnu, ne regrese pohybu; zaznamenáno jako naměřeno, ne skryto.
+  Mechanismus zlepšení: starý kód dával každé spawnuté jednotce plný
+  `astar.get_id_path()` solve; nový je jeden dictionary lookup do už postaveného
+  pole — cena přestala škálovat s velikostí bludiště.
+- **P3 zůstává zavřené** (viz jeho vlastní "poslední slovo má P4" v
+  `docs/refactor/PATHFINDING.MD`). `FlowField.build()` se za tohohle benchmarku volá
+  přesně JEDNOU za level (nic nesype zeď) — stejně jako u P1/P2. Co P4 přidává je
+  `has_cell()`/`direction()` ČTENÍ za jednotku za snímek — dva O(1) dictionary lookupy,
+  nezávislé na velikosti bludiště. Při N=1000 to je ~2000 lookupů/snímek, hluboko pod
+  jakoukoli hranicí zájmu — číslo v tabulce je pohyb/vykreslení, ne přístup k poli.
+- `_test_suppression` zelený, vyřazen z `KNOWN_BROKEN_TESTS` (verify.sh) i z aktivní
+  sekce `docs/KNOWN_BROKEN.md` (přepsáno na "FIXED 2026-08-30", zachována diagnóza
+  a přidán popis opravy; řádek v souhrnné tabulce aktualizován).
+- verify.sh: PASS (32 pass, 0 fail, 4 known-broken — `_test_deep_reading`,
+  `_test_fog_bandwidth`, `_test_shadow_occlusion`, `_test_zen_pulsar`, žádný z nich
+  se P4 netýká — 0 flaky).
+- Commit: (doplním v následujícím commitu s hashem).

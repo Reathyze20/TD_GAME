@@ -18,8 +18,18 @@ var _distraction_keys: Array[String] = [
 
 var _spawned_enemies: Array[Distraction] = []
 var _is_marching := false
-var _path: Array[Vector2i] = []
 var objective_pos: Vector2 = Vector2.ZERO
+
+# Duck-typed as a "game" for Distraction (setup(mock_game, key) below) — P4 (docs/
+# refactor/PATHFINDING.MD) moved live movement onto Game.flow_field, so this manual
+# harness needs the same three fields Game exposes. `high_ground` stays empty (no walls
+# in this showcase); `_march_field` is built once and only ASSIGNED to `flow_field`
+# while marching — swapping it out again on pause reproduces the old set_cell_path([])
+# "stop everyone in place" behaviour without a per-distraction pause flag.
+var objective_cell: Vector2i = Vector2i(37, 9)
+var high_ground := {}
+var flow_field: FlowField = null
+var _march_field: FlowField = null
 
 # Node references
 var _hud_layer: CanvasLayer
@@ -28,13 +38,13 @@ var _status_label: Label
 func _ready() -> void:
 	# Ensure Data autoload is ready
 	GameState.current_level_index = 0
-	
-	# Build preview cell path
-	_path.clear()
-	for col in range(2, 38):
-		_path.append(Vector2i(col, 9))
 
-	objective_pos = cell_center(Vector2i(37, 9))
+	# Row-9 corridor from col 2 to col 37 — wider than the real Data.GRID (30 cols), which
+	# is fine: FlowField only needs bounds wide enough for ITS OWN board, not the live
+	# game's.
+	_march_field = FlowField.build(40, 12, objective_cell, {})
+
+	objective_pos = cell_center(objective_cell)
 
 	_setup_ui()
 	_spawn_showcase_line()
@@ -50,8 +60,7 @@ func spawn_distraction(type_key: String, spawn_cell: Vector2i) -> void:
 	add_child(enemy)
 	enemy.setup(self, type_key)
 	enemy.position = cell_center(spawn_cell)
-	if _is_marching:
-		enemy.set_cell_path(_path)
+	enemy.current_cell = spawn_cell
 	_spawned_enemies.append(enemy)
 
 func _setup_ui() -> void:
@@ -148,6 +157,7 @@ func _spawn_showcase_line() -> void:
 		add_child(enemy)
 		enemy.setup(mock_game, key)
 		enemy.position = cell_center(cell)
+		enemy.current_cell = cell
 		_spawned_enemies.append(enemy)
 
 	if _status_label != null:
@@ -155,12 +165,10 @@ func _spawn_showcase_line() -> void:
 
 func _on_toggle_march() -> void:
 	_is_marching = not _is_marching
-	for enemy in _spawned_enemies:
-		if is_instance_valid(enemy):
-			if _is_marching:
-				enemy.set_cell_path(_path)
-			else:
-				enemy.set_cell_path([])
+	# One shared flow_field flip pauses/resumes every enemy at once (they all read
+	# `flow_field` off this same mock game each frame) — same effect the old
+	# set_cell_path([]) toggle had, without a per-distraction pause flag.
+	flow_field = _march_field if _is_marching else null
 
 	if _status_label != null:
 		_status_label.text = "Stav: Pohyb %s" % ("SPUŠTĚN" if _is_marching else "POZASTAVEN")

@@ -176,7 +176,7 @@ for the test to use.
   character-for-character what they are now (`-0 cells, +7`, `36 -> 36`).
 - **Bearing on the queue:** P9/P10/P11 build on this. P8b exists to fix it first.
 
-## `_test_suppression` — real regression, knockback into a wall
+## `_test_suppression` — FIXED 2026-08-30 (was: knockback into a wall)
 
 ```
 FAIL and never into a wall ((-26.0, 0.0))
@@ -190,6 +190,19 @@ above it passes.
 - **First red at all:** at or before `5d72b07` (T0), as `one hit moves it (+0.0px)` — the
   masked shape again (nothing moved because nothing pathed).
 - **First red with today's symptom:** `26814f9` (T5), string-identical to today.
+- **Root cause:** `Distraction.apply_knockback()` (`scripts/enemy.gd`) only checked
+  whether the shove's DESTINATION cell was `high_ground`. `Data.GRID.tile` is 16px while
+  the knockback budget is 26px, so a push starting adjacent to a one-cell-thick wall could
+  land past it without the destination cell ever being the wall cell itself — tunnelling
+  straight through a wall it visibly crossed.
+- **Fix, bundled into P4 (docs/refactor/PATHFINDING.MD) since movement's position/cell
+  model was already being rewritten:** `apply_knockback()` now samples the swept segment
+  in fixed steps of `Data.GRID.tile / 4.0` (`Distraction._knockback_crosses_wall()`) — a
+  step small enough that a one-tile wall can never fall entirely between two samples. If
+  ANY sample lands in `high_ground`, the whole push is rejected (matching the existing
+  budget's all-or-nothing spirit: `_knock_left` is still spent, same as before, so a
+  blocked shove doesn't buy a free retry). No assertion in `_test_suppression.gd` changed;
+  only the collision detection did.
 
 ## `_test_phase3` — FIXED 2026-08-30 (was: flaky by test design, not broken)
 
@@ -227,7 +240,7 @@ with the status system it was meant to be testing.
 | `_test_zen_pulsar` | missing file | `0465a23` | `0465a23` |
 | `_test_shadow_occlusion` | harness mismatch + render regression | `5d72b07` (headless) | `26814f9` (zero delta) |
 | `_test_fog_bandwidth` | logic regression | ≤ `5d72b07` | `26814f9` |
-| `_test_suppression` | logic regression | ≤ `5d72b07` | `26814f9` |
+| `_test_suppression` | logic regression — **fixed** 2026-08-30 (P4) | ≤ `5d72b07` | `26814f9` |
 | `_test_phase3` | test-design defect — **fixed** 2026-08-30 | n/a (race) | n/a |
 
 `verify.sh`'s inline comments next to `KNOWN_BROKEN_TESTS` still carry the older, partly

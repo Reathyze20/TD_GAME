@@ -88,7 +88,7 @@ v PROGRESS.md 2026-08-30 a BLOCKED.md.
 ## P4 — jednotky na flow fieldu
 Model: sonnet
 Needs-me: no
-Status: todo
+Status: done
 
 **POZOR — zadání bylo opraveno.** Starší znění (S5 v `SYSTEMS.md`) mluvilo
 o pozici jako o vzdálenosti podél cesty. To platilo jen pro jednu cestu
@@ -104,6 +104,49 @@ a s flow fieldem **už neplatí**.
 Hotovo když: existující regresní testy ekonomiky zůstanou zelené,
 `_test_suppression` je zelený a vyřazený z known-broken, bench z T11 zopakován
 a zapsán do `docs/PERF.md`.
+
+`scripts/enemy.gd` (`Distraction`) — `cell_path`/`path_index` (Array přes celou trasu)
+nahrazeny jedním `current_cell: Vector2i`, advancovaným jen při dojezdu na cíl kroku
+(stejný "walk smoothly to next cell centre" pocit jako dřív). Směr každý krok čte
+`game.flow_field.direction(current_cell)`; `game.gd` staví JEDNO sdílené
+`FlowField` (`_rebuild_flow_field()`) při stavbě levelu a znovu jen tam, kde se za
+běhu mění `high_ground` — což je dnes jen `_set_sunk()` (spike klesajících zdí).
+`_open_trod()` pole nepřestavuje vůbec: trod jen přeřadí už volné buňky na `lane_cells`
+(nikdy nesahá na `high_ground`), takže nevážené pole vidí přesně stejnou mapu před
+i po — **chování se ale reálně mění**: živé jednotky teď vždy jdou surově nejkratší
+cestou a otevření trodu je na ně už nepřetáhne (dřív ano, přes vážený A*). `astar`
+(`AStarGrid2D`, vážený, honoring `path_off_lane_cost`) v `game.gd` zůstává živý jen
+pro build-fázové náhledy tras (`_compute_path_previews`) a dev sondy — živý pohyb
+už ho nikdy nevolá. Split (`spawn_split`) už nic neslicuje: dítě dostane rodičovu
+aktuální buňku a čte STEJNÉ sdílené pole, takže "pokračuje, nezačíná znovu" vyjde
+samo.
+
+Knockback (`_test_suppression`, viz i `docs/KNOWN_BROKEN.md`): `apply_knockback()`
+dřív kontroloval jen CÍLOVOU buňku (`Data.GRID.tile`=16px < KNOCK_BUDGET=26px, takže
+šťouchnutí mohlo protunelovat jednobuněčnou zeď, aniž by cíl kdy byl ta zeď). Oprava
+vzorkuje celou trasu šťouchnutí po `tile/4` krocích (`_knockback_crosses_wall()`) —
+narazí-li kdekoli na `high_ground`, celé šťouchnutí se zamítne (poloha se nehne),
+což odpovídá stávající all-or-nothing logice rozpočtu (`_knock_left` se odečte
+i tak). Žádná assertion v `_test_suppression.gd` se neměnila.
+
+Zaměřování věží: `game.gd` má `query_distractions_near(center, radius)` nad
+`_distraction_hash` (Vector2i buňka -> Array[Distraction]), přestavovaným jednou za
+snímek v `Game._process()`. `tower.gd`'s `_aoe_targets()`, `has_enemy_in_cone()`
+a `_tick_auto_aim()` z něj čtou kandidáty místo plného skenu `get_live_distractions()`
+— řazení/ořez podle `_profile.aoe_targets` beze změny. Přínos na TÉTO mapě je reálný,
+ale skromný: většina habitů má dosah 260-560px proti hřišti 480×224px, takže dotaz
+stejně obsáhne většinu desky; hash pomáhá tím, že navštíví jen OBSAZENÉ buňky, což
+u hordy pochodující v jedné řadě znamená zlomek živého počtu. `defender_unit.gd`
+(Ally engagement) a `projectile.gd` (hit detekce, jiná mechanika s vlastním pořadím)
+záměrně nedotčeny — mimo doslovný rozsah "věže cílí", riziko rozbití jemné logiky
+by nekoupilo nic měřitelného.
+
+Bench (T11 metodika zopakována, `scripts/_perf_horde.gd` nezměněn): avg frame lepší
+od N=200 výš (N=500: 62.76→52.64ms, N=1000: 88.28→65.76ms), zhruba na místě na
+N=50/100. Plné číslo i vysvětlení jednoho šumového outlieru (N=50 worst frame) v
+`docs/PERF.md`. Flow field se za běhu čte, ne přepočítává (přestavba je jen na
+`high_ground` změnu, dnes jen sinking-walls spike) — P3 zůstává zavřené, čtení
+je O(1) na jednotku i při N=1000.
 
 ## P5 — vykreslování hordy přes MultiMeshInstance2D
 Model: sonnet

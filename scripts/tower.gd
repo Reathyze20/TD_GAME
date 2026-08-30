@@ -178,7 +178,10 @@ func _tick_auto_aim(delta: float) -> void:
 		return
 	var sum := Vector2.ZERO
 	var n := 0
-	for d in game.get_live_distractions():
+	# Range query over the spatial hash (docs/refactor/PATHFINDING.MD P4) instead of a
+	# scan of every live distraction — this is still just a candidate list, the exact
+	# range/visibility test below is unchanged.
+	for d in game.query_distractions_near(global_position, current_attack_range):
 		if not is_instance_valid(d) or d.dead:
 			continue
 		# Ground space, matching is_point_in_cone: the projection squashes screen-Y, so
@@ -225,7 +228,7 @@ func shot_interval() -> float:
 func has_enemy_in_cone() -> bool:
 	if game == null:
 		return false
-	for d in game.get_live_distractions():
+	for d in game.query_distractions_near(global_position, current_attack_range):
 		if is_instance_valid(d) and not d.dead and is_point_in_cone(d.global_position):
 			return true
 	return false
@@ -518,7 +521,9 @@ func apply_pulse_to(d: Distraction) -> void:
 func _aoe_targets() -> Array:
 	var cap: int = _profile.aoe_targets
 	var in_cone: Array = []
-	for d in game.get_live_distractions():
+	# Spatial-hash range query (docs/refactor/PATHFINDING.MD P4) replacing the old scan of
+	# every live distraction — the cone test, sort and cap below are all unchanged.
+	for d in game.query_distractions_near(global_position, current_attack_range):
 		if is_instance_valid(d) and not d.dead and is_point_in_cone(d.global_position):
 			in_cone.append(d)
 	if in_cone.size() <= cap:

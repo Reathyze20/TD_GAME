@@ -27,6 +27,14 @@ var _core_prop_tex: Texture2D = null
 var level: LevelData
 
 var astar: AStarGrid2D
+## Single shared BFS distance field FROM the objective (docs/refactor/PATHFINDING.MD P4,
+## building on P1's scripts/flow_field.gd). Every live Distraction reads its next step
+## from THIS field instead of solving (or being handed) its own route — `astar` above
+## stays alive only for the WEIGHTED previews (_compute_path_previews) and dev/test
+## probes that want lane-aware routing; live movement never calls astar.get_id_path()
+## again. Rebuilt whenever `high_ground` changes (today: only _build_field() at level
+## start and _set_sunk() during the sinking-walls spike) — see _rebuild_flow_field().
+var flow_field: FlowField = null
 var objective_cell: Vector2i
 var objective_pos: Vector2
 var high_ground := {}            # Vector2i -> true (blocking + buildable)
@@ -312,6 +320,7 @@ func _build_field() -> void:
 		high_ground[cell] = true
 		if astar.is_in_bounds(cell.x, cell.y):
 			astar.set_point_solid(cell, true)
+	_rebuild_flow_field()
 
 	var b: int = Data.BUILD_BLOCK
 	for cell: Vector2i in high_ground:
@@ -362,6 +371,17 @@ func _build_field() -> void:
 	_static_overlay.z_index = Z_DECOR
 	add_child(_static_overlay)
 	_compute_path_previews()
+
+## Rebuilds the shared movement field every live Distraction reads its direction from.
+## The only two callers today: _build_field() (level start) and _set_sunk() (the sinking
+## walls spike toggling `high_ground`) — those are the only two places this codebase
+## mutates `high_ground` after level load. `_open_trod()` deliberately does NOT call
+## this: a trod only reclassifies already-open cells as lane (see its own comment), it
+## never touches `high_ground`, so the field a trod would produce is bit-identical to
+## the one already live — rebuilding would just burn ~0.5ms proving nothing changed.
+func _rebuild_flow_field() -> void:
+	var g = Data.GRID
+	flow_field = FlowField.build(int(g.cols), int(g.rows), objective_cell, high_ground)
 
 ## Makes the designer's painted lanes actually attract the horde.
 ##
@@ -1565,16 +1585,6 @@ func has_line_of_sight(from: Vector2, to: Vector2) -> bool:
 		return true
 	var dir := ground_vec / dist
 	return cast_to_wall(from, dir, dist) >= dist
-
-func assign_path(d: Distraction) -> void:
-	if d.is_flying:
-		return  # flyers ignore the maze and steer straight at the objective themselves
-	var from := world_to_cell(d.position)
-	if not astar.is_in_boundsv(from):
-		return
-	var p := astar.get_id_path(from, objective_cell)
-	if not p.is_empty():
-		d.set_cell_path(p)
 
 func _random_spawn_cell() -> Vector2i:
 	var zone: Array = spawn_zone_cells[randi() % spawn_zone_cells.size()]
@@ -3561,6 +3571,12 @@ func _process(delta: float) -> void:
 	_update_camera(delta)
 	if game_ended:
 		return
+	# Rebuilt once per frame rather than per query — see query_distractions_near()'s
+	# header. Positions in it are wherever each distraction was the last time this ran,
+	# i.e. up to one frame stale depending on scene-tree process order; get_live_
+	# distractions() itself was always exactly this order-dependent mid-frame, so no
+	# caller gets a stronger guarantee taken away from it.
+	_rebuild_distraction_hash()
 	_update_interventions(delta)
 	_update_aiming_process()
 	if wave_spawning:
@@ -3933,7 +3949,9 @@ func spawn_distraction(type_key: String, spawn_cell: Vector2i, gen: int = 0) -> 
 	d.setup(self, type_key)
 	d.position = cell_center(spawn_cell)
 	d.global_position = d.position
-	assign_path(d)
+	# Flyers ignore the maze and steer straight at the objective (Distraction._fly());
+	# current_cell stays unused for them, but harmless to set.
+	d.current_cell = spawn_cell
 	d.defeated.connect(_on_distraction_defeated)
 	d.reached_core.connect(_on_distraction_reached_core)
 	d.expired.connect(_on_distraction_expired)
@@ -4157,25 +4175,16 @@ func spawn_split(parent: Distraction, index: int) -> void:
 	var child := spawn_distraction(parent.type_key, cell, parent.generation + 1)
 	if child == null:
 		return
-	# Inherit the parent's REMAINING route rather than trusting the fresh A* solve that
-	# spawn_distraction just ran. Two reasons, and the second one is a soft-lock:
-	#
-	#  1. It is the archetype. The queue continues from where the parent stood, and the
-	#     parent's own path is the authoritative answer to "where was it going".
-	#  2. assign_path() fails SILENTLY when the origin cell is unroutable — a wall, or a
-	#     cell the sinking-walls spike just put back. The parent can be standing on one
-	#     after knockback or scatter, and a child with an empty path idles forever, so
-	#     the wave never ends and the run hangs with nothing on screen to explain it.
-	#
-	# Sliced one step back so the child still walks toward the node the parent was
-	# heading for, instead of teleporting its progress forward half a cell.
-	if parent.cell_path.size() > parent.path_index:
-		child.set_cell_path(parent.cell_path.slice(maxi(0, parent.path_index - 1)))
-	# Last resort. If neither the fresh solve nor the inheritance produced a route, this
-	# body would stand still forever and hold the wave open with nothing visible to kill.
-	# One missing copy is a rounding error in an archetype that spawns fifteen; a run that
-	# never ends is the whole session.
-	if child.cell_path.is_empty() and not child.is_flying:
+	# Under the flow field (P4, docs/refactor/PATHFINDING.MD) there is no route to
+	# inherit — every live body, parent and child alike, reads the SAME shared field, so
+	# a child spawned at the parent's own cell already continues from exactly where the
+	# parent stood, with zero extra bookkeeping. The one thing that still needs a check is
+	# the old soft-lock guard: the parent can be standing on a cell the field never
+	# reached (a wall, or a cell the sinking-walls spike just put back) after knockback or
+	# scatter, and a child idling forever there would hold the wave open with nothing
+	# visible to kill. One missing copy is a rounding error in an archetype that spawns
+	# fifteen; a run that never ends is the whole session.
+	if not child.is_flying and (flow_field == null or not flow_field.has_cell(child.current_cell)):
 		_distractions.erase(child)
 		child.queue_free()
 		return
@@ -4964,16 +4973,19 @@ func _open_trod(t: TrodData) -> void:
 			added += 1
 	if added == 0:
 		return
-	# Same order as _set_sunk() below, and for the same reason: weights decide the
-	# routes, the art has to show them, and anything already walking is holding a cell
-	# path handed to it at spawn. Skip that last step and the wave already on the board
-	# keeps marching down the old trod through the whole reveal.
+	# A trod reclassifies already-open floor as lane (see the guard above: it never
+	# touches `high_ground`), which only matters to the WEIGHTED preview astar and the
+	# path art. It does not change what is reachable, so the shared flow_field every live
+	# distraction actually walks on is untouched — no per-unit refresh needed here (P4,
+	# docs/refactor/PATHFINDING.MD). BEHAVIOUR CHANGE from before P4: live movement now
+	# reads the unweighted field and always takes the raw-shortest route, so opening a
+	# trod no longer pulls a wave already on the board onto it — only the weighted
+	# preview line (still astar, still honors path_off_lane_cost) shows the lane as
+	# preferred. _test_trod.gd only asserts on that preview line, not on any live unit,
+	# so it does not see this change; see PROGRESS.md's P4 entry for the reasoning.
 	_apply_path_weights()
 	_build_path_layer()
 	_compute_path_previews()
-	for d in _distractions:
-		if is_instance_valid(d):
-			assign_path(d)
 	if _static_overlay != null and is_instance_valid(_static_overlay):
 		_static_overlay.queue_redraw()
 	queue_redraw()
@@ -5097,12 +5109,13 @@ func _set_sunk(sunk: bool) -> void:
 	_build_platforms()
 	_rebuild_walls()
 	_compute_path_previews()
-	# Live distractions keep a cell path they were handed at spawn. Without this they
-	# walk their stale route straight through where the wall used to be — or into where
-	# it just came back.
-	for d in _distractions:
-		if is_instance_valid(d):
-			assign_path(d)
+	# `high_ground` just changed — the ONE thing that invalidates the shared flow_field
+	# (see its own header). Rebuilding it here is enough: every live distraction reads it
+	# fresh every frame (Distraction._process()), so there is no per-unit list to walk any
+	# more. A distraction standing exactly on a cell that just re-solidified goes idle on
+	# its own (flow_field.has_cell() false for a blocked cell) rather than tunnelling
+	# through on a stale route — see docs/refactor/PATHFINDING.MD P4.
+	_rebuild_flow_field()
 	queue_redraw()
 	_flash("Structure eroded — a habit is exposed" if sunk else "Structure restored",
 		UI.TOLERANCE if sunk else UI.FOCUS)
@@ -5373,6 +5386,58 @@ func _make_card_ui(card: CardData) -> PanelContainer:
 
 func get_live_distractions() -> Array[Distraction]:
 	return _distractions
+
+# ---------------------------------------------------------------- distraction spatial hash
+#
+# Tower targeting used to scan EVERY live distraction per habit per call — has_enemy_in_cone,
+# _tick_auto_aim and _aoe_targets in tower.gd each ran a full O(distractions) loop, so a
+# board with several habits cost O(habits x distractions) every relevant tick (docs/refactor/
+# PATHFINDING.MD P4). This buckets live distractions by grid cell, rebuilt once per Game
+# frame (_process(), below) rather than per query — several habits querying the same frame
+# share one build.
+#
+# Bucketed at single-cell granularity, not a coarser NxN block: this project's habits mostly
+# carry ranges of 260-560px against a 480x224px playfield (docs/PERF.md's P4 entry has the
+# numbers), so for most towers a query already has to touch most of the board and cell size
+# buys nothing there. Where it DOES pay off is a horde marching single-file down a narrow
+# lane: query_distractions_near() only visits OCCUPIED cells, so a query over a mostly-empty
+# radius costs close to the number of cells the horde actually stands on, not the live
+# distraction count — cheap to build (one dictionary insert per live body) and the simplest
+# structure that clears its budget, matching P1/P2's own precedent over a fancier scheme this
+# map size does not need.
+var _distraction_hash: Dictionary = {}   # Vector2i (grid cell) -> Array[Distraction]
+
+func _rebuild_distraction_hash() -> void:
+	_distraction_hash.clear()
+	for d in _distractions:
+		if not is_instance_valid(d) or d.dead:
+			continue
+		var cell := world_to_cell(d.position)
+		if _distraction_hash.has(cell):
+			_distraction_hash[cell].append(d)
+		else:
+			_distraction_hash[cell] = [d]
+
+## Every live, non-dead distraction whose CELL lies within `radius` of `center` — a cheap
+## coarse pre-filter, not the final answer. Callers still run their own exact test (cone
+## angle, wall raycast, whatever) on what comes back, exactly as they did when the source
+## was get_live_distractions(); only the candidate list got cheaper to build. Cell-radius,
+## not a tight pixel-radius, so nothing at the edge of a tower's own cell gets clipped out
+## by rounding — same tolerance the old full scan implicitly had.
+func query_distractions_near(center: Vector2, radius: float) -> Array:
+	var result: Array = []
+	if radius <= 0.0:
+		return result
+	var tile: float = Data.GRID.tile
+	var center_cell := world_to_cell(center)
+	var reach: int = ceili(radius / tile) + 1
+	for dy in range(-reach, reach + 1):
+		for dx in range(-reach, reach + 1):
+			var cell := center_cell + Vector2i(dx, dy)
+			if _distraction_hash.has(cell):
+				for d in _distraction_hash[cell]:
+					result.append(d)
+	return result
 
 ## Effect lines are written as sentences, not as raw stat names. Three rules, all of
 ## them things the old "%+d%% stat_name" format got wrong:

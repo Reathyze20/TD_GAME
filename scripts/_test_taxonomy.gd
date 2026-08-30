@@ -156,8 +156,10 @@ func _run() -> void:
 		var d_spawn: float = game.cell_center(spawn).distance_to(game.objective_pos)
 		_check("kopie pokracuji, nezacinaji znovu", d_kid < d_spawn * 0.9,
 			"%.0f < %.0f" % [d_kid, d_spawn])
-		_check("kopie maji cestu", not kids[0].cell_path.is_empty(),
-			"%d kroku" % kids[0].cell_path.size())
+		# P4 (docs/refactor/PATHFINDING.MD): pozice je Vector2 na sdilenem flow fieldu,
+		# ne precomputed pole -- "ma cestu" ted znamena "jeji bunka je ve flow_field".
+		_check("kopie maji cestu", game.flow_field.has_cell(kids[0].current_cell),
+			"cell %s" % str(kids[0].current_cell))
 	_check("log zapsal split", Mirror.count(&"split") >= 1)
 
 	# Řetěz se musí zastavit. Exponent bez stropu je zamrzlý snímek, ne špatné číslo.
@@ -191,13 +193,16 @@ func _run() -> void:
 	await get_tree().process_frame
 	stuck.position = game.cell_center(wall_cell)
 	stuck.global_position = stuck.position
-	stuck.cell_path = []
-	stuck.path_index = 0
+	# P4: "nema cestu" uz neni prazdne cell_path, je to bunka mimo flow_field -- wall_cell
+	# tam nikdy neni (BFS ho jako blocked nikdy nenavstivi), takze staci current_cell
+	# nastavit primo na ni.
+	stuck.current_cell = wall_cell
 	stuck.take_direct_damage(99999)
 	await get_tree().process_frame
 	var orphans := 0
 	for d in game._distractions:
-		if d.type_key == "just_one_more" and d.cell_path.is_empty() and not d.is_flying:
+		if d.type_key == "just_one_more" and not d.is_flying \
+				and not game.flow_field.has_cell(d.current_cell):
 			orphans += 1
 	_check("zadne dite nezustalo bez cesty", orphans == 0, "%d sirotku" % orphans)
 	for d in game._distractions.duplicate():

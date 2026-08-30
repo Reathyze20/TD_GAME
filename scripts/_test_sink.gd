@@ -108,12 +108,18 @@ func _run() -> void:
 	GameState.set_tolerance(70.0)
 	game._update_sinking(0.016)
 	await get_tree().process_frame
-	# Po propadu nesmí žádný krok její cesty ležet ve zdi.
+	# Po propadu nesmí žádný krok její cesty ležet ve zdi. P4 (docs/refactor/PATHFINDING.MD):
+	# cesta uz neni pole na distrakci, je to sdileny flow_field -- trasujeme ji rucne odsud
+	# az k cili stejnym direction(), jakym se ridi ziva distrakce sama.
 	var in_wall := 0
-	if d != null and is_instance_valid(d):
-		for c in d.cell_path:
-			if game.high_ground.has(c):
+	if d != null and is_instance_valid(d) and game.flow_field.has_cell(d.current_cell):
+		var cell: Vector2i = d.current_cell
+		var guard := 0
+		while cell != game.objective_cell and guard < Data.GRID.cols * Data.GRID.rows:
+			guard += 1
+			if game.high_ground.has(cell):
 				in_wall += 1
+			cell += game.flow_field.direction(cell)
 	_check("žádný krok cesty nevede zdí", in_wall == 0, "%d kroků ve zdi" % in_wall)
 
 	print("\n-- návrat zdi")

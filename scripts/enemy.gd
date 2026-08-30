@@ -1,9 +1,12 @@
 class_name Distraction
 extends Node2D
 # A digital distraction that pathfinds through the maze toward the Focus core.
-# The Game node computes a cell path (AStarGrid2D routes around fixed high ground)
-# and hands it over via set_cell_path(). The distraction walks it cell to cell
-# with a small swarm scatter so a burst of them doesn't stack into one sprite.
+# Position is a Vector2 on the grid, not a scalar/index into a precomputed route
+# (docs/refactor/PATHFINDING.MD P4). Every distraction tracks its own `current_cell` and,
+# each step, asks the ONE shared Game.flow_field (P1) which neighbour cell is closer to the
+# objective — no per-unit A* solve, no per-unit route to keep in sync when the maze changes
+# under it. It walks toward that neighbour's centre with a small swarm scatter so a burst of
+# them doesn't stack into one sprite, same as before.
 #
 # Two damage channels:
 #   Willpower damage  — mitigated flat by compulsion
@@ -50,8 +53,14 @@ var blockers: Array = []   # Array[Ally] currently engaging this distraction
 var _color: Color
 var game               # reference to the Game node
 
-var cell_path: Array = []   # Array[Vector2i]
-var path_index := 0
+## Where this body currently is on the movement grid. Advanced only on arrival at the
+## previous step's target (mirrors the old path_index's advance-on-arrival, so the "walk
+## smoothly toward the next cell centre" feel is unchanged) — never re-derived from
+## `position` every frame, because the small per-distraction `_scatter` offset below would
+## make a live world_to_cell(position) flip cell membership a few pixels early or late
+## and cut the walk animation's corners. Set directly by Game (spawn_distraction,
+## spawn_split) since those already know which cell a body starts on.
+var current_cell: Vector2i = Vector2i.ZERO
 var _scatter := Vector2.ZERO # small per-distraction offset — anti-clumping
 
 # Disruptor (support archetype, def.disrupt_interval > 0): periodically pings the
@@ -142,10 +151,6 @@ func setup(_game, _type_key: String) -> void:
 	add_to_group("distractions")
 	queue_redraw()
 
-func set_cell_path(p: Array) -> void:
-	cell_path = p
-	path_index = 1 if p.size() > 1 else 0
-
 func add_blocker(ally: DefenderUnit) -> void:
 	if not blockers.has(ally):
 		blockers.append(ally)
@@ -217,18 +222,21 @@ func _process(delta: float) -> void:
 		_prune_blockers()
 		if is_blocked:
 			return  # movement halted; the Allies handle the melee trade
-	if cell_path.is_empty():
-		return  # no route yet — idle rather than falsely reaching the core
-	if path_index >= cell_path.size():
+	if game == null or game.flow_field == null:
+		return  # field not built yet — idle rather than falsely reaching the core
+	if not game.flow_field.has_cell(current_cell):
+		return  # stranded: the field never reached this cell (walled off, or off the map)
+	if current_cell == game.objective_cell:
 		_reach_core()
 		return
-	var target: Vector2 = game.cell_center(cell_path[path_index]) + _scatter
+	var next_cell: Vector2i = current_cell + game.flow_field.direction(current_cell)
+	var target: Vector2 = game.cell_center(next_cell) + _scatter
 	var to: Vector2 = target - position
 	var dist: float = to.length()
 	var step: float = current_speed * status_manager.move_scale() * delta
 	if dist <= step:
 		position = target
-		path_index += 1
+		current_cell = next_cell
 	else:
 		position += to / dist * step
 		note_heading(to / dist)
@@ -495,7 +503,15 @@ func apply_vulnerable(mult: float, duration: float) -> void:
 #    fire shoves hard and then stops mattering until the target has walked some of it off.
 #  * A WALL CHECK. Movement here is a walk toward the next cell centre, not a physics
 #    body, so nothing else would stop a push from parking a distraction inside high
-#    ground — where it is unreachable, unkillable and visibly wrong.
+#    ground — where it is unreachable, unkillable and visibly wrong. Checked along the
+#    WHOLE swept segment, not just the destination cell (fixed under P4, docs/refactor/
+#    PATHFINDING.MD — see docs/KNOWN_BROKEN.md's old _test_suppression entry): the
+#    budget (26px) can cover more than one grid tile (Data.GRID.tile, 16px), so a push
+#    starting next to a one-cell-thick wall could land PAST it without the destination
+#    cell ever being the wall cell itself — tunnelling straight through. If the sweep
+#    crosses a wall anywhere along the way the whole push is rejected, matching the
+#    budget's own all-or-nothing spirit: it still spends from the budget (a shove that
+#    hit a wall doesn't reward the target with a free retry), it just doesn't move.
 #
 # Deliberately NOT resisted by anything: `slow_immune` (Overdrive) says "ignores slows",
 # and being shoved is not a slow. A tower narrowed to a beam is supposed to be the answer
@@ -514,15 +530,31 @@ func apply_knockback(dir: Vector2, px: float) -> void:
 		return
 	var amount: float = minf(px, _knock_left)
 	_knock_left -= amount
-	var target: Vector2 = position + dir * amount
-	# Flyers are over the terrain, so nothing down there can catch them. Everything else
-	# has to land somewhere it could have walked to.
-	# `position`, not `global_position`: world_to_cell and cell_center are both pure grid
-	# math in the Game node's own space, which is the space this node walks its path in.
-	if not is_flying and game != null:
-		if game.high_ground.has(game.world_to_cell(target)):
-			return
-	position = target
+	# Flyers are over the terrain, so nothing down there can catch them.
+	if is_flying or game == null:
+		position += dir * amount
+		return
+	# Everything else has to land somewhere it could have walked to — and everywhere it
+	# would have PASSED THROUGH getting there. `position`, not `global_position`:
+	# world_to_cell and cell_center are both pure grid math in the Game node's own space,
+	# which is the space this node walks its path in.
+	if _knockback_crosses_wall(dir, amount):
+		return
+	position += dir * amount
+
+## Samples the swept segment [0, amount] along `dir` at a fixed small step and reports
+## whether any sample lands in high_ground. Step is a quarter of a grid tile so a wall
+## exactly one tile thick (the thinnest a wall can be) can never fall entirely between
+## two samples regardless of phase — see apply_knockback()'s header for the bug this
+## replaces (a destination-only check that missed exactly this case).
+func _knockback_crosses_wall(dir: Vector2, amount: float) -> bool:
+	var step: float = Data.GRID.tile / 4.0
+	var travelled := 0.0
+	while travelled < amount:
+		travelled = minf(travelled + step, amount)
+		if game.high_ground.has(game.world_to_cell(position + dir * travelled)):
+			return true
+	return false
 
 func effective_compulsion() -> int:
 	return maxi(0, current_compulsion - status_manager.reframe_amount)
