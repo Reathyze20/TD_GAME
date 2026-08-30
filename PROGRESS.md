@@ -1875,4 +1875,4 @@ neexistují), nástroj by neměl nad čím pracovat, a „Hotovo když" kritéri
 - verify.sh: PASS (32 pass, 0 fail, 4 known-broken — `_test_deep_reading`,
   `_test_fog_bandwidth`, `_test_shadow_occlusion`, `_test_zen_pulsar`, žádný z nich
   se P4 netýká — 0 flaky).
-- Commit: (doplním v následujícím commitu s hashem).
+- Commit: 9d47688.
