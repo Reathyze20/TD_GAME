@@ -46,6 +46,19 @@ func _run() -> void:
 
 	var game: Game = load("res://scenes/Game.tscn").instantiate()
 	add_child(game)
+	# Milestone isolation, stejně jako _test_suppression/_test_phase4 a dalších sedm
+	# fixtures: tenhle harness zkouší SINKING WALLS, ne Routine a ne mlhu — habit staví
+	# jen jako předpoklad. Vypnuto až při P8b (2026-08-30, se svolením): dokud
+	# CORE_ROUTINE_RADIUS pokrýval celou desku, byl každý spot v Routine a tenhle
+	# přepínač tu nemusel být; po přeškálování na skutečnou desku (330→165) už spot
+	# v Routine být nemusí a stavba by selhala na bráně, kterou tenhle test netestuje.
+	# Žádná assertion se nezměnila — mění se jen izolace předpokladu.
+	#
+	# JEN routine gate, NE `fog_enabled = false`: mlha na tenhle harness nemá vliv
+	# a vypínat ji navíc by bylo širší, než na co je důvod (v _test_taxonomy to
+	# prokazatelně rozbilo dvě nesouvisející assertion — habit s vypnutou mlhou
+	# vyčistí pole dřív).
+	game.routine_gates_enabled = false
 	await get_tree().process_frame
 	GameState.max_focus = 999999
 	GameState.focus = 999999

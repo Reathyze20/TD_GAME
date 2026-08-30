@@ -2999,3 +2999,42 @@ necommitnutá — jejich commit ji popíše sám.
   (+`.gd.uid`), `scenes/_shot_anchor_flat.tscn`, `assets/raw/anchor_flat/*.png`
   (8), `.dev/screenshots/anchor_flat_candidates.png`.
 - Commit: e33bea8
+
+## 2026-08-30 — P8b následek: izolace Routine gate ve dvou fixtures (SE SVOLENÍM)
+
+- **Proč to sem patří:** CLAUDE.md zakazuje upravovat `_test_*`, aby prošel, bez
+  mého svolení, a vyžaduje každou takovou opravu zapsat sem s odůvodněním.
+  Uživatel to výslovně schválil 2026-08-30 poté, co mu byl předložen dopad
+  přeškálování z P8b (`612a043`) — volba zněla „Authorize the isolation switch".
+- **Co se stalo:** přeškálování `CORE_ROUTINE_RADIUS` 330→165 shodilo
+  `_test_sink` a `_test_taxonomy`. Ani jeden netestuje Routine ani mlhu — oba
+  jen STAVÍ habit jako předpoklad, a ten spot je po přeškálování mimo Routine.
+  Jejich zeleň byla artefakt té samé rozbité konstanty: dokud Routine pokrývala
+  celou desku, byl každý spot uvnitř. Devět sesterských fixtures
+  (`_test_suppression`, `_test_phase2/4/6/7`, `_test_deep_reading`,
+  `_test_nutrition_guild`, `_test_zen_pulsar`, `_test_horde_renderer`) tenhle
+  přepínač už dávno má a `_test_suppression` má pro něj i jméno v komentáři:
+  „Milestone isolation".
+- **Zásah:** jeden řádek `game.routine_gates_enabled = false` do obou, hned po
+  `add_child(game)`. **Žádná assertion, práh ani kontrola se nezměnila** — mění
+  se výhradně izolace předpokladu, tedy přesně ten druh opravy, který výjimka
+  v CLAUDE.md popisuje.
+- **Chyba, kterou jsem po cestě udělal a opravil:** nejdřív jsem podle vzoru
+  z `_test_suppression` přidal i `game.fog_enabled = false`. To bylo ŠIRŠÍ, než
+  na co byl důvod, a v `_test_taxonomy` to shodilo dvě assertion o autoplay
+  deadlinu (`zabiti po deadlinu uz nic nevrati`, `behem vlny odpocet stoji`):
+  s vypnutou mlhou habit postavený jako předpoklad vidí a střílí celé pole,
+  vyčistí ho dřív, hra se vrátí do build fáze a `_update_autoplay()` začne
+  odpočet ubírat. Ověřeno experimentem — po odebrání `fog_enabled = false`
+  obě fixtures zelené. Ponechán jen minimální zásah, důvod je v komentáři
+  v obou souborech, aby to někdo „nedoplnil" zpátky.
+- verify.sh: **PASS (37 pass, 0 fail, 4 known-broken, 0 flaky)** — zpátky na
+  počtu před přeškálováním. `_test_fog_bandwidth` zůstává known-broken se
+  DVĚMA selháními místo tří (selhání č. 1 opravilo přeškálování samo).
+- **P8b zůstává `Status: blocked`, `Needs-me: yes`** — zbývající dvě selhání
+  jsou vazbou layoutu `level_1` (objective na x=28 z 30, všechny spoty západně)
+  a nejdou opravit žádnou konstantou. Čeká na přeautorování levelů v MapEditoru,
+  které si uživatel vzal na sebe.
+- **Neuklizeno, `rm` odmítnut oprávněními agentovi i mně:** `scripts/_diag_p8b.gd`,
+  `scripts/_diag_p8b.gd.uid`, `scenes/_diag_p8b.tscn` — dočasný diagnostický
+  harness, netrackovaný, ke smazání ručně.
