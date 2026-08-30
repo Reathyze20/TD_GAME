@@ -1173,3 +1173,33 @@ Log of tasks completed by run.sh, one entry per run, newest last.
 - verify.sh: PASS (26 pass, 0 fail, 5 known-broken; `_test_phase3` v tomhle běhu prošel —
   je vedený jako flaky, ne rozbitý, takže ze seznamu nemizí).
 - Commit: 09d5629.
+
+## 2026-08-30 — P0 rozhodnuto: varianta B (rozhodl uživatel), fronta rozšířena o P0b a P0c
+
+- Uživatel zvolil **B**: `.tres` zůstává autoritativní, ASCII je odvozený bezztrátový
+  side-car pro čtení a git diffy, do hry se z něj nikdy nečte. Rozhodlo to zjištění
+  o P8 — odkaz je vlastnost grafu resources a text ho neumí, takže varianta A by
+  segmenty skládala kopírováním znaků, tedy přesně tou duplikací geometrie, kvůli
+  které P8 vzniklo.
+- Uživatel doplnil dva argumenty, které v analýze nezazněly, a jsou v BLOCKED.md:
+  side-car může selhat bez dopadu na hru (špatný diff, ne špatná hra), a duplicita
+  v `level_98.tres` je důkaz předem, že by A tiše ztrácela shipnutá data.
+- Do `docs/refactor/PATHFINDING.MD`: P0 → `done` s poznámkou o rozhodnutí, hned za něj
+  vloženy **P0b** (ASCII side-car, `tools/level_to_ascii.py` + `_test_ascii_sidecar`
+  round-trip + kontrola ve verify.sh) a **P0c** (duplicita v `path_cells`). Obojí
+  `Model: sonnet`, `Needs-me: no`.
+- **P1 a P2 přepnuty na `Needs-me: no`** na pokyn uživatele — mají tvrdé číselné brány
+  (klesající gradient z každé volné buňky, obojí směr anti-blocku, 5 ms a 1 ms) a
+  verify.sh funguje, takže je Opus zvládne bez dozoru. P8 a P10 zůstávají `yes`.
+- **Audit 5 known-broken testů** (uživatel si ho vyžádal před P1): ani jeden není iso
+  fixture. Detaily v odpovědi a v komentářích u seznamu ve verify.sh; shrnutí:
+  `_test_deep_reading` (4x) a `_test_zen_pulsar` jsou očekávání artu, `_test_shadow_occlusion`
+  je chybějící textura, `_test_fog_bandwidth` a `_test_suppression` jsou dvě neprošetřené
+  regrese po čtvercové migraci. `_test_phase3` je v seznamu jako flaky a v posledním běhu
+  prošel (proto 5, ne 6).
+- **Vedlejší nález z toho auditu:** `scripts/_test_iso_math.gd` a
+  `scripts/_test_game_iso_slice.gd` nemají odpovídající `.tscn` — verify.sh iteruje přes
+  `scenes/_test_*.tscn`, takže tyhle dva se VŮBEC NESPOUŠTĚJÍ (`skip: 0`, klauzule
+  `_test_legacy_*` netrefuje nic). Přejmenování na `_test_legacy_iso_*` podle CLAUDE.md
+  tedy nikdy neproběhlo a scény zmizely. Nesahal jsem na to — není to v zadání P0 a
+  smazání/obnovení fixtures je rozhodnutí uživatele.

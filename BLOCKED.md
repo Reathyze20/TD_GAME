@@ -534,7 +534,22 @@ it should be wired up to anything live (a cosmetic settings option, a seasonal/e
 recolour, a Tolerance-linked "increasingly numb" desaturation akin to `Sfx.juice_factor()` — none of that is scoped by S4's own text, which only asks for the shader
 and the demo scene).
 
-## P0 (docs/refactor/PATHFINDING.MD) — "může být ASCII autoritativní formát, ze kterého MapEditor čte i zapisuje, a bakování do .tres být jen odvozený artefakt?"
+## P0 (docs/refactor/PATHFINDING.MD) — RESOLVED 2026-08-30: varianta B, ASCII jako bezztrátový side-car (rozhodl uživatel). Zadání pokračuje jako P0b + P0c.
+
+**Rozhodnutí:** B. Uživatel k analýze přidal dva argumenty, které v ní nezazněly a stojí za
+zaznamenání: (1) side-car může selhat, aniž by to rozbilo hru — rozejde-li se čtečka s
+realitou, dostaneš špatný diff, ne špatnou hru, kdežto u varianty A je každá mezera v
+pokrytí (decor, tile_overrides) tichá ztráta dat v shipovaném obsahu; (2) duplicita
+`Vector2i(25, 2)` v `level_98.tres` je důkaz předem — kdyby ASCII bylo autoritativní už
+dnes, ztratila by se tiše a losování variant dlaždic by se posunulo, aniž by cokoli spadlo.
+Ta duplicita se řeší odděleně jako P0c.
+
+**Odpověď pro P8**, který na P0 čekal: segmenty se skládají odkazem přes
+`@export var base: LevelData`; ASCII do toho nemluví. Zadání P8 zůstává beze změny.
+
+Původní analýza níže zůstává jako záznam toho, na čem se rozhodovalo.
+
+### Původní analýza (P0)
 
 Read-only analysis, per the task's own "Neimplementuj". Nothing was changed except the
 queue file itself (`docs/refactor/PATHFINDING.MD`, created from the pasted text verbatim,

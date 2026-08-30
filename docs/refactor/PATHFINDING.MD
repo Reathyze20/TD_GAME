@@ -7,14 +7,66 @@ v docs/REFACTOR_PLAN.md. NEINSTALUJ GUT ani GdUnit4. Spouštění přes --main-s
 ## P0 — zdroj pravdy mapy: ASCII vs. bakování
 Model: opus
 Needs-me: yes
-Status: blocked
+Status: done
+ROZHODNUTO: varianta B (ASCII jako bezztrátový side-car, .tres zůstává
+autoritativní). Viz P0b. Analýza je v BLOCKED.md.
 Analýza do BLOCKED.md: může být ASCII autoritativní formát, ze kterého MapEditor
 čte i zapisuje, a bakování do .tres být jen odvozený artefakt? Co z LevelData se
 do ASCII nevejde? Rozsah zásahu do td_level_designer? Neimplementuj.
 
+## P0b — ASCII side-car (varianta B)
+Model: sonnet
+Needs-me: no
+Status: todo
+
+.tres zůstává autoritativní. ASCII je odvozený, bezztrátový side-car pro čtení
+a git diffy. Nikdy se z něj nečte do hry.
+
+Rozsah: vlastní právě to, co dnes vlastní _bake_to_level() — high_ground,
+objective, path_cells. NIC jiného. decor a tile_overrides do ASCII nepatří
+a nesmí se do něj pokoušet vejít.
+
+1. tools/level_to_ascii.py — vygeneruje docs/levels/<id>.md pro každý level.
+   14 řádků po 30 znacích + hlavička s ID a rozměry.
+   path_cells jako SEZNAM, ne množina — duplicita (Vector2i(25,2) v level_98)
+   se musí v side-caru objevit, ne tiše zmizet. Když ji ASCII mřížka vyjádřit
+   neumí, vypiš ji do sekce pod mřížkou.
+
+2. Round-trip test _test_ascii_sidecar: parse vygenerovaného ASCII zpět a porovnej
+   s originálem po jednotlivých polích. Musí projít na VŠECH levelech včetně
+   level_98. Nezarovnané spawn rekty (Rect2i(0,5,1,4), Rect2i(0,6,1,2)) NEODVOZUJ
+   z bloků — pokud je čtečka neumí, patří do sekce pod mřížkou, ne do mřížky.
+
+3. Hook: po _bake_to_level() se side-car přegeneruje. Pokud to znamená zásah
+   do tools/map_editor.gd, udělej ho tam — addon je view a nesahej na něj.
+
+4. Do verify.sh přidej kontrolu, že side-cary v docs/levels/ odpovídají
+   aktuálním .tres (jako se dnes kontroluje ROSTER.md).
+
+Hotovo když: round-trip projde na všech levelech, verify.sh chytí ručně
+rozhozený side-car, a docs/levels/ je v gitu s čitelnými diffy.
+
+NEDOTÝKEJ SE pěti dalších nástrojů, které zapisují geometrii
+(build_placeholder_level.gd, refit_levels.py, regrid_levels.py,
+build_level_first.py, build_level_iso.py). Side-car je jednosměrný,
+takže je nemusí řešit — jen zkontroluj, že to tak opravdu je,
+a když ne, zapiš do BLOCKED.md.
+
+## P0c — duplicita v path_cells
+Model: sonnet
+Needs-me: no
+Status: todo
+
+level_98.tres má Vector2i(25, 2) v path_cells dvakrát. Zjisti, jestli je to
+záměr (ovlivňuje losování variant dlaždic) nebo chyba při bakování.
+Pokud chyba: oprav bake tak, aby duplicity nevznikaly, a přidej validaci
+do verify.sh přes všechny levely.
+Pokud záměr: zdokumentuj do docs/EDITOR_GUIDE.md, proč tam je.
+Nález zapiš do PROGRESS.md tak jako tak.
+
 ## P1 — flow field od cíle
 Model: opus
-Needs-me: yes
+Needs-me: no
 Status: todo
 Jeden distance field BFS od cíle, gradient dává směr, všechny jednotky čtou totéž.
 Hotovo: _test_flowfield ověří klesající gradient z každé volné buňky k cíli
@@ -22,7 +74,7 @@ a že nedosažitelné buňky nemají záznam. Bench: přepočet pod 5 ms na nejv
 
 ## P2 — anti-block validace zdí
 Model: opus
-Needs-me: yes
+Needs-me: no
 Status: todo
 Zeď nesmí odříznout žádný aktivní spawn. Union-find nebo lokální re-BFS.
 Hotovo: _test_antiblock projede každou legální pozici a ověří obojí směr.
