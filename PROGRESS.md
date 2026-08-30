@@ -1241,3 +1241,4 @@ Log of tasks completed by run.sh, one entry per run, newest last.
   `Needs-me: yes`, takže runner se k P8b ani k P9 sám nedostane, dokud uživatel P8
   neodbaví — a přitom P9 (brainfog jako vizuál) na P8 (skládání segmentů) věcně nezávisí.
   Pořadí jsem neměnil (fronta má „NEMĚŇ ho"); rozhodnutí je na uživateli.
+- Commit: b4e00f1.
