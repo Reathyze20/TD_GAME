@@ -1203,3 +1203,4 @@ Log of tasks completed by run.sh, one entry per run, newest last.
   `_test_legacy_*` netrefuje nic). Přejmenování na `_test_legacy_iso_*` podle CLAUDE.md
   tedy nikdy neproběhlo a scény zmizely. Nesahal jsem na to — není to v zadání P0 a
   smazání/obnovení fixtures je rozhodnutí uživatele.
+- Commit: 2cfde7a.
