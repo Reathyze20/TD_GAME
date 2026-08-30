@@ -33,7 +33,11 @@ Rozpad podle druhu:
 
 1. **Povinný suffix** je na konci každého `description` / `item_description`,
    doslova. Zdroj: STYLE_BIBLE.md §7.
-2. **Paleta jde obrázkem, ne slovy** — `color_image_url` na `docs/art/palette_48.png`.
+2. **Paleta se vynucuje AŽ PO generování**, ne v tomhle volání. Ověřeno proti
+   živému schématu (`tools/pixellab_schema.json`): `color_image_url` na
+   `create_character` ani `create_1_direction_object` neexistuje — postava a
+   objekt ho po odeslání tiše zahodí. Paleta se vynutí zvlášť přes
+   `reduce_colors(palette_image_url=docs/art/palette_48.png)` na staženém výsledku (A0/PROGRESS.md).
    Žádný prompt neobsahuje hex ani vlastní seznam barev, a 32barevná varianta
    palety (ta, co podle měření škodí 6 z 10 příšer) se sem nedostane ani jednou.
 3. **`get_balance` před dávkou.** Kvóta se počítá po generacích, ne po voláních.
@@ -53,6 +57,14 @@ Rozpad podle druhu:
 9. **`animate_character` nad 64 px tiše eskaluje na `pro`** = 20–40 generací
    *na směr*, když se nepošle `mode:"v3"` výslovně. Do animací se nesahá dřív,
    než statická sada projde bránou fáze 3.
+10. **`create_character` a `create_1_direction_object` NEMAJÍ žádný parametr pro
+    seed ani jinou formu determinismu** — ověřeno proti živému schématu
+    (`tools/pixellab_schema.json`, A0b). Objednávka stejné postavy/objektu
+    podruhé dá JINÝ výsledek, ne reprodukci. `seed` v `params` níže u nich
+    proto nikdy nedorazí k serveru (filtruje se, viz bod 2) — je to jen
+    stabilní identifikátor záznamu v tomhle plánu, ne kontrola nad generováním.
+    Výjimka je terén (`create_tiles_pro`, dnes v plánu nepoužitý): ten `seed`
+    ve svém živém schématu MÁ, takže by u něj reprodukovatelný byl.
 
 Kotva označená v `STYLE_BIBLE.md` §6 jako `FORBIDDEN` (opuštěná rodina) se
 v tomhle plánu neobjevuje ani jednou — a `scenes/_test_art_prompts.tscn` to
@@ -140,13 +152,10 @@ brány (dotyk podkladu, jas proti zdi) platí na všechny tři kusy stejně.
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
   "description": "a broccoli knight in riveted armour, florets first, a wall that soaks hits and pins whole clumps in place; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "mode": "pro",
   "name": "broccoli_knight",
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
   "outline": "single color black outline",
-  "seed": 20749,
   "size": 64,
   "style_character_id": "fa8294b1-c3ec-4ae5-92fb-39570ced0f65",
   "view": "low top-down"
@@ -177,12 +186,10 @@ a broccoli knight in riveted armour, florets first, a wall that soaks hits and p
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
+  "description": "a single large neuron soma with many radiating processes, warm and unhurried, the one still thing on the board, gold white; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "item_descriptions": [
     "a single large neuron soma with many radiating processes, warm and unhurried, the one still thing on the board, gold white; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
-  "seed": 28204,
   "size": 96,
   "view": "top-down"
 }
@@ -212,12 +219,10 @@ a single large neuron soma with many radiating processes, warm and unhurried, th
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
+  "description": "a round glial cell body with one coiled process wound like a spring and a single warm amber node, working in bursts; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "item_descriptions": [
     "a round glial cell body with one coiled process wound like a spring and a single warm amber node, working in bursts; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
-  "seed": 56129,
   "size": 64,
   "view": "top-down"
 }
@@ -255,12 +260,10 @@ a round glial cell body with one coiled process wound like a spring and a single
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
+  "description": "a nest of several small round glial bodies sharing one teal membrane, a place others come out of; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "item_descriptions": [
     "a nest of several small round glial bodies sharing one teal membrane, a place others come out of; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
-  "seed": 50114,
   "size": 64,
   "view": "top-down"
 }
@@ -290,12 +293,10 @@ a nest of several small round glial bodies sharing one teal membrane, a place ot
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
+  "description": "a squat glial body rooted into the tissue by thick processes, one cyan crystal node, it holds and does not fire; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "item_descriptions": [
     "a squat glial body rooted into the tissue by thick processes, one cyan crystal node, it holds and does not fire; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
-  "seed": 56790,
   "size": 64,
   "view": "top-down"
 }
@@ -325,13 +326,10 @@ a squat glial body rooted into the tissue by thick processes, one cyan crystal n
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
   "description": "an avocado monk with wrapped fists and a stone pit core, calm, mends the defenders around it; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "mode": "pro",
   "name": "avocado_monk",
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
   "outline": "single color black outline",
-  "seed": 56257,
   "size": 64,
   "style_character_id": "fa8294b1-c3ec-4ae5-92fb-39570ced0f65",
   "view": "low top-down"
@@ -362,13 +360,10 @@ an avocado monk with wrapped fists and a stone pit core, calm, mends the defende
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
   "description": "a chilli berserker with two burning knives and no patience, thin and fast, every slash keeps searing; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "mode": "pro",
   "name": "chilli_berserker",
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
   "outline": "single color black outline",
-  "seed": 85348,
   "size": 64,
   "style_character_id": "fa8294b1-c3ec-4ae5-92fb-39570ced0f65",
   "view": "low top-down"
@@ -399,13 +394,10 @@ a chilli berserker with two burning knives and no patience, thin and fast, every
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
   "description": "a pathogen dominated by one huge lidless eye with a barbed rim, pink, armoured against fast small hits; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "mode": "pro",
   "name": "clickbait",
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
   "outline": "single color black outline",
-  "seed": 88817,
   "size": 64,
   "style_character_id": "fa8294b1-c3ec-4ae5-92fb-39570ced0f65",
   "view": "low top-down"
@@ -436,12 +428,10 @@ a pathogen dominated by one huge lidless eye with a barbed rim, pink, armoured a
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
+  "description": "a small tangled knot of fibres resting on the tissue, scenery only; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "item_descriptions": [
     "a small tangled knot of fibres resting on the tissue, scenery only; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
-  "seed": 9425,
   "size": 32,
   "view": "top-down"
 }
@@ -471,12 +461,10 @@ a small tangled knot of fibres resting on the tissue, scenery only; organic neur
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
+  "description": "a small synaptic cleft between two processes, scenery only, never reads as a collectable; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "item_descriptions": [
     "a small synaptic cleft between two processes, scenery only, never reads as a collectable; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
-  "seed": 13147,
   "size": 32,
   "view": "top-down"
 }
@@ -506,12 +494,10 @@ a small synaptic cleft between two processes, scenery only, never reads as a col
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
+  "description": "a thick walled glial body with a glowing orange core showing through the membrane, heavy and slow; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "item_descriptions": [
     "a thick walled glial body with a glowing orange core showing through the membrane, heavy and slow; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
-  "seed": 29841,
   "size": 64,
   "view": "top-down"
 }
@@ -541,12 +527,10 @@ a thick walled glial body with a glowing orange core showing through the membran
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
+  "description": "a fluted round glial column with a single cyan crystal at its crown, quiet and upright; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "item_descriptions": [
     "a fluted round glial column with a single cyan crystal at its crown, quiet and upright; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
-  "seed": 97771,
   "size": 64,
   "view": "top-down"
 }
@@ -576,12 +560,10 @@ a fluted round glial column with a single cyan crystal at its crown, quiet and u
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
+  "description": "the same cell escalated, the coil tighter and doubled, the amber node brighter, one added ring; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "item_descriptions": [
     "the same cell escalated, the coil tighter and doubled, the amber node brighter, one added ring; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
-  "seed": 72153,
   "size": 64,
   "view": "top-down"
 }
@@ -611,13 +593,10 @@ the same cell escalated, the coil tighter and doubled, the amber node brighter, 
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
   "description": "an ivory garlic bulb sage with a root staff, its pungent air slows everything shuffling through it; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "mode": "pro",
   "name": "garlic_mage",
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
   "outline": "single color black outline",
-  "seed": 50626,
   "size": 64,
   "style_character_id": "fa8294b1-c3ec-4ae5-92fb-39570ced0f65",
   "view": "low top-down"
@@ -648,12 +627,10 @@ an ivory garlic bulb sage with a root staff, its pungent air slows everything sh
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
+  "description": "a round glial cell under a wide crown of fine violet dendritic processes, reaching over everything nearby; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "item_descriptions": [
     "a round glial cell under a wide crown of fine violet dendritic processes, reaching over everything nearby; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
-  "seed": 5667,
   "size": 64,
   "view": "top-down"
 }
@@ -683,12 +660,10 @@ a round glial cell under a wide crown of fine violet dendritic processes, reachi
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
+  "description": "a synaptic vesicle, a small round warm amber droplet swollen to bursting, translucent membrane; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "item_descriptions": [
     "a synaptic vesicle, a small round warm amber droplet swollen to bursting, translucent membrane; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
-  "seed": 49370,
   "size": 32,
   "view": "top-down"
 }
@@ -718,12 +693,10 @@ a synaptic vesicle, a small round warm amber droplet swollen to bursting, transl
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
+  "description": "a torn opening in the tissue where something comes through, ragged cold edges, dark and empty inside; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "item_descriptions": [
     "a torn opening in the tissue where something comes through, ragged cold edges, dark and empty inside; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
-  "seed": 32926,
   "size": 32,
   "view": "top-down"
 }
@@ -753,12 +726,10 @@ a torn opening in the tissue where something comes through, ragged cold edges, d
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
+  "description": "a slender glial column fraying at the top into many fine golden fibres, reaching further than anything else; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "item_descriptions": [
     "a slender glial column fraying at the top into many fine golden fibres, reaching further than anything else; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
-  "seed": 47447,
   "size": 64,
   "view": "top-down"
 }
@@ -788,12 +759,10 @@ a slender glial column fraying at the top into many fine golden fibres, reaching
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
+  "description": "a spherical glial bulb held inside one standing cyan ring, still until it releases; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "item_descriptions": [
     "a spherical glial bulb held inside one standing cyan ring, still until it releases; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
-  "seed": 40257,
   "size": 64,
   "view": "top-down"
 }
@@ -823,12 +792,10 @@ a spherical glial bulb held inside one standing cyan ring, still until it releas
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
+  "description": "the same cell escalated, two more bodies in the nest, the teal membrane brighter; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "item_descriptions": [
     "the same cell escalated, two more bodies in the nest, the teal membrane brighter; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
-  "seed": 83445,
   "size": 64,
   "view": "top-down"
 }
@@ -858,13 +825,10 @@ the same cell escalated, two more bodies in the nest, the teal membrane brighter
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
   "description": "a heavy orange sac with hooked barbs and a slick membrane, low to the ground and dragging; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "mode": "pro",
   "name": "adult_content",
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
   "outline": "single color black outline",
-  "seed": 32329,
   "size": 64,
   "style_character_id": "fa8294b1-c3ec-4ae5-92fb-39570ced0f65",
   "view": "low top-down"
@@ -895,13 +859,10 @@ a heavy orange sac with hooked barbs and a slick membrane, low to the ground and
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
   "description": "an amber spore chain of three fused capsules that keeps unrolling forward, each capsule budding the next; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "mode": "pro",
   "name": "autoplay",
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
   "outline": "single color black outline",
-  "seed": 10849,
   "size": 64,
   "style_character_id": "fa8294b1-c3ec-4ae5-92fb-39570ced0f65",
   "view": "low top-down"
@@ -932,13 +893,10 @@ an amber spore chain of three fused capsules that keeps unrolling forward, each 
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
   "description": "a bleached cyan mimic blob wearing a half finished copy of another creature, edges unresolved; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "mode": "pro",
   "name": "comparison",
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
   "outline": "single color black outline",
-  "seed": 47378,
   "size": 64,
   "style_character_id": "fa8294b1-c3ec-4ae5-92fb-39570ced0f65",
   "view": "low top-down"
@@ -969,13 +927,10 @@ a bleached cyan mimic blob wearing a half finished copy of another creature, edg
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
   "description": "a long green ciliated ribbon that flows head first, segmented, with no visible end to it; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "mode": "pro",
   "name": "doomscroll",
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
   "outline": "single color black outline",
-  "seed": 85912,
   "size": 64,
   "style_character_id": "fa8294b1-c3ec-4ae5-92fb-39570ced0f65",
   "view": "low top-down"
@@ -1006,13 +961,10 @@ a long green ciliated ribbon that flows head first, segmented, with no visible e
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
   "description": "a swollen teal cyst under pressure, ribbed, with a torn neck venting, faster the more damaged it is; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "mode": "pro",
   "name": "energy_drink",
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
   "outline": "single color black outline",
-  "seed": 24123,
   "size": 64,
   "style_character_id": "fa8294b1-c3ec-4ae5-92fb-39570ced0f65",
   "view": "low top-down"
@@ -1043,12 +995,10 @@ a swollen teal cyst under pressure, ribbed, with a torn neck venting, faster the
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
+  "description": "the same cell escalated, the wall thicker and the orange core burning brighter through it; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "item_descriptions": [
     "the same cell escalated, the wall thicker and the orange core burning brighter through it; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
-  "seed": 47385,
   "size": 64,
   "view": "top-down"
 }
@@ -1078,13 +1028,10 @@ the same cell escalated, the wall thicker and the orange core burning brighter t
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
   "description": "a darting magenta filament with a bright head and a dissolving tail, already half gone before it arrives; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "mode": "pro",
   "name": "fomo",
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
   "outline": "single color black outline",
-  "seed": 25904,
   "size": 64,
   "style_character_id": "fa8294b1-c3ec-4ae5-92fb-39570ced0f65",
   "view": "low top-down"
@@ -1115,13 +1062,10 @@ a darting magenta filament with a bright head and a dissolving tail, already hal
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
   "description": "a knot of six small green spores sharing one membrane, all of them mouths, none of them a head; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "mode": "pro",
   "name": "group_chat",
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
   "outline": "single color black outline",
-  "seed": 69814,
   "size": 64,
   "style_character_id": "fa8294b1-c3ec-4ae5-92fb-39570ced0f65",
   "view": "low top-down"
@@ -1152,13 +1096,10 @@ a knot of six small green spores sharing one membrane, all of them mouths, none 
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
   "description": "a crimson gland with three swollen lobes and one bright wet core, pulsing on a slow rhythm; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "mode": "pro",
   "name": "jackpot",
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
   "outline": "single color black outline",
-  "seed": 61556,
   "size": 64,
   "style_character_id": "fa8294b1-c3ec-4ae5-92fb-39570ced0f65",
   "view": "low top-down"
@@ -1189,13 +1130,10 @@ a crimson gland with three swollen lobes and one bright wet core, pulsing on a s
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
   "description": "a violet cluster of four loosely bound spores pulling apart at the seams, about to become four of itself; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "mode": "pro",
   "name": "just_one_more",
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
   "outline": "single color black outline",
-  "seed": 64549,
   "size": 64,
   "style_character_id": "fa8294b1-c3ec-4ae5-92fb-39570ced0f65",
   "view": "low top-down"
@@ -1226,12 +1164,10 @@ a violet cluster of four loosely bound spores pulling apart at the seams, about 
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
+  "description": "the same cell escalated, the dendritic crown denser and wider, the violet deeper; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "item_descriptions": [
     "the same cell escalated, the dendritic crown denser and wider, the violet deeper; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
-  "seed": 45672,
   "size": 64,
   "view": "top-down"
 }
@@ -1261,13 +1197,10 @@ the same cell escalated, the dendritic crown denser and wider, the violet deeper
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
   "description": "the smallest and fastest spore of the swarm, a hard red shell and one twitching cilium, almost nothing to it; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "mode": "pro",
   "name": "notification",
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
   "outline": "single color black outline",
-  "seed": 15044,
   "size": 64,
   "style_character_id": "fa8294b1-c3ec-4ae5-92fb-39570ced0f65",
   "view": "low top-down"
@@ -1298,13 +1231,10 @@ the smallest and fastest spore of the swarm, a hard red shell and one twitching 
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
   "description": "a hollow blue spore husk that hovers, no legs, a sharp vibrating rim, and nothing at all inside it; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "mode": "pro",
   "name": "phantom_buzz",
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
   "outline": "single color black outline",
-  "seed": 2923,
   "size": 64,
   "style_character_id": "fa8294b1-c3ec-4ae5-92fb-39570ced0f65",
   "view": "low top-down"
@@ -1335,12 +1265,10 @@ a hollow blue spore husk that hovers, no legs, a sharp vibrating rim, and nothin
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
+  "description": "the same cell escalated, more golden fibres, fraying further down the column; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "item_descriptions": [
     "the same cell escalated, more golden fibres, fraying further down the column; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
-  "seed": 48896,
   "size": 64,
   "view": "top-down"
 }
@@ -1370,13 +1298,10 @@ the same cell escalated, more golden fibres, fraying further down the column; or
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
   "description": "a violet colonial mass of fused spores, many eyes, a shielding outer membrane, dragging a train of smaller buds behind it; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "mode": "pro",
   "name": "social_media_binge",
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
   "outline": "single color black outline",
-  "seed": 42287,
   "size": 128,
   "style_character_id": "fa8294b1-c3ec-4ae5-92fb-39570ced0f65",
   "view": "low top-down"
@@ -1407,12 +1332,10 @@ a violet colonial mass of fused spores, many eyes, a shielding outer membrane, d
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
+  "description": "the same cell escalated, a second concentric cyan ring standing outside the first; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "item_descriptions": [
     "the same cell escalated, a second concentric cyan ring standing outside the first; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
-  "seed": 4772,
   "size": 64,
   "view": "top-down"
 }
@@ -1442,12 +1365,10 @@ the same cell escalated, a second concentric cyan ring standing outside the firs
 
 ```json
 {
-  "color_image_url": "docs/art/palette_48.png",
+  "description": "the same cell escalated, the single ring split into two smaller counter turning half rings; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow",
   "item_descriptions": [
     "the same cell escalated, the single ring split into two smaller counter turning half rings; organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "negative_description": "photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh, machinery, gears, screws, circuit board, computer screen, cables, anatomical brain diagram, medical illustration, text, watermark, signature",
-  "seed": 7051,
   "size": 64,
   "view": "top-down"
 }

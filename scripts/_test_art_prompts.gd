@@ -19,6 +19,7 @@ extends Node
 
 const PLAN_PATH := "res://docs/art/GENERATION_PLAN.md"
 const BIBLE_PATH := "res://docs/art/STYLE_BIBLE.md"
+const SCHEMA_PATH := "res://tools/pixellab_schema.json"
 
 ## Které složky v data/ mají mít vizuální protějšek a pod jakými `kind` se v plánu
 ## objevují. Musí souhlasit s DATA_KINDS v tools/gen_art_prompts.py — schválně to je
@@ -100,22 +101,25 @@ func _bible_fence(bible: String, key: String, lang: String) -> String:
 	return "" if m == null else m.get_string(1).strip_edges()
 
 
-## Jeden záznam plánu: id, kind, deklarovaná velikost, parametry (JSON) a prompt.
+## Jeden záznam plánu: id, kind, deklarovaná velikost, nástroj, parametry (JSON) a prompt.
 func _parse_plan(plan: String) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var head_re := RegEx.create_from_string("^\\d+\\.\\s+`([a-z0-9_]+)`\\s+—\\s+([a-z_]+),\\s+(\\d+)\\s+px")
 	var json_re := RegEx.create_from_string("(?s)```json\\n(.*?)\\n```")
 	var text_re := RegEx.create_from_string("(?s)```text\\n(.*?)\\n```")
+	var tool_re := RegEx.create_from_string("\\|\\s*nástroj\\s*\\|\\s*`mcp__pixellab__(\\w+)`\\s*\\|")
 	for chunk in plan.split("\n### "):
 		var head := head_re.search(chunk)
 		if head == null:
 			continue
 		var jm := json_re.search(chunk)
 		var tm := text_re.search(chunk)
+		var toolm := tool_re.search(chunk)
 		out.append({
 			"id": head.get_string(1),
 			"kind": head.get_string(2),
 			"size": int(head.get_string(3)),
+			"tool": "" if toolm == null else toolm.get_string(1),
 			"params": {} if jm == null else (JSON.parse_string(jm.get_string(1)) as Dictionary),
 			"prompt": "" if tm == null else tm.get_string(1),
 			"raw": chunk,
@@ -277,6 +281,46 @@ func _run() -> void:
 	for r in records:
 		_check("%s má kind podle bible" % r["id"], kind_of.get(r["id"], "") == r["kind"],
 			"bible: %s, plán: %s" % [kind_of.get(r["id"], "?"), r["kind"]])
+
+	print("\n-- 7. každé volání projde validací proti ŽIVÉMU schématu API (A0b) --")
+	## A0 zjistilo doslova tohle: plán psaný proti create_image_pixflux, poslaný na
+	## create_character/create_1_direction_object, server 3-4 validation errors na
+	## volání, 0 utracených generací. tools/pixellab_schema.json je zamrazená kopie
+	## `tools/list` (tools/fetch_pixellab_schema.py je jediné místo, které smí mluvit
+	## se serverem) — offline, deterministická, přesně to, co tenhle harness smí číst.
+	var schema_text := _read(SCHEMA_PATH)
+	_check("tools/pixellab_schema.json existuje", schema_text.length() > 0)
+	var schema: Dictionary = {} if schema_text.is_empty() \
+		else (JSON.parse_string(schema_text) as Dictionary)
+	_check("tools/pixellab_schema.json se rozparsoval", not schema.is_empty())
+	var schema_checked := 0
+	for r in records:
+		var tool: String = r.get("tool", "")
+		_check("%s: má rozpoznatelný nástroj v tabulce" % r["id"], tool != "",
+			"řádek 'nástroj' se nenašel")
+		if tool == "" or not schema.has(tool):
+			_check("%s: '%s' je v tools/pixellab_schema.json" % [r["id"], tool],
+				schema.has(tool))
+			continue
+		schema_checked += 1
+		var spec: Dictionary = schema[tool]
+		var allowed: Array = spec.get("properties", [])
+		var required: Array = spec.get("required", [])
+		var params: Dictionary = r["params"]
+		var unknown: PackedStringArray = []
+		for key in params.keys():
+			if not allowed.has(key):
+				unknown.append(str(key))
+		_check("%s (%s): žádný parametr mimo živé schéma" % [r["id"], tool],
+			unknown.is_empty(), "navíc: " + ", ".join(unknown))
+		var missing: PackedStringArray = []
+		for key in required:
+			if not params.has(key):
+				missing.append(str(key))
+		_check("%s (%s): všechna povinná pole přítomna" % [r["id"], tool],
+			missing.is_empty(), "chybí: " + ", ".join(missing))
+	_check("aspoň jeden záznam se ověřil proti schématu", schema_checked > 0,
+		"%d/%d" % [schema_checked, records.size()])
 
 	completed = true
 	print("\n%s (%d failures, %d záznamů)"

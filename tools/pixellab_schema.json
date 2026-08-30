@@ -1,0 +1,70 @@
+{
+  "create_1_direction_object": {
+    "properties": [
+      "description",
+      "item_descriptions",
+      "size",
+      "style_images",
+      "view"
+    ],
+    "required": [
+      "description"
+    ]
+  },
+  "create_character": {
+    "properties": [
+      "body_type",
+      "description",
+      "detail",
+      "mode",
+      "n_directions",
+      "name",
+      "outline",
+      "proportions",
+      "reference_image_base64",
+      "reference_image_url",
+      "shading",
+      "size",
+      "style_character_id",
+      "template",
+      "text_guidance_scale",
+      "view"
+    ],
+    "required": [
+      "description"
+    ]
+  },
+  "create_tiles_pro": {
+    "properties": [
+      "description",
+      "oblique_lean",
+      "outline_mode",
+      "seed",
+      "style_images",
+      "style_options",
+      "tile_depth_ratio",
+      "tile_feature",
+      "tile_flat_top_px",
+      "tile_height",
+      "tile_size",
+      "tile_type",
+      "tile_view",
+      "tile_view_angle"
+    ],
+    "required": [
+      "description"
+    ]
+  },
+  "reduce_colors": {
+    "properties": [
+      "dithering",
+      "dithering_strength",
+      "image_urls",
+      "images_base64",
+      "num_colors",
+      "palette_image_base64",
+      "palette_image_url"
+    ],
+    "required": []
+  }
+}

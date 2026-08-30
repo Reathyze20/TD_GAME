@@ -2691,3 +2691,69 @@ Dotčené soubory: `scripts/resources/map_segment_data.gd` (nový),
 `docs/refactor/PATHFINDING.MD` (P8 → done).
 
 Commit: `0ee7960`.
+
+## 2026-08-30 — A0b: gen_art_prompts.py opraven proti živému schématu, u zdroje
+
+Přesně to, co A0 (viz výše) narazilo za běhu — fáze 0 dostala na první pokus
+`3-4 validation errors` na volání a **0 utracených generací**, protože plán
+psal parametry proti schématu `create_image_pixflux`, ale posílal je na
+`create_character`/`create_1_direction_object` — a `phase0_batch.py` (spouštěč)
+to tehdy opravil jen u sebe. A0b to opravuje **u zdroje**, jak zadání žádalo.
+
+**1. Živé schéma, zamrazené, ne dotazované za běhu.** `gen_art_prompts.py`
+sám na síť sahat nesmí (vlastní docstring: "nic negeneruje a nikam nevolá",
+`--check` musí být bit-identický, `mcp__pixellab__*` je navíc v `settings` na
+deny). Nový `tools/fetch_pixellab_schema.py` je proto JEDINÉ místo, které se
+ptá `tools/list`, a dělá to jen na ruční spuštění — zapisuje
+`tools/pixellab_schema.json` (commitnutý, `--check` režim hlídá zvětrání).
+Pokrývá `create_character`, `create_1_direction_object`, `create_tiles_pro`
+(dnes nepoužitý — terén je od 29. 8. vyříznutý celý — ale kód pro něj větev
+pořád má, takže by stejná past čekala na první den, kdy se terén vrátí) a
+`reduce_colors`.
+
+**2. `gen_art_prompts.py`: nová `adapt_to_schema(tool, params, schema)`**,
+volaná pro každý ze 37 záznamů. Osekává `params` na to, co dané volání
+OPRAVDU přijme, a `SystemExit`uje, když po oseku chybí povinné pole — tedy
+generování samo teď nemůže vyrobit neplatné volání, ne jen ohlásit ho. Dvě
+opravy k tomu:
+- `create_1_direction_object` má POVINNÉ `description` (jednotné číslo);
+  plán nesl jen `item_descriptions`. Teď se `description` nastavuje vždy,
+  `item_descriptions` zůstává vedle (nezávazný per-kus popis pro víc objektů
+  v jednom volání).
+- Bod 2 generovaného textu tvrdil, že paletu nese `color_image_url` — podle
+  živého schématu ho **žádný ze tří generujících nástrojů nemá**. Přepsáno na
+  pravdivé: paleta se vynucuje až po generování přes `reduce_colors`.
+
+**3. Zjištěno a zapsáno natvrdo do plánu (bod 10), jak zadání žádalo:**
+`create_character` ani `create_1_direction_object` nemají v živém schématu
+ŽÁDNÝ parametr pro seed nebo determinismus — objednávka stejné postavy
+podruhé dá jiný výsledek, ne reprodukci. `seed` v `params` u nich proto nikdy
+nedorazí k serveru (filtruje se). **Výjimka je terén** (`create_tiles_pro`),
+který `seed` ve svém schématu má — nepřesná generalizace "PixelLab neumí
+seed vůbec" by byla sama o sobě nová chyba stejného druhu, co tenhle úkol
+opravuje, takže se to zapsalo přesně, ne obecně.
+
+**4. Trvalý regresní test, ne jednorázová kontrola.** `_test_art_prompts.gd`
+(běží ve `verify.sh`) má novou sekci 7: pro každý ze 37 záznamů dohledá
+nástroj z tabulky "nástroj" a ověří `params` proti `tools/pixellab_schema.json`
+— žádný parametr mimo živé schéma, všechna povinná pole přítomna. Nespoléhá
+na to, že `adapt_to_schema()` se nezapomene zavolat příště — čte přímo
+vygenerovaný `GENERATION_PLAN.md`, stejně jako člověk, který si podle něj
+objednává (stejný důvod, proč tenhle harness čte markdown, ne mezistupeň,
+popsaný v jeho vlastní hlavičce).
+
+**Hotovo kritérium přesně jak zadání žádalo:** `python tools/gen_art_prompts.py`
+proběhl bez chyby přes všech 37 entit (= každá prošla `adapt_to_schema()` bez
+`SystemExit`) a **nedošlo k jedinému síťovému volání** — `load_schema()` čte
+jen commitnutou kopii. `_test_art_prompts.tscn`: `PASSED (0 failures, 37 záznamů)`.
+
+- verify.sh: PASS (37 pass, 0 fail, 4 known-broken, 0 flaky — stejná pre-existující
+  baseline jako A0, `_test_art_prompts` teď se sekcí 7 navíc, počítá se pořád jako
+  jeden test).
+- Soubory: `tools/fetch_pixellab_schema.py` (nový), `tools/pixellab_schema.json`
+  (nový, commitnutý), `tools/gen_art_prompts.py` (`load_schema`,
+  `adapt_to_schema`, opravený bod 2, nový bod 10), `docs/art/GENERATION_PLAN.md`
+  (přegenerován — beze změny celkové ceny/rozpadu, jen platné payloady a
+  opravený/rozšířený text), `scripts/_test_art_prompts.gd` (sekce 7 + parsování
+  sloupce `nástroj`).
+- Commit: [doplní se]

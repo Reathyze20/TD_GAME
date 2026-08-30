@@ -35,6 +35,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BIBLE = os.path.join(ROOT, "docs", "art", "STYLE_BIBLE.md")
 PLAN = os.path.join(ROOT, "docs", "art", "GENERATION_PLAN.md")
+SCHEMA = os.path.join(ROOT, "tools", "pixellab_schema.json")
 
 # Slozky v data/, ktere maji vizualni protejsek. Zamerne NENI seznam vseho pod data/:
 # ads/cards/interventions/growth/insight_cards nemaji pole na texturu a nekresli se ze
@@ -242,7 +243,46 @@ def _price(bible, tier):
     return int(bible["pricing"][tier]["generaci"])
 
 
-def build(bible):
+def load_schema(path=SCHEMA):
+    """Zivé JSON schéma vybraných PixelLab nástrojů, ZAMRAZENÉ v tools/pixellab_schema.json
+    (`tools/fetch_pixellab_schema.py` — jediné místo v repu, které smí mluvit se
+    serverem). Tahle funkce na síť NESAHÁ, jen čte commitnutou kopii; generátor sám
+    musí zůstat čistou transformací (vlastní docstring, DETERMINISMUS JE POZADAVEK)."""
+    if not os.path.isfile(path):
+        raise SystemExit("chybí %s -- spusť `python tools/fetch_pixellab_schema.py`"
+                          % os.path.relpath(path, ROOT))
+    with io.open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def adapt_to_schema(mcp_tool, params, schema):
+    """Osekej `params` na to, co dané MCP volání OPRAVDU přijme, podle živého schématu
+    zamrazeného v `tools/pixellab_schema.json` -- ne podle katalogu z dokumentace,
+    který se s API rozešel (A0/PROGRESS.md: fáze 0 dostala na první pokus 3-4
+    validation errors na volání a 0 utracených generací, protože `color_image_url`,
+    `seed` a `negative_description` na `create_character`/`create_1_direction_object`
+    vůbec neexistují -- psalo se to proti `create_image_pixflux`).
+
+    Vrací (payload, vyhozené pole). SystemExit, když po oseku chybí povinné pole --
+    lepší nahlas selhat při generování plánu, než tiše poslat neplatné volání
+    o dávky později (A0b, docs/refactor/-- "tohle se nesmí opakovat u Phase 1")."""
+    name = mcp_tool.rsplit("__", 1)[-1]
+    if name not in schema:
+        raise SystemExit(
+            "tools/pixellab_schema.json nezná nástroj '%s' -- spusť "
+            "`python tools/fetch_pixellab_schema.py`" % name)
+    allowed = set(schema[name]["properties"])
+    required = set(schema[name]["required"])
+    payload = {k: v for k, v in params.items() if k in allowed}
+    missing = required - set(payload)
+    if missing:
+        raise SystemExit(
+            "%s: po oseku na živé schéma chybí povinné pole %s (entita ho musí "
+            "dodat před filtrací)" % (name, sorted(missing)))
+    return payload, sorted(set(params) - allowed)
+
+
+def build(bible, schema):
     """Zaznamy v poradi generovani, uz se spoctenymi davkami a cenami."""
     forms = {r["id"]: r for r in bible["forms"]}
     phases = bible["phases"]
@@ -299,9 +339,18 @@ def build(bible):
 
             prompt = "%s; %s" % (r["form"], bible["suffix"])
 
+            # negative_description/color_image_url zustavaji v `params` az do filtru
+            # nize -- ne proto, ze by je nektery ze tri skutecnych nastroju prijal
+            # (nepřijme, viz `adapt_to_schema`'s docstring), ale aby `--stdout`/dry
+            # nastroje nize videly, CO by se poslalo pred osekem, ne uz jen vysledek.
+            # Zivy dopad: paleta se vynucuje AZ PO generovani pres reduce_colors
+            # (docs/art/GENERATION_PLAN.md bod 2), negativy uz nese slovne povinny
+            # suffix (STYLE_BIBLE.md §7) -- zadny obsah se filtraci neztraci.
             params = dict(fixed)
             params["negative_description"] = bible["negative"]
             params["color_image_url"] = PALETTE_URL
+            # Seed preziva filtr JEN u tileset tier -- `create_tiles_pro` ho zna,
+            # `create_character`/`create_1_direction_object` ne (tools/pixellab_schema.json).
             # Kdo se veze v cizim volani, musi mit i jeho seed -- jinak by tabulka
             # tvrdila, ze jde o dve ruzna volani, a nekdo by je oba objednal.
             params["seed"] = _seed(riders.get(eid, eid))
@@ -318,6 +367,11 @@ def build(bible):
                 params["tile_size"] = gen
                 prompt = params["description"]
             elif tool["mcp_tool"].endswith("create_1_direction_object"):
+                # `description` je u tohohle nastroje POVINNE (tools/pixellab_schema.json),
+                # a plan drzel jen `item_descriptions` -- presne to, co fazi 0 na prvni
+                # pokus odmitlo (A0b). `item_descriptions` zustava taky: nezavazny
+                # per-kus popis pro pripad, ze `size` vyrobi vic objektu najednou.
+                params["description"] = prompt
                 params["item_descriptions"] = [prompt]
                 params["size"] = gen
             else:
@@ -330,6 +384,9 @@ def build(bible):
             if r["family"] != "-":
                 anchor = bible["anchors"][r["family"]]
                 params["style_character_id"] = anchor["style_character_id"]
+
+            # Osek na to, co dane MCP volani OPRAVDU prijme -- viz adapt_to_schema().
+            params, _dropped = adapt_to_schema(tool["mcp_tool"], params, schema)
 
             depends = ""
             if eid in riders:
@@ -425,7 +482,11 @@ def render(bible, records):
     w("")
     w("1. **Povinný suffix** je na konci každého `description` / `item_description`,")
     w("   doslova. Zdroj: STYLE_BIBLE.md §7.")
-    w("2. **Paleta jde obrázkem, ne slovy** — `color_image_url` na `%s`." % PALETTE_URL)
+    w("2. **Paleta se vynucuje AŽ PO generování**, ne v tomhle volání. Ověřeno proti")
+    w("   živému schématu (`tools/pixellab_schema.json`): `color_image_url` na")
+    w("   `create_character` ani `create_1_direction_object` neexistuje — postava a")
+    w("   objekt ho po odeslání tiše zahodí. Paleta se vynutí zvlášť přes")
+    w("   `reduce_colors(palette_image_url=%s)` na staženém výsledku (A0/PROGRESS.md)." % PALETTE_URL)
     w("   Žádný prompt neobsahuje hex ani vlastní seznam barev, a 32barevná varianta")
     w("   palety (ta, co podle měření škodí 6 z 10 příšer) se sem nedostane ani jednou.")
     w("3. **`get_balance` před dávkou.** Kvóta se počítá po generacích, ne po voláních.")
@@ -445,6 +506,14 @@ def render(bible, records):
     w("9. **`animate_character` nad 64 px tiše eskaluje na `pro`** = 20–40 generací")
     w("   *na směr*, když se nepošle `mode:\"v3\"` výslovně. Do animací se nesahá dřív,")
     w("   než statická sada projde bránou fáze 3.")
+    w("10. **`create_character` a `create_1_direction_object` NEMAJÍ žádný parametr pro")
+    w("    seed ani jinou formu determinismu** — ověřeno proti živému schématu")
+    w("    (`tools/pixellab_schema.json`, A0b). Objednávka stejné postavy/objektu")
+    w("    podruhé dá JINÝ výsledek, ne reprodukci. `seed` v `params` níže u nich")
+    w("    proto nikdy nedorazí k serveru (filtruje se, viz bod 2) — je to jen")
+    w("    stabilní identifikátor záznamu v tomhle plánu, ne kontrola nad generováním.")
+    w("    Výjimka je terén (`create_tiles_pro`, dnes v plánu nepoužitý): ten `seed`")
+    w("    ve svém živém schématu MÁ, takže by u něj reprodukovatelný byl.")
     w("")
     # Zakazana kotva se tu SCHVALNE necituje. `_test_art_prompts.gd` overuje, ze se
     # jeji uuid nevyskytuje nikde v celem souboru -- kdyby ho sem vypsal i tenhle
@@ -548,10 +617,11 @@ def check_order(records):
 
 def generate():
     bible = load_bible()
+    schema = load_schema()
     problems = check_bijection(bible)
     if problems:
         raise SystemExit("STYLE_BIBLE.md vs data/ se rozesly:\n  " + "\n  ".join(problems))
-    records = build(bible)
+    records = build(bible, schema)
     problems = check_order(records)
     if problems:
         raise SystemExit("STYLE_BIBLE.md: poradi neni proveditelne:\n  " + "\n  ".join(problems))
