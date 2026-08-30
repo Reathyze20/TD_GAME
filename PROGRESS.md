@@ -1326,3 +1326,4 @@ což si odporuje se současnou 30x14. Nesahal jsem na ně, zadání to zakazuje.
 - verify.sh: PASS (27 pass, 0 fail, 6 known-broken — `_test_phase3` v tomhle běhu padl,
   je vedený jako flaky; předchozí běh měl 26/5, rozdíl je nový test + nová brána).
 - Status P0b: `todo` → `done`.
+- Commit: 89a8c2e.
