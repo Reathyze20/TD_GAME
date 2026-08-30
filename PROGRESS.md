@@ -2008,3 +2008,4 @@ east) výběr snímku sedí na to, co dřív dělal `_draw_sprite_frames()`.
 - verify.sh: PASS (33 pass, 0 fail, 4 known-broken — `_test_deep_reading`,
   `_test_fog_bandwidth`, `_test_shadow_occlusion`, `_test_zen_pulsar`, žádný z nich
   se P5 netýká — 0 flaky).
+- Commit: bd39167.
