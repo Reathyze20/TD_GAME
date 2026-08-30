@@ -1526,3 +1526,4 @@ komentáře, ale patří do úkolu, který na `verify.sh` smí sahat (P0f).
 
 - verify.sh: PASS (28 pass, 0 fail, 6 known-broken — `_test_phase3` v tomhle běhu padl).
 - Status P0e: `todo` → `done`.
+- Commit: e8384ce.
