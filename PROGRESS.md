@@ -1644,3 +1644,33 @@ spustit ho, ověřit validátorem a přegenerovat ROSTER.md. Není co migrovat (
 neexistují), nástroj by neměl nad čím pracovat, a „Hotovo když" kritérium T6 (validátor
 + ROSTER.md) je už nezávisle splněné T10 validátorem a `tools/roster.py`. Zápis do
 `docs/refactor/MIGRATION.MD` (Status: obsolete) jako součást úkolu C.
+- Commit: 49cc0ea.
+
+## 2026-08-30 — C: MIGRATION.MD a SYSTEMS.MD dostaly hlavičky Model/Needs-me/Status
+
+- Doplněny hlavičky ke všem 11 úkolům T1–T11 a všem 9 úkolům S1–S9, podle skutečného
+  stavu zjištěného z PROGRESS.md, BLOCKED.md a přímé kontroly repa (existence souborů,
+  výsledky verify.sh). Modely podle zadání: T3, T4, S2 = opus (T3/T4 už opus měly, S2
+  taky — sedí to s tím, co bylo napsáno předtím), zbytek sonnet — včetně S6 a S7, které
+  dřív měly `Model: opus` a teď se sjednotily na sonnet podle explicitního pokynu.
+- **Status podle skutečnosti, ne podle přání:**
+  - `done` (12): T2, T3, T4, T7, T8, T9, T10, T11, S1, S2, S3, S8, S9.
+  - `blocked` (6, s odkazem na řádek v BLOCKED.md): T1 (chybí potvrzení zeleného CI —
+    vyžaduje push, který si session zakazuje), T5 (byl blokovaný na vizuálním
+    posouzení, PAK vyřešen přímým pokynem uživatele — proto `done`, ne `blocked`, ale
+    Needs-me zůstává `yes` jako historický záznam), S4 (mechanicky hotovo, čeká na tvůj
+    pohled na screenshot), S5/S6 (nezapočato, dvě reálné otázky bez odhadu), S7 (2/3
+    hotovo, zbytek sahá do addons/td_level_designer).
+  - `obsolete` (1): T6, viz úkol B výše.
+- **Needs-me** nastaveno podle toho, jestli DOKONČENÍ úkolu prošlo (nebo čeká na)
+  uživatelovo rozhodnutí — ne podle toho, jestli je potřeba akce PRÁVĚ TEĎ. Proto má
+  i hotové T5 nebo T7 `Needs-me: yes`: staly se hotovými jen díky tvému svolení/pokynu,
+  a to je hodnotná informace i zpětně.
+- **Ověřeno, že to řeší přesně tu chybu, která se stala u T6/T8:** `next_task.py` na
+  obou souborech vrací `exit 1` (žádný úkol není `todo`) — a je to SPRÁVNĚ, protože
+  žádný z 20 úkolů v obou souborech dnes skutečně `todo` není. Runner (`run.sh`) tedy
+  na tyhle dvě fronty už nikdy neskočí do díry jako u T6/T8 — buď uvidí `todo` a začne
+  pracovat, nebo uvidí prázdno a zastaví se, přesně jak `next_task.py` sám dokumentuje
+  („Exit 1 = fronta hotová").
+- Kontrola úplnosti: skript projel oba soubory a potvrdil, že KAŽDÝ z 20 bloků má
+  všechny tři pole (`Model`, `Needs-me`, `Status`) — žádný úkol nezůstal bez hlavičky.
