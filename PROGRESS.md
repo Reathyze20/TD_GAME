@@ -1134,3 +1134,41 @@ Log of tasks completed by run.sh, one entry per run, newest last.
   systems themselves.
 - verify.sh: PASS (25 pass, 0 fail, 6 known-broken).
 - Commit: 580b8f1.
+
+## 2026-08-30 — P0 (nová fronta PATHFINDING.MD): analýza „ASCII vs. bakování", BLOKOVÁNO na rozhodnutí
+
+- Uživatel vložil novou frontu (pathfinding, multi-směr, segmenty, brainfog). Uložena
+  doslova a bez změny pořadí jako `docs/refactor/PATHFINDING.MD` — třetí fronta vedle
+  `MIGRATION.MD` (T*) a `SYSTEMS.MD` (S*). `tools/next_task.py` ji parsuje správně.
+- P0 je `Model: opus`, `Needs-me: yes`, a jeho vlastní zadání zní „Analýza do BLOCKED.md
+  … Neimplementuj." Analýza je tedy hotová, kód se nezměnil ani řádkem.
+- **Hlavní zjištění (celé v BLOCKED.md):** `_bake_to_level()` píše přesně sedm polí
+  LevelData, `_save_level_settings()` píše zbytek a výslovně se geometrie nedotýká — ten
+  šev v kódu už existuje. ASCII může vlastnit právě to, co vlastní Bake. Nemůže vlastnit
+  druhou půlku, protože `wave_curve[].distraction`, `boss` a `ads[]` jsou ODKAZY na jiné
+  `.tres`. Proto „bakování je jen odvozený artefakt" nemůže platit doslova: zápis by
+  zůstal slučováním do existujícího resource, což `_bake_to_level()` dělá už dnes.
+- Do ASCII se bez ztráty vejde `high_ground`, `objective` (se snapem na střed bloku) a
+  `path_cells` (row-major sken reprodukuje pořadí, na kterém závisí losování variant
+  dlaždic). Nevejde se `decor` (pozice v pixelech pole, sub-buňkově) ani `tile_overrides`
+  (desítky jmen artu). `spawn_zones` a `trods` jen pod vysloveným pravidlem.
+- Dva konkrétní nálezy v shipnutých datech, na které analýza narazila: `level_98.tres` má
+  `Vector2i(25, 2)` v `path_cells` **dvakrát** (množinový ASCII tvar by duplicitu tiše
+  zahodil), a `level_1`/`level_98` mají spawn rekty `Rect2i(0,5,1,4)` / `Rect2i(0,6,1,2)`,
+  které nejsou 3x3 ani zarovnané na blok, takže neprojdou round-tripem přes čtečku, která
+  rekty odvozuje z bloků.
+- `addons/td_level_designer/` by se skoro nedotklo — je to čistý VIEW, veškerá
+  serializace je v `tools/map_editor.gd` mimo `addons/`. Zato geometrii levelů zapisuje
+  ještě pět dalších nástrojů (`build_placeholder_level.gd`, `refit_levels.py`,
+  `regrid_levels.py`, `build_level_first.py`, `build_level_iso.py`), což každé pravidlo
+  „ASCII je autoritativní" musí ošetřit.
+- **Nález, který se týká P8:** P8 chce skládání „odkazem ne kopií". Odkaz je vlastnost
+  grafu resources (`@export var base: LevelData`); prostý text ho vyjádřit neumí, takže
+  ASCII by segmenty skládalo substitucí znaků = kopírováním. ASCII jako zdroj pravdy jde
+  tedy proti vlastnímu zadání P8, které na P0 čeká.
+- Do BLOCKED.md zapsány tři varianty (A autoritativní ASCII / B bezztrátový side-car /
+  C status quo) s důsledky. Doporučení uvedeno jako názor, ne rozhodnutí.
+- Status P0 v frontě: `todo` → `blocked`. Deliverable hotový, ale účelem P0 je rozhodnutí,
+  které může dát jen uživatel. `next_task.py` teď hlásí P1 (taky `Needs-me: yes`).
+- verify.sh: PASS (26 pass, 0 fail, 5 known-broken; `_test_phase3` v tomhle běhu prošel —
+  je vedený jako flaky, ne rozbitý, takže ze seznamu nemizí).

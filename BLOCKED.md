@@ -533,3 +533,133 @@ in-game variants or were just a convenient way to prove the shader works, and wh
 it should be wired up to anything live (a cosmetic settings option, a seasonal/event
 recolour, a Tolerance-linked "increasingly numb" desaturation akin to `Sfx.juice_factor()` — none of that is scoped by S4's own text, which only asks for the shader
 and the demo scene).
+
+## P0 (docs/refactor/PATHFINDING.MD) — "může být ASCII autoritativní formát, ze kterého MapEditor čte i zapisuje, a bakování do .tres být jen odvozený artefakt?"
+
+Read-only analysis, per the task's own "Neimplementuj". Nothing was changed except the
+queue file itself (`docs/refactor/PATHFINDING.MD`, created from the pasted text verbatim,
+order untouched).
+
+### Short answer
+
+**For part of LevelData: yes, cleanly. For LevelData as a whole: no — and the code already
+knows where the seam is.** `tools/map_editor.gd` has two disjoint write paths today:
+
+* `_bake_to_level()` (line 1486) writes exactly seven fields: `high_ground`, `objective`,
+  `spawn_zones`, `path_cells`, `tile_overrides`, `decor`, and `terrain_tiles = {}`.
+* `_save_level_settings()` (line 1594) writes everything else, and its docstring is explicit
+  that it must not touch geometry ("the resource's stored layout fields are written back
+  unchanged, so an unfinished paint job on screen can't leak into the file").
+
+An ASCII source of truth can own precisely what Bake owns. It cannot own the other half
+(identity, economy, attention-lesson flags, `wave_curve`, `boss`, `ads`, drafts, wave
+modifiers), because none of that is spatial and much of it is a **reference to another
+resource** — `wave_curve[].distraction`, `boss` and `ads[]` all point at `.tres` files.
+
+The consequence is what decides the question: **"bakování je jen odvozený artefakt" cannot
+be literally true.** The `.tres` would still hold hand-authored, non-derivable data, so
+writing it from ASCII would remain a *merge into an existing resource*, not a *generation
+of a file*. That merge is exactly what `_bake_to_level()` already does. ASCII would
+therefore not remove the `.tres` write step; it would only change where the geometry lives
+*between* edits.
+
+### What of LevelData does not fit into ASCII
+
+The grid is 30x14 (`Data.GRID`), so a per-cell character map is 14 lines of 30 chars —
+small and genuinely readable. Against that:
+
+**Fits as a per-cell glyph, losslessly:**
+
+* `high_ground` — boolean per cell.
+* `objective` — one cell. Caveat: `_read_objective()` returns `block_center_cell()` of the
+  painted block, so an ASCII file could name a cell the editor can never produce. The
+  reader has to snap to the block centre or the two formats disagree.
+* `path_cells` — a set per cell, **but the array order is load-bearing**: the bake comment
+  states "hra losuje variantu dlaždice po prvcích pole", and bake sorts by (y, x) to keep
+  it deterministic. A row-major ASCII scan reproduces that order exactly, so this is fine
+  — *except* that `data/levels/level_98.tres` currently lists `Vector2i(25, 2)` **twice**
+  in `path_cells`. A set-shaped ASCII form silently drops the duplicate and shifts that
+  level's tile-variant lottery. Small, real, and in shipped data right now.
+
+**Fits only under a stated convention:**
+
+* `spawn_zones` is `Array[Rect2i]`. A cell grid records *which* cells are spawn, not how
+  they were decomposed into rectangles. Bake writes block-aligned 3x3 rects
+  (`_read_zones()` from `BlockSpawn`), so those re-derive. Hand-authored ones do not:
+  `level_1.tres` carries `Rect2i(0, 5, 1, 4)` and `level_98.tres` carries
+  `Rect2i(0, 6, 1, 2)` — neither is 3x3 nor block-aligned, and neither survives a
+  round-trip through a re-blocking reader.
+* `trods` — each `TrodData` is a *separate* cell set plus `open_at_wave` and a free-text
+  `announce`. One grid layer cannot hold N overlapping sets; it needs either one digit
+  glyph per trod (hard cap ~10) or one extra grid block per trod, plus a header section
+  for the non-spatial fields.
+
+**Does not fit at all:**
+
+* `tile_overrides` — `Vector2i -> "ground/ground_03"`. The value space is dozens of art
+  names, past any glyph alphabet. Needs a per-file legend or a separate key/value section.
+* `decor` — `pos` is a `Vector2` in **field pixels**, i.e. sub-cell, plus a `flip` bool.
+  A cell grid cannot express that in any form. Separate list section, unavoidably.
+
+### Scope of intervention into td_level_designer
+
+**Effectively zero, and this is the load-bearing finding.** `addons/td_level_designer/` is
+two files: `plugin.gd` (242 lines) mounts the dock and the split-view preview pane;
+`dock.gd` (409 lines) says of itself "Pure VIEW — every rule and computation stays in
+tools/map_editor.gd". Neither knows anything about `.tres` serialization. All the
+serialization lives in `tools/map_editor.gd`, which is **not** under `addons/` and so is
+not covered by CLAUDE.md's stop rule.
+
+The addon would need at most two extra buttons wired into `dock.gd`'s `_build_ui()`. That
+is still a CLAUDE.md stop ("dotýká se addons/td_level_designer/"), so it needs an explicit
+say-so — there is precedent: the `_test_mapeditor` entry at the top of this file was
+resolved by a change to `tools/map_editor.gd` under explicit authorization.
+
+One thing that *is* in scope and easy to miss: `tools/map_editor.gd` is not the only writer
+of level geometry. `tools/build_placeholder_level.gd`, `tools/refit_levels.py`,
+`tools/regrid_levels.py`, `tools/build_level_first.py` and `tools/build_level_iso.py` all
+touch `high_ground`. Any "ASCII is authoritative" rule has to say what those do — write
+ASCII, write `.tres` and be allowed to drift, or be retired.
+
+### The finding that bears on P8
+
+P8 requires "Level N+1 = LevelData N + segment, **odkazem ne kopií**". Reference-not-copy
+composition is a *resource-graph* property — `@export var base: LevelData` on a
+`MapSegmentData`, resolved by Godot's loader, so editing the base level propagates. Plain
+text has no way to express a live reference; an ASCII-authoritative pipeline would compose
+segments by *substituting characters*, which is copying by definition. **An ASCII source of
+truth works against P8's own stated requirement**, which is worth knowing before P0 is
+answered, given P8 is written as "ČEKÁ NA P0".
+
+### The decision, with consequences
+
+**Option A — ASCII authoritative, `.tres` derived.** Buys: line-level git diffs of maps,
+hand-editing in any text editor, no Godot needed to move a wall. Costs: the `.tres` is
+still half hand-authored, so bake stays a merge and no simplification is actually banked;
+`spawn_zones` and `path_cells` need round-trip rules written down or shipped levels change
+under you; `tile_overrides`/`decor` need a second, non-grid section, so the "readable text
+map" is a text map *plus a config file*; each of the five other geometry writers needs a
+ruling; and it pushes against P8.
+
+**Option B — ASCII as a lossless side-car, `.tres` stays authoritative.** MapEditor gains
+Export ASCII / Import ASCII; the game keeps loading `.tres`. Buys: the same diffable,
+hand-editable text maps. Costs: two representations can disagree, so the honest version
+needs a check — a `_test_ascii_roundtrip` fixture asserting export→import→export is
+byte-identical, which is a small fixture and would have caught the `level_98` duplicate
+above on day one. Nothing else in the pipeline moves; the five other writers stay valid;
+P8 is unaffected.
+
+**Option C — status quo.** Costs nothing, changes nothing. Levels stay one unreadable
+`high_ground = Array[Vector2i]([...])` line per file.
+
+**My reading, not a decision:** the value P0 is reaching for — a map you can read and diff
+— is delivered in full by Option B, at a fraction of Option A's cost and without the
+conflict against P8. Option A only pays for itself if the intent is that maps stop being
+authored in Godot at all, which contradicts the whole MapEditor / split-view / playtest
+loop that was just built. **What I need from you: A, B or C.** If B, also say whether the
+side-car should carry `tile_overrides` and `decor` (which needs a legend section) or
+geometry only (`high_ground`, `objective`, `spawn_zones`, `path_cells`, `trods`) —
+geometry-only is the version that stays a single readable 14-line block.
+
+Queue status set to `blocked`, not `done`: the deliverable (this analysis) is complete, but
+P0's purpose is a decision only you can give, and P8 is gated on it.

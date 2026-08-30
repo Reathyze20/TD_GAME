@@ -151,3 +151,11 @@ GDScript: cokoli, co potřebuje Godot API (TileSet, SpriteFrames, PackedScene).
 - Když u úkolu narazíš na návrhové rozhodnutí, které není jednoznačné, NEHÁDEJ.
   Zapiš možnosti a jejich důsledky do BLOCKED.md a přejdi na další úkol.
 - Nikdy negeneruj assety v PixelLabu.
+
+- Každý úkol ve frontě má hlavičku Model / Needs-me / Status. Pracuj VÝHRADNĚ
+  na tom úkolu, který ti runner určil, i kdyby další vypadal jednodušší.
+- Zkontroluj, na jakém modelu běžíš. Když má úkol `Model: opus` a ty jsi Sonnet,
+  NEZAČÍNEJ — zapiš do BLOCKED.md "špatný model" a skonči.
+- Když má úkol `Needs-me: yes`, nepracuj na něm. Napiš do BLOCKED.md, co ode mě
+  potřebuješ rozhodnout, a skonči.
+- Po dokončení přepiš Status: todo → done. Při zablokování Status: todo → blocked.
