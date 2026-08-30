@@ -1621,3 +1621,26 @@ obojí.
   `docs/KNOWN_BROKEN.md` aktualizováno — sekce `_test_phase3` označena `FIXED
   2026-08-30` s odkazem na tenhle zápis, souhrnná tabulka i úvodní poznámka opraveny.
 - Commit: 812972b.
+
+## 2026-08-30 — B: T6 uzavřen jako obsoletní (rozhodnutí podle čtyř kontrol, ne odhad)
+
+Odpovědi na čtyři otázky ze zadání (plné odůvodnění v BLOCKED.md):
+
+1. Zmigrovaly se levely jako vedlejší efekt T5/P0c? **Ne — byly smazané, ne převedené.**
+   Commit `26814f9` to říká přímo: „user chose to wipe every existing level and commit
+   to the square grid now rather than migrate old iso content." `level_1.tres` a
+   `level_98.tres` jsou nově postavené (`tools/build_placeholder_level.gd`), nativně na
+   mřížce 30x14 od začátku. P0c opravil duplicitu v TÉTO nové datě, taky nemigroval nic.
+2. Je `tools/migrate_levels.py` napsaný? **Ne, neexistuje.**
+3. Kolik levelů je na staré/nové mřížce? **0 na staré, 2 na nové.** Změřeno přes
+   všechny `Vector2i` v obou `.tres`: `level_1` x:[9..28] y:[3..11], `level_98`
+   x:[0..28] y:[2..11] — obojí uvnitř `Data.GRID` 30x14.
+4. Existuje test souvislosti cesty? **Ano, dva:** `_test_levels.gd` (živý A*) a
+   `_test_maze_validity.gd` (statická kontrola, T10). Oba běží ve verify.sh, oba
+   procházejí pro oba levely.
+
+**Uzavřeno jako OBSOLETNÍ, ne jako hotové** — T6 doslova žádá napsat migrační skript,
+spustit ho, ověřit validátorem a přegenerovat ROSTER.md. Není co migrovat (stará data
+neexistují), nástroj by neměl nad čím pracovat, a „Hotovo když" kritérium T6 (validátor
++ ROSTER.md) je už nezávisle splněné T10 validátorem a `tools/roster.py`. Zápis do
+`docs/refactor/MIGRATION.MD` (Status: obsolete) jako součást úkolu C.

@@ -256,6 +256,49 @@ T5 already stopped on. Options are the same three already listed under T5's entr
 **T8's checkpoint** stays as written above — a historical record of the gap, not
 something to revisit now that the summary it asked for has been written.
 
+## T6 — RESOLVED as OBSOLETE 2026-08-30 (checked, not guessed, per the user's own four questions)
+
+T5's blocker above resolved itself in a way T6 never anticipated: rather than choosing
+one of T5's three "migrate existing levels" options, the user chose to **delete every
+pre-migration level outright** and commit to the square grid with freshly-authored
+content (`26814f9`, commit message: *"user chose to wipe every existing level and commit
+to the square grid now rather than migrate old iso content"*). That decision, made
+independently of T6, removes T6's entire premise — there is no old-grid data left for a
+migration script to convert.
+
+**Answers to the four checks the user asked for before deciding:**
+
+1. **Did the levels migrate as a side effect of T5 or P0c?** No — they were **deleted**,
+   not converted. `26814f9`'s own message says so explicitly. The two levels that exist
+   today (`level_1.tres`, `level_98.tres`) were built **fresh** by
+   `tools/build_placeholder_level.gd`, native to the 30x14 grid from the start — nothing
+   was carried over from the old 24x24/iso content. P0c fixed a duplicate-cell bug *in
+   that freshly-authored data* (a generator bug in an inclusive-range calculation); it
+   did not migrate anything either.
+2. **Is `tools/migrate_levels.py` written?** No. `ls tools/migrate_levels.py` — does not
+   exist, never was started.
+3. **How many levels in `data/` are on the old grid vs. the new one?** **Zero on the old
+   grid, two on the new one.** Checked every `Vector2i` coordinate in both `.tres` files:
+   `level_1.tres` spans x:[9..28] y:[3..11], `level_98.tres` spans x:[0..28] y:[2..11] —
+   both comfortably inside `Data.GRID`'s 30x14 (`scripts/data.gd`). There is no third
+   level file anywhere in `data/levels/` (only `.bak`/`.bak2` backups of the deleted
+   iso-era `level_iso_1.tres`, which are not loaded).
+4. **Does a path-continuity test exist for these levels?** Yes, and it already covers
+   both: `scripts/_test_levels.gd` (live `AStarGrid2D.get_id_path()` check per spawn
+   zone, instantiates `Game.tscn`) and `scripts/_test_maze_validity.gd` (render-free
+   structural check over authored `high_ground`, per `docs/refactor/MIGRATION.MD`'s own
+   T10). Both run in `verify.sh`, both currently PASS for both levels, and P0c added
+   duplicate-cell validation (`_check_no_duplicates`) to the first of the two.
+
+**Conclusion:** T6's literal ask — write a migration script, run it, validate the
+result, regenerate `docs/ROSTER.md` — has no remaining object. There is nothing on the
+old grid to migrate, the tool it would have produced was never needed, and T6's own
+"Hotovo když" criterion (levels pass a validator, `ROSTER.md` regenerated) is already
+independently satisfied by T10's validator and `tools/roster.py`, which `verify.sh`
+checks on every run. Closed as **obsolete**, not done — the task as literally written
+cannot be performed, because its subject no longer exists. `docs/refactor/MIGRATION.MD`
+marks it `Status: obsolete` with a pointer to this entry (task C, same session).
+
 ## T1 (docs/refactor/MIGRATION.MD) — "Nainstaluj GUT pro Godot 4 do addons/. Založ tests/."
 
 Conflicts with CLAUDE.md's "Testy jsou smlouva" section, which is explicit and detailed
