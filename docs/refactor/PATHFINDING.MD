@@ -637,9 +637,10 @@ harness (`_diag_p8b`, po měření smazaný) instancoval `Game.tscn` a vypsal sk
 **Engine potvrdil každé číslo na číslici** — `objective_pos (456, 137)`, disk jádra
 **35 z 50** bloků, tři build spoty ve vzdálenosti **292 / 292 / 144** px a všechny
 uvnitř Routine, lampa habitu **+1** → **36**, arc 15→120 při facing 0 dá **36 → 36**,
-otočení na PI dá **−0 / +9** (diagnóza psala +7; rozdíl je jen tím, že měřila při
-arcu, který fixture nastavuje o krok dřív — směr i podstata sedí) a všech 14 tmavých
-bloků má `dx ≤ −336`, tedy leží na západ. Nic z toho nebyl artefakt aritmetiky.
+otočení na PI dá **−0 / +7** a všech 14 tmavých bloků má `dx ≤ −336`, tedy leží na
+západ. Nic z toho nebyl artefakt aritmetiky. (Diagnóza psala u tmavých bloků
+`dx ≤ −48`; naměřeno je to `dx ≤ −336`, což její tvrzení splňuje s rezervou —
+jediné číslo, kde byla konzervativnější, než musela být.)
 
 Zároveň se potvrdilo, že **věta v `KNOWN_BROKEN.md` je nepravdivá, jak je napsaná**:
 tentýž habit otočený na západ dává `arc 15 / 60 / 120 → 38 / 43 / 50` bloků. Dial

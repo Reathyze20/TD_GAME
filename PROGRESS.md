@@ -2777,8 +2777,11 @@ jedinou konstantu, napsal jsem jednorázový harness (`_diag_p8b`), který insta
 | tři spoty ve 292 / 292 / 144 px, všechny v Routine | `292.0 / 292.0 / 144.0`, `in_routine=true` ×3 |
 | lampa habitu přidá 1 → 36 | `36 lit blocks` |
 | arc 15→120 při facing 0 → 36→36 | `36 -> 36`, přidané bloky `[]` |
-| otočení na PI → −0 / +7 | `−0 / +9` (směr i podstata sedí; +9 vs +7 je tím, že diagnóza měřila při jiném arcu) |
-| všechny tmavé bloky mají `dx ≤ −48` | 14 tmavých bloků, všechny `dx ≤ −336` |
+| otočení na PI → −0 / +7 | `−0 / +7` |
+| všechny tmavé bloky mají `dx ≤ −48` | 14 tmavých bloků, všechny `dx ≤ −336` (splněno s rezervou) |
+
+(Po přeškálování ta samá dvě měření čtou `18 → 18` a `−0 / +9` — jiná čísla, stejný
+tvar. Nepleť si je s ověřovací tabulkou výš, ta je z běhu PŘED zásahem.)
 
 Navíc se **vyvrátila věta z `KNOWN_BROKEN.md`** „the arc dial has no effect on lighting
 whatsoever": tentýž habit otočený na západ dá `arc 15 / 60 / 120 → 38 / 43 / 50` bloků.
