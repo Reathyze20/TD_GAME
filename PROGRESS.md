@@ -2998,4 +2998,4 @@ necommitnutá — jejich commit ji popíše sám.
   `tools/anchor_flat_candidates.py` (nový), `scripts/_shot_anchor_flat.gd`
   (+`.gd.uid`), `scenes/_shot_anchor_flat.tscn`, `assets/raw/anchor_flat/*.png`
   (8), `.dev/screenshots/anchor_flat_candidates.png`.
-- Commit: [doplní se]
+- Commit: e33bea8
