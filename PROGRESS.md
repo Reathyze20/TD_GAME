@@ -1227,3 +1227,4 @@ Log of tasks completed by run.sh, one entry per run, newest last.
   by na něm nové pravidlo padalo obden — to je rozhodnutí, které P0f musí udělat.
 - Nic jsem nesmazal ani nespouštěl: P0d je zadaný jako úkol pro runner (`sonnet`,
   `Needs-me: no`), ne jako práce pro tenhle sezení. `next_task.py` dál hlásí P0b.
+- Commit: e386d4f.
