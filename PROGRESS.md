@@ -1758,3 +1758,4 @@ neexistují), nástroj by neměl nad čím pracovat, a „Hotovo když" kritéri
   nejspíš nebude „dirty-region patch jedné buňky" (jak P3 zní doslova), ale „necachovat
   pole, které se mezi dvěma čteními vůbec nezměnilo" — jiná otázka, jiné řešení.
 - verify.sh: PASS (31 pass, 0 fail, 5 known-broken, 0 flaky).
+- Commit: 67f891b.
