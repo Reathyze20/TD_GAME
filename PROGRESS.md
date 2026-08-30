@@ -3038,3 +3038,70 @@ necommitnutá — jejich commit ji popíše sám.
 - **Neuklizeno, `rm` odmítnut oprávněními agentovi i mně:** `scripts/_diag_p8b.gd`,
   `scripts/_diag_p8b.gd.uid`, `scenes/_diag_p8b.tscn` — dočasný diagnostický
   harness, netrackovaný, ke smazání ručně.
+
+## 2026-08-30 — P9: brainfog jako vizuál — čtyři kandidátní varianty (screenshoty)
+
+- **Zadání:** dva `SubViewport` sdílející `World2D`, maska přes `ViewportTexture`,
+  screenshoty rozostřené a odbarvené varianty do `.dev/screenshots/`. Herní logika
+  se nemění. Žádná test brána — „Hotovo když" je jen screenshoty, ověřeno přečtením
+  `docs/refactor/PATHFINDING.MD` (P9 sekce), ne předpokladem.
+- **Půlka zadání už žila:** `_light_viewport` + `shaders/brain_fog.gdshader`
+  (`game.gd` `_build_fog_layer()`, P0e éra) UŽ JE „shader s viditelnostní texturou
+  místo Light2D v mask módu", schválně malý (240×135, jen aditivní tvary světel,
+  bez terénu/jednotek) — přesně důvod, proč P9 sám tuhle alternativu jmenuje.
+  Nepřestavěno, jen ověřeno čtením a zdokumentováno v PATHFINDING.MD.
+- **Co je nové:** `shaders/brain_fog_preview.gdshader` — samostatný soubor, `game.gd`
+  ho NIKDE nenačítá. Stejná `light_mask`/`dark` matematika jako shipped shader (aby
+  byl tvar osvětlení bit-identický napříč všemi snímky), ale místo plochého
+  `fog_color` ukazuje `SCREEN_TEXTURE` (uniform `screen_tex : hint_screen_texture`)
+  volitelně rozostřený (9-tap box blur, `blur_px`) a/nebo odbarvený (luminance
+  drain, `desaturate_amount`), stažený k `fog_color` přes `haze_mix`.
+- **Druhý PLNÝ `SubViewport` sdílející scénu jsem NEPOSTAVIL — vědomé rozhodnutí,
+  ne zkratka.** Zadání ho jmenuje jako výchozí techniku. Duplicitní vykreslení
+  CELÉ scény (až ~300 souběžných `Distraction` uzlů, viz limit v CLAUDE.md) jen
+  kvůli barevnému postprocesu by zdvojilo draw calls za efekt, který
+  `hint_screen_texture` dá zadarmo z rámce, který se už kreslí. Tahle technika
+  navíc v projektu už existuje a je ověřená na stejném rendereru:
+  `shaders/flatten.gdshader` (Tolerance wash) dělá STEJNOU operaci
+  (`hint_screen_texture` → luminance drain) pro jinou mechaniku. Druhý plný
+  SubViewport by byl správný nástroj, kdyby se oba renderu měly lišit OBSAHEM
+  (jiná kamera, jiné viditelné objekty) — tady se liší jen POSTPROCESEM stejného
+  obsahu, což je přesně to, na co je `SCREEN_TEXTURE`.
+- **Riziko `window/stretch/aspect` ověřeno empiricky, ne předpokladem.** Souběžná
+  session smazala explicitní `window/stretch/aspect="keep"` z `project.godot`
+  (vidět v `git diff`, netknuto — není to můj soubor). `shaders/brain_fog.gdshader`
+  má ve vlastní hlavičce poznámku, že `"expand"` by na jiném poměru stran
+  rozjelo masku od světa. Spuštěn stejný harness dvakrát: jednou při 1920×1080
+  (odpovídá 480×270 = 16:9) a jednou s `--resolution 1000x1400` (silně
+  neodpovídající poměr stran, blízko na výšku). `get_viewport().get_texture()`
+  vrátil v OBOU případech bajtově identický 480×270 snímek — vnitřní viewport se
+  pod cizím poměrem stran nezvětšil, neodkryl víc světa, nedesynchronizoval.
+  To je přesně chování, které `aspect="keep"` garantuje (a Godot 4 ho má jako
+  vestavěný default i bez explicitního řádku — proto smazání řádku vypadá jako
+  úklid redundantního defaultu, ne jako regrese). Žádný desync nenalezen.
+- **Harness:** `scripts/_shot_p9_fog_variants.gd` + `scenes/_shot_p9_fog_variants.tscn`,
+  postavený na vzoru `_shot_fog.gd` (stejná scéna — jeden `focus_timer` postavený
+  a zaměřený, stejný výběr build spotů). Postaví hru, vyfotí baseline (shipped
+  shader beze změny), pak čtyřikrát vymění `game._fog_rect.material` za
+  `brain_fog_preview.gdshader` s jinými uniformy a vyfotí každou kombinaci.
+  Žádná herní logika změněna — `_lit_cells`, `is_pos_visible()` a gameplay část
+  mlhy nedotčené; jde jen o to, který material sedí na tom samém `_fog_rect` uzlu.
+- **Výstup:** `.dev/screenshots/p9_fog_baseline.png`, `p9_fog_blur.png`,
+  `p9_fog_desaturate.png`, `p9_fog_blur_desaturate.png` + `.dev/screenshots/p9_notes.md`
+  (popis techniky pro každou variantu, bez doporučení — uživatel vybírá sám).
+  Vizuálně zkontrolováno (ne posouzeno): lit kruh kolem postaveného habitu je
+  pixelově na stejném místě ve všech čtyřech snímcích, HUD nad Z_FOG zůstává
+  ostrý ve všech (potvrzuje, že SCREEN_TEXTURE grab nesahá do vyšší canvas
+  vrstvy) — technicky funguje, žádný „který je hezčí" úsudek.
+- **Rozsah dodržen:** žádný `explored` grid, žádný nový perzistentní stav, nic
+  nenapojeno do `is_pos_visible()` ani jiné herní cesty. Tři-úrovňové skládání
+  (visible / explored-preview / dark) NEBYLO postaveno — to je P10, gated na
+  Needs-me:yes a na to, až si uživatel P9 zahraje. `haze_mix`/blur/desaturate
+  ve `brain_fog_preview.gdshader` jsou jen alternativní STYL téže binární
+  lit/dark hranice, ne nová třetí úroveň.
+- **Testy:** `_test_fog_bandwidth` beze změny — stejná DVĚ known-broken selhání
+  jako před úkolem (P8b, blokováno na uživateli), žádné nové selhání.
+  `./verify.sh`: **PASS (37 pass, 0 fail, 0 skip, 4 known-broken, 0 flaky)** —
+  identická tally s baseline před úkolem.
+- `docs/refactor/PATHFINDING.MD` P9: `Status: todo` → `done`.
+- Commit: `84842e8184f0d189eae769c7ea5ce0fbe97c32ad`.
