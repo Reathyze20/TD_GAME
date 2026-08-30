@@ -1527,3 +1527,73 @@ komentáře, ale patří do úkolu, který na `verify.sh` smí sahat (P0f).
 - verify.sh: PASS (28 pass, 0 fail, 6 known-broken — `_test_phase3` v tomhle běhu padl).
 - Status P0e: `todo` → `done`.
 - Commit: e8384ce.
+
+## 2026-08-30 — P0f hotovo: verify.sh rozlišuje known-broken, flaky dostalo vlastní kategorii
+
+### Co bylo a co je
+
+Ověřil jsem poznámku ze zadání a sedí: `verify.sh` už měl `KNOWN_BROKEN_TESTS` a pravidla
+1 a 3 splňoval. Chybělo jen druhé — když baselinovaný test **projde**, vypsalo se
+`PASS <name> (was KNOWN-BROKEN — remove it from verify.sh's list)` a započítal se do
+`pass`, takže běh neselhal a spoléhalo se na to, že si toho někdo všimne. (Přesně takhle
+jsem před dvěma dny našel `_test_los` a `_test_phase4` — fungovalo to jen proto, že jsem
+ten výpis četl.) Teď je to FAIL i s návodem, včetně pokynu smazat záznam z
+`docs/KNOWN_BROKEN.md` ve stejném commitu.
+
+### Rozhodnutí: flaky je vlastní kategorie (zapsáno i do BLOCKED.md)
+
+Zadání to nechalo na mně a odpověď je **ano**, a není to odhad. P0e změřilo mechanismus:
+`_test_phase3.gd:168-174` aplikuje slow na **0,05 sekundy** a pak čeká **10
+`process_frame`ů**. Sekundy proti snímkům, takže výsledek visí na frametime — a ten test
+**prochází častěji, než padá**. Pod novým pravidlem 2 by tedy rozbíjel build na většině
+běhů, což je opak toho, oč P0f jde: brána, která houká obden, se do týdne přestane číst.
+
+Přibylo pole `FLAKY_TESTS` (zatím jediný člen, `_test_phase3`), hlásí se jako
+`FLAKY-PASS` / `FLAKY-FAIL`, počítá se na vlastním řádku a **negatuje se ani jedním
+směrem**. Vedlejší efekt, který stojí za to: souhrnný řádek je teď mezi běhy identický,
+takže jakákoli změna v něm je skutečná změna. Zvažované a zamítnuté varianty (nechat to
+v known-broken, vyhodit ze všech seznamů, opravit test hned, retry N-krát) jsou
+i s důsledky v BLOCKED.md.
+
+Timeout zůstává mimo obě kategorie — zaseknutý test je vždycky novinka a o assertion,
+kvůli které byl baselinovaný, stejně nic nedokazuje.
+
+### Srovnány i ty chybné komentáře
+
+P0e nechalo u `KNOWN_BROKEN_TESTS` staré, ze třetiny chybné příčiny (mělo zakázáno
+opravovat) a napsalo, že je `docs/KNOWN_BROKEN.md` přebíjí. P0f na `verify.sh` sahat smí,
+takže je to srovnané: u každé položky je jednořádková **správná** příčina a první červený
+commit, plus odkaz na `docs/KNOWN_BROKEN.md` jako na jediné místo s celým rozborem.
+
+### Ověřeno jedním během, který dokazuje všechna tři pravidla naráz
+
+Do stromu jsem dočasně přidal vždycky padající `_test_p0f_probe` (mimo seznam, i se
+scénou, aby prošel kontrolou osiřelých z P0d) a do `KNOWN_BROKEN_TESTS` dočasně zapsal
+`_test_trod`, který spolehlivě prochází:
+
+```
+KNOWN-BROKEN _test_deep_reading (exit 1) — pre-existing, see docs/KNOWN_BROKEN.md
+FAIL _test_p0f_probe (exit 1) — see .dev/_test_p0f_probe.log
+FLAKY-PASS _test_phase3 — known-flaky, not gated either way — docs/KNOWN_BROKEN.md
+FAIL _test_trod fixed itself — remove it from KNOWN_BROKEN_TESTS in verify.sh
+  (and drop its entry from docs/KNOWN_BROKEN.md in the same commit)
+
+pass: 27  fail: 2  skip: 0  known-broken: 5  flaky: 1
+verify exit=1
+```
+
+Tedy: pravidlo 1 (pět baselinovaných padá, nezvyšují exit kód), pravidlo 2 (`_test_trod`
+prošel a je to FAIL), pravidlo 3 (probe mimo seznam padá a je to FAIL). Pak obojí vráceno
+zpět a sada puštěná načisto.
+
+### Číslo v zadání bylo zastaralé
+
+Zadání čekalo „26 pass / 5 known / 0 fail". Skutečnost je **28 pass / 0 fail / 5
+known-broken / 1 flaky** a je to v pořádku: od chvíle, kdy se P0f psalo, přibyl v P0b
+fixture `_test_ascii_sidecar` a kontrola side-carů a v P0d kontrola osiřelých skriptů,
+a `_test_phase3` se přesunul z `pass`/`known` do vlastní kolonky. Podstata zadání
+(„na současném stavu vrátí 0", „nový rozbitý test mimo seznam vrátí nenulový kód") sedí
+obojí.
+
+- verify.sh: PASS (28 pass, 0 fail, 5 known-broken, 1 flaky).
+- Status P0f: `todo` → `done`.

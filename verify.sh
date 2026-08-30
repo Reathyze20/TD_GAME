@@ -27,34 +27,52 @@ mkdir -p "$LOG_DIR"
 # not silent, and meant to shrink to empty. Remove an entry the moment its
 # test is fixed for real; if a task's own scope covers one of these, fix it
 # and remove it as part of that task's commit.
+#
+# A test in this list is EXPECTED TO FAIL. Failing costs nothing; PASSING is a FAIL, with
+# a message saying to remove the entry (P0f). That asymmetry is the whole point: a
+# baseline that only ever suppresses failures rots into a list nobody prunes, and a
+# fixture that quietly started working again is indistinguishable from one still broken.
+#
+# One-line causes only -- the full inventory, with the exact failing assertion, the class
+# and the first red commit for each, is docs/KNOWN_BROKEN.md (P0e). Three of the causes
+# that used to be spelled out here were WRONG, which is why they now live in one place
+# that was actually checked instead of being paraphrased at the call site.
 KNOWN_BROKEN_TESTS=(
-  # The T0 baseline's shared root cause is GONE. All seven original entries failed for
-  # one reason (level_1/level_2's objective sat outside the 24x24 grid, so AStarGrid2D
-  # threw "out of bounds" for any harness spawning on the default level). The square
-  # migration rebuilt level_1 with a valid objective, and _test_los and _test_phase4
-  # went green and stayed green (4 consecutive clean runs) -- removed. The five below
-  # still fail, but every one of them now fails for its OWN, different reason, listed
-  # per entry so this list stops asserting a cause that no longer exists.
-
-  # "focus_timer/exercise still aims its head and fires plain bolts" (x4) -- art/behaviour
-  # expectation, not pathfinding.
+  # head_aims is false in all four habits' .tres; the test still demands true. A data
+  # change nobody reflected in the test that pins it. First red: 0465a23.
   _test_deep_reading
-  # Two real light-cone bugs: rotating a habit moves the lit set asymmetrically
-  # (-0 cells, +7), and widening the arc 15 deg -> 120 deg lights the SAME 36 cells,
-  # i.e. arc width has no effect at all. Suspect square-projection fallout; unproven.
+  # Arc width has no effect on lighting at all (15 deg -> 120 deg lights the same 36
+  # cells) and rotation moves the lit set asymmetrically. Real. First red: 26814f9.
   _test_fog_bandwidth
-  # "Cannot call method 'get_size' on a null value" -- a texture fails to load, so this
-  # is a missing/renamed asset, not a logic failure.
+  # NOT a missing texture. Two stacked defects: get_viewport().get_texture().get_image()
+  # is null under --headless (dummy renderer, and the test's own header says it must not
+  # be run headless), and WITH a renderer toggling shadow_enabled changes the picture by
+  # exactly 0.0000. First red: 5d72b07 headless / 26814f9 zero-delta.
   _test_shadow_occlusion
-  # Knockback pushes a body 26px straight into a wall ((-26.0, 0.0)); the other three
-  # knockback checks pass. Also suspect square-projection fallout; unproven.
+  # Knockback shoves a body 26px straight into a wall ((-26.0, 0.0)); the other three
+  # knockback checks pass. Real. First red: 26814f9.
   _test_suppression
-  # "the base has head art" -- same art-expectation class as _test_deep_reading.
+  # assets/towers/head_zen_pulsar_frame_1..8.png are gone; head_zen_pulsar.png survives.
+  # A genuinely missing file, not an expectation. First red: 0465a23.
   _test_zen_pulsar
+)
 
-  # Flaky, not reliably broken: passed 3 of 5 full-suite runs, always on the same
-  # check ("slow expired while blocked: factor reset to 1.0 (got 0.5)") -- a real-time
-  # race in that one status-expiry assertion, unrelated to whatever task is running.
+# Tests that are neither reliably green nor reliably red. A separate list, because the
+# known-broken rules above would be wrong in BOTH directions for them: a flaky test that
+# passes is not "fixed", and one that fails is not news.
+#
+# The category was added by P0f rather than assumed. Without it, P0f's own "a known-broken
+# test that passes is a FAIL" rule would turn _test_phase3 into a build break on the
+# majority of runs -- it passes more often than it fails -- which is the exact opposite of
+# the point. Reasoning recorded in BLOCKED.md.
+#
+# An entry here is a BUG TO FIX, not a permanent exemption; it just cannot be gated on.
+FLAKY_TESTS=(
+  # _test_phase3.gd:168-174 applies a slow lasting 0.05 SECONDS and then waits 10 process
+  # FRAMES before asserting it expired. Seconds against frames, so the outcome depends on
+  # the frame delta at that moment -- a race with machine speed, not with the status
+  # system under test. Always this one check ("slow expired while blocked: factor reset
+  # to 1.0"). The fix is to wait on a timer; see docs/KNOWN_BROKEN.md.
   _test_phase3
 )
 ROSTER_KNOWN_STALE=0
@@ -92,12 +110,22 @@ pass=0
 fail=0
 skip=0
 known=0
+flaky=0
 failed_names=()
 
 _is_known_broken() {
   local candidate="$1"
   local entry
   for entry in "${KNOWN_BROKEN_TESTS[@]}"; do
+    [ "$entry" = "$candidate" ] && return 0
+  done
+  return 1
+}
+
+_is_flaky() {
+  local candidate="$1"
+  local entry
+  for entry in "${FLAKY_TESTS[@]}"; do
     [ "$entry" = "$candidate" ] && return 0
   done
   return 1
@@ -165,13 +193,23 @@ for scene in scenes/_test_*.tscn; do
   status=$?
 
   if [ "$status" -eq 124 ]; then
-    # A timeout is never baselined, known-broken or not — a hang is always news.
+    # A timeout is never baselined — known-broken, flaky or neither. A hang is always
+    # news, and a hung test proves nothing about the assertion it was baselined for.
     echo "FAIL $name (timeout after ${test_timeout}s) — see $log"
     fail=$((fail + 1))
     failed_names+=("$name (timeout)")
+  elif _is_flaky "$name"; then
+    # Both outcomes are expected, so neither is reported as a pass or a fail. Counted on
+    # its own line so the summary stays IDENTICAL run to run and a real change stands out.
+    if [ "$status" -eq 0 ]; then
+      echo "FLAKY-PASS $name — known-flaky, not gated either way — docs/KNOWN_BROKEN.md"
+    else
+      echo "FLAKY-FAIL $name (exit $status) — known-flaky, not gated either way — $log"
+    fi
+    flaky=$((flaky + 1))
   elif [ "$status" -ne 0 ]; then
     if _is_known_broken "$name"; then
-      echo "KNOWN-BROKEN $name (exit $status) — pre-existing, see PROGRESS.md — $log"
+      echo "KNOWN-BROKEN $name (exit $status) — pre-existing, see docs/KNOWN_BROKEN.md — $log"
       known=$((known + 1))
     else
       echo "FAIL $name (exit $status) — see $log"
@@ -180,11 +218,17 @@ for scene in scenes/_test_*.tscn; do
     fi
   else
     if _is_known_broken "$name"; then
-      echo "PASS $name (was KNOWN-BROKEN — remove it from verify.sh's list)"
+      # A baselined test that passes is a FAIL on purpose. It is the only moment the list
+      # can be pruned honestly, and letting it slide as a PASS is how a stale baseline
+      # goes on suppressing a real regression months later.
+      echo "FAIL $name fixed itself — remove it from KNOWN_BROKEN_TESTS in verify.sh"
+      echo "  (and drop its entry from docs/KNOWN_BROKEN.md in the same commit)"
+      fail=$((fail + 1))
+      failed_names+=("$name (fixed itself — remove from KNOWN_BROKEN_TESTS)")
     else
       echo "PASS $name"
+      pass=$((pass + 1))
     fi
-    pass=$((pass + 1))
   fi
 done
 
@@ -305,7 +349,7 @@ fi
 
 echo
 echo "== summary =="
-echo "pass: $pass  fail: $fail  skip: $skip  known-broken: $known"
+echo "pass: $pass  fail: $fail  skip: $skip  known-broken: $known  flaky: $flaky"
 if [ "$fail" -ne 0 ]; then
   echo "failed:"
   for n in "${failed_names[@]}"; do

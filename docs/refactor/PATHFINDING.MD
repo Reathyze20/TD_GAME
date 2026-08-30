@@ -103,7 +103,7 @@ Hotovo: dokument existuje, u každého testu je první červený commit.
 ## P0f — verify.sh rozlišuje known-broken
 Model: sonnet
 Needs-me: no
-Status: todo
+Status: done
 
 verify.sh dnes vrací PASS s pěti padajícími testy. To je nebezpečné — nová
 regrese v nich zapadne.

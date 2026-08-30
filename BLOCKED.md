@@ -678,3 +678,51 @@ geometry-only is the version that stays a single readable 14-line block.
 
 Queue status set to `blocked`, not `done`: the deliverable (this analysis) is complete, but
 P0's purpose is a decision only you can give, and P8 is gated on it.
+
+## P0f (docs/refactor/PATHFINDING.MD) — DECIDED, not blocked: flaky gets its own category
+
+Filed here because P0f's own brief says to: *"Rozhodni, jestli flaky potřebuje vlastní
+kategorii, a když ano, zapiš to do BLOCKED.md."* The decision is **yes**, and this records
+why, what was rejected, and what it costs.
+
+**The forcing argument.** P0f's second rule — a known-broken test that PASSES is a FAIL —
+is the whole point of the task, and it is incompatible with `_test_phase3` sitting in
+`KNOWN_BROKEN_TESTS`. That fixture passes *more often than it fails* (it passed in the P0c
+and P0e verification runs, failed in the P0b and P0d ones, on an unchanged tree). Under the
+new rule, every run in which it passes would break the build. The task exists to stop real
+regressions hiding inside a permissive baseline; making the gate cry wolf on the majority
+of runs would get the whole baseline ignored within a week, which is the same failure by a
+longer route.
+
+**And it is not a judgement call about "how flaky is flaky".** P0e established the exact
+mechanism: `scripts/_test_phase3.gd:168-174` applies a slow lasting **0.05 seconds** and
+then waits **10 `process_frame`s** before asserting it has expired. The duration is in
+seconds and the wait is in frames, so the outcome depends on the frame delta at that
+moment. It is a race with machine speed, and it has nothing to do with the status system
+the fixture is meant to pin. Neither "broken" nor "working" describes it, so neither
+known-broken rule can be right for it.
+
+**Rejected alternatives, and why:**
+
+1. *Leave it in `KNOWN_BROKEN_TESTS`.* Breaks the build on most runs. Rejected above.
+2. *Drop it from every list and let it fail normally.* Then verify.sh is red at random and
+   the autonomous loop's "verify.sh must pass, then commit" rule stalls unpredictably —
+   the exact thing the known-broken list was introduced to prevent.
+3. *Fix the test now (wait on a `Timer`, not a frame count).* The right end state, and it
+   is a small change. But P0f's brief is the gate, not the fixture, and CLAUDE.md forbids
+   editing a `_test_*` script to make it pass without the user's say-so. **This is the one
+   thing that still needs a human decision** — see below.
+4. *Retry a flaky test N times and pass if any run passes.* Triples the cost of the slowest
+   part of the suite to paper over a one-line test bug, and it would hide a *real*
+   intermittent regression just as effectively.
+
+**What was implemented:** a second list, `FLAKY_TESTS`, whose members are reported as
+`FLAKY-PASS` / `FLAKY-FAIL`, counted on their own line, and gated in neither direction.
+`_test_phase3` moved there out of `KNOWN_BROKEN_TESTS`. A side effect worth having: the
+summary line is now identical from run to run, so any change in it is real.
+
+**What I need from you (not blocking P0f, which is done):** whether to fix
+`_test_phase3.gd` — replace the 10-frame wait with a real timed wait so 0.05 s is actually
+allowed to elapse — and delete the `FLAKY_TESTS` entry. It is a two-line change to a
+`_test_*` fixture, so it needs your say-so. Until then the list has exactly one member and
+verify.sh says so on every run.
