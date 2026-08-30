@@ -1675,3 +1675,36 @@ neexistují), nástroj by neměl nad čím pracovat, a „Hotovo když" kritéri
 - Kontrola úplnosti: skript projel oba soubory a potvrdil, že KAŽDÝ z 20 bloků má
   všechny tři pole (`Model`, `Needs-me`, `Status`) — žádný úkol nezůstal bez hlavičky.
 - Commit: 42a6494.
+
+## 2026-08-30 — P1 hotovo: flow field od cíle (jedna BFS, sdílená všemi jednotkami)
+
+- `scripts/flow_field.gd` (`FlowField`, `RefCounted`) — jedna distance field BFS od
+  cíle přes celou mřížku, gradient (`direction()`) dává směr o jeden krok blíž k cíli.
+  4-směrová konektivita, stejná jako `AStarGrid2D.DIAGONAL_MODE_NEVER` v `game.gd` a
+  jako `PathMetrics.NEIGHBORS` — stejná mřížka pravidel, kterou dnes vidí A*.
+- **Záměrně nevážená**, přesně podle zadání („Jeden distance field BFS"). `PathMetrics`
+  už tohle rozlišení má ve vlastní hlavičce (živý `AStarGrid2D` je VÁŽENÝ přes
+  `path_off_lane_cost`, řeší jinou otázku) — `FlowField` se stejnou logikou drží mimo
+  živý pohyb. Nic v `game.gd` `FlowField.build()` nevolá; napojení jednotek je
+  samostatný pozdější úkol (P4), jak fronta sama říká.
+- **Nedosažitelné buňky nemají záznam doslova** — ne sentinel hodnota vedle
+  skutečných, ale chybějící klíč ve slovníku. `has_cell()` je jediná pravá kontrola
+  dosažitelnosti; `distance()`/`direction()` vrací zdokumentované sentinely (-1 /
+  `Vector2i.ZERO`) pro volajícího, který `has_cell()` nezkontroloval.
+- **Fronta místo `pop_front()`:** BFS drží `Array` + index `head` a nikdy nevolá
+  `pop_front()` (na GDScript Array je O(n), změnilo by to BFS na kvadratické).
+- `scripts/_test_flowfield.gd` + `.tscn`. Dvě části na různých datech, záměrně:
+  - **Korektnost na syntetickém bludišti** (8x8, cíl (0,0), stěna vynucující objížďku,
+    izolovaná kapsa v rohu (7,7) obklopená dvěma zdmi) — čitelné z komentáře v testu,
+    ne z počítání buněk v `.tres`. Kontroluje se KAŽDÁ volná dosažitelná buňka (54),
+    ne jen pár vzorků: gradient z každé musí vést o krok blíž. Přesný počet
+    dosažených buněk (55 z 64, 8 zdí) ověřen číslem, ne jen „něco se našlo".
+  - **Bench na reálné mapě** (`Data.GRID` + `level_1.tres` — 30x14, 27 zdí, cíl z
+    levelu), protože zadání výslovně chce „největší mapě", ne syntetickou náhradu.
+    Naměřeno: **583,9 µs průměr přes 50 běhů**, limit 5000 µs (5 ms) — víc než 8x
+    rezerva.
+- **Ověřeno, že kontrola gradientu opravdu něco chytí:** dočasně otočeno znaménko
+  (`_direction[n] = step` místo `-step`), spuštěno znovu → `FAIL ... first failure at
+  (1, 0)`, exit 1. Vráceno zpět, ověřeno diffem že soubor je bit-identický s verzí
+  před pokusem.
+- verify.sh: PASS (30 pass, 0 fail, 5 known-broken, 0 flaky).

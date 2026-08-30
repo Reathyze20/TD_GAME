@@ -123,7 +123,7 @@ flaky potřebuje vlastní kategorii, a když ano, zapiš to do BLOCKED.md.
 ## P1 — flow field od cíle
 Model: opus
 Needs-me: no
-Status: todo
+Status: done
 Jeden distance field BFS od cíle, gradient dává směr, všechny jednotky čtou totéž.
 Hotovo: _test_flowfield ověří klesající gradient z každé volné buňky k cíli
 a že nedosažitelné buňky nemají záznam. Bench: přepočet pod 5 ms na největší mapě.
