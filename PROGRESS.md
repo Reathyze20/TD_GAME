@@ -1133,4 +1133,4 @@ Log of tasks completed by run.sh, one entry per run, newest last.
   need a decision about whether the fix belongs to the migration or to the fog/knockback
   systems themselves.
 - verify.sh: PASS (25 pass, 0 fail, 6 known-broken).
-- Commit: 9855303.
+- Commit: 580b8f1.
