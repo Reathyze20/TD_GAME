@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/_shot_phase0.gd" id="1_6g7sq"]
+
+[node name="ShotPhase0" type="Node" unique_id=1798014509]
+script = ExtResource("1_6g7sq")

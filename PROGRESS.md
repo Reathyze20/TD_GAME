@@ -2098,6 +2098,34 @@ east) výběr snímku sedí na to, co dřív dělal `_draw_sprite_frames()`.
   Očekávaný zůstatek po dokončení: **4863**.
 - Phase 1 nezačata, podle zadání.
 
+### Doběhnuto — skutečná čísla
+
+- **Utraceno 63 generací, ne 80** (4943 → 4880; `generations_used` 3716 → 3779).
+  Plán počítá pesimisticky horní hranicí pásma (`STYLE_BIBLE.md` §9), reálná cena
+  vyšla níž. **`reduce_colors` ani `get_image` nestojí nic** — zůstatek se po nich
+  nehnul, ověřeno druhým `get_balance`.
+- **Zbývá 4880**, reset 13. 9. 2026.
+- Staženo do `assets/raw/<entita>/`: prop_focus_core 4 kandidáty, focus_timer 16,
+  broccoli_knight 8. **Objekty i postavy se vracejí ve stavu `review (N candidates)`**
+  — výběr jednoho je vizuální rozhodnutí uživatele, takže se nedělal; staženo všechno.
+  To plán nikde nezmiňuje, stojí za doplnění do bible.
+- **Past, na kterou se přišlo až tady:** `get_image` vrací pole `download:`, jehož URL
+  **nekončí na `.png`** (plán §5 to říká, ale první verze regexu to přesto minula) a
+  vyžaduje `Authorization: Bearer`. Bez obojího to tiše vrací prázdno.
+- `reduce_colors` je **asynchronní** — vrací job id, ne URL; vyzvedává se
+  `get_image(job_id=…)`. První verze `pull` to přehlédla a hlásila „bez URL".
+- Paleta 48 aplikována na reprezentativního kandidáta každé entity
+  (`cand_00_pal48.png`), ne na všech 28 — klampovat snímky, které se zahodí, by
+  platilo za nic.
+- **Raw sprity jsou v gitu schválně:** výsledky na serveru drží ~8 hodin
+  (`GENERATION_PLAN.md` §5), takže commit je jediné, co těch 63 generací uchová.
+- Nová scéna `scenes/_shot_phase0.tscn` — `broccoli_knight` a `focus_timer` na
+  JEDNOM boardu se společnou linií země (samostatné náhledy neumí ukázat, jestli si
+  dva sprity sedí), u každého gen i art verze, a u knighta i třetí buňka „art na
+  stopu gen", protože jen tam jde downsample 64→32 poctivě posoudit. Snímky v
+  `.dev/screenshots/phase0{,_blur,_gray,_silhouette}.png`.
+- **Neposuzováno**, podle zadání.
+
 ## 2026-08-30 — Q1 hotovo: total time control (0.25×–4× rychlost, pauza+příkazy, skip wave, hover staty)
 
 Status: done (docs/refactor/PATHFINDING.MD Q1). Cleared `Needs-me: no`, no check-in
