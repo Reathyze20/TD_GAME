@@ -830,3 +830,34 @@ patching of the SAME field after a SINGLE cell changes) and toward "don't rebuil
 field that has not changed at all between two reads" — a cache-invalidation question,
 not a recompute-speed question. Flagging this now so whoever picks P4 back up does not
 assume P3's original framing is still the right one to reopen unmodified.
+
+## docs/refactor/PATHFINDING.MD — content-integrity repair 2026-08-30
+
+Found the working-tree copy of this file reverted P2 and P3 back to their
+pre-resolution text (`Status: todo` / `Needs-me: yes`, original unresolved
+wording) and had silently dropped the P8b section entirely, while at the same
+time picking up structural additions (a `Konvence` preamble, Q1/Q2/Q3, the
+closing milestone/external-wait notes, restructured section order) that match
+this session's original task assignment more closely than the file committed
+at `d56fbe8`. Root cause not established — `git status` showed a clean tree
+immediately beforehand, so this did not come from an in-session edit I made;
+most likely a client-side paste/resubmit of the original assignment text
+landed on the file directly rather than in chat. Not chasing the mechanism
+further since it isn't reproducible on demand and the fix is mechanical either
+way.
+
+Repaired by hand against PROGRESS.md/BLOCKED.md's own record of what was
+actually done: P2 restored to `Status: done` with its resolution summary, P3
+restored to `Status: obsolete` (kept in its new position after P4/P5, which
+actually fits its own "measure after P4/P5" framing better than where it sat
+before), P8b section restored verbatim. Also backfilled P1/P2's numbers into
+docs/PERF.md, which P2's own task text asked for and which had only ever
+landed in this file instead. Verified no duplicate `## ` headers and that
+`tools/next_task.py docs/refactor/PATHFINDING.MD` still returns `P4|sonnet|no`
+afterward.
+
+Flagging as a standing caution: if a future queue-file diff looks like a complete
+revert of already-`done`/`obsolete` entries back to their original unresolved
+text, treat it as a symptom of this same failure mode, not as an intentional
+edit — cross-check against PROGRESS.md/BLOCKED.md before trusting the file's
+`Status:` fields at face value.

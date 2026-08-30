@@ -1,227 +1,345 @@
 # Pathfinding, multi-směr, segmenty, brainfog
-Pořadí je podle poměru užitek/práce. NEMĚŇ ho.
 
-VŠECHNY testy: scripts/_test_*.gd + scenes/_test_*.tscn podle "Verification pattern"
-v docs/REFACTOR_PLAN.md. NEINSTALUJ GUT ani GdUnit4. Spouštění přes --main-scene.
+Pořadí je podle poměru užitek/práce. **NEMĚŇ ho** a nepracuj na jiném úkolu,
+než který ti určil runner.
+
+## Konvence platné pro celý soubor
+
+- **Testy:** `scripts/_test_*.gd` + `scenes/_test_*.tscn` podle „Verification pattern"
+  v `docs/REFACTOR_PLAN.md`. **NEINSTALUJ GUT ani GdUnit4.** Spouštění vždy přes
+  `--main-scene`, nikdy přes `--script`.
+- **Po každém úkolu:** `./verify.sh` musí projít → commit → `Status: todo` přepiš
+  na `done` → řádek do `PROGRESS.md`.
+- **Při zablokování:** `Status: blocked`, důvod do `BLOCKED.md`, přejdi dál.
+- **`Needs-me: yes`** = frontu zastav, nepřeskakuj. Jsou to rozhodovací brány.
+- **Model:** zkontroluj, na jakém běžíš. Když úkol chce `opus` a ty jsi Sonnet,
+  nezačínej — zapiš „špatný model" do `BLOCKED.md` a skonči.
+- **Návrhové rozhodnutí, které není jednoznačné:** NEHÁDEJ. Možnosti a jejich
+  důsledky do `BLOCKED.md`.
+
+---
 
 ## P0 — zdroj pravdy mapy: ASCII vs. bakování
 Model: opus
 Needs-me: yes
 Status: done
-ROZHODNUTO: varianta B (ASCII jako bezztrátový side-car, .tres zůstává
-autoritativní). Viz P0b. Analýza je v BLOCKED.md.
-Analýza do BLOCKED.md: může být ASCII autoritativní formát, ze kterého MapEditor
-čte i zapisuje, a bakování do .tres být jen odvozený artefakt? Co z LevelData se
-do ASCII nevejde? Rozsah zásahu do td_level_designer? Neimplementuj.
 
-## P0b — ASCII side-car (varianta B)
+Rozhodnuto: **varianta B** — `.tres` zůstává autoritativní, ASCII je odvozený
+bezztrátový side-car. Důvod: odkaz mezi resources (`@export var base: LevelData`)
+je vlastnost grafu a text ho vyjádřit neumí, takže ASCII by segmenty skládalo
+kopírováním znaků — což jde přímo proti zadání P8.
+
+## P0b — ASCII side-car
 Model: sonnet
 Needs-me: no
 Status: done
-
-.tres zůstává autoritativní. ASCII je odvozený, bezztrátový side-car pro čtení
-a git diffy. Nikdy se z něj nečte do hry.
-
-Rozsah: vlastní právě to, co dnes vlastní _bake_to_level() — high_ground,
-objective, path_cells. NIC jiného. decor a tile_overrides do ASCII nepatří
-a nesmí se do něj pokoušet vejít.
-
-1. tools/level_to_ascii.py — vygeneruje docs/levels/<id>.md pro každý level.
-   14 řádků po 30 znacích + hlavička s ID a rozměry.
-   path_cells jako SEZNAM, ne množina — duplicita (Vector2i(25,2) v level_98)
-   se musí v side-caru objevit, ne tiše zmizet. Když ji ASCII mřížka vyjádřit
-   neumí, vypiš ji do sekce pod mřížkou.
-
-2. Round-trip test _test_ascii_sidecar: parse vygenerovaného ASCII zpět a porovnej
-   s originálem po jednotlivých polích. Musí projít na VŠECH levelech včetně
-   level_98. Nezarovnané spawn rekty (Rect2i(0,5,1,4), Rect2i(0,6,1,2)) NEODVOZUJ
-   z bloků — pokud je čtečka neumí, patří do sekce pod mřížkou, ne do mřížky.
-
-3. Hook: po _bake_to_level() se side-car přegeneruje. Pokud to znamená zásah
-   do tools/map_editor.gd, udělej ho tam — addon je view a nesahej na něj.
-
-4. Do verify.sh přidej kontrolu, že side-cary v docs/levels/ odpovídají
-   aktuálním .tres (jako se dnes kontroluje ROSTER.md).
-
-Hotovo když: round-trip projde na všech levelech, verify.sh chytí ručně
-rozhozený side-car, a docs/levels/ je v gitu s čitelnými diffy.
-
-NEDOTÝKEJ SE pěti dalších nástrojů, které zapisují geometrii
-(build_placeholder_level.gd, refit_levels.py, regrid_levels.py,
-build_level_first.py, build_level_iso.py). Side-car je jednosměrný,
-takže je nemusí řešit — jen zkontroluj, že to tak opravdu je,
-a když ne, zapiš do BLOCKED.md.
 
 ## P0c — duplicita v path_cells
 Model: sonnet
 Needs-me: no
 Status: done
 
-level_98.tres má Vector2i(25, 2) v path_cells dvakrát. Zjisti, jestli je to
-záměr (ovlivňuje losování variant dlaždic) nebo chyba při bakování.
-Pokud chyba: oprav bake tak, aby duplicity nevznikaly, a přidej validaci
-do verify.sh přes všechny levely.
-Pokud záměr: zdokumentuj do docs/EDITOR_GUIDE.md, proč tam je.
-Nález zapiš do PROGRESS.md tak jako tak.
-
 ## P0d — úklid iso legacy
 Model: sonnet
 Needs-me: no
 Status: done
-
-scripts/_test_iso_math.gd a scripts/_test_game_iso_slice.gd nemají .tscn,
-takže se nespouštějí. Iso projekce je pryč.
-1. Smaž oba skripty včetně .gd.uid sidecarů.
-2. Z CLAUDE.md odstraň výjimku o přejmenování na _test_legacy_iso_* — je splněná
-   jinak, než zněla. Nahraď ji poznámkou, že iso fixtures byly odstraněny při
-   migraci na top-down (datum, commit).
-3. Klauzuli _test_legacy_* ve verify.sh NECH, ale připiš k ní komentář, že
-   momentálně netrefuje nic a je připravená pro budoucí použití.
-4. Přidej do verify.sh kontrolu: každý scripts/_test_*.gd musí mít odpovídající
-   scenes/_test_*.tscn. Osiřelý skript = FAIL, ne ticho.
-
-Hotovo: verify.sh chytí uměle vytvořený osiřelý _test_ skript.
 
 ## P0e — inventura known-broken
 Model: sonnet
 Needs-me: no
 Status: done
 
-Pět testů padá. Vytvoř docs/KNOWN_BROKEN.md a u každého napiš, co přesně
-selhává, od kdy (git blame / bisect na první červený commit), a do které
-z těchto tří tříd patří:
-  - očekávání artu (test čeká sprite, který po přechodu na plochý terén neexistuje)
-  - chybějící textura
-  - skutečná regrese v logice
-
-Zajímá mě hlavně _test_shadow_occlusion: 'Cannot call method get_size on a null
-value' znamená, že textura chybí nebo se přejmenovala. Najdi kterou a proč.
-
-NEOPRAVUJ nic. Jen zjisti a zapiš.
-Hotovo: dokument existuje, u každého testu je první červený commit.
-
 ## P0f — verify.sh rozlišuje known-broken
 Model: sonnet
 Needs-me: no
 Status: done
 
-verify.sh dnes vrací PASS s pěti padajícími testy. To je nebezpečné — nová
-regrese v nich zapadne.
-Zaveď seznam known-broken (soubor nebo hlavička v testu) a chovej se takto:
-  - known-broken test padá → KNOWN FAIL, nezvyšuje exit kód
-  - known-broken test PROJDE → FAIL s hláškou "oprav se sám, vyřaď ze seznamu"
-  - test mimo seznam padá → FAIL
-
-POZNÁMKA K SOUČASNÉMU STAVU (zjištěno při zadávání, ověř si to sám):
-verify.sh už dnes má pole KNOWN_BROKEN_TESTS a první i třetí pravidlo splňuje.
-Chybí JEN druhé: když known-broken test projde, verify.sh vypíše
-"PASS <name> (was KNOWN-BROKEN — remove it from verify.sh's list)" a započítá
-ho do pass, tedy neselže. Pozor na _test_phase3, který je v tom poli veden jako
-flaky, ne rozbitý — na něm by nové pravidlo padalo obden. Rozhodni, jestli
-flaky potřebuje vlastní kategorii, a když ano, zapiš to do BLOCKED.md.
-
 ## P1 — flow field od cíle
 Model: opus
 Needs-me: no
 Status: done
-Jeden distance field BFS od cíle, gradient dává směr, všechny jednotky čtou totéž.
-Hotovo: _test_flowfield ověří klesající gradient z každé volné buňky k cíli
-a že nedosažitelné buňky nemají záznam. Bench: přepočet pod 5 ms na největší mapě.
+
+`scripts/flow_field.gd` — jedna sdílená BFS od cíle, gradient dává směr.
+Nevážená záměrně. Bench: **584 µs** proti limitu 5 ms (devítinásobná rezerva).
+Napojení na `game.gd` je úkol P4.
 
 ## P2 — anti-block validace zdí
 Model: opus
 Needs-me: no
 Status: done
-Zeď nesmí odříznout žádný aktivní spawn. Union-find nebo lokální re-BFS.
-Hotovo: _test_antiblock projede každou legální pozici a ověří obojí směr.
-Bench: kontrola jedné zdi pod 1 ms.
 
-## P3 — dirty-region přepočet
-Model: sonnet
-Needs-me: no
-Status: obsolete
-BLOCKED.md — čísla z P2 (rychlé stavění, reálná mapa): plný přepočet ~550-560 µs/zeď,
-strop ~1800 zdí/s, to je ~0,55 % intervalu mezi kliky rychlého hráče (10/s). Pod
-hranicí s velkou rezervou — složitost dirty-region kódu by kupovala výkon, který
-nechybí. NENÍ TO FINÁLNÍ jako u T6: P4 bude tenhle přepočet volat mnohem častěji
-(za jednotku, možná za snímek) a na jiné velikosti volání záleží úplně jinak.
-Poslední slovo má P4, ne P2 — pokud tam čísla ukážou jinak, tenhle úkol se otevře
-znovu, ne nahradí novým.
-Hotovo: výsledek je bit-identický s full rebuildem (to je ten test) a je rychlejší.
+`scripts/anti_block_validator.gd` (`AntiBlockValidator`) — zvolena třetí cesta
+místo „union-find nebo lokální re-BFS": plný přepočet přes `FlowField` s
+kandidátní zdí přidanou do `blocked`. Union-find neumí levně odbourat zeď (bourání
+ve hře existuje), lokální BFS musí konzervativně uvažovat o neprošlé oblasti;
+plný přepočet už dnes komfortně splňuje rozpočet. Odůvodnění v hlavičce modulu
+a v BLOCKED.md.
+
+`_test_antiblock`: vyčerpávající sweep přes všech 17 volných buněk syntetického
+bludiště se DVĚMA nezávislými spawny (dokazuje, že se kontrolují OBA, ne jen
+`active_spawns[0]` — ověřeno injektovanou chybou). Bench na reálné mapě
+(30×14, 27 zdí): **559,5 µs/kontrola** (limit 1 ms). Rychlé stavění (30 zdí
+postupně): **550,3 µs/zeď**, strop **~1817 zdí/s**, ~0,55 % intervalu mezi
+kliky rychlého hráče (10/s) — číslo použité k uzavření P3. Čísla i metodika
+v PROGRESS.md 2026-08-30 a BLOCKED.md.
+
+---
 
 ## P4 — jednotky na flow fieldu
 Model: sonnet
 Needs-me: no
 Status: todo
-Pozice je Vector2 na mřížce, NE vzdálenost podél cesty (dřívější zadání platilo
-jen pro jednu cestu). Zaměřování = rozsahový dotaz nad prostorovým hashem.
-Hotovo: regresní testy ekonomiky zelené, bench zopakován do docs/PERF.md.
 
-## P5 — MultiMeshInstance2D
+**POZOR — zadání bylo opraveno.** Starší znění (S5 v `SYSTEMS.md`) mluvilo
+o pozici jako o vzdálenosti podél cesty. To platilo jen pro jednu cestu
+a s flow fieldem **už neplatí**.
+
+- Pozice nepřítele je **`Vector2` na mřížce**, ne skalár.
+- Směr čti z flow fieldu (P1), nepočítej cestu per jednotka.
+- Zaměřování věží = rozsahový dotaz nad **prostorovým hashem**, ne nad seřazeným
+  polem.
+- Součástí úkolu je oprava `_test_suppression` z `docs/KNOWN_BROKEN.md`
+  (knockback tlačí tělo 26 px do zdi) — pohyb se stejně přepisuje.
+
+Hotovo když: existující regresní testy ekonomiky zůstanou zelené,
+`_test_suppression` je zelený a vyřazený z known-broken, bench z T11 zopakován
+a zapsán do `docs/PERF.md`.
+
+## P5 — vykreslování hordy přes MultiMeshInstance2D
 Model: sonnet
 Needs-me: no
 Status: todo
-Hotovo: bench N=500 aspoň 3x rychlejší než baseline.
 
-## P6 — SpawnPointData a více spawnů
+Nahraď jeden-uzel-na-nepřítele jedním `MultiMeshInstance2D` na hordu.
+
+Hotovo když: bench N=500 je **aspoň 3× rychlejší** než baseline z T11.
+
+## P3 — dirty-region přepočet  [ROZHODNUTÍ, NE IMPLEMENTACE]
+Model: sonnet
+Needs-me: no
+Status: obsolete
+
+BLOCKED.md ("P3 — closed as OBSOLETE 2026-08-30, but REVISITABLE") — čísla z P2
+(rychlé stavění, reálná mapa): plný přepočet ~550–560 µs/zeď, strop ~1800 zdí/s,
+~0,55 % intervalu mezi kliky rychlého hráče (10/s). Hluboko pod hranicí —
+složitost dirty-region kódu by kupovala výkon, který nechybí.
+
+**NENÍ TO FINÁLNÍ jako u T6** (kde předmět úkolu úplně zanikl) — P3ovo téma dál
+existuje, jen se dnes nevyplácí. P4 bude tenhle přepočet volat mnohem častěji
+(za jednotku, možná za snímek) a na jiné velikosti volání záleží úplně jinak.
+Poslední slovo má P4, ne P2 — pokud tam čísla ukážou jinak, tenhle úkol se
+otevře znovu s těmi čísly jako odůvodněním, ne nahradí novým. BLOCKED.md už teď
+upozorňuje, že skutečná otázka pro P4 nejspíš nebude „dirty-region patch jedné
+buňky", ale „necachovat pole, které se mezi dvěma čteními vůbec nezměnilo".
+
+Hotovo: výsledek je bit-identický s full rebuildem (to byl `_test_antiblock`)
+a je rychlejší.
+
+## Q1 — total time control a total information
 Model: sonnet
 Needs-me: no
 Status: todo
-cell, direction_id, active_from_wave, requires_segment, telegraph_lead_time.
-Field se NEMĚNÍ. Hotovo: _test_multispawn ověří cestu z každého spawnu v každé wave.
+
+Rychlosti **0.25× / 1× / 2× / 4×**, pauza s možností zadávat příkazy během ní,
+skip to next wave, plné staty habitu i distrakce na hover.
+
+Není to jen QoL. Podle researche je to stížnost číslo jedna a hráči čtou absenci
+speed-upu cynicky. Navíc bez rychlostí se mizerně playtestuje a testovat budeš
+potřebovat dřív, než dojdeš na konec fronty.
+
+Hotovo když: `_test_timecontrol` ověří, že deterministický simulátor při 4×
+dá **bit-identický** výsledek jako při 1×. Determinismus se nesmí rozbít rychlostí.
+
+---
+
+## P6 — SpawnPointData a více aktivních spawnů
+Model: sonnet
+Needs-me: no
+Status: todo
+
+Nová Resource třída:
+
+```gdscript
+class_name SpawnPointData extends Resource
+@export var cell: Vector2i
+@export var direction_id: StringName          # pro telegraf
+@export var active_from_wave: int = 0
+@export var requires_segment: StringName = &""
+@export var telegraph_lead_time: float = 5.0
+```
+
+**Flow field se NEMĚNÍ** — víc spawnů čte stejné pole, protože pole je
+„všechny zdroje → jeden cíl".
+
+Hotovo když: `_test_multispawn` ověří, že každý aktivní spawn má v každé wave
+cestu k cíli, a deterministický simulátor odehraje level s N spawny.
 
 ## P7 — telegraf směru
 Model: sonnet
 Needs-me: no
 Status: todo
-TVRDÉ PRAVIDLO: telegraf musí být pravdivý. Ohlášený směr = skutečný směr.
-Hotovo: _test_telegraph ověří aktivaci právě po telegraph_lead_time a právě
-na ohlášené pozici.
+
+Vizuální marker směru + odpočet před aktivací nového spawnu.
+
+**TVRDÉ PRAVIDLO: telegraf musí být pravdivý.** Když ukážeš směr, horda z něj
+opravdu přijde. Poučení z They Are Billions, kde nesoulad mezi varováním
+a skutečným chováním hord je nejčastější stížnost hráčů.
+
+Hotovo když: `_test_telegraph` ověří, že se spawn aktivuje právě po uplynutí
+`telegraph_lead_time` a právě na ohlášené pozici. Screenshot do `.dev/`.
 
 ## P8 — MapSegmentData a skládání levelů
 Model: opus
 Needs-me: yes
 Status: todo
-ČEKÁ NA P0. Level N+1 = LevelData N + segment, odkazem ne kopií.
-Hotovo: _test_segments ověří, že KAŽDÁ kombinace odemčených segmentů dá validní
-dokončitelnou mapu a že skládání je deterministické.
+
+Level N+1 = LevelData N + segment, **odkazem, ne kopií** (`@export var base: LevelData`).
+
+```gdscript
+class_name MapSegmentData extends Resource
+@export var id: StringName
+@export var anchor_offset: Vector2i
+@export var unlock_condition: StringName
+@export var adds_spawns: Array[SpawnPointData]
+```
+
+**TVRDÝ LIMIT, který v původním zadání nebyl: segment se musí vejít na jednu
+obrazovku.** Při 480×270 a 16px dlaždicích je viditelných 30×17 dlaždic,
+současná mřížka je 30×14. Segment, který mapu rozšíří za tenhle rámec, vynutí
+scrollování — a scrollující mapa podle Douceta (Defender's Quest) rozbíjí
+soustředění, na kterém celá hra stojí. `_test_segments` to musí hlídat.
+
+Hotovo když: `_test_segments` ověří, že **každá** kombinace odemčených segmentů
+dá validní dokončitelnou mapu (cesta z každého aktivního spawnu k cíli),
+že se vejde na obrazovku, a že skládání je deterministické.
 
 ## P8b — fog_bandwidth před P9
 Model: opus
 Needs-me: no
 Status: todo
 
-_test_fog_bandwidth hlásí, že arc nemá vliv na osvětlenou plochu (36 → 36 buněk
+`_test_fog_bandwidth` hlásí, že arc nemá vliv na osvětlenou plochu (36 → 36 buněk
 při arc 15 → 120) a že otočení habitu světlem nehne. Podle P0e zjisti, jestli je
 mrtvý parametr, nebo se osvětlení počítá jinak než z kužele.
-Oprav to, ať už je příčina jakákoli. P9 staví na tomhle a nechci stavět na systému,
-o kterém nevím, jestli funguje.
-Hotovo: test zelený, vyřazený z known-broken, a v PROGRESS.md je popsaná příčina.
+Oprav to, ať už je příčina jakákoli. P9 staví na tomhle a nechci stavět na
+systému, o kterém nevím, jestli funguje.
+
+Hotovo když: test zelený, vyřazený z known-broken, a v PROGRESS.md je popsaná
+příčina.
+
+---
 
 ## P9 — brainfog jako vizuál
 Model: sonnet
 Needs-me: no
 Status: todo
-Dva SubViewporty sdílející World2D, maska přes ViewportTexture. Herní logika beze změny.
-Hotovo: screenshoty do .dev/screenshots/ včetně rozostřené a odbarvené. NEPOSUZUJ.
 
-## P10 — brainfog jako pravidlo
+Dva `SubViewport` sdílející stejný `World2D`, maska přes `ViewportTexture`.
+Pokud se světla věží překrývají, zvaž shader s viditelnostní texturou místo
+Light2D v mask módu — ten má při překryvu nepředvídatelné chování.
+
+**Herní logika se NEMĚNÍ.** Zatím jen vizuál.
+
+Hotovo když: screenshoty do `.dev/screenshots/` včetně rozostřené a odbarvené
+varianty. **NEPOSUZUJ je** — vyberu sám.
+
+## P10 — brainfog jako herní pravidlo
 Model: sonnet
 Needs-me: yes
 Status: todo
-Až potvrdím po zahrání P9. visible grid + explored grid, věž cílí jen visible.
-Hotovo: _test_fog ověří, že věž nikdy nestřílí do ne-visible a explored se nezmenší.
 
-## P11 — Quick Hit a Tolerance na mlhu
+**Nezačínej, dokud si nezahraju P9 a nepotvrdím to.** Až uvidím mlhu v pohybu,
+poznám, jestli je „věž nestřílí, co nevidí" zajímavé, nebo jen otravné.
+Research je v tomhle jednoznačný: fog je extrémně citlivý na férovost
+a špatně udělaný působí jako náhodný trest, ne jako výzva.
+
+Návrh k implementaci po schválení:
+- `visible` grid — přepočítáván z pozic a dosahů habitů
+- `explored` grid — jen se přičítá, **nikdy se nezmenšuje**
+- věž smí cílit jen buňky ve `visible`
+- herní logika čte grid, **ne texturu**
+- nepřátelé se nesmí chovat, jako by viděli skrz mlhu, když hráč ne
+
+Hotovo když: `_test_fog` ověří, že věž nikdy nestřílí do ne-visible buňky
+a že `explored` se nikdy nezmenší.
+
+## P11 — Quick Hit a Tolerance napojené na mlhu
 Model: sonnet
 Needs-me: no
 Status: todo
-Quick Hit prosvětlí, Tolerance zmenšuje poloměr. Obojí přes ModifierManager.
-Hotovo: _test_fog_modifiers na hraničních hodnotách Tolerance 0 a 100.
+
+- **Quick Hit** dočasně prosvětlí mapu (nával pozornosti)
+- **Tolerance** zmenšuje poloměr odhalení (zúžená pozornost)
+
+Obojí přes `ModifierManager`.
+
+Tohle je moment, kdy se z generického TD stane tahle hra. Do P10 stavíš dobrý
+tower defense; P11 je ta jedna vrstva, kterou používá všechen obsah — jedna nová
+distrakce nebo habit se od teď násobí s každou hodnotou Tolerance.
+
+Hotovo když: regresní testy ekonomiky zelené, `_test_fog_modifiers` ověří obě
+vazby na hraničních hodnotách Tolerance 0 a 100.
 
 ## P12 — minimapa
 Model: sonnet
 Needs-me: no
 Status: todo
-Ukazuje explored terén, ne jednotky.
-Hotovo: test, že minimapa nikdy neukáže víc než explored.
+
+Nutná, jakmile je P10 zapnuté — bez ní hráč nemůže plánovat a fog se změní
+ve frustraci.
+
+Ukazuje `explored` terén, **ne jednotky**.
+
+Hotovo když: test ověří, že minimapa nikdy neukáže víc, než co je v `explored`.
+
+---
+
+## Q2 — Quick Hit jako zpočátku dominantní tah
+Model: opus
+Needs-me: yes
+Status: todo
+
+**Tohle je specifikace, ne návrh na doladění.** Sdělení hry dorazí jen tehdy,
+když hráč lituje **vlastní optimalizace**. Když je Quick Hit vyvážený jako férový
+tradeoff, hráč si ho rozmyslí, nikdy nespadne do smyčky a mechanika neřekne nic.
+
+Přes deterministický simulátor (S2) ověř, jestli je „spamuj Quick Hit" v prvních
+třech levelech objektivně nejlepší strategie. Porovnej aspoň:
+- nic nestavět
+- stavět levné habity rovnoměrně
+- spamovat Quick Hit
+- kombinace
+
+Pokud dominantní není, navrhni úpravu čísel v `data/` tak, aby byla — ale
+**čísla neměň bez mého souhlasu.** Analýzu do `BLOCKED.md` s konkrétními
+hodnotami a odůvodněním.
+
+## Q3 — capsule art specifikace
+Model: sonnet
+Needs-me: yes
+Status: todo
+
+**NEGENERUJ přes PixelLab.** Steam capsule art je nejčastější terč „AI slop"
+kritiky a první věc, kterou hráč na Steamu vidí. Doložené případy backlashe
+existují i tam, kde bylo obvinění falešné.
+
+Připrav specifikaci: rozměry všech Steam capsule formátů, co má obrázek
+komunikovat, jaké prvky ze hry použít. Art udělám nebo objednám já.
+
+---
+
+## Za tímto souborem
+
+Milník **„prvních 15 minut"** — tři levely nesoucí celý oblouk: Quick Hit je
+zjevně nejlepší tah, hráč ho začne spamovat, Tolerance mu zúží kužely, a přijde
+okamžik, kdy kvůli tomu nevidí hordu, kterou by jinak snadno zvládl.
+
+Není rozepsaný schválně. Bude záviset na výsledku P10 a Q2 a psát ho teď by
+bylo naslepo.
+
+## Čeká na člověka mimo tuhle frontu
+
+- **S4** (`SYSTEMS.md`) — palette-swap shader, mechanicky hotový, čeká na vizuální
+  úsudek. Odemyká barevné varianty distrakcí za nula PixelLab generací.
+- **S7** (`SYSTEMS.md`) — tvary spawnu ve vlnách, schéma a runtime hotové,
+  validace a obsah otevřené.

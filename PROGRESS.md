@@ -1759,3 +1759,19 @@ neexistují), nástroj by neměl nad čím pracovat, a „Hotovo když" kritéri
   pole, které se mezi dvěma čteními vůbec nezměnilo" — jiná otázka, jiné řešení.
 - verify.sh: PASS (31 pass, 0 fail, 5 known-broken, 0 flaky).
 - Commit: 67f891b.
+
+## 2026-08-30 — oprava poškozeného docs/refactor/PATHFINDING.MD
+
+- Working-tree kopie fronty měla P2 i P3 vrácené zpět na `Status: todo`/`Needs-me: yes`
+  s původním nevyřešeným textem a úplně chyběla sekce P8b, přestože git tree byl podle
+  `git status` čistý. Zároveň přibyly strukturní části (`Konvence` preambule, Q1/Q2/Q3,
+  závěrečné poznámky), které v commitované verzi nikdy nebyly. Příčina nezjištěna
+  (nereprodukovatelné), oprava je mechanická.
+- Opraveno ručně podle záznamu v PROGRESS.md/BLOCKED.md: P2 → `Status: done` s
+  shrnutím řešení, P3 → `Status: obsolete` (ponecháno na nové pozici za P4/P5 — sedí
+  to k jeho vlastnímu „změř až po P4 a P5" lépe než původní pozice), P8b vrácena
+  doslovně. Číslo z P1/P2 doplněno i do docs/PERF.md (P2 to výslovně chtělo, dřív to
+  bylo jen v BLOCKED.md).
+- Ověřeno: žádné duplicitní `## ` nadpisy, `tools/next_task.py
+  docs/refactor/PATHFINDING.MD` vrací `P4|sonnet|no`.
+- Detaily a varování pro příště v BLOCKED.md.
