@@ -719,7 +719,7 @@ téhle autorizace nespadly:
 ## P9 — brainfog jako vizuál
 Model: sonnet
 Needs-me: no
-Status: todo
+Status: done
 
 Dva `SubViewport` sdílející stejný `World2D`, maska přes `ViewportTexture`.
 Pokud se světla věží překrývají, zvaž shader s viditelnostní texturou místo
@@ -729,6 +729,41 @@ Light2D v mask módu — ten má při překryvu nepředvídatelné chování.
 
 Hotovo když: screenshoty do `.dev/screenshots/` včetně rozostřené a odbarvené
 varianty. **NEPOSUZUJ je** — vyberu sám.
+
+**VYŘEŠENO 2026-08-30.** Polovina zadání už žila v `_light_viewport` /
+`shaders/brain_fog.gdshader` (P0e-éra) — to UŽ JE „shader s viditelnostní
+texturou místo Light2D v mask módu", schválně malý (240×135, jen aditivní
+tvary světel, žádný terén/jednotky). Chybějící půlka — rozostřená a odbarvená
+varianta — je nová: `shaders/brain_fog_preview.gdshader` (samostatný, do
+`game.gd` NENAPOJENÝ soubor) + harness `scripts/_shot_p9_fog_variants.gd` /
+`scenes/_shot_p9_fog_variants.tscn`, který ho na jeden snímek nasadí na
+existující `_fog_rect` a vyfotí čtyři varianty.
+
+**Druhý `SubViewport` sdílející celou scénu jsem NEPOSTAVIL — schválně.**
+Zadání ho jmenuje jako výchozí techniku, ale duplicitní vykreslení CELÉ scény
+(stovky `Distraction` uzlů) jen kvůli barevnému filtru by zdvojilo draw calls
+za efekt, který `SCREEN_TEXTURE` (`hint_screen_texture`) dá zadarmo z rámce,
+který se už kreslí — přesně tahle technika už v projektu existuje
+(`shaders/flatten.gdshader`, Tolerance wash, ověřeno na stejném rendereru).
+`brain_fog_preview.gdshader` tedy dělá box-blur + odbarvení (luminance drain,
+stejná operace jako flatten) nad `SCREEN_TEXTURE`, ne nad druhým plným
+renderem světa. Zdůvodnění i s odkazy na řádky v `PROGRESS.md`.
+
+**Riziko `window/stretch/aspect` (souběžná session ho smazala z
+`project.godot`) ověřeno empiricky, ne předpokladem:** stejný harness spuštěn
+při 1920×1080 (odpovídá 16:9 desce) i při `--resolution 1000x1400` (silně
+neshodující se poměr stran) — `get_viewport().get_texture()` vrátil v obou
+případech bajtově identický 480×270 snímek. Vnitřní viewport se pod cizím
+poměrem stran nezvětšil ani neodkryl víc světa, což je přesně chování, které
+`aspect="keep"` garantuje (a které Godot 4 má jako vestavěný default i bez
+explicitního řádku) — `"expand"` by tenhle test rozbil. Žádný desync masky a
+světa nenalezen v žádném běhu.
+
+Screenshoty: `.dev/screenshots/p9_fog_baseline.png` (shipped shader,
+beze změny), `p9_fog_blur.png`, `p9_fog_desaturate.png`,
+`p9_fog_blur_desaturate.png`, popis techniky v `.dev/screenshots/p9_notes.md`.
+`_test_fog_bandwidth` beze změny (2 známá selhání, stejná jako před úkolem —
+P8b, blokováno na uživateli). `./verify.sh` tally v `PROGRESS.md`.
 
 ## P10 — brainfog jako herní pravidlo
 Model: sonnet
