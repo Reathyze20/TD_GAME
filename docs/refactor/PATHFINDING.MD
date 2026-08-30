@@ -64,6 +64,62 @@ do verify.sh přes všechny levely.
 Pokud záměr: zdokumentuj do docs/EDITOR_GUIDE.md, proč tam je.
 Nález zapiš do PROGRESS.md tak jako tak.
 
+## P0d — úklid iso legacy
+Model: sonnet
+Needs-me: no
+Status: todo
+
+scripts/_test_iso_math.gd a scripts/_test_game_iso_slice.gd nemají .tscn,
+takže se nespouštějí. Iso projekce je pryč.
+1. Smaž oba skripty včetně .gd.uid sidecarů.
+2. Z CLAUDE.md odstraň výjimku o přejmenování na _test_legacy_iso_* — je splněná
+   jinak, než zněla. Nahraď ji poznámkou, že iso fixtures byly odstraněny při
+   migraci na top-down (datum, commit).
+3. Klauzuli _test_legacy_* ve verify.sh NECH, ale připiš k ní komentář, že
+   momentálně netrefuje nic a je připravená pro budoucí použití.
+4. Přidej do verify.sh kontrolu: každý scripts/_test_*.gd musí mít odpovídající
+   scenes/_test_*.tscn. Osiřelý skript = FAIL, ne ticho.
+
+Hotovo: verify.sh chytí uměle vytvořený osiřelý _test_ skript.
+
+## P0e — inventura known-broken
+Model: sonnet
+Needs-me: no
+Status: todo
+
+Pět testů padá. Vytvoř docs/KNOWN_BROKEN.md a u každého napiš, co přesně
+selhává, od kdy (git blame / bisect na první červený commit), a do které
+z těchto tří tříd patří:
+  - očekávání artu (test čeká sprite, který po přechodu na plochý terén neexistuje)
+  - chybějící textura
+  - skutečná regrese v logice
+
+Zajímá mě hlavně _test_shadow_occlusion: 'Cannot call method get_size on a null
+value' znamená, že textura chybí nebo se přejmenovala. Najdi kterou a proč.
+
+NEOPRAVUJ nic. Jen zjisti a zapiš.
+Hotovo: dokument existuje, u každého testu je první červený commit.
+
+## P0f — verify.sh rozlišuje known-broken
+Model: sonnet
+Needs-me: no
+Status: todo
+
+verify.sh dnes vrací PASS s pěti padajícími testy. To je nebezpečné — nová
+regrese v nich zapadne.
+Zaveď seznam known-broken (soubor nebo hlavička v testu) a chovej se takto:
+  - known-broken test padá → KNOWN FAIL, nezvyšuje exit kód
+  - known-broken test PROJDE → FAIL s hláškou "oprav se sám, vyřaď ze seznamu"
+  - test mimo seznam padá → FAIL
+
+POZNÁMKA K SOUČASNÉMU STAVU (zjištěno při zadávání, ověř si to sám):
+verify.sh už dnes má pole KNOWN_BROKEN_TESTS a první i třetí pravidlo splňuje.
+Chybí JEN druhé: když known-broken test projde, verify.sh vypíše
+"PASS <name> (was KNOWN-BROKEN — remove it from verify.sh's list)" a započítá
+ho do pass, tedy neselže. Pozor na _test_phase3, který je v tom poli veden jako
+flaky, ne rozbitý — na něm by nové pravidlo padalo obden. Rozhodni, jestli
+flaky potřebuje vlastní kategorii, a když ano, zapiš to do BLOCKED.md.
+
 ## P1 — flow field od cíle
 Model: opus
 Needs-me: no

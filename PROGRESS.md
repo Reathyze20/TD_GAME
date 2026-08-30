@@ -1204,3 +1204,26 @@ Log of tasks completed by run.sh, one entry per run, newest last.
   tedy nikdy neproběhlo a scény zmizely. Nesahal jsem na to — není to v zadání P0 a
   smazání/obnovení fixtures je rozhodnutí uživatele.
 - Commit: 2cfde7a.
+
+## 2026-08-30 — rozhodnuto (b) smazat iso legacy; do fronty přibyly P0d, P0e, P0f
+
+- Uživatel rozhodl **(b)**: `scripts/_test_iso_math.gd` a `_test_game_iso_slice.gd` se
+  smažou. Důvod jeho slovy: test, který nic neověřuje, ale vypadá jako fixture, je horší
+  než žádný test — verify.sh hlásí 26 pass a ty dva soubory tiše budí dojem pokrytí,
+  které neexistuje. Klauzule `_test_legacy_*` ve verify.sh zůstává, ale zdokumentuje se
+  jako momentálně mrtvá.
+- Uživatel sám označil původní zadání za chybu ve svém dokumentu: výjimka o přejmenování
+  na `_test_legacy_iso_*` měla být úkol ve frontě, ne pravidlo v CLAUDE.md. Proto se
+  z CLAUDE.md odstraňuje jako součást P0d.
+- Do fronty vloženy hned za P0c: **P0d** (smazat iso skripty, upravit CLAUDE.md,
+  okomentovat mrtvou klauzuli, přidat do verify.sh kontrolu osiřelých `_test_*.gd`),
+  **P0e** (`docs/KNOWN_BROKEN.md` — u každého z pěti testů první červený commit a třída),
+  **P0f** (verify.sh má rozlišovat known-broken). Všechny `Model: sonnet`, `Needs-me: no`.
+- **K P0f jsem připsal poznámku o současném stavu**, aby ji agent neobjevoval znovu:
+  verify.sh už pole `KNOWN_BROKEN_TESTS` má a první i třetí pravidlo splňuje. Chybí jen
+  druhé — projde-li known-broken test, vypíše
+  `PASS <name> (was KNOWN-BROKEN — remove it from verify.sh's list)` a započítá ho do
+  pass, tedy neselže. A `_test_phase3` je v tom poli veden jako flaky, ne rozbitý, takže
+  by na něm nové pravidlo padalo obden — to je rozhodnutí, které P0f musí udělat.
+- Nic jsem nesmazal ani nespouštěl: P0d je zadaný jako úkol pro runner (`sonnet`,
+  `Needs-me: no`), ne jako práce pro tenhle sezení. `next_task.py` dál hlásí P0b.
