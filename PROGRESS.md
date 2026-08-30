@@ -2009,3 +2009,48 @@ east) výběr snímku sedí na to, co dřív dělal `_draw_sprite_frames()`.
   `_test_fog_bandwidth`, `_test_shadow_occlusion`, `_test_zen_pulsar`, žádný z nich
   se P5 netýká — 0 flaky).
 - Commit: bd39167.
+
+## 2026-08-30 — A0: art sprint budget — Phase 0 gate resolved, no generation (see BLOCKED.md)
+
+- Task's own step 1 ("Zavolej `get_balance`") isn't performable from this session at
+  all: `docs/art/GENERATION_PLAN.md`'s own header says `mcp__pixellab__*` is
+  deny-listed in settings and stays that way, and no such tool is actually available
+  here — consistent with `Needs-me: yes` and CLAUDE.md's "Nikdy negeneruj assety v
+  PixelLabu." Nothing was generated; asked the user directly instead of guessing.
+- Steps 2-3 (budget for everything not fog-dependent) were already fully computed in
+  `GENERATION_PLAN.md` itself (terrain was pulled out entirely on 2026-08-29, 0
+  generations) — read off rather than recomputed: 520 generations / 37 entities / 24
+  calls. Last known balance is the 4944 written into CLAUDE.md, unconfirmed live.
+- Found a real blocker in the task's own last instruction (first batch = one habit
+  showing the 64→32 downsample): `GENERATION_PLAN.md`'s Phase 0 section already
+  documented, dated 2026-08-29 and still open, that neither of Phase 0's two entities
+  (`prop_focus_core` 96→96, `focus_timer` 64→64) ever downsamples at all — only
+  characters do. Presented the plan's own two named fixes to the user; **user picked
+  "add `broccoli_knight` to Phase 0."**
+- Applied at the source per `GENERATION_PLAN.md`'s own header ("Needituj ručně —
+  přepiš bibli a přegeneruj"): edited `docs/art/STYLE_BIBLE.md`'s `<!-- gen:phases
+  -->` table (added `id:broccoli_knight` to phase 0's `kinds` selector, updated the
+  phase title and gate wording for 3 entities instead of 2) and `<!-- gen:gate0 -->`
+  (replaced the open two-options text with a dated resolution note). Regenerated
+  `docs/art/GENERATION_PLAN.md` via `tools/gen_art_prompts.py`; `--check` now passes
+  clean. New split: phase 0 = 3 entities/3 calls/80 generations, phase 1 = 34
+  entities/21 calls/440 generations — total unchanged at 37/24/520.
+- **Found, not fixed, unrelated to this task**: `verify.sh` turned up one real FAIL —
+  `_test_timecontrol (timeout after 120s)`. Traced it: `scripts/_test_timecontrol.gd`
+  / `scenes/_test_timecontrol.tscn` and `scripts/_diag_repeat.gd` /
+  `scenes/_diag_repeat.tscn` are untracked files (were already untracked at this
+  session's start, file mtimes ~15:44-15:49 same day, after P5's bd39167 commit but
+  never recorded in a PROGRESS.md entry) — a 1x-vs-4x time-control determinism
+  harness that hangs partway through its third scenario ("cheap-even build strategy
+  — actually fights"). Nothing in this task touches time control or the pathfinding
+  work those files look like diagnostics for. Not deleted (untracked ≠ mine to
+  discard — could be another session's in-progress work) and not added to
+  `verify.sh`'s `KNOWN_BROKEN_TESTS` (that's a call for whoever owns that work, not
+  this task's to make). Flagging here so it isn't mistaken for something this
+  change broke.
+- verify.sh: 33 pass, 1 fail (`_test_timecontrol`, pre-existing/unrelated per above),
+  4 known-broken (same baseline as P5), 0 flaky. `_test_art_prompts` and the `art
+  prompts`/`roster` checks (the ones actually relevant to this change) all PASS.
+- Still open, not this task's to close: live `get_balance` confirmation and the
+  actual go-ahead to generate Phase 0's three pieces — both still gated exactly as
+  the plan's own rules require.

@@ -861,3 +861,72 @@ revert of already-`done`/`obsolete` entries back to their original unresolved
 text, treat it as a symptom of this same failure mode, not as an intentional
 edit — cross-check against PROGRESS.md/BLOCKED.md before trusting the file's
 `Status:` fields at face value.
+
+## A0 (art sprint budget) — `Needs-me: yes`, and `get_balance` is not something this session can call at all
+
+Per CLAUDE.md's autonomous-run rule ("Když má úkol `Needs-me: yes`, nepracuj na
+něm... zapiš do BLOCKED.md, co ode mě potřebuješ rozhodnout"), plus a hard
+mechanical fact: `docs/art/GENERATION_PLAN.md`'s own header says
+`mcp__pixellab__*` is deny-listed in settings **and stays that way** — checked,
+this session genuinely has no PixelLab tool available, so step 1 of A0
+("Zavolej get_balance") isn't skippable-by-choice, it's not callable at all
+from here. Consistent with CLAUDE.md's "Nikdy negeneruj assety v PixelLabu."
+Nothing was generated.
+
+**What was answerable without PixelLab access, from `GENERATION_PLAN.md`
+itself** (it's already the computed shopping list/budget the task asked for —
+re-deriving it by hand would just duplicate `tools/gen_art_prompts.py`):
+everything not fog-dependent is already the plan's full total, since terrain
+was removed from it entirely on 2026-08-29 (0 generations, flat colors via
+`tools/flat_terrain.py`, independent of fog). **520 generations, 37 entities,
+24 calls.** Last known balance is the one written into CLAUDE.md itself —
+**4944**, dated before this task and not re-confirmable from here — so if it's
+still accurate, the complete roster leaves **4424** generations of headroom for
+variants/alt-states/boss versions, but that number needs a live `get_balance`
+from whoever can call it before it's spent against.
+
+**A real blocker for the task's own last instruction, not a guess I'm
+resolving on your behalf:** A0 asks the first batch to be "one habit at two
+sizes (gen_px vs. downsampled art_px)" specifically to see the 64→32
+downsample before anything else proceeds. But `GENERATION_PLAN.md`'s Phase 0
+section already documents (dated 2026-08-29, still open) that **neither of
+Phase 0's two entities downsamples at all**: `prop_focus_core` orders at 96 and
+ships at 96, `focus_timer` orders at 64 and ships at 64. Only characters
+(defenders/distractions, ordered at 64 and halved to 32) ever exercise real
+downsampling in this plan. So the batch as literally described can't be
+produced today — the plan itself already names the fix, still unresolved:
+
+1. **Add `broccoli_knight` to Phase 0** (+20 generations). It's the defender
+   family's own root/anchor anyway, so it has to be made early regardless —
+   and it's the one entity that actually exercises a real 64→32 halving.
+2. **Raise `prop_focus_core`'s order size to 192, halve to 96** instead of
+   96→96. No cost change (already `pro_velky` above 64px) — but this tests
+   downsampling on the habit/prop family, not the defender/distraction family
+   that actually ships at 32px, which is where halving artifacts would
+   actually show up in the game.
+3. Run Phase 0 exactly as specified (no real downsample this round) and let
+   the first genuine 64→32 check happen whenever Phase 1 first generates a
+   defender or distraction.
+
+Asked directly in-session rather than picking one, since it's explicitly the
+same "your decision, not mine" gate `GENERATION_PLAN.md` itself already put on
+Phase 0.
+
+**RESOLVED 2026-08-30, same session.** User picked option 1 (add
+`broccoli_knight`). Applied at the source, not by hand-editing the generated
+file: `docs/art/STYLE_BIBLE.md`'s `<!-- gen:phases -->` table now selects
+`id:broccoli_knight` into phase 0 alongside `focus_core`/`id:focus_timer`, and
+`<!-- gen:gate0 -->` carries a dated resolution note explaining why (real
+64→32 downsample vs. `focus_core`/`focus_timer`'s no-op 96→96/64→64).
+Regenerated `docs/art/GENERATION_PLAN.md` via `tools/gen_art_prompts.py`;
+`--check` now reports clean. New split: phase 0 = 3 entities/3 calls/80
+generations, phase 1 = 34 entities/21 calls/440 generations — total unchanged
+at 37/24/520, since `broccoli_knight` was always counted, just under phase 1
+before. `./verify.sh` run clean afterward (`_test_art_prompts` and the `art
+prompts`/`roster` checks all PASS) except one pre-existing, unrelated
+timeout — see PROGRESS.md's A0 entry.
+
+Still open, and not this session's to close: live `get_balance` (this session
+has no PixelLab tool at all — see above) and the actual go-ahead to generate,
+which the plan's own gate still requires before Phase 0's three pieces are
+ordered.
