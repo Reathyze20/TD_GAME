@@ -1228,3 +1228,16 @@ Log of tasks completed by run.sh, one entry per run, newest last.
 - Nic jsem nesmazal ani nespouštěl: P0d je zadaný jako úkol pro runner (`sonnet`,
   `Needs-me: no`), ne jako práce pro tenhle sezení. `next_task.py` dál hlásí P0b.
 - Commit: e386d4f.
+
+## 2026-08-30 — P8b vložen mezi P8 a P9 (fog_bandwidth před brainfogem)
+
+- Uživatel zadal **P8b** (`opus`, `Needs-me: no`): opravit `_test_fog_bandwidth` dřív, než
+  se na osvětlení postaví P9. Vloženo mezi P8 a P9 — sedí to jak názvu, tak titulku
+  („před P9"). Pořadí ostatních úkolů beze změny.
+- P8b spotřebovává výstup P0e („Podle P0e zjisti"), takže mezi nimi není konflikt: P0e
+  jen zjišťuje a zapisuje, P8b opravuje.
+- **Upozorněno na důsledek pořadí, který zadání nezmiňuje:** `run.sh` při prvním úkolu
+  s `Needs-me: yes` skončí celou frontu (`STOP: ... Fronta pozastavena`). P8 je
+  `Needs-me: yes`, takže runner se k P8b ani k P9 sám nedostane, dokud uživatel P8
+  neodbaví — a přitom P9 (brainfog jako vizuál) na P8 (skládání segmentů) věcně nezávisí.
+  Pořadí jsem neměnil (fronta má „NEMĚŇ ho"); rozhodnutí je na uživateli.

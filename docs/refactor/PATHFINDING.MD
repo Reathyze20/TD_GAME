@@ -179,6 +179,18 @@ Status: todo
 Hotovo: _test_segments ověří, že KAŽDÁ kombinace odemčených segmentů dá validní
 dokončitelnou mapu a že skládání je deterministické.
 
+## P8b — fog_bandwidth před P9
+Model: opus
+Needs-me: no
+Status: todo
+
+_test_fog_bandwidth hlásí, že arc nemá vliv na osvětlenou plochu (36 → 36 buněk
+při arc 15 → 120) a že otočení habitu světlem nehne. Podle P0e zjisti, jestli je
+mrtvý parametr, nebo se osvětlení počítá jinak než z kužele.
+Oprav to, ať už je příčina jakákoli. P9 staví na tomhle a nechci stavět na systému,
+o kterém nevím, jestli funguje.
+Hotovo: test zelený, vyřazený z known-broken, a v PROGRESS.md je popsaná příčina.
+
 ## P9 — brainfog jako vizuál
 Model: sonnet
 Needs-me: no
