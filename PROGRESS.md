@@ -1708,3 +1708,4 @@ neexistují), nástroj by neměl nad čím pracovat, a „Hotovo když" kritéri
   (1, 0)`, exit 1. Vráceno zpět, ověřeno diffem že soubor je bit-identický s verzí
   před pokusem.
 - verify.sh: PASS (30 pass, 0 fail, 5 known-broken, 0 flaky).
+- Commit: e6de895.
