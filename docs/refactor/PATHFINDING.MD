@@ -85,7 +85,7 @@ Hotovo: verify.sh chytí uměle vytvořený osiřelý _test_ skript.
 ## P0e — inventura known-broken
 Model: sonnet
 Needs-me: no
-Status: todo
+Status: done
 
 Pět testů padá. Vytvoř docs/KNOWN_BROKEN.md a u každého napiš, co přesně
 selhává, od kdy (git blame / bisect na první červený commit), a do které

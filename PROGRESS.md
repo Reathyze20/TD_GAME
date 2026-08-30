@@ -1451,3 +1451,78 @@ Probe (i jeho `.gd.uid`) pak smazaný a verify.sh pustil znovu načisto.
   padl, je vedený jako flaky).
 - Status P0d: `todo` → `done`.
 - Commit: e987e81.
+
+## 2026-08-30 — P0e hotovo: docs/KNOWN_BROKEN.md, tři z šesti záznamů byly zařazené špatně
+
+Diagnóza, nic se neopravovalo (zadání: „NEOPRAVUJ nic"). Kód beze změny, přibyl jen
+`docs/KNOWN_BROKEN.md`.
+
+### Tři opravy vlastních dřívějších tvrzení
+
+Seznam ve `verify.sh` (a moje shrnutí, které ho živilo) měl u tří položek špatnou příčinu:
+
+- `_test_deep_reading` — nebylo to „očekávání artu". Test tvrdí
+  `h.head_aims and projectile_spin == 0 and boredom == 0` u čtyř habitů; všechny čtyři
+  `.tres` mají dnes `head_aims = false`, spin i boredom jsou správně nula. **Selhává jen
+  ta jedna půlka:** roster se změnil tak, že hlavy netočí, a test to pořád vyžaduje. Je to
+  rozjetá smlouva mezi daty a testem, ne art.
+- `_test_zen_pulsar` — art to je, ale konkrétní: test volá
+  `FileAccess.file_exists("res://assets/towers/head_zen_pulsar_frame_1.png")` a osmisnímková
+  sada `head_zen_pulsar_frame_1..8.png` je pryč; zůstal jednosnímkový
+  `head_zen_pulsar.png`.
+- `_test_shadow_occlusion` — **nebyla to chybějící textura, a jsou to dvě různé vady nad
+  sebou.** To `null` je `get_viewport().get_texture().get_image()`, které v `--headless`
+  vrací null, protože běží dummy renderer (`RendererDummy` je přímo v cestě té chyby).
+  Hlavička toho testu si sama píše, že `--headless` použít NESMÍ, a `verify.sh` ho tak
+  pouští. Pustil jsem ho tedy s reálným rendererem — a **padá i tam, na něco úplně
+  jiného**: přepnutí `shadow_enabled` změní jas v obou měřených bodech přesně o
+  `0.0000`, i v tom „čistém" bodě uvnitř dosahu lampy. Lampa do obrazu nepřidává nic.
+
+### První červený commit — a proč jsou u tří položek dvě data
+
+Tři fixtures byly červené už na T0 (`5d72b07`) ze *společné, nesouvisející* příčiny:
+`level_1`/`level_2` měly `objective = (109, 34)` proti mřížce 24x24, takže
+`AStarGrid2D.get_id_path()` házelo „out of bounds" a všechno naměřené vycházelo nula.
+T5 (`26814f9`) postavil `level_1` znovu s platným cílem a **odmaskoval**, co bylo pod tím.
+Proto má každá z nich dvě data: kdy zčervenala vůbec, a kdy se objevil dnešní příznak.
+
+| fixture | třída | první červená | dnešní příznak od |
+|---|---|---|---|
+| `_test_deep_reading` | smlouva data/test | `0465a23` | `0465a23` |
+| `_test_zen_pulsar` | chybějící soubor | `0465a23` | `0465a23` |
+| `_test_shadow_occlusion` | špatný harness + regrese renderu | `5d72b07` (headless) | `26814f9` (nulová delta) |
+| `_test_fog_bandwidth` | regrese logiky | ≤ `5d72b07` | `26814f9` |
+| `_test_suppression` | regrese logiky | ≤ `5d72b07` | `26814f9` |
+| `_test_phase3` | vadný návrh testu | n/a (race) | n/a |
+
+U `_test_fog_bandwidth` a `_test_suppression` jsou řetězce na `26814f9` znak po znaku
+totožné s dnešními (`-0 cells, +7`, `36 -> 36`, `(-26.0, 0.0)`), zatímco na `04b6fc5`
+(rodič T5) mají tu zamaskovanou nulovou podobu. `0465a23` je uživatelův velký commit
+s hlášením „test" — vzal s sebou `head_zen_pulsar_frame_1..8.png` a nastavil
+`head_aims = false`.
+
+`_test_phase3` není rozbitý, je to **vadně napsaný test**: aplikuje slow s dobou **0,05 s**
+a pak čeká **10 `process_frame`ů**. Doba je v sekundách, čekání ve snímcích, takže výsledek
+závisí na frametime v tu chvíli. To je přímý vstup pro P0f — jeho pravidlo „known-broken
+test projde → FAIL" by na tomhle padalo obden.
+
+### Metodická poznámka, protože jeden průchod byl vyloženě špatně
+
+První pokus o archeologii procházel odpojený worktree přes jedenáct commitů pomocí
+`git checkout -q --detach "$c" 2>/dev/null`. Checkouty od třetího commitu **tiše
+selhávaly** a smyčka dál pouštěla testy nad starým stromem — vyšla z toho čistá,
+věrohodná a **úplně vymyšlená** tabulka, ve které všechno všude prochází. Odhalilo to jen
+to, že statické důkazy (`git cat-file -e`, `git show <commit>:<soubor>`) říkaly opak.
+Všechno v dokumentu je proto buď ze statických dotazů bez checkoutu, nebo z průchodu
+s `--force` a s `git rev-parse HEAD` vypsaným po každém checkoutu. Worktree je uklizený
+(`git worktree list` má zase jen původní dva).
+
+### Co jsem záměrně neudělal
+
+Komentáře u `KNOWN_BROKEN_TESTS` ve `verify.sh` pořád nesou ty starší, částečně chybné
+příčiny. Nechal jsem je být — P0e říká „NEOPRAVUJ nic" — a v `docs/KNOWN_BROKEN.md` je
+napsané, že ten dokument je přebíjí, dokud to někdo nesrovná. Je to jednořádková úprava
+komentáře, ale patří do úkolu, který na `verify.sh` smí sahat (P0f).
+
+- verify.sh: PASS (28 pass, 0 fail, 6 known-broken — `_test_phase3` v tomhle běhu padl).
+- Status P0e: `todo` → `done`.
