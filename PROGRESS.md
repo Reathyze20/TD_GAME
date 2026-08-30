@@ -1674,3 +1674,4 @@ neexistují), nástroj by neměl nad čím pracovat, a „Hotovo když" kritéri
   („Exit 1 = fronta hotová").
 - Kontrola úplnosti: skript projel oba soubory a potvrdil, že KAŽDÝ z 20 bloků má
   všechny tři pole (`Model`, `Needs-me`, `Status`) — žádný úkol nezůstal bez hlavičky.
+- Commit: 42a6494.
