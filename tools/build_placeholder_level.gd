@@ -101,10 +101,19 @@ func _build_level_98() -> LevelData:
 	# way around. Weight 1.0 (path_cells), so the pathfinder prefers it pre-trod even
 	# though it is a longer walk than the direct row-7 line below (8.0x off-lane cost
 	# on that direct line makes 27 open cells cost more than this ~38-cell detour).
+	#
+	# EACH SEGMENT STARTS ONE PAST THE CORNER THE PREVIOUS ONE ENDED ON. _cells_range()
+	# is inclusive at both ends, so a segment that begins ON the shared corner emits it a
+	# second time and path_cells gets a duplicate. Two of the three corners below were
+	# already written that way; the col-25 descent was not, and shipped level_98 with
+	# Vector2i(25, 2) listed twice (found by the P0b side-car, fixed as P0c). Nothing in
+	# the game reads that duplicate today -- lane_cells is a Dictionary and tile variants
+	# are seeded from hash(cell), not from the array index -- which is exactly why it
+	# survived: it could not show up as a visible defect. _test_levels checks for it now.
 	var path_cells: Array[Vector2i] = []
 	path_cells.append_array(_cells_range(0, 0, 2, 7))
 	path_cells.append_array(_cells_range(1, 25, 2, 2))
-	path_cells.append_array(_cells_range(25, 25, 2, 7))
+	path_cells.append_array(_cells_range(25, 25, 3, 7))
 	path_cells.append_array(_cells_range(26, 27, 7, 7))
 	lv.path_cells = path_cells
 

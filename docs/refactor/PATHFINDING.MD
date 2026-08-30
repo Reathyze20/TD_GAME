@@ -55,7 +55,7 @@ a když ne, zapiš do BLOCKED.md.
 ## P0c — duplicita v path_cells
 Model: sonnet
 Needs-me: no
-Status: todo
+Status: done
 
 level_98.tres má Vector2i(25, 2) v path_cells dvakrát. Zjisti, jestli je to
 záměr (ovlivňuje losování variant dlaždic) nebo chyba při bakování.

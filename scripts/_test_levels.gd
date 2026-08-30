@@ -42,6 +42,23 @@ func _check(label: String, ok: bool, detail: String = "") -> void:
 		fails += 1
 		print("  FAIL %s %s" % [label, detail])
 
+## Geometrie je mnozina bunek, ne seznam vyskytu: dvakrat uvedena bunka nic nepridava
+## a je to vzdycky chyba zapisovace, ne zamer. Vraci kolik bunek se opakuje, aby hlaska
+## rekla rozsah, ne jen "neco".
+func _check_no_duplicates(label: String, cells: Array[Vector2i]) -> void:
+	var seen := {}
+	var dupes := {}
+	for c: Vector2i in cells:
+		if seen.has(c):
+			dupes[c] = true
+		seen[c] = true
+	var names: PackedStringArray = []
+	for c: Vector2i in dupes.keys():
+		names.append("(%d,%d)" % [c.x, c.y])
+	_check("%s nema duplicity" % label, dupes.is_empty(),
+		"%d z %d bunek dvakrat: %s" % [dupes.size(), cells.size(), " ".join(names)]
+		if not dupes.is_empty() else "%d bunek" % cells.size())
+
 func _run() -> void:
 	var g := Data.GRID
 	var b: int = Data.BUILD_BLOCK
@@ -81,6 +98,41 @@ func _run() -> void:
 				lane_in_wall += 1
 		_check("zadna plosina nelezi na pruhu", lane_in_wall == 0,
 			"%d bunek v konfliktu" % lane_in_wall)
+
+		# --- duplicity v geometrii (P0c) ---------------------------------------
+		#
+		# `level_98` shipovalo Vector2i(25, 2) v `path_cells` DVAKRAT: generator
+		# `tools/build_placeholder_level.gd` skladal pruh ze ctyr useku a
+		# `_cells_range()` je inkluzivni na obou koncich, takze usek zacinajici NA
+		# rohu, kterym predchozi skoncil, ten roh vydal podruhe.
+		#
+		# Proc to nikdo nevidel a proc to kontroluje az test: duplicita se dnes
+		# projevit NEMUZE. `game.gd` stavi z `path_cells` i `high_ground` slovnik
+		# (`lane_cells`, `high_ground`) a varianty dlazdic losuje z `hash(cell)`, ne
+		# z indexu v poli. Je to tedy vada, kterou zadna obrazovka neukaze a zadny
+		# jiny test nechytne -- presne ten druh, kvuli kteremu tenhle soubor vznikl.
+		#
+		# `_bake_to_level()` duplicitu vyrobit neumi (`_high_cells()` i `_lane_cells()`
+		# jdou pres slovnik `seen`), takze tohle hlida ostatni zapisovace geometrie.
+		_check_no_duplicates("path_cells", lv.path_cells)
+		_check_no_duplicates("high_ground", lv.high_ground)
+		var lane := {}
+		for c: Vector2i in lv.path_cells:
+			lane[c] = true
+		for ti in range(lv.trods.size()):
+			var trod: TrodData = lv.trods[ti]
+			if trod == null:
+				continue
+			_check_no_duplicates("trods[%d].cells" % ti, trod.cells)
+			# trod_data.gd's own rule: `lane_cells` je slovnik, takze bunka, kterou
+			# trod sdili s uz namalovanym pruhem, se pri otevreni nastavi podruhe a
+			# pruh naroste o min, nez kolik trod slibuje.
+			var shared := 0
+			for c: Vector2i in trod.cells:
+				if lane.has(c):
+					shared += 1
+			_check("trods[%d].cells neprekryva path_cells" % ti, shared == 0,
+				"%d sdilenych bunek" % shared)
 
 		# --- ziva kontrola: postav level a nech A* odpovedet -------------------
 		GameState.current_level_index = i

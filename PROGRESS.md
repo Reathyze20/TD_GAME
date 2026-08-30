@@ -1327,3 +1327,67 @@ což si odporuje se současnou 30x14. Nesahal jsem na ně, zadání to zakazuje.
   je vedený jako flaky; předchozí běh měl 26/5, rozdíl je nový test + nová brána).
 - Status P0b: `todo` → `done`.
 - Commit: 89a8c2e.
+
+## 2026-08-30 — P0c hotovo: duplicita `Vector2i(25, 2)` je CHYBA generátoru, ne záměr
+
+### Verdikt a důkaz
+
+**Chyba**, a ne v bakování — v `tools/build_placeholder_level.gd`. Pruh levelu 98 se
+skládá ze čtyř úseků a `_cells_range()` je inkluzivní na obou koncích, takže úsek, který
+začne NA rohu, jímž předchozí skončil, ten roh vydá podruhé:
+
+```
+_cells_range(0, 0, 2, 7)     sloupec 0, řádky 2-7        končí na (0,7)
+_cells_range(1, 25, 2, 2)    sloupce 1-25, řádek 2       začíná na x=1, ne 0  ← roh ošetřen
+_cells_range(25, 25, 2, 7)   sloupec 25, řádky 2-7       začíná na y=2         ← roh NEošetřen
+_cells_range(26, 27, 7, 7)   sloupce 26-27, řádek 7      začíná na x=26        ← roh ošetřen
+```
+
+**To je ten důkaz, že to není záměr:** ze tří rohů jsou dva vyřešené přesně tím, že úsek
+začíná o jednu buňku za sdíleným rohem, a prostřední ne. Stejný autor, stejná funkce,
+o dva řádky vedle. Navíc komentář hned pod tím řeší přesně tuhle třídu chyby pro trody
+(„trod.cells and path_cells must be disjoint, or lane_cells … grows by fewer than
+trod.cells.size()") — na overlap uvnitř `path_cells` se jen zapomnělo.
+
+Zadání říkalo „oprav bake, aby duplicity nevznikaly". **Bake je už dnes v pořádku a
+nesahal jsem na něj:** `_high_cells()` i `_lane_cells()` v `tools/map_editor.gd` jdou přes
+slovník `seen`, takže duplicitu vyrobit neumí. Duplicita se do dat nedostala bakováním,
+ale generátorem — proto oprava sedí tam a validace hlídá *ostatní* zapisovače geometrie.
+
+### Proč to nikdo neviděl
+
+Duplicita se dnes projevit **nemůže**. `game.gd` staví z `path_cells` i `high_ground`
+slovník (`lane_cells`, `high_ground`) a varianty dlaždic losuje z `hash(cell)`, ne z
+indexu v poli (`game.gd:1297`, `:1306`, plus vlastní komentář na `:1382`). Je to tedy
+vada, kterou žádná obrazovka neukáže a žádný jiný test nechytne — přesně ten druh, kvůli
+kterému `_test_levels.gd` vznikl. Našel ji až side-car z P0b, protože ten jako jediný čte
+`path_cells` jako seznam výskytů, ne jako množinu.
+
+### Že to šlo opravit bez ručního psaní .tres
+
+Generátor jsem nejdřív spustil **beze změny** a porovnal s commitnutými soubory: diff byl
+prázdný, tedy `build_placeholder_level.gd` reprodukuje `level_1.tres` i `level_98.tres`
+bajt po bajtu. Teprve pak mělo smysl ho opravit a pustit znovu — jinak by regenerace
+přepsala i něco, co do ní nepatří. CLAUDE.md zakazuje psát level `.tres` ručně, a tohle
+je ta legitimní cesta.
+
+Oprava je jedno číslo (`2` → `3` v třetím úseku) plus komentář, proč každý úsek začíná
+o buňku za rohem. Výsledek: `path_cells` 39 → 38 položek, **množina buněk identická**
+(nic se neztratilo), změněný jediný řádek v jediném souboru.
+
+### Validace přes všechny levely
+
+Do `scripts/_test_levels.gd` (běží ve `verify.sh`) přibyl `_check_no_duplicates()` a
+kontroluje `path_cells`, `high_ground` a `trods[i].cells` u každého levelu, plus
+disjunktnost `trods[i].cells` vs `path_cells` — to je invariant, který `trod_data.gd` sám
+popisuje a který je stejná třída vady.
+
+**Ověřeno, že to chytá:** dočasně jsem opravu v generátoru vrátil zpět, level přegeneroval
+a pustil fixture — `FAIL path_cells nema duplicity 1 z 39 bunek dvakrat: (25,2)`, exit 1.
+Pak zpátky opraveno a přegenerováno.
+
+`docs/EDITOR_GUIDE.md` jsem nechal být — dokumentace se podle zadání psala jen ve větvi
+„záměr", a tohle záměr není.
+
+- verify.sh: PASS (28 pass, 0 fail, 5 known-broken).
+- Status P0c: `todo` → `done`.
