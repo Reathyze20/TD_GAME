@@ -2259,3 +2259,135 @@ Dotčené soubory: `scripts/resources/spawn_point_data.gd` (nový),
 `docs/refactor/PATHFINDING.MD` (P6 → done).
 
 Commit: `c978add`.
+
+## 2026-08-30 — P7 hotovo: telegraf směru (marker + odpočet, drženo na sim ticku)
+
+Status: done (docs/refactor/PATHFINDING.MD P7). `Needs-me: no`, žádný check-in
+nebyl potřeba. Jediné návrhové rozhodnutí, co zadání výslovně nechávalo na mně
+(kdy odpočet začíná), je zdokumentované v `docs/refactor/PATHFINDING.MD`'s P7
+sekci i níž — žádný skutečný fork se neobjevil.
+
+**Časování.** Odpočet začíná přesně v okamžiku, kdy začne bodova VLASTNÍ vlna
+(`active_from_wave == wave_number`) — ne o vlnu dřív v build fázi. Důvod:
+přímočařejší čtení zadání a nulová nová lookahead mašinerie. Bod s
+`active_from_wave == 0` (výchozí — "aktivní od vlny 1", viz vlastní komentář
+pole) se NIKDY netelegrafuje: není tam žádný okamžik aktivace k ohlášení. Odpočet
+drží existující `Game.wave_time` (nulované v `_start_wave()`, tikané jen uvnitř
+`_sim_tick()` dokud `wave_spawning`) — žádná nová proměnná, protože `wave_time`
+UŽ přesně znamená "kolik sim-sekund uběhlo od začátku téhle vlny". Pauza ho
+zamrazí zadarmo: `_sim_tick()` se nevolá, dokud `_physics_process()`'s akumulátor
+negeneruje tick, a ten při `_paused` negeneruje nic (Q1, PATHFINDING.MD) — žádná
+zvláštní pauza-vs-telegraf logika nebyla potřeba.
+
+**`scripts/game.gd` — gate.** `_active_spawn_point_cells(wave_number, wave_elapsed:
+float = INF)` — nový volitelný druhý parametr. Default `INF` zachovává PŘESNĚ
+původní chování: `_test_multispawn`'s přímá jednoargumentová volání dál sedí beze
+změny, protože `wave_elapsed < telegraph_lead_time` s `INF` po levé straně nikdy
+neplatí. Bod je vynechán jen na SVÉ VLASTNÍ aktivační vlně
+(`sp.active_from_wave > 0 and sp.active_from_wave == wave_number`) dokud
+`wave_elapsed < sp.telegraph_lead_time` — každou další vlnu rovnost neplatí a bod
+je aktivní bez ohledu na `wave_elapsed` (žádné opakované telegrafování). Nová
+`_pending_spawn_points(wave_number, wave_elapsed) -> Array[SpawnPointData]` je
+doplněk gate — přesně ty body, co výše zůstaly vynechané, plus kontrola
+`wave_spawning` (jakmile fronta téhle vlny dotiká, nemá smysl dál slibovat
+odpočet, který už žádná vlna nesplní). `_random_spawn_cell()` dostal stejný
+volitelný `wave_elapsed` a jen ho posílá dál.
+
+**Produkční zapojení — proč nešlo natvrdo.** Původní `_start_wave()` řešil buňku
+KAŽDÉHO spawnu HNED při stavbě fronty, ještě než vlna začala tikat. Kdybych na
+tenhle okamžik poslal `wave_elapsed = 0.0`, level s jediným právě aktivujícím se
+spawn bodem by měl na začátku vlny prázdnou aktivní množinu a spadl by na
+fallbacku do `spawn_zone_cells` — prázdné u každého levelu používajícího
+`spawn_points` (P6's vlastní návrh, `_test_multispawn`'s fixture i tenhle nový
+test). Řešení: pro level používající `level.spawn_points` (a JEN pro něj) se
+buňka entry řeší LÍNĚ — až v `_sim_tick()`, v okamžiku, kdy entry skutečně
+vyskočí z fronty, přes `_random_spawn_cell(wave_index + 1, wave_time)` se
+skutečným, právě natikaným `wave_time`. To je JEDINÉ volací místo ve hře, co kdy
+pošle jiný `wave_elapsed` než default. Každý `spawn_zones`-only level (dnes
+KAŽDÝ reálný level) má frontu beze změny — `entry["spawn"]` se pořád plní HNED,
+takže pořadí volání `randi()` v globálním streamu zůstává bit-přesně stejné jako
+před P7, žádné riziko pro determinismus jinde ve hře. Vedlejší efekt zdarma:
+entry naplánovaný na dřívější čas než `telegraph_lead_time` prostě vybere z toho,
+co JE aktivní (typicky starší baseline bod) — nic nepropadne, nic nespadne.
+
+**Kreslení.** `Game.TelegraphOverlay` — vnořená třída, sourozenec
+`PlacementOverlay`, NE `StaticOverlay`: potřebuje překreslovat KAŽDÝ reálný
+snímek kvůli pulzu a odpočtu (`StaticOverlay` se překresluje jen na explicitní
+trigger, protože jeho obsah se mezi triggery nemění — sem nesedí). Vytváří se
+jednou při načtení levelu, hned vedle `_placement_overlay`. Nad Brain Fog
+(`Z_FOG + 2`) ze stejného důvodu jako placement preview: telegraf, co není vidět
+kvůli tmě, porušuje vlastní tvrdé pravidlo pravdivosti. `_draw_spawn_telegraph()`
+kreslí pulzující kruh PŘESNĚ na `sp.cell` (to je ta polovina "pravdivosti", co
+nikdy nezávisí na `direction_id` — pozice marker a pozice reálného spawnu jsou
+doslova stejné pole, `sp.cell`), volitelnou kompasovou šipku pro
+`sp.direction_id` (zvolená konvence "N"/"NE"/"E"/"SE"/"S"/"SW"/"W"/"NW" —
+`_telegraph_direction_angle()`; prázdná/neznámá hodnota jen vynechá šipku, žádný
+level dnes tohle pole nenaplňuje) a odpočet v sekundách (`ThemeDB.fallback_font`,
+stejný vzor jako zbytek `_draw()` kódu v `game.gd`). Čistě kosmetické — čte
+`wave_time`/`wave_index`, nikdy je nezapisuje; skutečný gate, co produkci
+opravdu zdrží, žije jen v `_active_spawn_point_cells()`/`_sim_tick()`.
+
+**`scripts/_test_telegraph.gd` + `scenes/_test_telegraph.tscn`.** Syntetický level
+(geometrie klonovaná z levelu id 1 — stejný známě funkční precedent jako
+`_test_multispawn`), `spawn_zones` schválně prázdné. DVA `SpawnPointData`:
+baseline (`active_from_wave 0`, nikdy gatovaný — bezpečnostní síť PROTI
+prázdné-aktivní-množině pádu, ale hlavně to, co dělá kontrolu "nikdy neuteče
+brzo" SKUTEČNĚ testovanou) a testovaný bod (`active_from_wave 1`,
+`telegraph_lead_time 0.3`). Jeden `WaveCurveEntryData` (spacing 0.1s, 35 entries)
+rozprostírá reálné spawny přes celý interval kolem crossing bodu (2 před, 33 po
+— seedované RNG kvůli reprodukovatelnosti, ne kvůli nutnosti: P(všech 33 mine
+telegrafovaný bod) je ~10⁻¹⁰). Řízeno přímými voláními `Game._sim_tick
+(FIXED_TICK_DT)` — žádný `--fixed-fps` potřeba, protože mezi voláními není
+žádný `await`, takže Godotí automatický `_physics_process` se do toho nikdy
+nevmísí (tenhle projekt vlastní konvence — `docs/REFACTOR_PLAN.md`'s Verification
+pattern, Q1's fixed-tick filozofie — přesně tohle preferuje před čekáním na
+reálný časovač). Tři vrstvy důkazu, žádná nestaví na reimplementaci druhé:
+1. **Gating purity** — `_pending_spawn_points()`/`_active_spawn_point_cells()`
+   souhlasí na KAŽDÉM ze ~240 ticků s nezávislou reimplementací zadání
+   (`_expected_pending()`, napsaná ze zadání P7, ne okopírovaná z `game.gd`),
+   bod nikdy není zároveň pending i active, přechod pending→live nastal
+   PŘESNĚ jednou (tick 18 = přesně `0.3s × 60`).
+2. **Production wiring** — `SignalBus.distraction_spawned` zachytává buňku
+   KAŽDÉHO reálného spawnu přesně v okamžiku vzniku (dřív, než vlastní
+   `_process()` distrakce stihne posunout `current_cell` — snapshotting v
+   `_sim_tick()` tohle garantuje, viz jeho vlastní komentář).
+3. **Payoff** — žádný z 2 pre-crossing spawnů nepřistál jinde než na baseline
+   bodu (0/2 mimo), aspoň jeden z 33 post-crossing spawnů přistál PŘESNĚ na
+   `sp.cell` (19/33 v jednom běhu) — pozice, kterou telegraf ohlásil, a pozice,
+   odkud reálná distrakce vznikla, jsou doslova STEJNÁ buňka, ne "blízko".
+
+Bonus kontrola (ne v zadání, levná): na vlně 2 je bod aktivní od `elapsed=0.0`
+bez čekání — dokazuje, že gate drží zpátky jen VLASTNÍ aktivační vlnu bodu,
+nikdy neopakuje telegraf.
+
+**Screenshot.** `.dev/screenshots/p7_telegraph.png` — `scripts/_shot_telegraph.gd`
++ `scenes/_shot_telegraph.tscn`, stejný vzor jako P5's `_shot_crowd.gd` (reálný
+renderer, `godot --path . --main-scene ...`, NE `--headless` — kreslení
+potřebuje skutečný renderer). Fixture: jeden pending bod poblíž středu mřížky
+(`_find_center_open_cell()` — hledá nejbližší volnou buňku od středu, aby marker
+nebyl uříznutý u okraje obrazovky), `telegraph_lead_time 5.0`, ~60 reálných
+snímků po startu vlny (`wave_time` skončí ~0.9s — dobře uvnitř 5s okna).
+Screenshot ukazuje červený pulzující kruh s odpočtem ("4.1s") uprostřed pole.
+
+Ověřeno: `_test_telegraph` PASS samostatně i uvnitř celého `./verify.sh` —
+**36 pass, 0 fail, 4 known-broken (stejná čtyři jako baseline: `_test_deep_reading`,
+`_test_fog_bandwidth`, `_test_shadow_occlusion`, `_test_zen_pulsar` — žádné z
+nich se P7 netýká), 0 flaky.** `_test_multispawn` beze změny (jeho
+jednoargumentová volání `_active_spawn_point_cells`/`_random_spawn_cell` dostávají
+default `INF`, chování identické před/po).
+
+Nedotčeno záměrně: `addons/td_level_designer/` (žádný level dnes `spawn_points`
+neautoruje — mimo rozsah), segment-unlocking logika pro `requires_segment` (P8).
+
+Nezahrnuto do commitu (souběžná session, nesouvisí): `BLOCKED.md`, `CLAUDE.md`,
+`project.godot` a `scenes/_diag_q1b.tscn`/`scripts/_diag_q1b.gd`/`.gd.uid` mají
+necommitnuté změny/soubory z jiné souběžné session — staged explicitně
+jmenovanými soubory, ne `git add -A`.
+
+Dotčené soubory: `scripts/game.gd`, `scripts/resources/spawn_point_data.gd`,
+`scripts/_test_telegraph.gd` (nový), `scripts/_test_telegraph.gd.uid` (nový,
+auto-generovaný importem), `scenes/_test_telegraph.tscn` (nový),
+`scripts/_shot_telegraph.gd` (nový), `scripts/_shot_telegraph.gd.uid` (nový,
+auto-generovaný importem), `scenes/_shot_telegraph.tscn` (nový),
+`.dev/screenshots/p7_telegraph.png` (nový), `docs/refactor/PATHFINDING.MD`
+(P7 → done).

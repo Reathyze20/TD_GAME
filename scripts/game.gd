@@ -289,6 +289,19 @@ func _ready() -> void:
 	# darkness that explains WHY the cell is invalid would leave the refusal unreadable.
 	_placement_overlay.z_index = Z_FOG + 1
 	add_child(_placement_overlay)
+	# P7 (docs/refactor/PATHFINDING.MD): the spawn telegraph's pulse and countdown number
+	# need to animate every real frame regardless of sim speed/pause (same cosmetic-vs-
+	# gameplay split Q1 drew everywhere else), so this is built once here like
+	# PlacementOverlay — NOT inside _build_field() like StaticOverlay, which is deliberately
+	# redrawn only on specific triggers because its content never changes between them.
+	_telegraph_overlay = TelegraphOverlay.new()
+	_telegraph_overlay.name = "TelegraphOverlay"
+	_telegraph_overlay.game = self
+	# Above the fog for the same reason PlacementOverlay is: the hard rule is that a
+	# telegraphed spawn is truthful, which requires it to be READABLE — swallowed by the
+	# darkness the marker is trying to warn about would defeat the entire mechanic.
+	_telegraph_overlay.z_index = Z_FOG + 2
+	add_child(_telegraph_overlay)
 	_init_pools()
 	_build_field()
 	_build_fog_layer()
@@ -1462,6 +1475,7 @@ func _uses_vector_walls() -> bool:
 
 var _placement_overlay: Node2D = null
 var _static_overlay: Node2D = null
+var _telegraph_overlay: Node2D = null
 
 
 ## Teckovana mrizka a nadech spawn zon. Obojí se za celou hru NEZMENI, takze to ma vlastni
@@ -1489,6 +1503,20 @@ class PlacementOverlay extends Node2D:
 		queue_redraw()
 	func _draw() -> void:
 		game._draw_placement_preview(self)
+
+## P7 (docs/refactor/PATHFINDING.MD): the spawn telegraph marker — a pulsing ring, an
+## optional compass arrow and a countdown number over every SpawnPointData currently
+## pending (Game._pending_spawn_points()). Same shape as PlacementOverlay above: a
+## separate node so the pulse can redraw every real frame independent of the fixed sim
+## tick, cosmetic-only per Q1's split (it reads wave_time/wave_index, never writes them —
+## the actual gate that withholds production lives in _active_spawn_point_cells() /
+## _sim_tick(), not here).
+class TelegraphOverlay extends Node2D:
+	var game: Game
+	func _process(_dt: float) -> void:
+		queue_redraw()
+	func _draw() -> void:
+		game._draw_spawn_telegraph(self)
 
 ## Kresli se JEDNOU, z _build_field(). Kdyz sem neco pribude, musi to byt taky staticke.
 func _draw_static_field(cv: CanvasItem) -> void:
@@ -1544,6 +1572,44 @@ func _draw_placement_preview(cv: CanvasItem) -> void:
 	if pr > 0.0:
 		var centre := Data.cell_center(_hover_cell) - elevation
 		PixelDraw.ellipse(cv, centre, pr, pr / GridProjection.GROUND_Y_SCALE, Color(tint.r, tint.g, tint.b, 0.6))
+
+## Compass label -> screen-space angle (0 rad = +X/right, increasing clockwise since Y
+## grows downward) for a SpawnPointData.direction_id. NAN for empty/unrecognized values
+## (every real level today — see that field's own doc comment) so the caller can just
+## skip the arrow rather than guess a fallback direction that would itself be a lie.
+const _TELEGRAPH_DIRECTIONS := {
+	&"N": -PI / 2.0, &"NE": -PI / 4.0, &"E": 0.0, &"SE": PI / 4.0,
+	&"S": PI / 2.0, &"SW": 3.0 * PI / 4.0, &"W": PI, &"NW": -3.0 * PI / 4.0,
+}
+func _telegraph_direction_angle(direction_id: StringName) -> float:
+	return _TELEGRAPH_DIRECTIONS.get(direction_id, NAN)
+
+## P7: draws every currently-pending spawn point (Game._pending_spawn_points()) — a
+## pulsing ring AT `sp.cell` (the position half of "telegraf musí být pravdivý": this is
+## drawn at the EXACT cell _sim_tick() will later spawn from, read off the SAME
+## SpawnPointData, never a separate "warning position"), an optional compass arrow for
+## `sp.direction_id`, and a countdown in seconds until the gate in
+## _active_spawn_point_cells() actually opens. Purely cosmetic — see TelegraphOverlay's
+## own header for why reading wave_time/wave_index here is safe (never written).
+func _draw_spawn_telegraph(cv: CanvasItem) -> void:
+	if level == null or game_ended:
+		return
+	for sp: SpawnPointData in _pending_spawn_points(wave_index + 1, wave_time):
+		var center := cell_center(sp.cell)
+		var remaining := maxf(0.0, sp.telegraph_lead_time - wave_time)
+		var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 1000.0 * TAU * 1.2)
+		var col := Color(0.95, 0.25, 0.25, 0.35 + 0.35 * pulse)
+		cv.draw_arc(center, 22.0 + 4.0 * pulse, 0.0, TAU, 28, col, 3.0)
+		var dir_ang := _telegraph_direction_angle(sp.direction_id)
+		if not is_nan(dir_ang):
+			var tip := center + Vector2.RIGHT.rotated(dir_ang) * 36.0
+			var back := center + Vector2.RIGHT.rotated(dir_ang) * 16.0
+			cv.draw_line(back, tip, col, 3.0)
+			cv.draw_line(tip, tip + Vector2.RIGHT.rotated(dir_ang + PI * 0.85) * 8.0, col, 3.0)
+			cv.draw_line(tip, tip + Vector2.RIGHT.rotated(dir_ang - PI * 0.85) * 8.0, col, 3.0)
+		var label := "%.1fs" % remaining
+		cv.draw_string(ThemeDB.fallback_font, center + Vector2(-14, -30), label,
+			HORIZONTAL_ALIGNMENT_CENTER, -1, 14, UI.DANGER)
 
 func cell_center(cell: Vector2i) -> Vector2:
 	return Data.cell_center(cell)
@@ -1629,15 +1695,58 @@ func has_line_of_sight(from: Vector2, to: Vector2) -> bool:
 ## ignored — nothing exists yet that could ever unlock a segment, so treating it as
 ## always-inactive is the honest answer until P8 lands, not a guess about what P8 will
 ## decide unlocking should look like.
-func _active_spawn_point_cells(wave_number: int) -> Array[Vector2i]:
+##
+## `wave_elapsed` (P7): seconds of SIM-TICK time (Game.wave_time — reset to 0.0 by
+## _start_wave(), advanced only by _sim_tick(), never real/Engine.time_scale-scaled time)
+## since `wave_number` itself began. Defaults to INF ("this wave has been running
+## forever") so every call site that only cares about wave-level ELIGIBILITY — including
+## every call before P7 existed, e.g. _test_multispawn.gd's direct
+## game._active_spawn_point_cells(wave) calls — keeps getting the exact same set it
+## always did; the telegraph gate below is opt-in via this second argument, not a change
+## to what this function already answered. A point only gets held back by it on its OWN
+## activation wave (active_from_wave == wave_number, and active_from_wave > 0 so a point
+## already active from wave 1 — SpawnPointData.active_from_wave's own comment — is never
+## gated, there being no activation moment to telegraph): every later wave, the equality
+## fails and the point is unconditionally active regardless of wave_elapsed, exactly the
+## "goes live for the rest of that wave, no re-telegraphing" reading documented on
+## SpawnPointData.telegraph_lead_time.
+func _active_spawn_point_cells(wave_number: int, wave_elapsed: float = INF) -> Array[Vector2i]:
 	var cells: Array[Vector2i] = []
 	for sp: SpawnPointData in level.spawn_points:
 		if sp.active_from_wave > wave_number:
 			continue
 		if sp.requires_segment != &"":
 			continue
+		if sp.active_from_wave > 0 and sp.active_from_wave == wave_number \
+				and wave_elapsed < sp.telegraph_lead_time:
+			continue
 		cells.append(sp.cell)
 	return cells
+
+## The complement of _active_spawn_point_cells()'s telegraph gate: points that ARE
+## eligible for `wave_number` (by active_from_wave/requires_segment) but whose own
+## telegraph_lead_time has not yet elapsed since that wave began — i.e. exactly what the
+## marker should be shown for (Game.TelegraphOverlay / _draw_spawn_telegraph()) and what
+## _test_telegraph.gd checks directly rather than re-deriving. A point can never appear
+## both here and in _active_spawn_point_cells()'s result for the same (wave_number,
+## wave_elapsed) — same underlying comparison, opposite side.
+##
+## Gated on `wave_spawning` too: once this wave's entire spawn_queue has drained, nothing
+## further will produce this wave regardless of how the countdown reads, so continuing to
+## show a marker would be a promise this wave itself can no longer keep — it just goes
+## live, silently, at the start of whichever wave finally does produce it.
+func _pending_spawn_points(wave_number: int, wave_elapsed: float) -> Array[SpawnPointData]:
+	var pending: Array[SpawnPointData] = []
+	if level == null or not wave_spawning:
+		return pending
+	for sp: SpawnPointData in level.spawn_points:
+		if sp.requires_segment != &"":
+			continue
+		if sp.active_from_wave <= 0 or sp.active_from_wave != wave_number:
+			continue
+		if wave_elapsed < sp.telegraph_lead_time:
+			pending.append(sp)
+	return pending
 
 ## `wave_number` defaults to 1 so every pre-P6 call site (spawn_distraction test
 ## harnesses that call this with no arguments, outside of an actual wave) keeps compiling
@@ -1648,9 +1757,14 @@ func _active_spawn_point_cells(wave_number: int) -> Array[Vector2i]:
 ## Prefers LevelData.spawn_points (P6) when the level has any point active for this wave;
 ## otherwise falls back to the pre-P6 spawn_zones behaviour completely unchanged, which is
 ## also what every level with an empty spawn_points array does today.
-func _random_spawn_cell(wave_number: int = 1) -> Vector2i:
+##
+## `wave_elapsed` (P7) defaults to INF, same reasoning as _active_spawn_point_cells()'s
+## own default — see that function's comment. _sim_tick() is the one real caller that
+## ever passes something other than the default, using the live Game.wave_time so the
+## telegraph gate applies to ACTUAL production, not just to callers that ask for it.
+func _random_spawn_cell(wave_number: int = 1, wave_elapsed: float = INF) -> Vector2i:
 	if not level.spawn_points.is_empty():
-		var active := _active_spawn_point_cells(wave_number)
+		var active := _active_spawn_point_cells(wave_number, wave_elapsed)
 		if not active.is_empty():
 			return active[randi() % active.size()]
 	var zone: Array = spawn_zone_cells[randi() % spawn_zone_cells.size()]
@@ -3649,10 +3763,22 @@ func _start_wave() -> void:
 		_static_overlay.queue_redraw()
 	_maybe_show_ad(wave_index + 1)
 	spawn_queue = []
+	# P7: for a level using LevelData.spawn_points, the cell an entry spawns from is
+	# resolved LAZILY in _sim_tick(), at the moment it actually pops — not here, up
+	# front — because the telegraph gate (_active_spawn_point_cells()'s wave_elapsed
+	# argument) depends on how far into the wave that moment turns out to be, which is
+	# not yet known while the queue is still being built. Every spawn_zones-only level
+	# (every real level today) keeps the OLD eager resolution, unchanged: the "spawn" key
+	# is set right here exactly as before, so its RNG draw stays in the exact same place
+	# in the global stream it always was — this branch changes nothing for any level that
+	# does not populate spawn_points.
+	var uses_spawn_points := not level.spawn_points.is_empty()
 	for group: SpawnBatchData in wave.groups:
 		for k in range(group.count):
-			var sc: Vector2i = _random_spawn_cell(wave_index + 1)
-			spawn_queue.append({"time": _spawn_time_for(group, k), "type": group.distraction.id, "spawn": sc})
+			var entry := {"time": _spawn_time_for(group, k), "type": group.distraction.id}
+			if not uses_spawn_points:
+				entry["spawn"] = _random_spawn_cell(wave_index + 1)
+			spawn_queue.append(entry)
 	spawn_queue.sort_custom(func(a, b): return a.time < b.time)
 	wave_time = 0.0
 	wave_spawning = true
@@ -3787,7 +3913,16 @@ func _sim_tick(delta: float) -> void:
 		var spawned_any := false
 		while spawn_queue.size() > 0 and spawn_queue[0].time <= wave_time:
 			var entry = spawn_queue.pop_front()
-			spawn_distraction(entry.type, entry.spawn)
+			# P7: entries built for a spawn_points level (see _start_wave()) carry no
+			# "spawn" key — the cell is resolved HERE, at the tick it actually pops, with
+			# the wave's REAL elapsed sim-time (wave_time, just advanced above) as the
+			# telegraph gate's reference. This is the one call site that ever passes a
+			# real wave_elapsed instead of the INF default, i.e. the one place a newly-
+			# activating point's telegraph_lead_time actually withholds production — every
+			# other caller (tests, the marker's own render pass) only READS the gate.
+			var sc: Vector2i = entry.spawn if entry.has("spawn") \
+				else _random_spawn_cell(wave_index + 1, wave_time)
+			spawn_distraction(entry.type, sc)
 			spawned_any = true
 		if spawned_any:
 			_update_enemy_stats()

@@ -22,9 +22,14 @@ class_name SpawnPointData extends Resource
 ## The cell distractions enter the board on — same grid space as LevelData.high_ground
 ## and LevelData.objective.
 @export var cell: Vector2i
-## Which way the P7 telegraph (docs/refactor/PATHFINDING.MD P7, not yet built) points its
-## warning arrow before this spawn activates. Carried here but UNUSED until P7 lands —
-## this class only carries the data shape, P7 owns the visual.
+## Which way the P7 telegraph (docs/refactor/PATHFINDING.MD P7) points its warning arrow
+## before this spawn activates — one of "N"/"NE"/"E"/"SE"/"S"/"SW"/"W"/"NW", read by
+## Game._telegraph_direction_angle(). Purely cosmetic decoration on the marker: an empty
+## or unrecognized value just omits the arrow and draws the pulsing position ring alone
+## (no real level populates this yet — P6's own header: "nothing authors this yet"), so
+## an author who never sets it loses nothing but the arrow. What the marker's POSITION
+## promises (Game._draw_spawn_telegraph(), drawn at `cell`) is never optional — that half
+## is the "telegraf musí být pravdivý" hard rule and does not depend on this field at all.
 @export var direction_id: StringName          # pro telegraf
 ## Wave number (1-based — matches LevelData.lean_waves/bait_waves' own convention, and
 ## the wave number _start_wave() already passes around as `wave_index + 1`) this point
@@ -37,6 +42,13 @@ class_name SpawnPointData extends Resource
 ## available", since nothing exists yet that could ever unlock a segment. Empty (the
 ## default) means "always part of the base map", i.e. gated on active_from_wave alone.
 @export var requires_segment: StringName = &""
-## Seconds the P7 telegraph (not yet built) shows its warning before this point starts
-## producing distractions. Carried here but UNUSED until P7 lands.
+## Seconds of SIM-TICK time (Game._sim_tick(), never real/Engine.time_scale-scaled time —
+## see docs/refactor/PATHFINDING.MD's Q1 entry for why that split matters) this point is
+## shown telegraphed-but-silent after ITS OWN wave begins (active_from_wave == the current
+## wave) before it starts producing distractions. Only gates that ONE activation wave: on
+## every later wave the point is simply active from the start, no re-telegraphing — see
+## Game._active_spawn_point_cells()'s own comment. A point already active from wave 1
+## (active_from_wave == 0, the default — "already active on wave 1" per that field's own
+## comment above) is never gated by this at all: there is no activation MOMENT for it to
+## warn about, it was always going to be there.
 @export var telegraph_lead_time: float = 5.0
