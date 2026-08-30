@@ -87,8 +87,10 @@ func setup_directional(_game: Node, dir_angle: float, max_dist: float, wp: int, 
 	source = _source
 	# Captured at spawn, not read per frame: once the shot leaves the platform it was
 	# fired from, "the platform I am over" is no longer "the platform that must not stop
-	# me". -2 means "no game yet", which is neither a slab nor open ground.
-	_origin_platform = -2 if game == null else game.platform_at(global_position)
+	# me". -2 means "no game yet", which is neither a slab nor open ground. `position`,
+	# matching the per-tick check in _process() — see its own comment (Q1, docs/
+	# refactor/PATHFINDING.MD) for why this must not be global_position.
+	_origin_platform = -2 if game == null else game.platform_at(position)
 	_art = _art_for(_source)
 	# IZO: deska je zplostela 2:1, takze SVETOVY uhel se na obrazovku prevadi pulenim
 	# slozky y -- presne jako Habit._draw_wedge() (tower.gd) a naopak jako _aoe_targets(),
@@ -119,6 +121,10 @@ func setup_directional(_game: Node, dir_angle: float, max_dist: float, wp: int, 
 	_pierced = 0
 	dead = false
 	queue_redraw()
+	# Overrides ObjectPool.acquire()'s own set_process(true) — see _process()'s header
+	# comment. A pooled shot is driven by Game's fixed-tick accumulator from here, not
+	# Godot's automatic per-frame call.
+	set_process(false)
 
 static func _art_for(src: Object) -> Texture2D:
 	if src == null or not (src is Node) or not ("type_key" in src):
@@ -131,6 +137,11 @@ static func _art_for(src: Object) -> Texture2D:
 	_art_cache[key] = tex
 	return tex
 
+## Driven by Game's fixed-tick accumulator (Q1, docs/refactor/PATHFINDING.MD), not
+## Godot's automatic per-frame call. ObjectPool.acquire() unconditionally calls
+## set_process(true) on every projectile it hands out (object_pool.gd) — see the
+## overriding set_process(false) at the end of setup_directional() below, which is what
+## actually keeps this off Godot's automatic schedule during real play.
 func _process(delta: float) -> void:
 	if dead:
 		return
@@ -148,8 +159,23 @@ func _process(delta: float) -> void:
 	# Straight directional flight along turret barrel orientation. The segment from
 	# where we were to where we now are is what gets tested — a point test at the new
 	# position alone lets anything narrower than one frame of travel through.
-	var from_pos: Vector2 = global_position
-	global_position += direction_vec * step
+	#
+	# `position` (LOCAL, relative to `entities`/Game's shared shake-free origin), not
+	# `global_position` — Q1, docs/refactor/PATHFINDING.MD. `global_position` includes
+	# Game.position, which IS the screen-shake offset (add_shake()); it decays on real
+	# per-frame delta, a clock independent of the fixed sim tick. Two same-seed runs at
+	# the same speed can have that decay land at a slightly different real value at the
+	# same tick, so the ABSOLUTE coordinates fed into Geometry2D.get_closest_point_to_
+	# segment() and distance_to() below differed by a tiny amount between runs even
+	# though the underlying gameplay positions were bit-identical — floating point's
+	# rounding is magnitude-dependent, not just difference-dependent, so that was enough
+	# to flip a near-boundary hit/miss decision non-reproducibly (found by
+	# _test_timecontrol.gd's cheap-even block diverging by a few kills across identical
+	# same-seed, same-speed launches, even after fixing the spawn-position bug next to
+	# this one). The trail below stays on global_position on purpose — it is drawn via
+	# to_local() every frame and is purely cosmetic.
+	var from_pos: Vector2 = position
+	position += direction_vec * step
 	distance_traveled += step
 
 	if game != null:
@@ -157,15 +183,21 @@ func _process(delta: float) -> void:
 			if not is_instance_valid(d) or d.dead or _hit.has(d):
 				continue
 			var closest: Vector2 = Geometry2D.get_closest_point_to_segment(
-				d.global_position, from_pos, global_position)
-			if closest.distance_to(d.global_position) > d.def.radius + hit_padding:
+				d.position, from_pos, position)
+			if closest.distance_to(d.position) > d.def.radius + hit_padding:
 				continue
 			# Hidden in the Brain Fog: the shot flies on THROUGH the body rather than
 			# dying on it. Fog is absence of sight, not a wall — the wall death below
 			# stays the only thing that stops a shot early. Tested AFTER the geometry
 			# rejection on purpose: this loop is projectiles x enemies per frame, the
 			# game's hottest, and the fog lookup should only run on actual hit
-			# candidates — a handful per frame instead of every pair.
+			# candidates — a handful per frame instead of every pair. Deliberately
+			# still global_position: the Brain Fog's own light mask is built in the
+			# same shaken space (see _update_fog()'s header) so a light glued to the
+			# world during a shake reads as one consistent picture — this is the one
+			# gameplay-adjacent read of global_position left standing, and pos vs
+			# gpos should only ever disagree by an amount far too small to move a
+			# body in or out of a lit cell.
 			if not game.is_pos_visible(d.global_position):
 				continue
 			var src: Object = source if is_instance_valid(source) else null
@@ -204,8 +236,8 @@ func _process(delta: float) -> void:
 	# still killed shots travelling along their own platform past 24px, which is exactly
 	# what the truncated wedge preview was showing the player.
 	if game != null and _origin_platform != -2 \
-			and game.high_ground.has(game.world_to_cell(global_position)) \
-			and game.platform_at(global_position) != _origin_platform:
+			and game.high_ground.has(game.world_to_cell(position)) \
+			and game.platform_at(position) != _origin_platform:
 		_create_impact_fx()
 		_destroy()
 		return

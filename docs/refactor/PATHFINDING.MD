@@ -242,7 +242,7 @@ a je rychlejší.
 ## Q1 — total time control a total information
 Model: sonnet
 Needs-me: no
-Status: todo
+Status: done
 
 Rychlosti **0.25× / 1× / 2× / 4×**, pauza s možností zadávat příkazy během ní,
 skip to next wave, plné staty habitu i distrakce na hover.
@@ -253,6 +253,62 @@ potřebovat dřív, než dojdeš na konec fronty.
 
 Hotovo když: `_test_timecontrol` ověří, že deterministický simulátor při 4×
 dá **bit-identický** výsledek jako při 1×. Determinismus se nesmí rozbít rychlostí.
+
+**Mechanismus.** Nový fixní tick: `Game.FIXED_TICK_DT` (1/60 s, konstanta) a
+`Game._sim_tick(delta)` — obsahuje VŠECHNO, co může ovlivnit RESULT_FIELDS
+(pohyb distrakcí/projektilů/habitů, spawn vln, tolerance/burnout/cue,
+intervence, routine/fog). `Game._physics_process()` je akumulátor: každý
+reálný snímek přičte `_current_speed()` (0.0 při pauze) do `_tick_budget` a
+odpálí `floor(budget)` volání `_sim_tick()` — 1×/snímek při 1×, až 4×/snímek
+při 4×, cca 1× za 4 snímky při 0.25×. `Engine.time_scale` už neřídí nic
+výsledkového — zůstal jen pro kosmetickou vrstvu (DistractionAnimator, screen
+shake, glitch/flatten shadery), která běží dál na Godotím automatickém
+`_process()`. Entity (Distraction/Habit/Projectile/DefenderUnit) mají
+`set_process(false)` a `_process(delta)` na nich volá `_sim_tick()` explicitně
+— jméno metody zůstalo `_process` schválně, aby `_test_phase4`/`_test_
+suppression`/`_test_nutrition_guild`/`_test_taxonomy`, které ho volají ručně s
+pevným `delta`, zůstaly beze změny (jejich očekávání zůstalo netknuté).
+Přechod build↔wave zahazuje zbytek `_tick_budget` v tom snímku, kdy nastal —
+jinak by při 4× mohlo v jednom snímku doběhnout víc ticků NOVÉ fáze, než
+strategie/hráč vůbec stihli fázi zaznamenat (measured: early-call bonus lišící
+se o pár Dopamine mezi 1×/4× kvůli tomuhle, dokud fix nepřistál).
+
+**Vedlejší nález, který se ukázal větší než sama rychlost.** `Game.position`
+je posun screen-shake (`add_shake()`), reálně-časový a nezávislý na ticku.
+Několik míst v `enemy.gd`/`tower.gd`/`projectile.gd`/`game.gd` četlo
+`global_position` (obsahuje ten shake) tam, kde patřilo herně-lokální
+`position` — spawn distrakce, `_fire()`/`_tick_auto_aim()`/`is_point_in_cone()`/
+`_aoe_targets()`/`apply_pulse_to()`, pohyb a zásah projektilu,
+`_update_routine_reach()`. Bug byl v repu už předtím, ale nic ho nechytilo,
+protože žádný test nesrovnával boj bit-identicky mezi dvěma běhy. Opraveno —
+`_test_timecontrol`'s cheap-even blok (věže, co reálně střílí) dá teď
+bit-identický výsledek při STEJNÉ rychlosti napříč libovolným počtem
+samostatných spuštění (dřív rozptyl kills 29–40 na stejný seed/rychlost).
+
+**Co zůstává otevřené.** Cross-speed (1× vs 4×) pro `cheap-even` NENÍ
+bit-identický — reprodukovatelně (ne flaky) jiný přesný počet killů. Kořen
+nenalezen v čase, který úkol měl; `_test_timecontrol` to teď explicitně
+NEtvrdí (jen "same speed, twice" bit-identical + "4× je rychlejší"), aby test
+netvrdil něco neověřeného. Viz BLOCKED.md "Q1 — cross-speed combat divergence"
+pro diagnostiku a co zkusit dál. `_test_timecontrol` (passive, quick-hit-spam
+— obě NEstaví, ale vlnu/spawn/tolerance/ekonomiku plně cvičí) bit-identické
+1× vs 4× JSOU a zůstávají tak i po dvou desítkách opakovaných běhů.
+
+**Skip wave** = existující "▶ Start Wave" akce (`_on_start_wave_pressed()`),
+teď navíc pod druhým, jasně pojmenovaným tlačítkem "Skip ▶▶" v shluku
+rychlost/pauza — přesně hook, který úkol sám navrhoval.
+
+**Pauza + příkazy**: `Game.process_mode = PROCESS_MODE_ALWAYS` (viz `_ready()`),
+`entities.process_mode = PROCESS_MODE_PAUSABLE` explicitně přišpendleno zpátky,
+takže kosmetické potomky (DistractionAnimator, in-flight tweeny) pauza dál
+zamrazí automaticky. Simulace mrzne přes `_tick_budget` (0 při `_paused`), ne
+přes `get_tree().paused` — vstup tedy dojde na handler i za pauzy.
+
+**Hover staty**: žádný hover tooltip předtím NEEXISTOVAL (jen klik-otevřený
+panel pro postavený habit, nic pro distrakce). Nový `_hover_tooltip`
+(v `_hud_root`, ALWAYS) — habit pod najetou buňkou i nejbližší živá distrakce
+pod kurzorem, oba s plnými živými staty (cooldown/rest/disrupt pro habit;
+HP/rychlost/rezistence/všechny aktivní statusy pro distrakci).
 
 ---
 

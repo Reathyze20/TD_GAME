@@ -65,6 +65,7 @@ func is_shielded() -> bool:
 
 func _draw() -> void:
 	var r: float = def.radius
+	draw_set_transform(_hit_wobble, 0.0, Vector2.ONE)   # cosmetic-only, see enemy.gd
 
 	if animator == null:
 		if status_manager.has_boredom():

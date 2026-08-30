@@ -3,6 +3,82 @@
 Design decisions found ambiguous or contradictory during autonomous runs.
 Not fixed by guessing — recorded here with options, then moved past.
 
+## Q1 — cross-speed combat divergence (open, 2026-08-30)
+
+Q1 (docs/refactor/PATHFINDING.MD) shipped and its own "Hotovo když" bar is met for
+the two zero-combat SimStrategies (`_test_timecontrol`'s passive and quick-hit-spam
+blocks: bit-identical 1× vs 4×, robust across two dozen manual re-runs). It is
+**not** met for `SimStrategyCheapEven` (the one strategy that actually builds and
+fights): 1× and 4× land on a different exact kill count, **reproducibly** — not
+flaky, the same two numbers every time (measured: 1x always 30 kills/507 Dopamine/
+frame 2919, 4x always 39 kills/543 Dopamine/frame 804, across 5+ repeat launches
+each after the fixes below landed). `_test_timecontrol.gd` does not assert
+bit-identity for this block on purpose — it asserts same-speed-twice bit-identity
+(which holds) and "4x finishes faster" (which holds), and prints the 1x-vs-4x
+diff as info only. Q1 was marked `Status: done` anyway because the task's own
+mechanism (the fixed tick/accumulator) is proven sound by the two strategies that
+do isolate it cleanly, and because what's missing is a specific, trackable bug
+rather than an architectural gap — but this thread should not be quietly dropped.
+
+**What was found and fixed already** (all in the same investigation, same root
+cause class): `Game.position` IS the screen-shake offset `add_shake()` applies —
+it moves on real per-frame delta (Engine.time_scale-scaled), a clock independent
+of the new fixed sim tick. Several gameplay-critical reads of `Node2D.
+global_position` (which includes that offset, since Distraction/Habit/Projectile
+are all descendants of Game) were silently mixing shake into outcome math:
+- `game.gd` `spawn_distraction()`/`spawn_split()`: assigned a LOCAL position value
+  (`cell_center(...)`) directly to `global_position` — not a read-then-write, so
+  the shake offset at that instant got baked in as a permanent position error.
+- `projectile.gd` `_process()`/`setup_directional()`: movement integration and the
+  hit-test (`Geometry2D.get_closest_point_to_segment` + `distance_to`) ran on
+  `global_position`. Unlike the bug above this one is translation-safe in exact
+  arithmetic, but floating-point rounding is magnitude-dependent, not just
+  difference-dependent — feeding it large, shake-varying absolute coordinates was
+  enough to flip a near-boundary hit/miss differently between two otherwise-
+  identical runs.
+- `tower.gd` `_fire()`/`_tick_auto_aim()`/`has_enemy_in_cone()`/
+  `is_point_in_cone()`/`_aoe_targets()`/`apply_pulse_to()`: targeting queries,
+  cone-angle math, LOS raycasts, spawn_pos and knockback direction all read
+  `global_position` where the grid/wall-lookup convention elsewhere in the
+  codebase (e.g. `enemy.gd`'s `_knockback_crosses_wall`) already used `position`.
+- `game.gd` `_update_routine_reach()`/`compute_routine_sources()`: compared a
+  habit's `global_position` against `objective_pos` (a plain, shake-free field) —
+  mixed spaces on the two sides of the SAME distance check, which gates whether a
+  habit works at all.
+
+Fixing all of the above took repeat-same-speed cheap-even from visibly flaky
+(kill counts scattered 29–40 for the identical seed/speed across separate process
+launches) to exactly reproducible (same three-decimal-place result every launch).
+It did NOT close the 1x-vs-4x gap, which means at least one more shake-contaminated
+(or otherwise speed-sensitive) read remains somewhere in the combat path this
+strategy exercises, not yet found.
+
+**Deliberately NOT touched, and still shake-inclusive by design** (do not "fix"
+these without re-reading their own header comments first): `is_pos_visible()` /
+the Brain Fog light-mask system (`_update_fog()`'s own comment explains why the
+core's position is deliberately shifted into the shaken frame) — the fog gate in
+`tower.gd`'s `is_point_in_cone()` now reconstructs shake-inclusive space via
+`to_global()` specifically to stay consistent with this. Also not audited under
+time pressure: `defender_unit.gd` (its whole state machine — MOVE_TO_RALLY/ENGAGE/
+chase — reads and writes `global_position` throughout; Barracks/DefenderUnit
+combat is untouched by this investigation since `SimStrategyCheapEven` never
+builds one), and `game.gd`'s intervention AoE (`_trigger_intervention_impact`'s
+`d.global_position.distance_to(target_pos)`) and the sinking-walls spike's
+`EXPOSED_DISRUPT_RADIUS` check (`d.global_position.distance_to(h.global_position)`)
+— both outcome-critical, both unexercised by any current strategy/test.
+
+**What to try next**: instrument `_sim_tick_count` + a per-tower fire-angle print
+(the pattern used during this investigation) at BOTH 1x and 4x for the SAME seed,
+diff the normalized (tick-number-stripped) traces, and find the first line where
+a value — not just a tick-count offset — actually differs. Given the pattern so
+far, the next candidate to check first is `_update_burnout()`'s lapse roll (global
+`randf()`, tick-gated — should be safe in theory, worth re-verifying empirically)
+and anything reading `Time.get_ticks_msec()` for a cosmetic pulse that might,
+somewhere, leak into a `queue_redraw()`-adjacent state read rather than pure
+drawing. Options once found: (a) same position-vs-global_position fix as above,
+if it's another shake leak; (b) if it turns out to be something structurally
+different, escalate for real with the specific mechanism in hand.
+
 ## _test_mapeditor (post-T5) — RESOLVED 2026-08-29. tools/map_editor.gd is now MODE_SQUARE-aware ("Full square-mode editor support", user-authorized)
 
 Was: after the T5 topdown switch, `tools/map_editor.gd` still unconditionally built

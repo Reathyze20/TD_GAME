@@ -10,6 +10,20 @@ var enemy: Distraction
 var _time: float = 0.0
 var _hit_flash_timer: float = 0.0
 
+## Purely cosmetic per-frame jitter (phantom-buzz wobble, boss tendril flicker) draws
+## from ITS OWN stream, never the shared global randf()/randi() — this component keeps
+## running on Godot's real, unscaled per-frame call by design (Q1, docs/refactor/
+## PATHFINDING.MD: it is the one thing this task's own text names as safe to leave off
+## the fixed tick), so it redraws — and would otherwise re-roll — a different number of
+## times per unit of simulated time depending on real frame rate, which differs between
+## speeds even under --fixed-fps. Sfx.gd hit the same class of bug once already (see its
+## own _sim_ms comment): a frame-count-dependent draw against the SAME global stream that
+## seed(run_seed) seeds desyncs every outcome-critical draw after it, in systems that
+## have nothing to do with why this one drew. Seed value is arbitrary — visual noise has
+## no reproducibility requirement — chosen only so two instances don't animate in
+## lockstep.
+var _cosmetic_rng := RandomNumberGenerator.new()
+
 # Pre-calculated colors for performance
 const COLOR_NOTIF_BG := Color("ff3b30")
 const COLOR_NOTIF_BELL := Color("ffffff")
@@ -76,6 +90,10 @@ func _ready() -> void:
 func setup(parent_enemy: Distraction) -> void:
 	enemy = parent_enemy
 	_time = randf() * 10.0 # Randomize phase offset
+	# One-time draw from the shared stream (event-count is tick-order-deterministic, so
+	# this is safe) to seed the per-frame-safe cosmetic stream above — see its var
+	# comment for why THAT one may never be the shared global stream.
+	_cosmetic_rng.seed = randi()
 	_load_frame_textures()
 	queue_redraw()
 
@@ -671,7 +689,7 @@ func _draw_notification(r: float, is_moving: bool) -> void:
 # ==============================================================================
 func _draw_phantom_buzz(r: float) -> void:
 	var hover_y := sin(_time * 5.0) * 5.0
-	var jitter_x := randf_range(-1.2, 1.2)
+	var jitter_x := _cosmetic_rng.randf_range(-1.2, 1.2)
 	var phone_center := Vector2(jitter_x, hover_y)
 
 	# 1. Dynamic Expanding Vibration Shockwaves (Left and Right)
@@ -848,7 +866,8 @@ func _draw_boss_social_media(r: float) -> void:
 		var screen_pos := Vector2(cos(angle), sin(angle)) * orbit_radius
 
 		# Pulsing Zig-Zag Energy Tendrils to Center
-		var mid_point := screen_pos * 0.5 + Vector2(randf_range(-2, 2), randf_range(-2, 2))
+		var mid_point := screen_pos * 0.5 \
+			+ Vector2(_cosmetic_rng.randf_range(-2, 2), _cosmetic_rng.randf_range(-2, 2))
 		draw_line(Vector2.ZERO, mid_point, COLOR_BOSS_TENDRILL, 2.5)
 		draw_line(mid_point, screen_pos, Color.WHITE, 1.5)
 

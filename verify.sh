@@ -74,6 +74,7 @@ ROSTER_KNOWN_STALE=0
 # playthroughs back to back, so it also gets a longer per-test timeout.
 FIXED_FPS_TESTS=(
   _test_level_simulator
+  _test_timecontrol
 )
 _needs_fixed_fps() {
   local candidate="$1"

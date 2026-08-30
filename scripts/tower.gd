@@ -180,13 +180,14 @@ func _tick_auto_aim(delta: float) -> void:
 	var n := 0
 	# Range query over the spatial hash (docs/refactor/PATHFINDING.MD P4) instead of a
 	# scan of every live distraction — this is still just a candidate list, the exact
-	# range/visibility test below is unchanged.
-	for d in game.query_distractions_near(global_position, current_attack_range):
+	# range/visibility test below is unchanged. `position`, not `global_position` — see
+	# _fire()'s spawn_pos comment (Q1, docs/refactor/PATHFINDING.MD).
+	for d in game.query_distractions_near(position, current_attack_range):
 		if not is_instance_valid(d) or d.dead:
 			continue
 		# Ground space, matching is_point_in_cone: the projection squashes screen-Y, so
 		# a raw screen vector would aim the cone above everything it was pointed at.
-		var ground_vec := GridProjection.to_ground(d.global_position - global_position)
+		var ground_vec := GridProjection.to_ground(d.position - position)
 		if ground_vec.length() > current_attack_range:
 			continue
 		if not game.is_pos_visible(d.global_position):
@@ -228,8 +229,8 @@ func shot_interval() -> float:
 func has_enemy_in_cone() -> bool:
 	if game == null:
 		return false
-	for d in game.query_distractions_near(global_position, current_attack_range):
-		if is_instance_valid(d) and not d.dead and is_point_in_cone(d.global_position):
+	for d in game.query_distractions_near(position, current_attack_range):
+		if is_instance_valid(d) and not d.dead and is_point_in_cone(d.position):
 			return true
 	return false
 
@@ -267,9 +268,11 @@ func start_break(duration: float, forced: bool) -> void:
 	burned_out = forced
 	queue_redraw()
 
-## Vector math filtering for directional cone sector in 2:1 ground space.
+## Vector math filtering for directional cone sector in 2:1 ground space. `target_pos`
+## is game-local `position` space, not `global_position` — see this function's own
+## fog-visibility comment below (Q1, docs/refactor/PATHFINDING.MD).
 func is_point_in_cone(target_pos: Vector2) -> bool:
-	var ground_vec := GridProjection.to_ground(target_pos - global_position)
+	var ground_vec := GridProjection.to_ground(target_pos - position)
 	var dist := ground_vec.length()
 	if dist > current_attack_range:
 		return false
@@ -281,11 +284,15 @@ func is_point_in_cone(target_pos: Vector2) -> bool:
 	if angle_diff > deg_to_rad(arc_angle / 2.0):
 		return false
 	# The Brain Fog shades the cone the same way walls do: a body standing in the dark is
-	# simply not in it.
-	if game != null and not game.is_pos_visible(target_pos):
+	# simply not in it. is_pos_visible() compares against `_lit_cells`, which IS built in
+	# shake-inclusive space on purpose (see _update_fog()'s header) — to_global() here
+	# reconstructs that space from `target_pos`, which is otherwise kept shake-free
+	# (game-local `position`, not `global_position` — Q1, docs/refactor/PATHFINDING.MD)
+	# for the geometry above and the wall raycast below.
+	if game != null and not game.is_pos_visible(to_global(target_pos)):
 		return false
 	# Walls shade the cone: anything behind high ground is simply not in it.
-	return game == null or game.has_line_of_sight(global_position, target_pos)
+	return game == null or game.has_line_of_sight(position, target_pos)
 
 func _recalculate_stats() -> void:
 	current_willpower_damage = int(ModifierManager.get_modified_stat(
@@ -309,6 +316,13 @@ func _settle_barrel(delta: float) -> void:
 	_spray_angle = facing_angle
 	_aim = lerp_angle(_aim, facing_angle, 5.0 * delta)
 
+## Driven by Game's fixed-tick accumulator (Q1, docs/refactor/PATHFINDING.MD), not
+## Godot's automatic per-frame call — see the `set_process(false)` in BaseHabit.setup().
+## Cosmetic sub-bits (head anim, muzzle flash decay, barrel slew) stay bundled in here
+## rather than split out: this whole function already runs on the fixed tick either way,
+## so splitting them would only add risk of missing one for no benefit. Existing
+## harnesses that call this directly (`h._process(dt)`) are unaffected — set_process()
+## only gates Godot's OWN automatic invocation, never a plain method call.
 func _process(delta: float) -> void:
 	# Support habits (Anchor line) never target or fire — just the head animation and
 	# the out-of-routine warning need to keep ticking.
@@ -441,14 +455,22 @@ func _fire() -> void:
 	_spray_angle = shot_angle
 
 	# IZO: posun od stredu veze musi byt ZPLOSTELY, jinak se strela rodi vedle hlavne.
-	# Vyska hlavne se sem zamerne nepromita: `global_position` je HERNI pozice u zeme
+	# Vyska hlavne se sem zamerne nepromita: `position` je HERNI pozice u zeme
 	# a proti ni se meri zasahy na nepratelich, kteri u zeme taky stoji. Zvednout zrod
 	# na vysku hlavne by znamenalo, ze strely prolétnou nad nepritelem hned u veze.
 	# Vizualni skok prekryje zaseh u usti (muzzle flash v _draw()).
+	#
+	# `position`, not `global_position` — Q1, docs/refactor/PATHFINDING.MD:
+	# global_position includes Game.position, the screen-shake offset (add_shake()),
+	# which decays on real per-frame delta, a clock independent of the fixed sim tick.
+	# Baking a shake-contaminated spawn point into a shot's flight (and every downstream
+	# hit test) made two same-seed, same-speed runs land a shot differently often enough
+	# to change the kill count — see projectile.gd's own _process() comment for the full
+	# story this fix is one link in.
 	var dir := GridProjection.ground_dir_to_screen(shot_angle)
 	var perp := dir.orthogonal()
 	var side_offset := -5.0 if _barrel_side == 0 else 5.0
-	var spawn_pos := global_position + (perp * side_offset) + (dir * 22.0)
+	var spawn_pos := position + (perp * side_offset) + (dir * 22.0)
 
 	# A directional habit may carry a DoT too. Boredom used to be reachable only from the
 	# AoE branch, which quietly forced every DoT habit to be a cone pulse — see
@@ -486,7 +508,9 @@ func apply_pulse_to(d: Distraction) -> void:
 	# pulse shoves outward from the tower, a widened one micro-staggers everything it
 	# washes over. Applied before the authored slow so a real Calm still wins the compare.
 	if _profile.knockback > 0.0:
-		d.apply_knockback((d.global_position - global_position).normalized(),
+		# `position`, not `global_position` — see _fire()'s spawn_pos comment (Q1,
+		# docs/refactor/PATHFINDING.MD).
+		d.apply_knockback((d.position - position).normalized(),
 			_profile.knockback)
 	if _profile.stagger_factor < 1.0:
 		d.apply_slow(_profile.stagger_factor, ArcProfile.STAGGER_TIME)
@@ -523,15 +547,17 @@ func _aoe_targets() -> Array:
 	var in_cone: Array = []
 	# Spatial-hash range query (docs/refactor/PATHFINDING.MD P4) replacing the old scan of
 	# every live distraction — the cone test, sort and cap below are all unchanged.
-	for d in game.query_distractions_near(global_position, current_attack_range):
-		if is_instance_valid(d) and not d.dead and is_point_in_cone(d.global_position):
+	# `position`, not `global_position`, throughout — see _fire()'s spawn_pos comment
+	# (Q1, docs/refactor/PATHFINDING.MD).
+	for d in game.query_distractions_near(position, current_attack_range):
+		if is_instance_valid(d) and not d.dead and is_point_in_cone(d.position):
 			in_cone.append(d)
 	if in_cone.size() <= cap:
 		return in_cone
-	var origin: Vector2 = global_position
+	var origin: Vector2 = position
 	in_cone.sort_custom(func(a, b):
-		return origin.distance_squared_to(a.global_position) \
-			< origin.distance_squared_to(b.global_position))
+		return origin.distance_squared_to(a.position) \
+			< origin.distance_squared_to(b.position))
 	return in_cone.slice(0, cap)
 
 func _pulse() -> void:

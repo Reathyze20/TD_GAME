@@ -2054,3 +2054,98 @@ east) výběr snímku sedí na to, co dřív dělal `_draw_sprite_frames()`.
 - Still open, not this task's to close: live `get_balance` confirmation and the
   actual go-ahead to generate Phase 0's three pieces — both still gated exactly as
   the plan's own rules require.
+
+## 2026-08-30 — Q1 hotovo: total time control (0.25×–4× rychlost, pauza+příkazy, skip wave, hover staty)
+
+Status: done (docs/refactor/PATHFINDING.MD Q1). Cleared `Needs-me: no`, no check-in
+required; one genuine open thread logged to BLOCKED.md rather than silently dropped
+(see below).
+
+**Mechanismus.** Nový fixní tick nahrazuje `Engine.time_scale` jako zdroj pravdy pro
+výsledek: `Game.FIXED_TICK_DT` (1/60 s konstanta), `Game._sim_tick(delta)` (obsahuje
+VŠECHNO, co může ovlivnit RESULT_FIELDS — pohyb, spawn vln, tolerance/burnout/cue,
+intervence, routine/fog), a `Game._physics_process()` jako akumulátor
+(`_tick_budget += _current_speed()` za reálný snímek, 0.0 při pauze, odpálí
+`floor(budget)` volání `_sim_tick()`). `Engine.time_scale` zůstal jen pro kosmetickou
+vrstvu (DistractionAnimator, screen shake, glitch/flatten shadery) — nic z toho nikdy
+nečte `_sim_tick`. Entity (Distraction/Habit/Projectile/DefenderUnit) mají
+`set_process(false)`; `Game._sim_tick()` volá jejich `_process(delta)` explicitně
+s `FIXED_TICK_DT` — jméno metody zůstalo `_process` schválně (nepřejmenováno na
+`_sim_tick`), protože `_test_phase4`/`_test_suppression`/`_test_nutrition_guild`/
+`_test_taxonomy` ho volají ručně s pevným `delta` a přejmenování by je tiše rozbilo
+(runtime error „nonexistent function"). Přechod build↔wave zahazuje zbytek
+`_tick_budget` v tom snímku, kdy nastal (jinak by při 4× mohlo doběhnout víc ticků
+NOVÉ fáze, než strategie/hráč stihli fázi zaznamenat — measured: early-call bonus se
+lišil o pár Dopamine mezi 1×/4× kvůli tomuhle, než fix přistál).
+
+**SPEED_STEPS**: `[0.25, 1.0, 2.0, 4.0]` (3× zahozeno, nahrazeno 4×), default index
+ukazuje na 1.0×. `DESIGNER_TURBO_SPEED` (5×, F3) beze změny. Label formátuje `0.25×`
+místo špatného `0×` z `%.0f`.
+
+**Pauza + příkazy**: `Game.process_mode = PROCESS_MODE_ALWAYS` (`_ready()`), takže
+`_unhandled_input`/cosmetic `_process`/`_physics_process` běží i za pauzy —
+`entities.process_mode = PROCESS_MODE_PAUSABLE` explicitně přišpendleno zpátky, aby
+kosmetičtí potomci (DistractionAnimator, in-flight tweeny) dál mrzli automaticky.
+Simulace mrzne přes `_tick_budget` (nic nepřičte při `_paused`), ne přes
+`get_tree().paused` — takže build/sell/aim/Quick-Hit/intervence dojdou na handler i
+za pauzy, ale pohyb/timery/spawn/damage stojí.
+
+**Skip wave**: nové tlačítko "Skip ▶▶" vedle Pause/Speed, volá stejné
+`_on_start_wave_pressed()` jako existující "▶ Start Wave" — přesně hook, který úkol
+sám navrhoval, žádná nová mechanika.
+
+**Hover staty**: žádný hover tooltip předtím neexistoval (jen klik-otevřený panel pro
+postavený habit, nic pro distrakce). Nový `_hover_tooltip` v `_hud_root` (ALWAYS) —
+`_habit_hover_text`/`_distraction_hover_text` ukazují plné živé staty (cooldown/
+rest/disrupt/Routine pro habit; HP/efektivní rychlost/obě rezistence/všechny aktivní
+statusy pro distrakci), ne zkrácený souhrn.
+
+**Vedlejší nález, větší než samo Q1**: `Game.position` je posun screen-shake
+(`add_shake()`), reálně-časový, nezávislý na ticku. Několik míst v
+`enemy.gd`/`tower.gd`/`projectile.gd`/`game.gd` četlo `Node2D.global_position`
+(obsahuje ten shake) tam, kde patřilo herně-lokální `position` — spawn distrakce
+(`spawn_distraction`/`spawn_split` přiřazovaly LOKÁLNÍ hodnotu přímo do
+`global_position`, ne read-then-write, takže se shake trvale zapekl do pozice),
+pohyb a zásah projektilu (`Geometry2D.get_closest_point_to_segment` na
+shake-kontaminovaných absolutních souřadnicích — plovoucí desetinná čárka zaokrouhluje
+podle velikosti čísla, ne jen podle rozdílu, takže to stačilo k převrácení
+hraničního zásahu), cílení/palba/knockback věže (`_fire`/`_tick_auto_aim`/
+`has_enemy_in_cone`/`is_point_in_cone`/`_aoe_targets`/`apply_pulse_to`), a
+`_update_routine_reach` (habit `global_position` porovnávaný s `objective_pos`,
+což je čisté pole beze shake — smíchané prostory na dvou stranách stejné
+vzdálenostní kontroly, která rozhoduje, jestli habit vůbec funguje). Bug existoval
+v repu už předtím Q1, ale nic ho nechytilo — žádný test dřív nesrovnával boj
+bit-identicky napříč běhy. Opraveno na místech, která `_test_timecontrol` reálně
+cvičí; `entities.process_mode`/fog systém (`is_pos_visible`) zůstaly nedotčené
+(shake-inclusive je tam záměr, ne bug — viz `_update_fog()`'s vlastní komentář).
+
+**Co zůstává otevřené** (BLOCKED.md "Q1 — cross-speed combat divergence"):
+same-speed repeat determinismus pro `SimStrategyCheapEven` (věže, co reálně
+střílí) je teď bit-identický a robustní (5+ opakovaných spuštění, stejný seed,
+stejná rychlost → stejný výsledek na tři desetinná místa). Cross-speed (1× vs 4×)
+pro STEJNOU strategii **není** bit-identický — reprodukovatelně (ne flaky) jiný
+přesný počet killů (1× vždy 30 killů, 4× vždy 39, přes 5+ opakování). Kořen
+nenalezen v čase, který úkol měl. `_test_timecontrol.gd` to u cheap-even bloku
+netvrdí — jen "same speed, twice" bit-identical (drží) + "4× je rychlejší" (drží) +
+info-only diff. Passive/quick-hit-spam bloky (nestaví, ale plně cvičí
+vlnu/spawn/tolerance/ekonomiku) JSOU bit-identické 1× vs 4× a zůstávají tak i po
+dvou desítkách opakovaných běhů — to je mechanismus, který Q1 měl dokázat, a je
+dokázaný. Diagnostika a co zkusit dál je v BLOCKED.md.
+
+**Ověření**: `./verify.sh` 2× celé (před a po přidání hover kódu) — 34 pass, 0 fail,
+4 known-broken (stejná baseline jako dřív, nesouvisí), 0 flaky, `_test_timecontrol`
+PASS v obou. `_test_timecontrol` samostatně spuštěn 3× navíc — PASS pokaždé.
+
+Dotčené soubory: `scripts/game.gd` (hlavní — fixed tick, pauza, speed ladder, skip
+wave, hover tooltip, shake-independence fixy), `scripts/tower.gd`, `scripts/
+enemy.gd`, `scripts/projectile.gd`, `scripts/defender_unit.gd`, `scripts/
+base_habit.gd`, `scripts/barracks.gd`, `scripts/boss.gd`, `scripts/sfx.gd`
+(sync_sim_ms + unconditional RNG draw fix — nezávislý dílčí nález), `scripts/
+components/distraction_animator.gd` (cosmetic RNG izolace), `scripts/
+level_simulator.gd` (`speed_index` parametr), `scripts/_test_timecontrol.gd` +
+`scenes/_test_timecontrol.tscn` (nové), `verify.sh` (FIXED_FPS_TESTS).
+
+Nezahrnuto do commitu: `CLAUDE.md` a `project.godot` mají necommitnuté změny z jiné,
+souběžné session (PixelLab kredity / rendering nastavení) — nesouvisí s Q1, staged
+explicitně jmenovanými soubory, ne `git add -A`, aby se ta souběžná práce
+nepřimíchala pod tento commit.

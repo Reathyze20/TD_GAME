@@ -46,8 +46,15 @@ var _frame := 0
 ## GameState.reset_for_level()'s own `run_seed = randi()` line — becomes reproducible
 ## from this one call. Returns the result dictionary (also left on `self.result`):
 ## {victory, timed_out, frame, focus, max_focus, tolerance, dopamine, kills, wave}.
+##
+## `speed_index` drives the SAME mechanism the interactive game's speed button uses
+## (Game.set_speed_index() / Game.SPEED_STEPS — Q1, docs/refactor/PATHFINDING.MD), not a
+## parallel implementation: this is what lets _test_timecontrol.gd prove the REAL shipped
+## speed control is deterministic rather than a stand-in that merely happens to be.
+## Defaults to Game.DEFAULT_SPEED_INDEX (1.0×, its own pre-Q1 default) so every existing
+## caller that never mentions speed keeps behaving exactly as before.
 func run(level_id: int, run_seed: int, strategy: SimStrategy,
-		max_frames: int = DEFAULT_MAX_FRAMES) -> Dictionary:
+		max_frames: int = DEFAULT_MAX_FRAMES, speed_index: int = -1) -> Dictionary:
 	seed(run_seed)
 	_strategy = strategy
 	_done = false
@@ -76,6 +83,10 @@ func run(level_id: int, run_seed: int, strategy: SimStrategy,
 	SignalBus.game_over.disconnect(game._on_bus_game_over)
 	SignalBus.game_over.connect(_on_game_over)
 	GameState.designer_mode = false
+	# -1 (the param default) means "leave Game's own default alone" rather than baking
+	# Game.DEFAULT_SPEED_INDEX in here too, so the two never drift apart.
+	if speed_index >= 0:
+		game.set_speed_index(speed_index)
 
 	while not _done and _frame < max_frames:
 		await get_tree().process_frame

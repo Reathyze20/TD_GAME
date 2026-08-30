@@ -36,10 +36,34 @@ var _players: Array[AudioStreamPlayer] = []
 ## systems that have nothing to do with audio. Tracking simulated time here closes
 ## that leak. (play_defeat() itself still read Time.get_ticks_msec() directly until a
 ## later S2 audit pass caught it — same bug, same fix.)
+##
+## Q1 (docs/refactor/PATHFINDING.MD) found this was still not enough once a fixed sim
+## tick existed as a SECOND, independent clock: `_process(delta)` here keeps
+## accumulating off Godot's own automatic per-REAL-frame call (Engine.time_scale-scaled),
+## while gameplay's own timing is now driven by Game._sim_tick()'s discrete,
+## speed-independent FIXED_TICK_DT steps — two separate floating-point approximations of
+## "elapsed simulated time" that are not guaranteed to agree to the millisecond, even at
+## the same speed, across two separate process launches. A kill sound's throttle gate
+## landing on the wrong side of that disagreement was enough to flip whether play_defeat()
+## drew from the RNG at all, corrupting every combat-relevant draw after it — caught by
+## _test_timecontrol.gd itself failing non-reproducibly (same seed, same speed, three
+## different kill counts across three launches) before this fix. sync_sim_ms() below lets
+## Game._sim_tick() overwrite this every tick with the SAME authoritative tick-count-based
+## clock everything else now runs on, so the throttle gate reads identically regardless of
+## real frame rate. The automatic accumulation stays as the fallback for contexts with no
+## Game instance driving it (menus, settings) — sync_sim_ms() simply wins whenever both fire
+## in the same real frame, since Game calls it from _sim_tick(), which runs before _process().
 var _sim_ms: int = 0
 
 func _process(delta: float) -> void:
 	_sim_ms += int(delta * 1000.0)
+
+## Overwrites the accumulated clock with an authoritative value derived from Game's own
+## fixed sim tick count (tick_count * FIXED_TICK_DT, in whole milliseconds) — see _sim_ms's
+## own comment for why this has to win over this node's automatic per-frame accumulation
+## whenever a Game instance is actively ticking.
+func sync_sim_ms(ms: int) -> void:
+	_sim_ms = ms
 
 func _ready() -> void:
 	# UI clicks and the pause toggle must stay audible while the tree is paused.
@@ -105,6 +129,19 @@ func is_muted() -> bool:
 func play(cue: StringName) -> void:
 	if not _streams.has(cue):
 		return
+	# Drawn UNCONDITIONALLY, before the throttle gate below — Q1, docs/refactor/
+	# PATHFINDING.MD. sync_sim_ms() keeps _sim_ms tick-synchronized while a Game
+	# instance is actively driving it, but even then the throttle gate compares against
+	# a real millisecond window (_min_gap), and a kill/cue landing within a few ms of
+	# that boundary is exactly the kind of thing that is not guaranteed to land on the
+	# same side twice, even at the same speed, across two separate process launches
+	# (see _sim_ms's own comment on why two clocks can disagree at all). If the DRAW
+	# ITSELF were behind that gate, a throttle outcome flipping would silently desync
+	# every RNG-dependent gameplay decision after it. Drawing first and letting the gate
+	# only decide whether the sound actually PLAYS makes the shared stream's draw count
+	# depend on how many times play() was CALLED (a gameplay-event count, deterministic
+	# under the fixed sim tick) instead of on the gate's own pass/fail outcome.
+	var pitch := randf_range(0.97, 1.03)
 	var now: int = _sim_ms
 	if now - int(_last_ms.get(cue, -99999)) < int(float(_min_gap.get(cue, 0.05)) * 1000.0):
 		return
@@ -114,12 +151,13 @@ func play(cue: StringName) -> void:
 			p.stream = _streams[cue]
 			p.volume_db = _volume_db.get(cue, -6.0)
 			# A few cents of random detune keeps rapid repeats (builds, drops) organic.
-			p.pitch_scale = randf_range(0.97, 1.03)
+			p.pitch_scale = pitch
 			p.play()
 			return
 	# Pool exhausted: steal the first player — newest information wins.
 	_players[0].stream = _streams[cue]
 	_players[0].volume_db = _volume_db.get(cue, -6.0)
+	_players[0].pitch_scale = pitch
 	_players[0].play()
 
 ## The cue chime, scaled by how much the flash has come to mean (GameState.conditioning).
@@ -177,6 +215,12 @@ func play_defeat(surprise: float) -> void:
 
 	if not _streams.has(cue):
 		return
+	# Drawn UNCONDITIONALLY, before the throttle gate below — same reasoning as play()'s
+	# own comment (Q1, docs/refactor/PATHFINDING.MD): the cue-selection draw above
+	# already was unconditional (it runs before any throttle check exists), but this one
+	# used to sit AFTER the gate, so a kill landing within a few ms of the gate's
+	# boundary could flip whether it drew at all.
+	var pitch_jitter := randf_range(0.97, 1.03)
 	var now: int = _sim_ms
 	if now - int(_last_ms.get(cue, -99999)) < int(float(_min_gap.get(cue, 0.04)) * 1000.0):
 		return
@@ -184,7 +228,7 @@ func play_defeat(surprise: float) -> void:
 
 	# Volume: base dB scaled down by juice loss. Pitch: slightly detuned + flattened.
 	var db: float = _volume_db.get(cue, -6.0) + lerpf(0.0, -10.0, t)
-	var pitch: float = randf_range(0.97, 1.03) * lerpf(1.0, 0.72, t)
+	var pitch: float = pitch_jitter * lerpf(1.0, 0.72, t)
 
 	for p in _players:
 		if not p.playing:

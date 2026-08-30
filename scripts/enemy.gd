@@ -63,6 +63,16 @@ var game               # reference to the Game node
 var current_cell: Vector2i = Vector2i.ZERO
 var _scatter := Vector2.ZERO # small per-distraction offset — anti-clumping
 
+## Purely cosmetic hit-reaction nudge (a DefenderUnit's melee clash bumps this, then
+## tweens it back) — a DRAW-transform offset, never `position` itself. It used to BE a
+## tween on `position` directly, which is also what `_sim_tick()` reads and writes every
+## fixed tick: a real-time Tween nudging the same field the deterministic tick integrates
+## would land at a different point relative to tick boundaries depending on how many
+## real frames the tween took at the run's speed, breaking bit-identical determinism the
+## moment a defender landed a hit (Q1, docs/refactor/PATHFINDING.MD). See _draw()'s
+## draw_set_transform and defender_unit.gd's _execute_clash().
+var _hit_wobble := Vector2.ZERO
+
 # Disruptor (support archetype, def.disrupt_interval > 0): periodically pings the
 # nearest working habit in radius and stops it briefly. See _tick_disrupt().
 var _disrupt_timer := 0.0
@@ -151,6 +161,12 @@ func setup(_game, _type_key: String) -> void:
 	add_to_group("distractions")
 	queue_redraw()
 
+	# Driven by Game's fixed sim tick from here on, not Godot's automatic per-frame call
+	# (Q1, docs/refactor/PATHFINDING.MD) — see _process()'s header comment. _die() flips
+	# this back on for the death-animation tail, which is the one part of this node's
+	# life that is meant to keep running on real time after it drops off Game's live list.
+	set_process(false)
+
 func add_blocker(ally: DefenderUnit) -> void:
 	if not blockers.has(ally):
 		blockers.append(ally)
@@ -187,6 +203,16 @@ func _needs_own_redraw() -> bool:
 		return true
 	return def.disrupt_interval > 0.0 or def.haste_interval > 0.0
 
+## Driven by Game's fixed-tick accumulator (Q1, docs/refactor/PATHFINDING.MD) rather
+## than Godot's automatic per-frame call — see the `set_process(false)` in setup() — so
+## speed cannot change outcome, only how many real frames it takes to get there.
+## Existing harnesses that call this directly with an arbitrary delta (`d._process(dt)`)
+## are unaffected: set_process() only gates Godot's OWN automatic invocation, never a
+## plain method call. The one exception is an already-dead corpse playing its death
+## frames: setup() disables auto-processing, but _die() re-enables it the moment
+## `_awaiting_death_anim` is set, specifically so the (purely cosmetic, already-scored)
+## death animation keeps advancing on real per-frame delta after this node has dropped
+## out of Game's own live-list and stopped receiving explicit tick calls.
 func _process(delta: float) -> void:
 	if dead:
 		if _awaiting_death_anim:
@@ -683,6 +709,7 @@ func _reach_core() -> void:
 
 func _draw() -> void:
 	var r: float = def.radius
+	draw_set_transform(_hit_wobble, 0.0, Vector2.ONE)   # cosmetic-only, see the var comment
 
 	# Deadline tells. Both archetypes are only fair if the clock is VISIBLE — a
 	# limited-time offer the player cannot see expiring teaches nothing, and an autoplay

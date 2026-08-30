@@ -67,6 +67,9 @@ func _notification(what: int) -> void:
 			if is_instance_valid(a):
 				a.queue_free()
 
+## Driven by Game's fixed-tick accumulator, not Godot's automatic per-frame call — see
+## tower.gd's _process() header (same BaseHabit.setup() disables it) for the reasoning;
+## the cosmetic kiosk-flag anim stays bundled in here for the same reason.
 func _process(delta: float) -> void:
 	# Out of Routine the guild goes dark like every other habit: the flag freezes and
 	# fallen slots do NOT refill until the connection returns. Defenders already on the

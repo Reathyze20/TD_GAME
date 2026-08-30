@@ -73,6 +73,12 @@ func setup(_game, _type_key: String, _col: int, _row: int, initial_facing: float
 
 	_setup_specific(initial_facing, initial_arc)
 
+	# Driven by Game's fixed-tick accumulator from here on, not Godot's automatic
+	# per-frame call (Q1, docs/refactor/PATHFINDING.MD) — see tower.gd/barracks.gd's own
+	# _process() header comments. Unlike a Distraction a habit never lingers with a
+	# death animation after removal, so this is a one-way flip: nothing re-enables it.
+	set_process(false)
+
 ## Virtual method for subclass-specific setup.
 func _setup_specific(_initial_facing: float, _initial_arc: float) -> void:
 	pass

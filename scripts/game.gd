@@ -135,6 +135,15 @@ var intervention_cooldowns := {
 	"moment_of_clarity": 0.0
 }
 var _shake_amount: float = 0.0
+## Purely cosmetic screen-shake jitter draws from ITS OWN stream, never the shared
+## global randf()/randf_range() — this decay stays on Godot's real, unscaled per-frame
+## call by design (smooth at any speed, including 0.25x, where the fixed sim tick only
+## fires once every ~4 frames), so it redraws a different number of times per unit of
+## simulated time depending on real frame rate. A frame-count-dependent draw against the
+## SAME global stream that seed(run_seed) seeds would desync every outcome-critical draw
+## after it (Q1, docs/refactor/PATHFINDING.MD — same class of bug Sfx.gd's own _sim_ms
+## comment already documents once for this project). Seed is arbitrary; nothing reads it.
+var _shake_rng := RandomNumberGenerator.new()
 
 # HUD references
 var _hud_layer: CanvasLayer
@@ -207,6 +216,17 @@ var _glitch_mat: ShaderMaterial = null
 var _glitch_hit := 0.0   # transient spike from a distraction reaching the core
 
 func _ready() -> void:
+	# ALWAYS so build/sell/aim/Quick-Hit/intervention commands (_unhandled_input,
+	# _process's cosmetic layer, _physics_process's fixed-tick accumulator) keep running
+	# while the tree is paused (Q1, docs/refactor/PATHFINDING.MD) — the same reason
+	# _hud_root is ALWAYS (see _build_hud()). The simulation itself still freezes,
+	# because _physics_process()'s accumulator reads `_paused` and gains zero ticks; it
+	# does not rely on Godot's own pause machinery to stop. `entities` is pinned back to
+	# PAUSABLE right after it's created below, specifically so the purely cosmetic
+	# automatic processing under it (walk-cycle animators, in-flight cosmetic tweens,
+	# particles) still freezes on pause like it always did — only the command path needed
+	# to change.
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	# Before anything reads current_level_index: an editor Playtest launch may be
 	# redirecting this boot to the level that was just baked.
 	_consume_playtest_request()
@@ -249,6 +269,11 @@ func _ready() -> void:
 	entities = Node2D.new()
 	entities.name = "Entities"
 	entities.y_sort_enabled = true
+	# Breaks the PROCESS_MODE_ALWAYS this node (Game) now carries — see _ready()'s own
+	# header comment — so everything spawned under here (distractions, habits,
+	# projectiles, defenders, and their cosmetic children like DistractionAnimator)
+	# still freezes automatically on pause, the way it did before Q1.
+	entities.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(entities)
 	horde_renderer = HordeRenderer.new()
 	horde_renderer.name = "HordeRenderer"
@@ -3095,10 +3120,36 @@ func _cast_intervention(key: String, target_pos: Vector2) -> void:
 		strike.draw_circle(Vector2.ZERO, 12.0, Color(col.r, col.g, col.b, 0.4))
 	)
 
-	tw.tween_callback(func():
-		strike.queue_free()
-		_trigger_intervention_impact(idef, target_pos)
-	)
+	tw.tween_callback(strike.queue_free)
+
+	# The mechanical effect lands on a fixed TICK countdown (_tick_pending_impacts(),
+	# called from _sim_tick()), NOT on the strike Tween's own completion — Q1, docs/
+	# refactor/PATHFINDING.MD's create_tween() audit. A Tween measures ~0.22 "seconds"
+	# through Engine.time_scale, a real, continuous clock that has nothing to do with the
+	# fixed sim tick's discrete FIXED_TICK_DT steps, so the same "0.22s" would land after
+	# a DIFFERENT NUMBER OF SIM TICKS relative to everything else at 1× vs 4× — breaking
+	# bit-identical determinism the instant a level exercises an intervention. roundi(),
+	# not int(): a partial tick short-changing the fall time is a worse rounding error
+	# than the visual and the mechanic disagreeing by up to half a tick.
+	_pending_impacts.append({"idef": idef, "target_pos": target_pos,
+		"ticks_left": maxi(1, roundi(0.22 / FIXED_TICK_DT))})
+
+## Interventions whose mechanical effect is chasing a still-falling visual strike — see
+## _cast_intervention()'s own comment for why this is a tick countdown and not the
+## strike Tween's completion callback.
+var _pending_impacts: Array = []   # [{idef: InterventionData, target_pos: Vector2, ticks_left: int}]
+
+func _tick_pending_impacts(_delta: float) -> void:
+	if _pending_impacts.is_empty():
+		return
+	var still_pending: Array = []
+	for entry: Dictionary in _pending_impacts:
+		entry.ticks_left -= 1
+		if entry.ticks_left <= 0:
+			_trigger_intervention_impact(entry.idef, entry.target_pos)
+		else:
+			still_pending.append(entry)
+	_pending_impacts = still_pending
 
 func _trigger_intervention_impact(idef: InterventionData, target_pos: Vector2) -> void:
 	add_shake(12.0)
@@ -3578,18 +3629,129 @@ func _start_wave() -> void:
 	_update_enemy_stats()
 	SignalBus.wave_started.emit(wave_index + 1)
 
+## Cosmetic-only from here down (Q1, docs/refactor/PATHFINDING.MD): everything that can
+## affect a RESULT_FIELDS value (see _test_level_simulator.gd's own RESULT_FIELDS) moved
+## to _sim_tick(), driven by _physics_process()'s fixed-tick accumulator instead of this
+## function — so speed changes how many REAL frames a level takes and nothing about the
+## outcome. This still runs every real frame, Engine.time_scale-scaled: camera, the
+## aiming-preview follow, the glitch/flatten shaders, the kill-feedback popup and combo
+## readout, shadow-light positions, screen shake. None of it is ever read back into
+## anything the fixed tick or a RESULT_FIELDS value depends on.
 func _process(delta: float) -> void:
 	_update_camera(delta)
 	if game_ended:
 		return
-	# Rebuilt once per frame rather than per query — see query_distractions_near()'s
-	# header. Positions in it are wherever each distraction was the last time this ran,
-	# i.e. up to one frame stale depending on scene-tree process order; get_live_
-	# distractions() itself was always exactly this order-dependent mid-frame, so no
-	# caller gets a stronger guarantee taken away from it.
+	_update_aiming_process()
+	_update_glitch(delta)
+	_update_kill_feedback(delta)
+	_sync_shadow_lights()
+	# Godot runs physics before process on the same frame, so by the time this reads
+	# `_distractions` every sim tick this frame (possibly several, at high speed) has
+	# already run — a distraction spawned or killed this frame is already reflected,
+	# same guarantee the original single-tick-per-frame version had (P5, docs/refactor/
+	# PATHFINDING.MD's original horde_renderer comment), now resting on Godot's own
+	# physics-before-process ordering instead of incidental per-node call order.
+	horde_renderer.rebuild(_distractions)
+	queue_redraw()
+	_update_hover()
+
+	# Screen Shake decay — _shake_rng, not the shared global stream; see its own comment.
+	if _shake_amount > 0.05:
+		_shake_amount = lerpf(_shake_amount, 0.0, 12.0 * delta)
+		position = Vector2(_shake_rng.randf_range(-_shake_amount, _shake_amount),
+			_shake_rng.randf_range(-_shake_amount, _shake_amount))
+	else:
+		_shake_amount = 0.0
+		position = Vector2.ZERO
+
+## Matches the project's default physics_ticks_per_second (60) and, not by coincidence,
+## `--fixed-fps 60` — the flag every determinism harness in this project launches with
+## (level_simulator.gd's own header). A constant, never scaled by speed: accumulating N
+## of them is the same math regardless of how many real frames it took to fire them,
+## which is the one property Engine.time_scale itself cannot offer (see this file's
+## "speed & pause" section header for why).
+const FIXED_TICK_DT := 1.0 / 60.0
+
+## Fractional tick budget: gains `_current_speed()` worth of ticks per real
+## _physics_process() call (0.0 while paused), fires floor(budget) whole ticks and keeps
+## the remainder — 1 tick/call at 1×, up to 4 at 4×, roughly one every 4 calls at 0.25×.
+var _tick_budget := 0.0
+
+## How many fixed sim ticks this level has run, total — the authoritative "elapsed
+## simulated time" clock (tick_count * FIXED_TICK_DT). Speed-independent by
+## construction: reaching a given amount of simulated time always takes the same number
+## of ticks, whether they arrived one per real frame or four. Sfx reads this (see
+## Sfx.sync_sim_ms(), called from _sim_tick() below) so its own anti-spam throttle never
+## drifts against a SEPARATE, real-frame-accumulated approximation of the same quantity.
+var _sim_tick_count := 0
+
+## Godot's own fixed-rate callback. physics_ticks_per_second stays at the project
+## default — this does not add or remove physics steps, it decides how many
+## FIXED_TICK_DT-sized sim ticks fire inside each one. Runs whether or not the tree is
+## paused (this node is PROCESS_MODE_ALWAYS — see _ready()) specifically so `_paused` is
+## what gates the simulation, not Godot's own pause machinery: a build/sell/aim/
+## Quick-Hit/intervention command issued while paused must still reach its handler, and
+## the accumulator gaining zero budget here is what actually keeps distraction movement,
+## timers, wave spawning and damage frozen.
+func _physics_process(_delta: float) -> void:
+	if game_ended:
+		return
+	_tick_budget += 0.0 if _paused else _current_speed()
+	while _tick_budget >= 1.0:
+		_tick_budget -= 1.0
+		var was_between_waves := between_waves
+		_sim_tick(FIXED_TICK_DT)
+		if between_waves != was_between_waves:
+			# A wave just started or ended on THIS tick. Discard the rest of this
+			# frame's budget instead of continuing to drain it — otherwise, at a speed
+			# where several ticks batch into one real frame, the ticks AFTER the
+			# transition would keep spending the new phase's own clock (e.g. the
+			# early-call wave bonus, which starts counting down the instant build phase
+			# begins) before anything watching for the phase change — a real player, or
+			# LevelSimulator's frame-granular SimStrategy (see sim_strategy.gd's own
+			# header: "ticked once per simulated frame") — ever gets a chance to react
+			# to it. At 1x this is a no-op (never more than one tick per frame anyway);
+			# at 4x it is the difference between a bit-identical result and a wave bonus
+			# that quietly differs by a tick or three depending on where inside a
+			# 4-tick batch the transition happened to land (Q1, docs/refactor/
+			# PATHFINDING.MD — found by _test_timecontrol.gd itself failing on exactly
+			# this, a couple of Dopamine off between 1x and 4x, before this fix).
+			_tick_budget = 0.0
+			break
+
+## Everything that can change a RESULT_FIELDS value lives here — this is the body
+## _process() used to be, unchanged in order (nothing here ever depended on Godot's own
+## inter-node call order; habits/distractions/projectiles/defenders were always
+## separately-scheduled Node._process() calls with no ordering guarantee relative to
+## Game's own — this function now IS that ordering, made explicit and reproducible
+## instead of incidental). Called 0-4 times per real frame by _physics_process()'s
+## accumulator, always with the SAME constant FIXED_TICK_DT, which is what makes a 4×
+## run bit-identical to a 1× run of the same seed: the same sequence of fixed-size steps
+## runs either way, just bunched differently across real frames.
+func _sim_tick(delta: float) -> void:
+	_sim_tick_count += 1
+	# Sfx's own anti-spam throttle needs to read the SAME authoritative clock this tick
+	# runs on rather than its own independently-accumulated approximation — see
+	# Sfx._sim_ms's own comment for the bug this closes (found by _test_timecontrol.gd
+	# itself failing non-reproducibly before this fix).
+	Sfx.sync_sim_ms(roundi(float(_sim_tick_count) * FIXED_TICK_DT * 1000.0))
+	# Rebuilt once per TICK rather than per query — see query_distractions_near()'s
+	# header. Positions in it are wherever each distraction was at the END OF THE
+	# PREVIOUS tick — up to one tick stale, the same tolerance the old per-frame version
+	# had (P4, docs/refactor/PATHFINDING.MD), just precisely one tick now instead of
+	# ambiguously one engine-frame depending on scene-tree order.
 	_rebuild_distraction_hash()
 	_update_interventions(delta)
-	_update_aiming_process()
+	_tick_pending_impacts(delta)
+
+	# Snapshotted BEFORE anything below can append to either list this tick — matching
+	# the semantics Godot's automatic per-frame scheduling always had here (a node
+	# added to the tree mid-frame does not get its own _process() call until the frame
+	# after): a distraction that spawns or a shot that fires this tick starts moving on
+	# the NEXT one, not this one.
+	var distraction_batch := _distractions.duplicate()
+	var projectile_batch := _live_projectiles.duplicate()
+
 	if wave_spawning:
 		wave_time += delta
 		var spawned_any := false
@@ -3607,26 +3769,29 @@ func _process(delta: float) -> void:
 	_update_wave_bonus(delta)
 	_update_autoplay(delta)
 	_update_effort_offer()
-	_update_glitch(delta)
-	_update_kill_feedback(delta)
 	_update_routine_reach()
 	_update_fog(delta)
-	_sync_shadow_lights()
-	_check_wave_progress()
-	# After the wave-spawn block above: a distraction spawned THIS frame is already in
-	# `_distractions` by now, so it lands in this same frame's batch instead of popping
-	# in one frame late (P5, docs/refactor/PATHFINDING.MD — see horde_renderer.gd).
-	horde_renderer.rebuild(_distractions)
-	queue_redraw()
-	_update_hover()
 
-	# Screen Shake decay
-	if _shake_amount > 0.05:
-		_shake_amount = lerpf(_shake_amount, 0.0, 12.0 * delta)
-		position = Vector2(randf_range(-_shake_amount, _shake_amount), randf_range(-_shake_amount, _shake_amount))
-	else:
-		_shake_amount = 0.0
-		position = Vector2.ZERO
+	# Live entities, driven directly rather than through Godot's automatic per-node
+	# _process() — each disables its own automatic scheduling on setup (see e.g.
+	# enemy.gd's set_process(false) and its header comment) — so this loop is the ONE
+	# place deciding how many times each one advances, in a fixed order that never
+	# varies with speed.
+	for d: Distraction in distraction_batch:
+		if is_instance_valid(d) and not d.dead:
+			d._process(delta)
+	for spot: BuildSpot in build_spots.values():
+		if is_instance_valid(spot) and spot.state == BuildSpot.State.BUILT \
+				and is_instance_valid(spot.current_habit):
+			spot.current_habit._process(delta)
+	for p: Projectile in projectile_batch:
+		if is_instance_valid(p) and not p.dead:
+			p._process(delta)
+	for u in get_tree().get_nodes_in_group("defenders"):
+		if is_instance_valid(u) and not u._dying:
+			u._process(delta)
+
+	_check_wave_progress()
 
 func _update_aiming_process() -> void:
 	if not is_aiming or aiming_habit == null or not is_instance_valid(aiming_habit):
@@ -3673,7 +3838,18 @@ func _update_routine_reach() -> void:
 		# to znamenalo, ze vez SLO postavit mimo Routine, ale uz nikdy nevystrelila:
 		# _can_build branu obesel, tower.gd _process ji ne. Vez, ktera stoji a mlci,
 		# se cte jako bug, ne jako pravidlo -- a to pravidlo tam navic zadne nebylo.
-		h.in_routine = (not routine_gates_enabled) 			or is_position_in_routine(h.global_position, anchor_positions)
+		# `position`, not `global_position` — Q1, docs/refactor/PATHFINDING.MD.
+		# `_routine_sources`/anchor_positions are built from `position`/objective_pos
+		# (both already game-local, shake-free) below and at build_block()'s own
+		# is_position_in_routine() call (line ~3028) — mixing a shake-contaminated
+		# global_position into ONE of the two comparison sides let screen shake
+		# (add_shake(), decaying on real per-frame delta) flip in_routine for a habit
+		# sitting near CORE_ROUTINE_RADIUS/ANCHOR_ROUTINE_RADIUS's edge, which gates
+		# whether it fires at all — found by _test_timecontrol.gd's cheap-even block
+		# giving a real, reproducible (not flaky) kill-count difference between 1x and
+		# 4x even after the projectile/targeting fixes next to this one.
+		h.in_routine = (not routine_gates_enabled) \
+			or is_position_in_routine(h.position, anchor_positions)
 		if not h.in_routine:
 			any_stalled = true
 	if any_stalled and _hints != null:
@@ -3699,8 +3875,10 @@ func compute_routine_sources(anchor_habits: Array) -> Array:
 		grew = false
 		var still_pending := []
 		for a in pending:
-			if is_position_in_routine(a.global_position, sources):
-				sources.append(a.global_position)
+			# `position`, not `global_position` — see _update_routine_reach()'s own
+			# comment (Q1, docs/refactor/PATHFINDING.MD).
+			if is_position_in_routine(a.position, sources):
+				sources.append(a.position)
 				grew = true
 			else:
 				still_pending.append(a)
@@ -3729,6 +3907,137 @@ func _update_hover() -> void:
 
 	if should_redraw:
 		queue_redraw()
+	_update_hover_tooltip()
+
+# ---------------------------------------------------------------- hover stats (Q1)
+#
+# Full live stats on hover, for both habits and distractions — the click-to-open panel
+# (_open_panel) already showed a habit's numbers, but only once built AND only after a
+# click, and it never covered distractions at all. This is the missing "what am I
+# looking at, right now" readout the task asks for: no click, no truncation.
+
+var _hover_tooltip: PanelContainer = null
+var _hover_tooltip_label: Label = null
+
+func _build_hover_tooltip() -> void:
+	_hover_tooltip = UI.panel(UI.BORDER_HI, 1)
+	_hover_tooltip.visible = false
+	# A tooltip that eats the click meant for the thing underneath it is worse than no
+	# tooltip — see UI.panel()'s own header for why it defaults to STOP.
+	_hover_tooltip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hover_tooltip.custom_minimum_size = Vector2(190, 0)
+	_hover_tooltip_label = Label.new()
+	_hover_tooltip_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hover_tooltip_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_hover_tooltip_label.add_theme_font_size_override("font_size", UI.FS_SMALL)
+	_hover_tooltip_label.add_theme_color_override("font_color", UI.TEXT_DIM)
+	_hover_tooltip.add_child(_hover_tooltip_label)
+	_hud_root.add_child(_hover_tooltip)
+
+## Nearest live distraction whose body the cursor is actually over — a coarse spatial-
+## hash prefilter (same one tower targeting uses) then an exact radius test, matching
+## how every other hit-adjacent check in this file already works.
+func _distraction_under_mouse(world_pos: Vector2) -> Distraction:
+	var best: Distraction = null
+	var best_d := INF
+	for d in query_distractions_near(world_pos, 48.0):
+		if not is_instance_valid(d) or d.dead:
+			continue
+		var dist: float = world_pos.distance_to(d.global_position)
+		if dist <= d.def.radius + 6.0 and dist < best_d:
+			best_d = dist
+			best = d
+	return best
+
+func _update_hover_tooltip() -> void:
+	if _hover_tooltip == null:
+		return
+	# Don't fight an open panel, an active aim/rally drag, or the draft screen for
+	# screen space — those already show their own, more actionable numbers.
+	if is_aiming or is_setting_rally or _active_panel != null \
+			or is_instance_valid(_draft_overlay):
+		_hover_tooltip.visible = false
+		return
+
+	var text := ""
+	if build_spots.has(_hover_cell):
+		var spot: BuildSpot = build_spots[_hover_cell]
+		if spot.state == BuildSpot.State.BUILT and is_instance_valid(spot.current_habit):
+			text = _habit_hover_text(spot.current_habit)
+	var world_pos := get_global_mouse_position()
+	if text == "":
+		var d := _distraction_under_mouse(world_pos)
+		if d != null:
+			text = _distraction_hover_text(d)
+
+	if text == "":
+		_hover_tooltip.visible = false
+		return
+	_hover_tooltip_label.text = text
+	_hover_tooltip.visible = true
+	_hover_tooltip.reset_size()
+	var mouse: Vector2 = get_viewport().get_mouse_position()
+	var vp: Vector2 = get_viewport_rect().size
+	var pos := mouse + Vector2(18, 18)
+	pos.x = clampf(pos.x, 0.0, maxf(0.0, vp.x - _hover_tooltip.size.x))
+	pos.y = clampf(pos.y, 0.0, maxf(0.0, vp.y - _hover_tooltip.size.y))
+	_hover_tooltip.position = pos
+
+## Full stats for a placed habit: base/current combat numbers (reusing the same
+## _habit_stats_line the click-to-open panel already shows), plus everything that only
+## changes live and the panel never surfaced — Routine state, work/rest countdown,
+## disrupt countdown, fire cooldown.
+func _habit_hover_text(h) -> String:
+	var def := Data.get_habit(h.type_key)
+	var lines: Array[String] = [def.name]
+	lines.append(_habit_stats_line(def, h as Habit if h is Habit else null))
+	if not h.in_routine:
+		lines.append("⚠ Not in Routine — idle")
+	if h is Habit:
+		var hb: Habit = h
+		if hb.disrupted_left > 0.0:
+			lines.append("Disrupted: %.1fs left" % hb.disrupted_left)
+		if hb.has_work_cycle():
+			if hb.is_resting():
+				lines.append("Resting: %.1fs left" % hb.break_left)
+			else:
+				lines.append("Work left: %.1fs" % hb.work_left)
+		if not def.is_support():
+			lines.append("Cooldown: %.2fs" % maxf(0.0, hb.cooldown))
+	if not def.is_support() and not def.is_blocker:
+		lines.append("Defeated %d · %d damage dealt" % [h.kills, h.damage_dealt])
+	return "\n".join(lines)
+
+## Full stats for a live distraction: health, effective (post-resistance) speed, both
+## damage-channel resistances, and every active status — nothing here is guessable from
+## the board alone (a Calm'd body and a merely slow archetype look the same at a glance).
+func _distraction_hover_text(d: Distraction) -> String:
+	var lines: Array[String] = [d.def.display_name]
+	lines.append("HP %d / %d" % [d.current_health, d.max_health])
+	lines.append("Speed %.0f (base %.0f)" \
+		% [d.current_speed * d.status_manager.move_scale(), d.current_speed])
+	lines.append("Resists: %d %s · %d %s" % [d.effective_compulsion(), Data.TERM.damage,
+		d.effective_rationalization(), Data.TERM.mind_damage])
+	var sm := d.status_manager
+	var statuses: Array[String] = []
+	if sm.has_slow():
+		statuses.append("Calm x%.2f" % sm.slow_factor)
+	if sm.has_haste():
+		statuses.append("Rush x%.2f" % sm.haste_factor)
+	if sm.has_reframe():
+		statuses.append("Reframe −%d" % sm.reframe_amount)
+	if sm.has_boredom():
+		statuses.append("Boredom %s/s" % String.num(sm.boredom_dps, 1))
+	if sm.has_vulnerable():
+		statuses.append("Vulnerable x%.2f" % sm.vulnerable_mult)
+	if d.is_overdriven():
+		statuses.append("Overdrive")
+	if d.is_blocked:
+		statuses.append("Blocked")
+	if d is Boss and (d as Boss).is_shielded():
+		statuses.append("Denial Shield up")
+	lines.append("Status: %s" % (", ".join(statuses) if not statuses.is_empty() else "none"))
+	return "\n".join(lines)
 
 func _check_wave_progress() -> void:
 	if not started or wave_spawning or between_waves:
@@ -3819,6 +4128,9 @@ func _enter_build_phase() -> void:
 	if _start_wave_button:
 		_start_wave_button.disabled = false
 		_start_wave_button.modulate = Color("7cffb2")
+	if _skip_wave_button:
+		_skip_wave_button.disabled = false
+		_skip_wave_button.modulate = Color.WHITE
 	_begin_build_timer()
 	_refresh_wave_preview()
 	queue_redraw()   # path previews come back for the build phase
@@ -3939,6 +4251,9 @@ func _on_start_wave_pressed() -> void:
 		_start_wave_button.disabled = true
 		_start_wave_button.modulate = Color(0.6, 0.6, 0.6)
 		_refresh_start_wave_button()
+	if _skip_wave_button:
+		_skip_wave_button.disabled = true
+		_skip_wave_button.modulate = Color(0.6, 0.6, 0.6)
 	if bonus > 0:
 		GameState.add_dopamine(bonus)
 		_pop_text(objective_pos, "+%d Early Call" % bonus, Color("7cffb2"))
@@ -3962,8 +4277,21 @@ func spawn_distraction(type_key: String, spawn_cell: Vector2i, gen: int = 0) -> 
 	# BEFORE setup(): the splitter's health and visual scale are both read off it there.
 	d.generation = gen
 	d.setup(self, type_key)
+	# `position` is relative to `entities`, which never itself moves — that alone
+	# already places `d` correctly via normal Node2D transform propagation. Reassigning
+	# `global_position` from the LOCAL value used to sit here too, and it was always
+	# wrong the moment any ancestor's transform was non-identity: Game.position IS the
+	# screen-shake offset (add_shake()), so any shake active at the instant a wave spawn
+	# landed baked that frame's shake offset into this distraction's ACTUAL position as
+	# a real, permanent error. Harmless-looking before Q1 (nothing ever compared
+	# positions bit-for-bit across two runs of a combat-involving level), but a kill's
+	# own add_shake(7.0) plus this bug is exactly what made a post-kill spawn land at a
+	# different position depending on real per-frame shake-decay timing relative to the
+	# fixed sim tick — found by _test_timecontrol.gd's cheap-even block diverging even
+	# at a FIXED speed, three different kill counts across three same-seed launches,
+	# before this fix (Q1, docs/refactor/PATHFINDING.MD). See spawn_split()'s matching
+	# fix below for the second site.
 	d.position = cell_center(spawn_cell)
-	d.global_position = d.position
 	# Flyers ignore the maze and steer straight at the objective (Distraction._fly());
 	# current_cell stays unused for them, but harmless to set.
 	d.current_cell = spawn_cell
@@ -3986,7 +4314,14 @@ func spawn_directional_projectile(pos: Vector2, dir_angle: float, max_dist: floa
 		knock: float = 0.0, stagger: float = 1.0) -> void:
 	var p: Projectile = projectile_pool.acquire()
 	if p != null:
-		p.global_position = pos
+		# `position`, not `global_position` — `pos` arrives already expressed in the
+		# same shake-free game-space every other gameplay position uses (Q1, docs/
+		# refactor/PATHFINDING.MD — see tower.gd's _fire() and projectile.gd's own
+		# _process() for why). Projectile is parented directly under Game, and
+		# `entities` (everything else's parent) sits at Game's own local origin with
+		# no rotation/scale, so this is the same numeric space Distraction/Habit
+		# `position` already lives in.
+		p.position = pos
 		p.setup_directional(self, dir_angle, max_dist, wp, aw, color, source,
 			dot, dot_duration, spin, pierce, padding, knock, stagger)
 		_live_projectiles.append(p)
@@ -4206,8 +4541,9 @@ func spawn_split(parent: Distraction, index: int) -> void:
 	# Fan them apart so a split reads as several bodies rather than one that got smaller.
 	var spread: float = Data.GRID.tile * 0.3
 	var angle: float = TAU * (float(index) + 0.5) / float(maxi(1, parent.def.split_count))
+	# `position` alone is already correct — see spawn_distraction()'s matching comment
+	# for why reassigning `global_position` from it here was the same latent bug.
 	child.position += GridProjection.ground_dir_to_screen(angle) * spread
-	child.global_position = child.position
 	Mirror.mark(&"split", parent.type_key)
 
 ## Fleeting archetype (FOMO): the offer closed on its own. No Focus damage, no reward,
@@ -5867,17 +6203,34 @@ const _HUD_BOTTOM_H := 24
 # A 12-wave level runs ~13 minutes at 1x, and the tail of every late wave is 20-30s of
 # one slow Doomscroll crawling while the player has nothing to do. Fast-forward is table
 # stakes for the genre; it is also what makes repeated playtesting affordable.
+#
+# Q1 (docs/refactor/PATHFINDING.MD): the ladder runs 0.25×-4× now, and speed no longer
+# scales Engine.time_scale for anything outcome-affecting — see FIXED_TICK_DT and
+# _physics_process() below. level_simulator.gd's own header already documented why:
+# Engine.time_scale scales a still-really-measured delta rather than replacing it with
+# an exact synthetic constant, so two runs at different speeds are not generally
+# bit-identical even for the SAME simulated duration (floating-point accumulation over a
+# differently-sized delta, across a different step count, plus every RNG draw or timer
+# that crosses a threshold mid-frame). Engine.time_scale is kept ONLY for the layer that
+# stays on Godot's own automatic per-frame call and never touches a RESULT_FIELDS value —
+# DistractionAnimator's walk cycle, particle bursts, screen shake, the glitch/flatten
+# shaders — so what the player SEES still speeds up and slows down with the button, at
+# zero cost to determinism.
 
-const SPEED_STEPS: Array[float] = [1.0, 2.0, 3.0]
-## Designer-mode F3 override — above the normal ladder on purpose: 3× is tuned for
-## players, a designer skimming dead time between layout decisions wants more.
+const SPEED_STEPS: Array[float] = [0.25, 1.0, 2.0, 4.0]
+## Designer-mode F3 override — above the normal ladder on purpose: a designer skimming
+## dead time between layout decisions wants more than any player-facing step offers.
 const DESIGNER_TURBO_SPEED := 5.0
+## Index into SPEED_STEPS a fresh level starts at — 1.0×, same default every level had
+## before this ladder grew a slower step below it.
+const DEFAULT_SPEED_INDEX := 1
 
-var _speed_index := 0
+var _speed_index := DEFAULT_SPEED_INDEX
 var _designer_turbo := false
 var _paused := false
 var _speed_button: Button = null
 var _pause_button: Button = null
+var _skip_wave_button: Button = null
 var _pause_menu: PauseMenu = null
 
 ## THE SPEED BUTTON IS THE IMPATIENCE METER. Every tower defense already has one, and
@@ -5897,10 +6250,22 @@ func set_speed_index(i: int) -> void:
 	_apply_time_scale()
 	Mirror.mark(&"speed_changed", SPEED_STEPS[_speed_index])
 
+## What the fixed-tick accumulator actually reads (_physics_process() below) — 0.0 while
+## paused, so the accumulator gains no budget and the sim tick count stays frozen no
+## matter what Engine.time_scale is doing for the cosmetic layer.
+func _current_speed() -> float:
+	return DESIGNER_TURBO_SPEED if _designer_turbo else SPEED_STEPS[_speed_index]
+
 ## Pausing IS opening the menu — a bare freeze with nothing on screen read as a hang,
-## and there was no way to abandon a run from inside it. While paused this game node
-## (PAUSABLE) stops processing entirely; the menu lives under _hud_root (ALWAYS) and
-## handles its own Resume input.
+## and there was no way to abandon a run from inside it. This game node is ALWAYS now
+## (see _ready()'s process_mode line) specifically so build/sell/aim/Quick-Hit/
+## intervention commands keep reaching their handlers while paused (Q1, docs/refactor/
+## PATHFINDING.MD) — the actual SIMULATION stays frozen because _physics_process()'s
+## accumulator reads `_paused` and gains zero ticks, not because this node stops running.
+## `entities` (this node's world-object container) is pinned back to PAUSABLE in
+## _ready() specifically so the purely cosmetic automatic processing under it (walk-cycle
+## animators, in-flight cosmetic tweens, particles) still freezes like before — only the
+## command path had to change.
 func _toggle_pause() -> void:
 	if _paused:
 		_close_pause_menu()
@@ -5932,14 +6297,21 @@ func _close_pause_menu() -> void:
 	_apply_time_scale()
 
 ## Engine.time_scale is global and survives a scene change, so it must be forced back to
-## 1.0 on the way out — otherwise the menus inherit 3x and every tween there runs wrong.
+## 1.0 on the way out — otherwise the menus inherit 4x and every tween there runs wrong.
 func _apply_time_scale() -> void:
-	var speed: float = DESIGNER_TURBO_SPEED if _designer_turbo else SPEED_STEPS[_speed_index]
+	var speed := _current_speed()
 	Engine.time_scale = 1.0 if _paused else speed
 	if _speed_button:
-		_speed_button.text = "%.0f×" % speed
+		_speed_button.text = _speed_label(speed)
 	if _pause_button:
 		_pause_button.text = "▶" if _paused else "❚❚"
+
+## "%.0f×" alone would print 0.25× as "0×" — everything from 1.0 up still reads as a
+## bare integer (2×, not 2.00×).
+static func _speed_label(speed: float) -> String:
+	if speed < 1.0:
+		return "%s×" % String.num(speed, 2)
+	return "%.0f×" % speed
 
 func _reset_time_scale() -> void:
 	Engine.time_scale = 1.0
@@ -5972,6 +6344,7 @@ func _build_hud() -> void:
 
 	_build_top_bar()
 	_build_bottom_bar()
+	_build_hover_tooltip()
 
 	# A designer run must LOOK different from a real one, or an F1-funded balance
 	# impression sneaks into memory as a real result. The badge doubles as the cheat
@@ -6187,10 +6560,21 @@ func _build_bottom_bar() -> void:
 	_pause_button.pressed.connect(_toggle_pause)
 	row.add_child(_pause_button)
 
-	_speed_button = UI.button("1×", UI.FS_HEAD, Vector2(72, 0))
-	_speed_button.tooltip_text = "Game speed — click to cycle 1× / 2× / 3× (+ and −)"
+	_speed_button = UI.button(_speed_label(_current_speed()), UI.FS_HEAD, Vector2(72, 0))
+	_speed_button.tooltip_text = "Game speed — click to cycle 0.25× / 1× / 2× / 4× (+ and −)"
 	_speed_button.pressed.connect(_cycle_speed)
 	row.add_child(_speed_button)
+
+	# Skip to next wave — the same "end the build phase now" action Start Wave already
+	# is (both call _on_start_wave_pressed()), surfaced a second time next to Pause/Speed
+	# so it reads as part of the SAME time-control cluster rather than being the only
+	# time control buried in the wave-management area on the far right (Q1, docs/
+	# refactor/PATHFINDING.MD).
+	_skip_wave_button = UI.button("Skip ▶▶", UI.FS_BODY, Vector2(84, 0))
+	_skip_wave_button.tooltip_text = "Skip the build phase and jump straight into the " \
+		+ "next wave (same as Start Wave)."
+	_skip_wave_button.pressed.connect(_on_start_wave_pressed)
+	row.add_child(_skip_wave_button)
 
 	row.add_child(UI.spacer(Vector2(14, 0)))
 

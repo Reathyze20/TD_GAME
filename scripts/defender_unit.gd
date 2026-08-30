@@ -103,6 +103,9 @@ func setup_from_data(_game, _data: DefenderData, _rally: Vector2, _offset: Vecto
 	_color = Color(_data.color)
 	_load_frames()
 	queue_redraw()
+	# Driven by Game's fixed-tick accumulator from here (Q1, docs/refactor/
+	# PATHFINDING.MD) — see _process()'s header comment.
+	set_process(false)
 
 ## Summon path — the old Ally.setup signature, kept verbatim so the intervention and
 ## card-burst call sites read the same as before the rename. Capacity 1, no abilities.
@@ -120,9 +123,18 @@ func setup(_game, _rally_point: Vector2, _ally_health: int, _ally_damage: int,
 	global_position = rally_point
 	state = State.IDLE
 	queue_redraw()
+	set_process(false)   # see _process()'s header comment
 
 # ---------------------------------------------------------------- state machine
 
+## Driven by Game's fixed-tick accumulator (Q1, docs/refactor/PATHFINDING.MD), not
+## Godot's automatic per-frame call — see the `set_process(false)` in the two setup()
+## paths below. Existing harnesses calling this directly (`u._process(dt)`) are
+## unaffected. The one exception is an already-dead body playing its death frames
+## (`died` already fired synchronously in _die(), before `_dying` is even set — see its
+## comment): _die() re-enables automatic processing there, specifically so that purely
+## cosmetic tail keeps advancing on real per-frame delta after this unit has dropped out
+## of Game's live groups and stopped receiving explicit tick calls.
 func _process(delta: float) -> void:
 	# A dying body only plays its death frames out; every live behaviour is already off.
 	if _dying:
@@ -235,14 +247,19 @@ func _execute_clash(target: Distraction) -> void:
 	if _pinned_weight() + weight <= block_capacity and not _pinned.has(target):
 		target.add_blocker(self)
 		_pinned.append(target)
-		# The clash knockback sells the stop — safe to tween the position directly now
-		# that is_blocked has halted its cell-path movement.
+		# The clash knockback sells the stop. Tweens `_hit_wobble` (a draw-transform
+		# offset), NOT `position` — `position` is also what the fixed sim tick reads and
+		# writes every tick (Q1, docs/refactor/PATHFINDING.MD); a real-time Tween nudging
+		# the same field would land at a different point relative to tick boundaries
+		# depending on the run's speed, breaking bit-identical determinism the instant a
+		# defender landed a hit. `is_blocked` already halts the target's cell-path
+		# movement, so the wobble reads the same as a physical shove without touching the
+		# gameplay position.
 		var dir := (target.global_position - global_position).normalized()
-		var orig := target.position
 		var tw := target.create_tween()
-		tw.tween_property(target, "position", orig + dir * 6.0, 0.1) \
+		tw.tween_property(target, "_hit_wobble", dir * 6.0, 0.1) \
 			.set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
-		tw.tween_property(target, "position", orig, 0.08)
+		tw.tween_property(target, "_hit_wobble", Vector2.ZERO, 0.08)
 	state = State.ATTACK
 	attack_timer = 0.0
 	_attack_anim_t = 999.0
@@ -397,6 +414,11 @@ func _die() -> void:
 		_dying = true
 		_anim_t = 0.0
 		queue_redraw()
+		# Re-enable Godot's automatic per-frame call for the cosmetic death-anim tail —
+		# see _process()'s header comment. Everything RESULT_FIELDS-relevant already
+		# happened above (died.emit) and this unit is off every group Game's fixed tick
+		# walks by the time anything would call it again.
+		set_process(true)
 		return
 	# No death art: burst from the shared FX pool instead.
 	if game != null and "impact_fx_pool" in game:
