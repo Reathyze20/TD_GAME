@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/_shot_contact_sheet.gd" id="1_xd2xo"]
+
+[node name="ShotContactSheet" type="Node" unique_id=190307131]
+script = ExtResource("1_xd2xo")
