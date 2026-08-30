@@ -1391,3 +1391,4 @@ Pak zpátky opraveno a přegenerováno.
 
 - verify.sh: PASS (28 pass, 0 fail, 5 known-broken).
 - Status P0c: `todo` → `done`.
+- Commit: 88c70b4.
