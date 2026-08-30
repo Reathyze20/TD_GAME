@@ -473,6 +473,32 @@ Hotovo když: `_test_segments` ověří, že **každá** kombinace odemčených 
 dá validní dokončitelnou mapu (cesta z každého aktivního spawnu k cíli),
 že se vejde na obrazovku, a že skládání je deterministické.
 
+**ROZHODNUTO 2026-08-30 (uživatel), tři otevřené otázky, které `Needs-me: yes`
+držel.** Zadání výš je ponecháno beze změny; tohle je jeho doplnění, ne přepis.
+
+1. **Co segment skládá.** `MapSegmentData` nenese vlastní geometrii v žádném
+   novém poli — **odkazuje na další `LevelData`** (stejné „odkazem, ne kopií",
+   jaké P0 už rozhodl pro `base`). Struktura výš zůstává, jak je; geometrie
+   segmentu se čte z toho odkazovaného `LevelData`, umístěná na `anchor_offset`.
+   Důvod: pole `adds_spawns` samo o sobě nedávalo `anchor_offset` ani limitu
+   „vejde se na obrazovku" žádný smysl — spawny plochu mapy nerozšiřují.
+2. **Odkud se bere místo.** **Zmenšit základní mřížku.** Naměřeno na skutečných
+   datech (ne odhad): `Data.GRID` je 30×14, viditelných je 30×17.
+   - Vodorovně je rezerva **nula** (480 px / 16 px = přesně 30 sloupců) a
+     `level_1`/`level_98` sahají po `x = 28` (objective je `Vector2i(28, 7)` v
+     obou) — volný je jediný sloupec 29. Vodorovně tedy prakticky zmenšovat
+     nelze bez přeautorování levelů.
+   - Svisle obsah obou levelů zabírá jen `y = 2..11`; řádky 0, 1, 12, 13 jsou
+     prázdné. Mřížka smí spadnout na **12 řádků** (0..11), aniž by cokoli
+     vypadlo z rozsahu. Rozpočet na růst segmentů je pak **17 − 12 = 5 řádků
+     svisle, ~1 sloupec vodorovně.**
+   - Pozor: **objective je na `x = 28`.** Jakékoli VODOROVNÉ zmenšení pod 29
+     sloupců ho vyhodí mimo mřížku a rozbije pathfinding — přesně ta chyba, kterou
+     PROGRESS.md zaznamenal u T0 („objective mimo 24×24 mřížku"). Zmenšovat tedy
+     jen svisle.
+3. **Co kontroluje `unlock_condition`.** **`MetaProgression`** (existující
+   autoload) — odemčení přežívá napříč runy, ne per-level a ne přes growth strom.
+
 ## P8b — fog_bandwidth před P9
 Model: opus
 Needs-me: no
