@@ -2391,3 +2391,5 @@ auto-generovaný importem), `scenes/_test_telegraph.tscn` (nový),
 auto-generovaný importem), `scenes/_shot_telegraph.tscn` (nový),
 `.dev/screenshots/p7_telegraph.png` (nový), `docs/refactor/PATHFINDING.MD`
 (P7 → done).
+
+Commit: `9ddfa50`.
