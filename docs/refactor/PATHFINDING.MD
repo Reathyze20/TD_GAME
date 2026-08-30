@@ -482,7 +482,16 @@ držel.** Zadání výš je ponecháno beze změny; tohle je jeho doplnění, ne
    segmentu se čte z toho odkazovaného `LevelData`, umístěná na `anchor_offset`.
    Důvod: pole `adds_spawns` samo o sobě nedávalo `anchor_offset` ani limitu
    „vejde se na obrazovku" žádný smysl — spawny plochu mapy nerozšiřují.
-2. **Odkud se bere místo.** **Zmenšit základní mřížku.** Naměřeno na skutečných
+2. **Odkud se bere místo.** **Zmenšit základní mřížku.**
+   > ⚠️ **TENHLE BOD STOJÍ NA CHYBNÉM ČÍSLE — viz „VYŘEŠENO" níž.** „Viditelných
+   > 30×17" (převzato ze zadání výš) je `270/16` BEZ odečtení HUD lišt; skutečně
+   > viditelných je **30×14**, tedy přesně to, co `Data.GRID` už má. Mřížka se
+   > proto NEZMENŠOVALA — zmenšení by volné místo sebralo, ne vytvořilo.
+   > Ponecháno beze změny jako záznam toho, co bylo rozhodnuto a proč;
+   > „naměřeno na skutečných datech" platí pro čísla o levelech (x≤28, y 2..11),
+   > ne pro ten počet viditelných řádků.
+
+   Naměřeno na skutečných
    datech (ne odhad): `Data.GRID` je 30×14, viditelných je 30×17.
    - Vodorovně je rezerva **nula** (480 px / 16 px = přesně 30 sloupců) a
      `level_1`/`level_98` sahají po `x = 28` (objective je `Vector2i(28, 7)` v
