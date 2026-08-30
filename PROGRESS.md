@@ -2661,3 +2661,5 @@ Dotčené soubory: `scripts/resources/map_segment_data.gd` (nový),
 (`is_segment_unlocked()`/`unlock_segment()`), `scripts/save_game.gd`
 (`unlocked_segments`), `verify.sh` (`_test_segments` do `FIXED_FPS_TESTS`),
 `docs/refactor/PATHFINDING.MD` (P8 → done).
+
+Commit: `0ee7960`.
