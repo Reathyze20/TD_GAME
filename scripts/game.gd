@@ -1807,11 +1807,18 @@ func _random_spawn_cell(wave_number: int = 1, wave_elapsed: float = INF) -> Vect
 #     is_pos_visible() is the O(1) lookup the combat hot paths gate on: is_point_in_cone
 #     (AoE pulses, Pomodoro work check), the projectile hit loop, and board_live.
 
-const TOWER_LAMP_RADIUS := 56.0       ## the glow a habit casts on its own tile, so it is
+## All three halved at P8b with CORE_ROUTINE_RADIUS -- same cause, same factor, see that
+## constant's block for the derivation (T5 halved the build block from 96 px to 48 px).
+const TOWER_LAMP_RADIUS := 28.0       ## the glow a habit casts on its own tile, so it is
 									  ## not a silhouette standing in its own darkness.
 									  ## Sight down-range comes from the WEDGE below.
-const DEFENDER_LIGHT_RADIUS := 90.0
-const PROJECTILE_LIGHT_RADIUS := 26.0 ## cosmetic only, never grants sight
+									  ## Under 48 (the block pitch) it now lights EXACTLY
+									  ## the block it stands on, which is what the line
+									  ## above always claimed; at 56 on a 48 px lattice
+									  ## it was quietly handing out four free neighbours.
+const DEFENDER_LIGHT_RADIUS := 45.0   ## likewise under the 48 px block pitch: a defender
+									  ## lights the block it stands on, not the next one.
+const PROJECTILE_LIGHT_RADIUS := 13.0 ## cosmetic only, never grants sight
 
 # A HABIT LIGHTS THE WEDGE IT SHOOTS INTO.
 #
@@ -4802,8 +4809,31 @@ func _on_distraction_reached_core(d: Distraction) -> void:
 
 ## How far the Routine reaches. Named constants rather than magic numbers scattered
 ## across the draw and update paths, which is where they used to drift apart.
-const CORE_ROUTINE_RADIUS := 330.0
-const ANCHOR_ROUTINE_RADIUS := 260.0
+##
+## HALVED AT P8b (2026-08-30), AND THE HALF IS DERIVED, NOT TASTED. These were authored
+## for the pre-T5 isometric board and `26814f9` carried them across byte-identical while
+## the board underneath them changed size. What actually changed is the size of ONE BUILD
+## BLOCK: T5 took `GRID.tile` from 32 px to 16 px and left `BUILD_BLOCK` at 3, so a block
+## went from 96 px of board to 48 px (block area 9216 -> 2304 px^2, i.e. exactly half in
+## every linear measure). Every radius on this page means "reaches N build blocks", so
+## every one of them halves with the block. No fitting, no per-level tuning: 330 -> 165,
+## 260 -> 130, and the same 0.5 applied to the lamp/defender/projectile radii in the brain
+## fog section and to every `range` in data/habits/.
+##
+## What it was costing: on the 480x224 board, 330 px lit 35 of the 50 build blocks from
+## level_1's objective and 87% of them averaged over every possible objective position.
+## Brain Fog was a mechanic that could not fail to be satisfied. At 165 it is 18 of 50
+## (45% averaged), which is where the pre-T5 board sat (38%).
+##
+## 165 also stays OFF the 48 px build lattice on purpose. A radius that is an exact
+## multiple of 48 puts a whole ring of build blocks at distance == radius, where
+## is_position_in_routine()'s `<=` decides membership on a floating-point tie.
+const CORE_ROUTINE_RADIUS := 165.0
+## Kept at 0.79 of the core's, exactly as before the halving -- an Anchor extends the
+## Routine by less than the core projects it, so chaining outward costs something.
+## data/habits/anchor.tres's `range` MUST match this: it is a support habit, and
+## HabitData's own header says a support habit's range ring IS its Routine radius.
+const ANCHOR_ROUTINE_RADIUS := 130.0
 ## Habit id that extends the Routine. One place to change if the id ever moves.
 const ANCHOR_HABIT := "anchor"
 

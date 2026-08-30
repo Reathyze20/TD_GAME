@@ -630,6 +630,89 @@ v CLAUDE.md: přeškálovat světla/dostřel je **balance obsahu**, přeautorova
 na PI je **úprava `_test_*`, aby prošel** — a ta výslovně potřebuje tvoje svolení.
 Volby a jejich důsledky ti dávám v odpovědi; nehádám.
 
+**DIAGNÓZA OVĚŘENA V ENGINU 2026-08-30. PŘEŠKÁLOVÁNÍ HOTOVO, ZBYTEK POŘÁD BLOKOVANÝ.**
+
+Diagnóza výš vznikla čistě čtením kódu a nikdy neběžela. Teď běžela: jednorázový
+harness (`_diag_p8b`, po měření smazaný) instancoval `Game.tscn` a vypsal skutečnost.
+**Engine potvrdil každé číslo na číslici** — `objective_pos (456, 137)`, disk jádra
+**35 z 50** bloků, tři build spoty ve vzdálenosti **292 / 292 / 144** px a všechny
+uvnitř Routine, lampa habitu **+1** → **36**, arc 15→120 při facing 0 dá **36 → 36**,
+otočení na PI dá **−0 / +9** (diagnóza psala +7; rozdíl je jen tím, že měřila při
+arcu, který fixture nastavuje o krok dřív — směr i podstata sedí) a všech 14 tmavých
+bloků má `dx ≤ −336`, tedy leží na západ. Nic z toho nebyl artefakt aritmetiky.
+
+Zároveň se potvrdilo, že **věta v `KNOWN_BROKEN.md` je nepravdivá, jak je napsaná**:
+tentýž habit otočený na západ dává `arc 15 / 60 / 120 → 38 / 43 / 50` bloků. Dial
+funguje. Fixture ho jen měří ve směru, kde ho disk jádra celý pohltí.
+
+**Co se změnilo (přeškálování, schváleno uživatelem).** Faktor je **odvozený, ne
+odhadnutý: přesně 0,5**, protože T5 zmenšil `GRID.tile` z 32 na 16 px a nechal
+`BUILD_BLOCK` na 3 — jeden stavební blok tedy spadl z **96 px desky na 48 px**
+(plocha bloku 9216 → 2304 px², tj. půlka v každém lineárním rozměru). Každý rádius
+na téhle stránce znamená „dosáhne na N bloků", takže se každý dělí dvěma:
+
+| konstanta | bylo | je | důsledek |
+|---|---|---|---|
+| `CORE_ROUTINE_RADIUS` | 330 | **165** | disk jádra **35 → 18** z 50 bloků (87 % → 45 % průměrem přes všechny možné pozice objective; před T5 to bylo 38 %) |
+| `ANCHOR_ROUTINE_RADIUS` | 260 | **130** | poměr k jádru zůstal 0,79 |
+| `TOWER_LAMP_RADIUS` | 56 | **28** | pod 48px roztečí bloků → svítí PŘESNĚ na vlastní blok, což komentář vždycky tvrdil; při 56 rozdával čtyři sousedy zdarma |
+| `DEFENDER_LIGHT_RADIUS` | 90 | **45** | totéž |
+| `PROJECTILE_LIGHT_RADIUS` | 26 | **13** | jen kosmetika |
+| `HabitData.range` default | 360 | **180** | + všech 12 authorovaných `range` v `data/habits/` děleno dvěma |
+
+`data/habits/anchor.tres` má `range` svázaný s `ANCHOR_ROUTINE_RADIUS` (support habit
+kreslí Routine rádius jako range ring) — obojí je 130. Jeho anglický popisek
+„Extends your Routine 260px" byl přepsaný na 130px, jinak by hráči lhal.
+
+165 navíc **schválně není násobek 48**: rádius přesně na stavební mřížce položí celý
+prstenec bloků na `vzdálenost == rádius`, kde o členství rozhoduje `<=` na
+floatové shodě.
+
+**Co to opravilo.** Selhání č. 1 („empty spot outside the Routine") je **zelené** —
+(19,7) je ve 144 px uvnitř, (10,4) a (10,10) ve 292 px venku. Fixture spadl ze **3
+selhání na 2**. Drží i `sight ⊇ fire`: kontrola „the firing edge is lit along its
+whole length" prošla (0 z 6 sond ve tmě) i po zkrácení kužele, protože
+`WEDGE_LIGHT_SCALE` 1,0 a `LIGHT_SKIRT` 1,35 jsou poměry, ne délky.
+
+**Co to NEopravilo a proč — přepočítáno znovu, už s novým dosahem.** Diagnóza svou
+tabulku počítala při `range` = 360; dosah se mezitím zmenšil, takže se závěr ověřoval
+znovu. **Platí dál, a to pro každý přípustný rádius:**
+
+| `CORE_ROUTINE_RADIUS` | spot, který `_find_spot` vybere | tmavé bloky NA VÝCHOD od něj |
+|---|---|---|
+| < 144 | žádný → habit se nepostaví | — |
+| 144 … 291 | (19,7) | **žádné** (všechny leží v disku jádra) |
+| ≥ 292 | (10,4) | **žádné** |
+
+Jádro sedí na `x = 28` z 30 sloupců, všechny tři build spoty jsou na západ od něj a
+fixture kužel míří na východ. Aby byl spot vůbec postavitelný, musí ho disk jádra
+obsáhnout — a ten stejný disk pak nutně obsáhne i všechno, co je za spotem směrem
+k jádru. Zmenšení dosahu to jen zhoršuje (kratší kužel = menší pokrytí), takže
+**žádná hodnota konstanty selhání č. 2 a č. 3 nezezelení.** Vazba je layout levelu,
+přesně jak diagnóza tvrdila.
+
+**Co zbývá ROZHODNOUT (proto `Needs-me: yes`).** Dvě cesty, obě mimo to, co smím sám:
+1. **Přeautorovat `level_1` v MapEditoru** tak, aby aspoň jeden build spot měl tmu na
+   východ od sebe (např. posunout objective z `x = 28` doprostřed, nebo přidat spot
+   na východním okraji). Ruční editace `.tres` levelu je v CLAUDE.md stop podmínka.
+2. **Povolit změnu fixture** — otočit `facing_angle` na PI, nebo assertovat na
+   symetrický rozdíl místo `_lit_cells.size()`. To je „úprava `_test_*`, aby prošel",
+   která výslovně potřebuje tvoje svolení; nabídnuto ti to bylo a nevybral sis to.
+
+**Širší nález ze sweepu, NEZMĚNĚNO — potřebuje vlastní rozhodnutí.** Stejný scale
+mismatch po T5 nesou i tyhle, ale žádná z nich není „světlo ani dostřel", takže do
+téhle autorizace nespadly:
+- `Game.CUE_PULL_RADIUS` 220 — vzdálenost myši od `CUE_ORIGIN (46, 122)` na plátně
+  480×270. Původně 220 z 1920 (11 % šířky), teď 46 % — „hnula se ruka?" je dnes
+  splněné skoro vždycky. Měří to conditioning, ne desku; hýbalo by to `_test_attention`.
+- `HabitData.guard_radius` 240 / 280 (`accountability*.tres`) — vodítko obránců je
+  půl desky. Vůči dostřelu se poměr **obrátil**: bylo 240 vs 360 (0,67×), teď
+  240 vs 180 (1,33×).
+- `DefenderData` `move_speed` 85–100, `chase_speed` 170–240, `heal_radius` 84,
+  `ward_radius` 96 a rychlosti distrakcí — pohyb přes celou desku za ~2 s.
+- `Game.EXPOSED_DISRUPT_RADIUS` 110 (mechanika `sinking_walls` zatím není shipnutá)
+  a `Game.CAM_PAN_SPEED` 900 px/s na desce, která se celá vejde do viewportu.
+
 ---
 
 ## P9 — brainfog jako vizuál

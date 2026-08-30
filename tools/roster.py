@@ -54,8 +54,13 @@ def upgrades_of(d):
 DIST_DEFAULTS = {"display_name": "Notification", "max_health": "5", "speed": "140.0",
                  "compulsion": "0", "rationalization": "0", "dopamine_reward": "1",
                  "focus_damage": "1", "radius": "9.0"}
+# "range" was 160.0 here while HabitData's actual script default was 360.0 — a stale
+# mirror that made ROSTER.md understate focus_timer (the one habit that authors no range
+# of its own) by 200 px. Found during P8b's rescale sweep, 2026-08-30; every other value
+# in this dict still matches habit_data.gd exactly. Keep them in step: this table is a
+# COPY of the script defaults, and nothing checks it automatically.
 HABIT_DEFAULTS = {"build_cost": "30", "willpower_damage": "3", "awareness_damage": "0",
-                  "fire_cooldown": "0.10", "range": "160.0"}
+                  "fire_cooldown": "0.10", "range": "180.0"}
 INTV_DEFAULTS = {"name": "Screen Break", "type": "damage_aoe", "cooldown": "18.0",
                  "radius": "180.0", "rush_cost": "0"}
 

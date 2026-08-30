@@ -176,6 +176,36 @@ for the test to use.
   character-for-character what they are now (`-0 cells, +7`, `36 -> 36`).
 - **Bearing on the queue:** P9/P10/P11 build on this. P8b exists to fix it first.
 
+### CORRECTED 2026-08-30 (P8b) — two of the three claims above are WRONG
+
+Measured in the engine, not read off the code. Keeping the original text above because
+the corrections only make sense against it.
+
+**"the arc dial has no effect on lighting whatsoever" is false.** The same habit turned
+to face west gives `arc 15 / 60 / 120 -> 38 / 43 / 50` lit blocks. The dial works. The
+fixture happens to pin `facing_angle = 0.0` before both measurements, which on `level_1`
+points the cone east into the core's own disc, where the union the fixture asserts on
+(`_lit_cells.size()`) swallows every block the dial adds.
+
+**"Rotating a habit ... loses 0 cells, which is not what turning a cone does" is not a
+defect either.** The habit sits west of the core inside the core's disc, so everything
+the cone lit while facing east was already lit by the core; turning it away can lose
+nothing. `-0/+N` is the correct answer to the question the fixture asks.
+
+**The one real defect was in the CONSTANTS, not the fog code.** `CORE_ROUTINE_RADIUS`
+330, `HabitData.range` 360 and the lamp/defender/projectile radii were authored for the
+pre-T5 isometric board and carried across `26814f9` byte-identical onto a board a
+quarter the size. Fixed in P8b by halving all of them (derivation:
+`docs/refactor/PATHFINDING.MD`, P8b). That turned the first failure green — `level_1`
+now really does have an empty spot outside the Routine.
+
+**Still red, and now known to be unfixable from code:** the two arc assertions. Every
+build spot on `level_1` lies west of an objective parked at `x = 28` of 30 columns, so
+the core's disc necessarily covers everything east of any spot the player is allowed to
+build on. Verified across every admissible `CORE_ROUTINE_RADIUS`, and re-verified after
+the range halved. Needs either `level_1` re-authored in MapEditor or a sanctioned change
+to the fixture — a user decision, not a code one.
+
 ## `_test_suppression` — FIXED 2026-08-30 (was: knockback into a wall)
 
 ```

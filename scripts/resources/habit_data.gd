@@ -21,7 +21,13 @@ class_name HabitData extends Resource
 @export var bandwidth_cost: int = 10
 
 @export_category("Combat")
-@export var range: float = 360.0                   ## Attack reach — or Routine radius for support habits.
+## Attack reach — or Routine radius for support habits.
+## Halved at P8b (360 -> 180) together with every authored `range` in data/habits/ and
+## with Game's Routine/light radii: T5 halved the build block (96 px -> 48 px of board)
+## and left every reach behind, so one tower covered most of a 480 px wide field. See
+## Game.CORE_ROUTINE_RADIUS for the derivation. The factor is a flat 0.5 everywhere, so
+## the roster's RELATIVE balance is untouched — no habit changed rank against another.
+@export var range: float = 180.0
 @export var arc_angle: float = 60.0                ## Initial cone width; re-aimable in play.
 @export var willpower_damage: int = 3
 @export var awareness_damage: int = 0
