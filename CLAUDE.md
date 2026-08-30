@@ -84,6 +84,21 @@ zdokumentovaný v `docs/REFACTOR_PLAN.md` pod „Verification pattern":
 - `scenes/_shot_*.tscn` dělají vizuální snapshoty (žádný pass/fail), `scenes/_play_*.tscn`
   jsou manuální playtesty — nepleť je s `_test_*`.
 - Když test selže, oprav kód. NIKDY neupravuj `_test_*` skript, aby prošel, bez mého souhlasu.
+- **Úzká výjimka pro flaky testy** (schváleno 30. 8. 2026, viz `_test_phase3`
+  v `docs/KNOWN_BROKEN.md`): smíš opravit ČASOVÁNÍ testu — nahradit pevný počet
+  `process_frame` čekáním na skutečný uplynulý čas (`create_tween`/`SceneTreeTimer`),
+  když je test odvozený od reálného herního běhu (`delta` v sekundách), ne od snímků —
+  BEZ mého souhlasu, POKUD platí všechno tohle:
+  1. Test je ve `verify.sh` veden v `FLAKY_TESTS`, ne v `KNOWN_BROKEN_TESTS` — tj. padá
+     nespolehlivě, ne trvale.
+  2. Mění se JEN mechanika čekání (čas místo snímků), NE žádná assertion ani očekávaná
+     hodnota.
+  3. Po opravě test proběhne **20x po sobě čistě** (žádná výjimka bez tohoto důkazu).
+  4. Do PROGRESS.md se zapíše, proč přesně tahle oprava pod výjimku spadá.
+  Když některá z podmínek neplatí — assertion by se musela změnit, nebo se 20x
+  nepodaří — NEUPRAVUJ dál a zapiš do BLOCKED.md. Tahle výjimka nerozšiřuje pravidlo
+  „neupravuj test" na cokoli jiného (novou logiku, nový obsah assertion, mazání
+  kontrol) — jen na tenhle jeden druh opravy.
 - Dočasný jednorázový harness po použití smaž (i `.gd.uid` sidecar); pojmenované fixtures
   výše jsou trvalé regresní testy a zůstávají.
 - **Iso fixtures už neexistují** (P0d, 30. 8. 2026). Dřív tu stálo pravidlo přejmenovat
@@ -164,3 +179,9 @@ GDScript: cokoli, co potřebuje Godot API (TileSet, SpriteFrames, PackedScene).
 - Když má úkol `Needs-me: yes`, nepracuj na něm. Napiš do BLOCKED.md, co ode mě
   potřebuješ rozhodnout, a skonči.
 - Po dokončení přepiš Status: todo → done. Při zablokování Status: todo → blocked.
+
+- Výjimka z pravidla „neupravuj test": _test_* smíš opravit bez ptaní jen tehdy,
+  když je vadné SAMO MĚŘENÍ (čekání na snímky místo na čas, závislost na pořadí,
+  race condition), a oprava nemění, CO test tvrdí o hře. Změna očekávané hodnoty,
+  prahu nebo vypuštění kontroly vždy potřebuje moje svolení.
+  Každou takovou opravu zapiš do PROGRESS.md s odůvodněním, proč spadá sem.

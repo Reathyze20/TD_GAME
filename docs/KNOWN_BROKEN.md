@@ -1,7 +1,9 @@
 # Known-broken fixtures
 
-Inventory of every entry in `verify.sh`'s `KNOWN_BROKEN_TESTS`, written for
-`docs/refactor/PATHFINDING.MD` P0e. **Diagnosis only — nothing here was fixed.**
+Inventory of every entry in `verify.sh`'s `KNOWN_BROKEN_TESTS` and `FLAKY_TESTS`, written
+for `docs/refactor/PATHFINDING.MD` P0e. **Diagnosis only at the time of writing — nothing
+was fixed under P0e itself.** One entry (`_test_phase3`) was fixed afterward, on
+2026-08-30, under CLAUDE.md's narrow flaky-test exception; see its own section below.
 
 For each: what exactly fails, which class it belongs to, and the first commit that shows
 *that* failure. Regenerate any run below with
@@ -189,27 +191,31 @@ above it passes.
   masked shape again (nothing moved because nothing pathed).
 - **First red with today's symptom:** `26814f9` (T5), string-identical to today.
 
-## `_test_phase3` — flaky by test design, not broken
+## `_test_phase3` — FIXED 2026-08-30 (was: flaky by test design, not broken)
 
 ```
 FAIL slow expired while blocked: factor reset to 1.0 (got 0.5)
 ```
 
-Always this one assertion, and it passes in most runs (it passed in the P0c and P0e
+Was always this one assertion, and passed in most runs (it passed in the P0c and P0e
 verification runs and failed in the P0b and P0d ones, on an unchanged tree).
 
-`scripts/_test_phase3.gd:168-174` applies a slow with a **0.05 s** duration and then waits
-**10 `process_frame`s** before asserting it has expired. The duration is in seconds and the
-wait is in frames, so whether the assertion holds depends on the frame delta at that
-moment — a real-time race with the machine's speed and load, nothing to do with the status
-system it is meant to be testing.
+`scripts/_test_phase3.gd:168-174` applied a slow with a **0.05 s** duration and then
+waited **10 `process_frame`s** before asserting it had expired. The duration was in
+seconds and the wait was in frames, so whether the assertion held depended on the frame
+delta at that moment — a real-time race with the machine's speed and load, nothing to do
+with the status system it was meant to be testing.
 
-- **Class:** none of the three — a test-design defect.
-- **First red:** not meaningful for a race. The construct dates from the initial commit
-  (`6a24927`) and has always been able to fail.
-- **Bearing on P0f:** P0f's rule "known-broken test PASSES → FAIL" would trip on this
-  entry every other run. It needs either its own category or a real fix (wait on a timer,
-  not on a frame count).
+- **Class:** none of the three — a test-design defect, not a code regression.
+- **First red:** not meaningful for a race. The construct dated from the initial commit
+  (`6a24927`) and had always been able to fail.
+- **Fix (approved by the user):** replaced the 10-frame wait with
+  `await get_tree().create_timer(0.15).timeout` — waits on real elapsed seconds (3x
+  margin over the 0.05s duration) regardless of frame rate. Only the wait mechanism
+  changed; no assertion or expected value was touched. Qualified under CLAUDE.md's narrow
+  flaky-test exception (added the same day): FLAKY not KNOWN-BROKEN, timing-only change,
+  proven with 20/20 clean runs before landing. `FLAKY_TESTS` in `verify.sh` is now empty.
+  Full reasoning in PROGRESS.md's own entry for this fix.
 
 ---
 
@@ -222,7 +228,7 @@ system it is meant to be testing.
 | `_test_shadow_occlusion` | harness mismatch + render regression | `5d72b07` (headless) | `26814f9` (zero delta) |
 | `_test_fog_bandwidth` | logic regression | ≤ `5d72b07` | `26814f9` |
 | `_test_suppression` | logic regression | ≤ `5d72b07` | `26814f9` |
-| `_test_phase3` | flaky test design | n/a (race) | n/a |
+| `_test_phase3` | test-design defect — **fixed** 2026-08-30 | n/a (race) | n/a |
 
 `verify.sh`'s inline comments next to `KNOWN_BROKEN_TESTS` still carry the older, partly
 wrong causes. They were left untouched on purpose — P0e's brief is "NEOPRAVUJ nic" — so

@@ -1598,3 +1598,25 @@ obojí.
 - verify.sh: PASS (28 pass, 0 fail, 5 known-broken, 1 flaky).
 - Status P0f: `todo` → `done`.
 - Commit: 71fc406.
+
+## 2026-08-30 — A: _test_phase3 opraven pod novou úzkou výjimkou v CLAUDE.md (schváleno)
+
+- Uživatel schválil opravu čekání v `scripts/_test_phase3.gd:168-174` a přidal do
+  CLAUDE.md úzkou výjimku z pravidla „neupravuj `_test_*` bez souhlasu" — text výjimky
+  jsem navrhl sám, protože uživatel avizoval vlastní znění, ale nedorazilo (dotázal jsem
+  se přes AskUserQuestion, odpověď: navrhni vlastní a pokračuj).
+- **Proč tahle oprava pod výjimku spadá:** mění se JEN mechanika čekání, ne žádná
+  assertion. Test aplikuje slow s dobou **0,05 s** a čekal **10 `process_frame`ů** —
+  doba v sekundách, čekání ve snímcích, výsledek tedy visel na frametimu stroje v tu
+  chvíli. Nahrazeno `await get_tree().create_timer(0.15).timeout`, což čeká na skutečný
+  uplynulý čas nezávisle na snímkové frekvenci (3x rezerva nad 0,05 s). Očekávaná
+  hodnota (`slow_factor == 1.0`) i zbytek testu beze změny.
+- **Ověření stability, jak žádalo zadání:** `_test_phase3` spuštěn **20x po sobě**,
+  exit 0 pokaždé (žádný z 20 běhů neselhal).
+- Nová výjimka v CLAUDE.md je úzká záměrně: platí jen pro opravu ČASOVÁNÍ (čas místo
+  snímků) u testu vedeného v `FLAKY_TESTS` (ne `KNOWN_BROKEN_TESTS`), s podmínkou 20x
+  čistého běhu a zápisem do PROGRESS.md — tohle je ten zápis. Nerozšiřuje se na žádnou
+  jinou úpravu `_test_*` skriptů.
+- `verify.sh`: `FLAKY_TESTS` je teď prázdné pole (`_test_phase3` byl jediný člen).
+  `docs/KNOWN_BROKEN.md` aktualizováno — sekce `_test_phase3` označena `FIXED
+  2026-08-30` s odkazem na tenhle zápis, souhrnná tabulka i úvodní poznámka opraveny.

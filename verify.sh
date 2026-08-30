@@ -57,24 +57,15 @@ KNOWN_BROKEN_TESTS=(
   _test_zen_pulsar
 )
 
-# Tests that are neither reliably green nor reliably red. A separate list, because the
-# known-broken rules above would be wrong in BOTH directions for them: a flaky test that
-# passes is not "fixed", and one that fails is not news.
-#
-# The category was added by P0f rather than assumed. Without it, P0f's own "a known-broken
-# test that passes is a FAIL" rule would turn _test_phase3 into a build break on the
-# majority of runs -- it passes more often than it fails -- which is the exact opposite of
-# the point. Reasoning recorded in BLOCKED.md.
+# Tests that are neither reliably green nor reliably red go here. A separate list,
+# because the known-broken rules above would be wrong in BOTH directions for them: a
+# flaky test that passes is not "fixed", and one that fails is not news.
 #
 # An entry here is a BUG TO FIX, not a permanent exemption; it just cannot be gated on.
-FLAKY_TESTS=(
-  # _test_phase3.gd:168-174 applies a slow lasting 0.05 SECONDS and then waits 10 process
-  # FRAMES before asserting it expired. Seconds against frames, so the outcome depends on
-  # the frame delta at that moment -- a race with machine speed, not with the status
-  # system under test. Always this one check ("slow expired while blocked: factor reset
-  # to 1.0"). The fix is to wait on a timer; see docs/KNOWN_BROKEN.md.
-  _test_phase3
-)
+# Empty as of 2026-08-30: _test_phase3, the entry that motivated this list, was fixed
+# under CLAUDE.md's narrow flaky-test exception -- see docs/KNOWN_BROKEN.md and
+# PROGRESS.md's own entry for why the fix qualified and the 20/20 clean-run proof.
+FLAKY_TESTS=()
 ROSTER_KNOWN_STALE=0
 
 # Tests that need process-launch-time flags Godot only accepts as CLI args (no

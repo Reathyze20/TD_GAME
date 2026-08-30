@@ -168,9 +168,13 @@ func _run() -> void:
 	d3.is_blocked = true
 	d3.apply_slow(0.5, 0.05)
 	ok = _check(d3.status_manager.slow_factor == 0.5, "slow applied while blocked: factor 0.5") and ok
-	# Process a few frames to tick past the 0.05s duration
-	for i in range(10):
-		await get_tree().process_frame
+	# Wait on REAL ELAPSED TIME, not a fixed frame count (docs/KNOWN_BROKEN.md, P0e/P0f).
+	# The duration above is 0.05 SECONDS; 10 process_frame()s is not guaranteed to cover
+	# that -- a slow machine or a loaded CI runner can take longer than 0.005s/frame, and
+	# then the slow has not actually expired yet when this checks it. create_timer() waits
+	# for its argument in actual seconds regardless of frame rate, which is what "past the
+	# duration" means; 0.15s is a 3x margin over the 0.05s being waited out.
+	await get_tree().create_timer(0.15).timeout
 	ok = _check(d3.status_manager.slow_factor == 1.0, "slow expired while blocked: factor reset to 1.0 (got %s)" % d3.status_manager.slow_factor) and ok
 	d3.take_direct_damage(9999)
 	await get_tree().process_frame
