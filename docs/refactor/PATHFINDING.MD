@@ -315,24 +315,50 @@ HP/rychlost/rezistence/všechny aktivní statusy pro distrakci).
 ## P6 — SpawnPointData a více aktivních spawnů
 Model: sonnet
 Needs-me: no
-Status: todo
+Status: done
 
-Nová Resource třída:
+`scripts/resources/spawn_point_data.gd` (`SpawnPointData`) — přesně podle zadání, jen
+s doc-komentáři. `direction_id`/`telegraph_lead_time` se nesou, ale nepoužívají (P7);
+`requires_segment` neprázdný = "nikdy aktivní" (P8 neexistuje, nic ho nemůže odemknout) —
+ne tichý no-op, ale explicitní rozhodnutí v `Game._active_spawn_point_cells()`.
 
-```gdscript
-class_name SpawnPointData extends Resource
-@export var cell: Vector2i
-@export var direction_id: StringName          # pro telegraf
-@export var active_from_wave: int = 0
-@export var requires_segment: StringName = &""
-@export var telegraph_lead_time: float = 5.0
-```
+`LevelData.spawn_points: Array[SpawnPointData] = []` — ADITIVNÍ ke `spawn_zones`, ne
+náhrada. Prázdné (každý level dnes, protože to nic neautorovalo) = `_random_spawn_cell()`
+se chová bit-identicky jako před P6. Neprázdné = kreslí VÝHRADNĚ z bodů aktivních pro
+danou vlnu (`active_from_wave <= wave_number`), `spawn_zones` se pro ten level přestane
+používat (ne sloučit, přepsat). `_start_wave()` teď volá `_random_spawn_cell(wave_index +
+1)` — jediné volací místo ve hře; `wave_number` má default `1`, takže ~20 existujících
+volání `game._random_spawn_cell()` bez argumentu (testy spawnující distrakce mimo vlnu)
+zůstala beze změny — jejich levely nikdy `spawn_points` nenaplní, takže by na parametru
+stejně nezáleželo.
 
-**Flow field se NEMĚNÍ** — víc spawnů čte stejné pole, protože pole je
-„všechny zdroje → jeden cíl".
+Flow field se skutečně nezměnil — `Game._rebuild_flow_field()` beze změny, `_test_multispawn`
+staví JEDNO pole a čte ho pro všechny vlny/spawny, přesně jak P6 předepsal.
 
-Hotovo když: `_test_multispawn` ověří, že každý aktivní spawn má v každé wave
-cestu k cíli, a deterministický simulátor odehraje level s N spawny.
+`_test_multispawn` (`scripts/_test_multispawn.gd` + `.tscn`, ve `verify.sh`
+`FIXED_FPS_TESTS`): syntetický level klonovaný z geometrie levelu id 1 (známě funkční),
+`spawn_zones` schválně prázdné (bez legacy fallbacku bug v gatingu spadne jako crash, ne
+tichý průchod), 5 `SpawnPointData` (dva aktivní od vlny 1, jeden od vlny 2, jeden od
+poslední vlny, jeden navždy neaktivní přes `requires_segment` a schválně zazděný v
+kapse). Tři nezávislé kontroly: (1) reachability — jedno `FlowField.build()`, `has_cell()`
+pro aktivní spawny každé vlny, přesně postup z `AntiBlockValidator` (P2); (2) gating
+wiring — přímé volání skutečné `Game._active_spawn_point_cells()`/`_random_spawn_cell()`
+(instancovaná `Game.tscn`, ne reimplementace) proti ručně spočítané očekávané množině
+pro vlny 1-4 plus sanity na vlně 999; (3) playthrough — `LevelSimulator.run()` s
+`SimStrategyPassive` level odehraje do vítězství (Focus 999 schválně vysoko, aby
+Focus nebyl to, co test ukončí dřív, než se všechny spawny stihnou aktivovat).
+Fixture level je čistě in-memory (`LevelData.new()`, `SpawnPointData.new()`), zapsaný do
+`Data._levels` runtime appendem (stejný vzor jako `Data._ready()` samo používá) — nikdy
+žádný `.tres`, takže "NEPIŠ level .tres ručně" zůstává nedotčené.
+
+Ověřeno: `_test_multispawn` PASS samostatně i uvnitř celého `./verify.sh`;
+`_test_flowfield`, `_test_antiblock`, `_test_level_simulator`, `_test_timecontrol`,
+`_test_mapeditor`, `_test_maze_validity`, `_test_effort`, `_test_streak` beze změny
+(stejný baseline jako před P6). Celé `verify.sh` PASS, žádné nové known-broken.
+
+Nedotčeno záměrně: `addons/td_level_designer/` (spawn_points není editovatelný z docku —
+mimo rozsah tohoto úkolu), vizuální telegraf/marker spawn bodů (P7), segment-unlocking
+logika pro `requires_segment` (P8).
 
 ## P7 — telegraf směru
 Model: sonnet

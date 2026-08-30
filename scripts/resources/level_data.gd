@@ -78,6 +78,13 @@ class_name LevelData extends Resource
 ## in MapEditor rather than typing coordinates here.
 @export var objective: Vector2i = Vector2i.ZERO
 @export var spawn_zones: Array[Rect2i] = []       ## [x, y, width, height] cell rects.
+## Optional, ADDITIVE per-point spawn locations (docs/refactor/PATHFINDING.MD P6). Empty
+## (every level today — nothing authors this yet) means Game._random_spawn_cell() keeps
+## drawing from spawn_zones exactly as before. Non-empty means it draws ONLY from the
+## points here that are active for the wave being built (SpawnPointData.active_from_wave)
+## — spawn_zones is then unused for that level, not a merged second source. See
+## Game._active_spawn_point_cells() for the exact filter.
+@export var spawn_points: Array[SpawnPointData] = []
 ## Gameplay truth: these cells block movement AND are the only buildable spots.
 @export var high_ground: Array[Vector2i] = []
 

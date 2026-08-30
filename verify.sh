@@ -75,6 +75,7 @@ ROSTER_KNOWN_STALE=0
 FIXED_FPS_TESTS=(
   _test_level_simulator
   _test_timecontrol
+  _test_multispawn
 )
 _needs_fixed_fps() {
   local candidate="$1"

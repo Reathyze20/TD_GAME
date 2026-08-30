@@ -1622,7 +1622,37 @@ func has_line_of_sight(from: Vector2, to: Vector2) -> bool:
 	var dir := ground_vec / dist
 	return cast_to_wall(from, dir, dist) >= dist
 
-func _random_spawn_cell() -> Vector2i:
+## Spawn points in `level.spawn_points` active for wave `wave_number` (1-based, matching
+## LevelData.lean_waves/bait_waves' own convention): active_from_wave <= wave_number AND
+## requires_segment is empty. A non-empty requires_segment (P8, docs/refactor/
+## PATHFINDING.MD, not yet built) reads as "never available" rather than silently
+## ignored — nothing exists yet that could ever unlock a segment, so treating it as
+## always-inactive is the honest answer until P8 lands, not a guess about what P8 will
+## decide unlocking should look like.
+func _active_spawn_point_cells(wave_number: int) -> Array[Vector2i]:
+	var cells: Array[Vector2i] = []
+	for sp: SpawnPointData in level.spawn_points:
+		if sp.active_from_wave > wave_number:
+			continue
+		if sp.requires_segment != &"":
+			continue
+		cells.append(sp.cell)
+	return cells
+
+## `wave_number` defaults to 1 so every pre-P6 call site (spawn_distraction test
+## harnesses that call this with no arguments, outside of an actual wave) keeps compiling
+## and behaving exactly as before — those levels never populate spawn_points, so the
+## branch below falls straight through to the unchanged spawn_zones behaviour regardless
+## of which wave number they'd have passed.
+##
+## Prefers LevelData.spawn_points (P6) when the level has any point active for this wave;
+## otherwise falls back to the pre-P6 spawn_zones behaviour completely unchanged, which is
+## also what every level with an empty spawn_points array does today.
+func _random_spawn_cell(wave_number: int = 1) -> Vector2i:
+	if not level.spawn_points.is_empty():
+		var active := _active_spawn_point_cells(wave_number)
+		if not active.is_empty():
+			return active[randi() % active.size()]
 	var zone: Array = spawn_zone_cells[randi() % spawn_zone_cells.size()]
 	return zone[randi() % zone.size()]
 
@@ -3621,7 +3651,7 @@ func _start_wave() -> void:
 	spawn_queue = []
 	for group: SpawnBatchData in wave.groups:
 		for k in range(group.count):
-			var sc: Vector2i = _random_spawn_cell()
+			var sc: Vector2i = _random_spawn_cell(wave_index + 1)
 			spawn_queue.append({"time": _spawn_time_for(group, k), "type": group.distraction.id, "spawn": sc})
 	spawn_queue.sort_custom(func(a, b): return a.time < b.time)
 	wave_time = 0.0

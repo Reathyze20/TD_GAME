@@ -2151,3 +2151,109 @@ explicitně jmenovanými soubory, ne `git add -A`, aby se ta souběžná práce
 nepřimíchala pod tento commit.
 
 Commit: `c65dfa6`.
+
+## 2026-08-30 — P6 hotovo: SpawnPointData a wave-gated výběr spawnu
+
+Status: done (docs/refactor/PATHFINDING.MD P6). `Needs-me: no`, žádný check-in
+nebyl potřeba, žádný skutečný fork se neobjevil — jen jedno drobné rozhodnutí
+(`requires_segment` neprázdný = "nikdy aktivní", protože P8 zatím neexistuje) a to
+už samo zadání P6 nechávalo na mém úsudku.
+
+**`scripts/resources/spawn_point_data.gd` (`SpawnPointData`)** — přesně podle
+zadaných polí (`cell`, `direction_id`, `active_from_wave: int = 0`,
+`requires_segment: StringName = &""`, `telegraph_lead_time: float = 5.0`), jen
+s doc-komentáři vysvětlujícími, že `direction_id`/`telegraph_lead_time` se nesou
+ale nepoužívají (P7, telegraf), a že `requires_segment` neprázdný dnes znamená
+"tenhle bod nikdy není aktivní" — explicitní rozhodnutí v `Game.
+_active_spawn_point_cells()`, ne tichý no-op, protože P8 (segmenty/odemykání)
+zatím neexistuje a nic ho tedy nemůže odemknout.
+
+**`LevelData.spawn_points: Array[SpawnPointData] = []`** — nové pole, ADITIVNÍ ke
+`spawn_zones`, nikdy náhrada. Prázdné (každý level dnes, protože to nic
+neautorovalo — a "NEPIŠ level .tres ručně" platí dál) znamená
+`Game._random_spawn_cell()` se chová bit-identicky jako před P6. Neprázdné
+znamená vybírá VÝHRADNĚ z bodů aktivních pro danou vlnu
+(`active_from_wave <= wave_number`), `spawn_zones` se pro ten level přestává
+používat (přepsáno, ne sloučeno).
+
+**`scripts/game.gd`** — nová `_active_spawn_point_cells(wave_number)` (filtr přes
+`active_from_wave`/`requires_segment`) a `_random_spawn_cell(wave_number: int = 1)`
+(dřív bez parametru). Default `1` NENÍ libovolný: existuje ~20 volání
+`game._random_spawn_cell()` bez argumentu napříč `_test_effort.gd`,
+`_test_economy_characterization.gd`, `_test_deep_reading.gd`, `_test_zen_pulsar.gd`,
+`_test_taxonomy.gd`, `_test_phase3.gd`, `_test_streak.gd`, `_test_sink.gd`,
+`_test_phase7.gd` (spawnují distrakci mimo skutečnou vlnu) — CLAUDE.md zakazuje
+tyhle testy upravovat, takže signatura musela zůstat zpětně volatelná beze změny.
+Jediné volací místo VE HŘE, `_start_wave()`, teď posílá `wave_index + 1` — a
+protože žádný z těch ~20 testů nikdy nenaplní `level.spawn_points`, na hodnotě
+parametru u nich reálně nezáleží (větev s novým chováním se pro ně nikdy
+nespustí).
+
+**Flow field se skutečně nezměnil** — `Game._rebuild_flow_field()` beze změny,
+žádné volání navíc. `_test_multispawn` staví JEDNO `FlowField` a čte ho pro
+všechny vlny/spawny, přesně jak P6 sám předepsal ("víc spawnů čte stejné pole").
+
+**`_test_multispawn`** (`scripts/_test_multispawn.gd` + `scenes/_test_multispawn.
+tscn`, přidán do `verify.sh`'s `FIXED_FPS_TESTS` — používá `LevelSimulator`).
+Fixture level je ČISTĚ in-memory (`LevelData.new()`/`SpawnPointData.new()`
+volání v testu samotném) — klonuje známě funkční geometrii levelu id 1
+(objective/high_ground/path_cells/wave_curve), ale `spawn_zones` nechává
+schválně PRÁZDNÉ (bez legacy fallbacku bug v gatingu spadne jako crash na
+indexaci prázdného pole, ne jako tichý průchod přes starou cestu) a přidává
+5 `SpawnPointData`: dva aktivní od vlny 1, jeden od vlny 2, jeden od poslední
+(4.) vlny, a jeden navždy neaktivní přes `requires_segment` — schválně zazděný
+do vlastní 1-buňkové kapsy (čtyři nové zdi navíc k levelu 1's high_ground),
+aby dokázal, že reachability-kontrola vyžaduje cestu jen pro AKTIVNÍ spawny,
+ne pro každý `SpawnPointData`, co level zrovna nese.
+
+Tři nezávislé kontroly, žádná nestaví na reimplementaci druhé:
+1. **Reachability** — jedno `FlowField.build(cols, rows, objective, blocked)`,
+   pak `has_cell()` pro aktivní spawny KAŽDÉ vlny (1-4) plus monotónnost (aktivní
+   množina se mezi vlnami nikdy nezmenší) — přesně postup, jaký `AntiBlockValidator`
+   (P2) už používá pro stejnou otázku (viz jeho vlastní hlavička, která na P6
+   výslovně odkazuje).
+2. **Gating wiring** — instancuje skutečnou `Game.tscn`, volá přímo
+   `game._active_spawn_point_cells(wave)`/`game._random_spawn_cell(wave)` (ne
+   vlastní kopii logiky) pro vlny 1-4 proti ručně spočítané očekávané množině,
+   plus sanity na vlně 999 (segment-gated bod zůstává vyloučený i daleko za
+   koncem levelu — dokazuje, že ho vylučuje `requires_segment`, ne náhoda
+   `active_from_wave`), plus 30 vzorků `_random_spawn_cell()` na vlnu, co nikdy
+   neopustí aktivní množinu.
+3. **Playthrough** — `LevelSimulator.run()` s existující `SimStrategyPassive`
+   level odehraje do vítězství (Focus nastaven na 999 schválně vysoko — test je
+   o zapojení spawnů, ne o přežití boje, a strategie nic nestaví).
+
+Level se registruje do `Data._levels` runtime `append()`+`sort_custom()` (stejný
+vzor, jaký `Data._ready()` sám používá při startu) s id `762034` — schválně mimo
+rozsah reálného obsahu. Každý `_test_*.tscn` běží ve `verify.sh` ve VLASTNÍM
+čerstvém Godot procesu, takže tahle registrace nepřežívá mimo tenhle jeden test
+a nic ji nemusí rušit zpátky.
+
+**Ověření**: `_test_multispawn` samostatně (PASS, 0 failures, 3 sekce). Cíleně
+znovu spuštěny explicitně jmenované regresní testy PŘED plným `verify.sh`:
+`_test_flowfield`, `_test_antiblock`, `_test_level_simulator` (--fixed-fps 60),
+`_test_timecontrol` (--fixed-fps 60) — všechny beze změny (`_test_level_simulator`
+pořád bit-identické mezi dvěma běhy). Navíc `_test_mapeditor`, `_test_maze_validity`,
+`_test_effort`, `_test_streak` (další místa, co čtou `_random_spawn_cell`/
+`LevelData` přímo) — beze změny. Celé `./verify.sh`: **35 pass, 0 fail,
+4 known-broken (stejná čtyři jako baseline: `_test_deep_reading`,
+`_test_fog_bandwidth`, `_test_shadow_occlusion`, `_test_zen_pulsar` — žádné z
+nich se P6 netýká), 0 flaky.**
+
+Nedotčeno záměrně (mimo rozsah, per zadání): `addons/td_level_designer/`
+(spawn_points není editovatelný z docku), vizuální telegraf/marker spawn bodů
+(P7 — `direction_id`/`telegraph_lead_time` se jen nesou), segment-unlocking logika
+pro `requires_segment` (P8).
+
+Nezahrnuto do commitu (souběžná session, nesouvisí): `BLOCKED.md`, `CLAUDE.md`,
+`project.godot` a `scenes/_diag_q1b.tscn`/`scripts/_diag_q1b.gd`/`.gd.uid` mají
+necommitnuté změny/soubory z jiné souběžné session (Q1b — root-cause diagnostika
+`_test_timecontrol` cross-speed rozchodu) — staged explicitně jmenovanými soubory,
+ne `git add -A`.
+
+Dotčené soubory: `scripts/resources/spawn_point_data.gd` (nový),
+`scripts/resources/spawn_point_data.gd.uid` (nový, auto-generovaný importem),
+`scripts/resources/level_data.gd`, `scripts/game.gd`, `scripts/_test_multispawn.gd`
+(nový), `scripts/_test_multispawn.gd.uid` (nový, auto-generovaný importem),
+`scenes/_test_multispawn.tscn` (nový), `verify.sh` (FIXED_FPS_TESTS),
+`docs/refactor/PATHFINDING.MD` (P6 → done).
