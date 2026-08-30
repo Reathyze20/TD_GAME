@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/_shot_anchor_flat.gd" id="1_553ms"]
+
+[node name="ShotAnchorFlat" type="Node" unique_id=1758535855]
+script = ExtResource("1_553ms")

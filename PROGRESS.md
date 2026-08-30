@@ -2928,3 +2928,74 @@ při rádiusu 330 omezovat nemohla. Přeautorování `level_1` je stop podmínka
   `verify.sh` ho neuvidí (orphan check iteruje jen `scripts/_test_*.gd`). Smaž ho
   prosím ručně, nebo mi to povol.
 - Commit: 612a043
+
+## 2026-08-30 — A0 pokračování: Phase 0 vyhodnocena — výběry, oprava velikosti, sonda na kotvu
+
+Uživatel vyhodnotil Phase 0 a zadal tři věci naráz. Všechny tři hotové, žádná
+generace navíc bez `get_balance` kolem ní.
+
+**1. Výběry zapsány u zdroje, ne do generovaného souboru.** Nový
+`<!-- gen:selected -->` blok v `STYLE_BIBLE.md` §7a (`prop_focus_core→cand_00`,
+`focus_timer→cand_04`, `broccoli_knight→cand_03`), `tools/gen_art_prompts.py`
+ho čte a vypisuje jako „Vybraný kandidát" pod prompt každé entity v
+`GENERATION_PLAN.md`. Nevybraní kandidáti se nemazali — zůstávají v
+`assets/raw/<entita>/`. `_test_art_prompts.gd` dostal sekci 8: ověřuje, že
+soubor, na který se výběr odkazuje, doopravdy existuje (chrání přesně to, na
+čem uživateli šlo — tichá ztráta vybraného kusu by prošla beze stopy).
+
+**2. Downsample 64→32 selhal u detailní postavy — opraveno u zdroje.**
+`STYLE_BIBLE.md` §5 `gen:sizes`: `defender` `art_px` 32→64 (`gen_px` zůstává
+64, takže se **od teď nepůlí vůbec**). Nová §5b dokumentuje proč (kontaktní
+list ukázal ztrátu siluety) a **explicitně nechává `distraction` (32px) beze
+změny** — důkaz o selhání se váže na současnou (detailní) kotvu, ne na
+velikost samu, takže se hordy přetestují až s jednodušší kotvou (bod 3).
+**Přepočet Phase 1: cena se NEZMĚNILA** (520 generací celkem, Phase 0 pořád
+80, Phase 1 pořád 440) — `gen_px` u obránce byl vždy 64, mění se jen to, co se
+po generování děje s výsledkem, ne co se objedná. Vedlejší nález a oprava:
+`§7`'s tvrzení o `color_image_url` bylo po A0b už neplatné v `GENERATION_PLAN.md`
+(oprava tam proběhla), ale ne ve zdrojovém `STYLE_BIBLE.md` samotném — opraveno
+teď, když jsem stejně tenhle odstavec editoval.
+
+**3. Sonda na plošší kotvu — nerozhodnuto, zjištění zapsáno.** Nový
+`tools/anchor_flat_candidates.py` (parametry čte přes `gen_art_prompts.
+load_schema()`/`adapt_to_schema()`, nekopíruje logiku podruhé). `get_balance`
+před: **4880**. Jedno volání `create_character`, `mode=pro`, `size=64`, stejný
+tvor + `flat shading, minimal dithering, clean readable shapes, limited
+detail, bold silhouette, no texture noise`, **záměrně bez
+`style_character_id`** (kandidát na NOVOU kotvu, ne variace staré — s odkazem
+na starou by šlo o protichůdné zadání). `get_balance` po: **4860** (20
+generací, tier `pro` beze změny). 8 kandidátů staženo do
+`assets/raw/anchor_flat/`, žádná paleta (nevybíralo se).
+**Zjištění (mechanické, ne estetické):** bez kotvy žádný kandidát nedrží
+identitu zadaného tvora — nikde zelená, žádný zeleninový motiv, všech osm je
+lidská postava. Sonda tedy netestuje „plošší brokolicový rytíř", testuje
+„plošší obecná postava" — otázka stylu a otázka identity tvora se v jednom
+volání bez kotvy nedají oddělit. Zapsáno do nové `STYLE_BIBLE.md` §6a
+(NEROZHODNUTO, `gen:anchors` beze změny). Kontaktní list vedle vybraného
+`prop_focus_core cand_00`/`focus_timer cand_04`:
+`scripts/_shot_anchor_flat.gd` → `.dev/screenshots/anchor_flat_candidates.png`.
+**Nevybíráno, nehodnoceno**, jak zadání žádalo.
+
+**Souběžná session narušila stejné tři soubory (`STYLE_BIBLE.md`,
+`tools/gen_art_prompts.py`, `scripts/_test_art_prompts.gd`) — rozdělal
+`design_constraints` (§7b, nová §7b sekce + `gen:design_constraints` blok +
+sekce „3b" v testu), necommitnuté.** Řešeno bez rizika smíchání: dočasně
+odstraněno přesně jejich přidané hunky (ověřeno `grep -c design_constraints`
+== 0), nastagováno jen moje, jejich text vrácen zpět do pracovního stromu
+beze změny. `docs/art/GENERATION_PLAN.md` (odvozený, nejde rozdělit hunky)
+stejným postupem: přegenerováno nad „jen moje" zdrojovým stavem, nastagováno,
+zdroje vráceny, přegenerováno znovu do plného kombinovaného stavu pro
+pracovní strom. Plný `_test_art_prompts` i `--check` prošly čistě v obou
+stavech (jen moje / kombinovaně). Jejich práce zůstala nedotčená a
+necommitnutá — jejich commit ji popíše sám.
+
+- verify.sh (relevantní část): `_test_art_prompts` PASSED (0 failures, 37
+  záznamů) v kombinovaném stavu; `gen_art_prompts.py --check` OK v obou
+  stavech.
+- Soubory (staged, mine-only hunks kde je soubor sdílený):
+  `docs/art/STYLE_BIBLE.md`, `tools/gen_art_prompts.py`,
+  `scripts/_test_art_prompts.gd`, `docs/art/GENERATION_PLAN.md` (regenerováno),
+  `tools/anchor_flat_candidates.py` (nový), `scripts/_shot_anchor_flat.gd`
+  (+`.gd.uid`), `scenes/_shot_anchor_flat.tscn`, `assets/raw/anchor_flat/*.png`
+  (8), `.dev/screenshots/anchor_flat_candidates.png`.
+- Commit: [doplní se]

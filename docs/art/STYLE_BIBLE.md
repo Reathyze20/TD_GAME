@@ -189,7 +189,7 @@ o ní hádat.
 | distraction_boss | 64 | 128 | 4 | `is_boss = true` v datech; ART_PIPELINE.md §457 „size:64 (boss 128)“ |
 | habit | 64 | 64 | 4 | zadání — „habit 64px“; věže se generovaly rovnou na 64 |
 | focus_core | 96 | 96 | 6 | zadání — „Focus core 96px“ |
-| defender | 32 | 64 | 2 | rozhodl uživatel 29. 8. 2026 — `gen_px` stejně jako habity |
+| defender | 64 | 64 | 4 | rozhodl uživatel 30. 8. 2026 — 32 px u detailní postavy ztratilo siluetu i čitelnost (Phase 0 kontaktní list, §5b); bez půlení |
 | prop | 32 | 32 | 2 | rozhodl uživatel 29. 8. 2026 — 32 px, bez kotvy |
 
 <!-- /gen:sizes -->
@@ -246,6 +246,27 @@ distrakci, ruší přesně to rozhodování, kvůli kterému tam stojí.
 ne vycentrovaný. Šířka obsahu se drží do **96 z 128 px** (tři čtvrtiny plátna), výška
 smí plátno využít celé.
 
+### 5b. Downsample 64→32 selhal u detailní postavy (Phase 0, 30. 8. 2026)
+
+**Detailní postava nepřežije 32 px.** Fáze 0 vygenerovala `broccoli_knight` na
+64 px a půlila přesně jednou na 32 podle pravidla v §5 — mechanicky správně,
+ale výsledek na kontaktním listu (`.dev/screenshots/phase0.png`,
+`phase0_candidates_art.png`) ztrácí siluetu i čitelnost: brnění, florety a
+zbraň se při 32 px slijí do jedné tmavé skvrny. Není to chyba půlení (dvakrát
+půlený obrázek se rozpadne — tohle se půlilo jen jednou, přesně podle
+pravidla) — je to hustota detailu v současné kotvě samotné, která na 32 px
+nemá kam ustoupit. Proto `defender` v tabulce §5 výše dostal `art_px = 64` a
+`gen_px` zůstává na svém stávajícím 64, takže se u obránců **od teď nepůlí
+vůbec** — co přijde z generátoru, to se shipuje.
+
+**U hordových distrakcí (`distraction`, dnes pořád 32 px) se stejný test
+provede znovu, až bude existovat jednodušší kotva** (viz §6a níže) — ne proto,
+že by 32 px bylo teoreticky vyloučené, ale protože důkaz o selhání se váže na
+TUHLE kotvu (`fa8294b1-…`, vysoký detail), ne na velikost samu o sobě.
+Jednodušší kotva se může na 32 px chovat jinak. Dokud tenhle test neproběhne,
+`distraction` v tabulce §5 zůstává na 32/64 beze změny — to není přehlédnutí,
+je to vědomě neroztažené rozhodnutí.
+
 ## 6. Style anchor — jeden na celý projekt
 
 Zkopírováno doslova z `CLAUDE.md`. **Necituj je zpaměti, ber je odsud nebo z CLAUDE.md.**
@@ -285,6 +306,48 @@ podle měření z 21. 8. 2026 (`iso_bible.md` §5) **přebírá i rozměr, nejen
 jeden kus pořádně a všechno ostatní zřeť podle něj. Osm věží ze společné kotvy vypadá jako
 rodina, osm samostatných volání ne.
 
+## 6a. Sonda na plošší kotvu (30. 8. 2026, NEROZHODNUTO)
+
+Uživatel: současná kotva (`fa8294b1-…`, Broccoli Knight) je výrazně detailnější
+než `prop_focus_core`/`focus_timer` (fáze 0) a na jednom boardu podle
+kontaktního listu nesedí. Otázka: má plošší styl šanci jako NOVÁ kotva?
+
+**Sonda, ne rozhodnutí.** `tools/anchor_flat_candidates.py`: jedno volání
+`create_character`, `mode="pro"`, `size=64`, stejný tvor
+(„a broccoli knight in riveted armour, florets first, a wall that soaks hits
+and pins whole clumps in place") + `flat shading, minimal dithering, clean
+readable shapes, limited detail, bold silhouette, no texture noise` +
+aktuální suffix (§7, včetně margin opravy). **Záměrně bez
+`style_character_id`** — cíl je kandidát na NOVOU kotvu, ne variace staré; s
+odkazem na starou kotvu by šlo o protichůdné zadání (napodob detailní styl A
+zároveň buď plochý). `get_balance` před (4880) a po (4860): **20 generací**,
+tier `pro` beze změny. 8 kandidátů staženo do `assets/raw/anchor_flat/`
+(`cand_00`–`cand_07`), nic z toho není v paletě.
+
+**Zjištění, ne verdikt — mechanické, ne estetické:** bez `style_character_id`
+žádný z 8 kandidátů nedrží identitu zadaného tvora. Nikde není zelená ani
+zeleninový motiv; všech osm je lidská postava s kůží barvy pleti, hnědou
+kulatou „hlavou" (nejblíž floretu ze zadání zůstal jen tvar, ne barva) a u
+některých tmavými nárameníky (jediný pozůstatek „riveted armour"). Jinak
+řečeno: tahle dávka netestuje „plošší brokolicový rytíř" — testuje „plošší
+obecná postava", protože se ztratilo víc než jen detail. To je samo o sobě
+užitečné zjištění (odstranění kotvy stahuje s sebou i barvu/téma, ne jen
+hustotu kresby), ale znamená to, že otázka „sedí plošší styl k neuronům" a
+otázka „drží tenhle tvor bez kotvy svou identitu" se v jednom volání nedají
+zodpovědět odděleně.
+
+Kontaktní list vedle vybraného `prop_focus_core cand_00` a `focus_timer
+cand_04`: `.dev/screenshots/anchor_flat_candidates.png`
+(`scripts/_shot_anchor_flat.gd`). **Nevybíráno, nehodnoceno** — čeká na
+uživatele.
+
+**Co zůstává otevřené:** jestli se má zkusit znovu SE `style_character_id`
+(varianta staré kotvy, ne nová) ale s výraznějším prompt-tlakem na plochost, nebo
+jestli se má tenhle text-only přístup zkusit na jiném/jednoduším tvoru, který
+sám o sobě míň závisí na barvě k rozpoznání. `gen:anchors` (§6) zůstává
+beze změny, dokud se nerozhodne — `fa8294b1-…` je pořád jediná platná kotva
+projektu.
+
 ## 7. Povinný suffix
 
 Jde do **`description` každého promptu**, doslova, na konci, oddělený `; `. Testuje se
@@ -293,10 +356,35 @@ přesná shoda — nepřepisuj ho v generátoru, přepiš ho tady.
 <!-- gen:suffix -->
 
 ```suffix
-organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
+organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; centered, full object visible, margin on all sides; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
 <!-- /gen:suffix -->
+
+**`centered, full object visible, margin on all sides` přidáno 30. 8. 2026.**
+`prop_focus_core`'s `cand_02` v Phase 0 kontaktním listu přetékal přes okraj
+plátna — bez rezervy kolem obsahu generátor občas ořízne, co má být vidět
+celé. Platí od teď pro každý budoucí prompt; nic z už staženého Phase 0 se
+tím nepřegeneruje samo.
+
+## 7a. Vybraní kandidáti (výsledky generování)
+
+Fáze 0 vrátila u každé entity víc kandidátů k výběru (`review (N candidates)` —
+`create_character`/`create_1_direction_object` samy o sobě žádný parametr na
+počet kandidátů nemají, N si volí server). Tahle tabulka zaznamenává, který
+kandidát byl vybraný jako ten, co reálně shipuje — **nevybrané zůstávají na
+disku** (`assets/raw/<entita>/`), nemažou se, jsou to alternativy pro pozdější
+varianty, ne odpad.
+
+<!-- gen:selected -->
+
+| id | kandidat | soubor | poznamka |
+|---|---|---|---|
+| prop_focus_core | cand_00 | assets/raw/prop_focus_core/cand_00.png | vybráno uživatelem 30. 8. 2026; paleta už hotová (cand_00_pal48.png) |
+| focus_timer | cand_04 | assets/raw/focus_timer/cand_04.png | vybráno uživatelem 30. 8. 2026; paleta zatím neproběhla |
+| broccoli_knight | cand_03 | assets/raw/broccoli_knight/cand_03.png | vybráno uživatelem 30. 8. 2026; paleta zatím neproběhla — kotva sama je teď ve hře (§6a), regenerace možná dřív, než na paletě záleží |
+
+<!-- /gen:selected -->
 
 A k němu jeden pevný `negative_description`:
 
@@ -308,12 +396,18 @@ photorealistic, 3d render, smooth vector art, anti-aliased edges, gradient mesh,
 
 <!-- /gen:negative -->
 
-**Paleta se nevynucuje slovy, ale obrázkem.** Prompt nesmí obsahovat žádný hex ani vlastní
-seznam barev; paleta jde přes `color_image_url` na `docs/art/palette_48.png` (48 barev,
-celý projekt z ní čerpá). `palette_32.hex` v repu existuje, ale **měřitelně škodí 6 z 10
-příšer a nesmí se objevit nikde v žádném promptu ani parametru.** Barvy se v promptu
-pojmenovávají slovem („amber“, „indigo“, „teal“) — slovo generátor posune do palety, hex
-mu dá záminku vyrobit si vlastní.
+**Paleta se nevynucuje slovy, ani v tomhle volání obrázkem.** Prompt nesmí obsahovat
+žádný hex ani vlastní seznam barev. **Oprava 30. 8. 2026 (A0b):** `color_image_url`
+byl tu dřív popsaný jako mechanismus vynucení — podle živého schématu
+(`tools/pixellab_schema.json`) ho ale `create_character` ani
+`create_1_direction_object` vůbec nemají a tiše by ho zahodily. Paleta na
+`docs/art/palette_48.png` (48 barev, celý projekt z ní čerpá) se vynucuje AŽ PO
+generování, přes `reduce_colors(palette_image_url=…)` na staženém výsledku
+(GENERATION_PLAN.md bod 2). `palette_32.hex` v repu existuje, ale **měřitelně škodí
+6 z 10 příšer a nesmí se objevit nikde v žádném promptu ani parametru.** Barvy se
+v promptu pojmenovávají slovem („amber“, „indigo“, „teal“) — slovo generátor posune
+k tónu, který `reduce_colors` pak dotáhne na přesnou paletu; hex by mu dal záminku
+vyrobit si vlastní.
 
 ## 8. Rodiny a formy jednotlivých entit
 

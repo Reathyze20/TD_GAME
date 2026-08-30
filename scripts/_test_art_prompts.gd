@@ -322,6 +322,16 @@ func _run() -> void:
 	_check("aspoň jeden záznam se ověřil proti schématu", schema_checked > 0,
 		"%d/%d" % [schema_checked, records.size()])
 
+	print("\n-- 8. vybraní kandidáti (gen:selected) skutečně existují na disku --")
+	## Nevybrané kandidáty CLAUDE.md/uživatel výslovně chce zachovat v repu — tahle
+	## kontrola nehlídá je, hlídá to jediné, co by tichým smazáním rozbilo plán: že
+	## SOUBOR, na který se plán odkazuje jako na vybraný, doopravdy existuje.
+	var selected := _bible_table(bible, "selected")
+	for row in selected:
+		var path: String = "res://%s" % row.get("soubor", "")
+		_check("%s: vybraný soubor %s existuje" % [row.get("id", "?"), path],
+			FileAccess.file_exists(path))
+
 	completed = true
 	print("\n%s (%d failures, %d záznamů)"
 		% ["PASSED" if fails == 0 else "FAILED", fails, records.size()])
