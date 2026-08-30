@@ -2257,3 +2257,5 @@ Dotčené soubory: `scripts/resources/spawn_point_data.gd` (nový),
 (nový), `scripts/_test_multispawn.gd.uid` (nový, auto-generovaný importem),
 `scenes/_test_multispawn.tscn` (nový), `verify.sh` (FIXED_FPS_TESTS),
 `docs/refactor/PATHFINDING.MD` (P6 → done).
+
+Commit: `c978add`.
