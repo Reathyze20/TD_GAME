@@ -1620,3 +1620,4 @@ obojí.
 - `verify.sh`: `FLAKY_TESTS` je teď prázdné pole (`_test_phase3` byl jediný člen).
   `docs/KNOWN_BROKEN.md` aktualizováno — sekce `_test_phase3` označena `FIXED
   2026-08-30` s odkazem na tenhle zápis, souhrnná tabulka i úvodní poznámka opraveny.
+- Commit: 812972b.
