@@ -17,7 +17,7 @@ do ASCII nevejde? Rozsah zásahu do td_level_designer? Neimplementuj.
 ## P0b — ASCII side-car (varianta B)
 Model: sonnet
 Needs-me: no
-Status: todo
+Status: done
 
 .tres zůstává autoritativní. ASCII je odvozený, bezztrátový side-car pro čtení
 a git diffy. Nikdy se z něj nečte do hry.

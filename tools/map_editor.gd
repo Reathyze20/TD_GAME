@@ -1567,9 +1567,32 @@ func _bake_to_level() -> bool:
 	# is silent and unrecoverable without VCS.
 	print("MapEditor: baked %d cells, %d lane cells, %d props, %d zones → %s"
 		% [cells.size(), lanes.size(), dec.size(), zones.size(), target_level.resource_path])
+	_regenerate_ascii_sidecar()
 	last_action = "Baked → %s · %s" % [target_level.resource_path.get_file(), _clock()]
 	_analyze()
 	return true
+
+## Refreshes docs/levels/<id>.md after a bake (docs/refactor/PATHFINDING.MD P0b).
+##
+## Shells out to tools/level_to_ascii.py instead of writing the file here, so the format
+## has exactly ONE implementation. A second spelling of it in GDScript would be two things
+## to keep in step — which is the drift the side-car exists to expose, not to cause.
+##
+## A failure here NEVER fails the bake. The .tres is authoritative and is already written
+## by the time this runs; python missing from PATH only means the side-car is stale, and
+## verify.sh's `level_to_ascii.py --check` catches that and says how to fix it. Failing a
+## bake over a derived document would get the priority exactly backwards.
+func _regenerate_ascii_sidecar() -> void:
+	var tool_path := ProjectSettings.globalize_path("res://tools/level_to_ascii.py")
+	var out: Array = []
+	var code := OS.execute("python", [tool_path], out, true)
+	if code != 0:
+		print("MapEditor: ASCII side-car NOT refreshed (python exited %d)." % code)
+		print("  Run `python tools/level_to_ascii.py` by hand — verify.sh flags it until you do.")
+		for line in out:
+			print("  ", line)
+		return
+	print("MapEditor: ASCII side-cars refreshed → docs/levels/")
 
 # ---------------------------------------------------------------- settings save / new level
 

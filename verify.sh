@@ -205,6 +205,26 @@ else
   fi
 fi
 
+echo "== level side-cars =="
+# docs/levels/<id>.md is a DERIVED, read-only rendering of each level's geometry
+# (docs/refactor/PATHFINDING.MD P0b). The .tres stays authoritative and the game never
+# loads the side-car, which is exactly why it needs a gate: a derived document that
+# nothing checks goes stale silently and then lies in a diff. Same class of check as the
+# roster above -- regenerate from the source and compare -- except --check never writes,
+# so a verification run cannot quietly "fix" the thing it is verifying.
+sidecar_log="$LOG_DIR/level_sidecars.log"
+PYTHONIOENCODING=utf-8 python tools/level_to_ascii.py --check >"$sidecar_log" 2>&1
+sidecar_status=$?
+if [ "$sidecar_status" -ne 0 ]; then
+  echo "FAIL level side-cars (exit $sidecar_status) - see $sidecar_log"
+  grep "FAIL" "$sidecar_log" | sed 's/^/  /'
+  fail=$((fail + 1))
+  failed_names+=("level side-cars")
+else
+  echo "PASS level side-cars"
+  pass=$((pass + 1))
+fi
+
 echo "== terrain contrast =="
 # Since 2026-08-29 the terrain is not generated — tools/flat_terrain.py installs flat
 # colours for 0 generations. That removed the generation round in which the path-vs-tissue

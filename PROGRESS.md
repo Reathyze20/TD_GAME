@@ -1242,3 +1242,87 @@ Log of tasks completed by run.sh, one entry per run, newest last.
   neodbaví — a přitom P9 (brainfog jako vizuál) na P8 (skládání segmentů) věcně nezávisí.
   Pořadí jsem neměnil (fronta má „NEMĚŇ ho"); rozhodnutí je na uživateli.
 - Commit: b4e00f1.
+
+## 2026-08-30 — P0b hotovo: ASCII side-car levelů (varianta B)
+
+- **Co vzniklo:** `tools/level_to_ascii.py` (generátor + `--check`), `docs/levels/1.md`
+  a `docs/levels/98.md`, round-trip fixture `_test_ascii_sidecar`, hook v
+  `_bake_to_level()` a brána ve `verify.sh`. `.tres` zůstává autoritativní, hra side-car
+  nikdy nečte.
+- **Rozsah přesně podle zadání:** `objective`, `spawn_zones`, `high_ground`, `path_cells`.
+  `decor` a `tile_overrides` v souboru NEJSOU a nesnažil jsem se je tam vecpat.
+
+### Návrhové rozhodnutí: soubor má mřížku I seznam polí
+
+Mřížka sama bezztrátová být nemůže, a to ze dvou důvodů, které jsem našel přímo
+v shipnutých datech:
+
+- `path_cells` **nejde row-major**. `level_98` vede dolů levým sloupcem a pak přes horní
+  řádek; sken mřížky po řádcích vrátí jiné pole.
+- `path_cells` obsahuje **duplicitu** — `Vector2i(25, 2)` dvakrát. Mřížka je množina a
+  duplicitu by tiše zahodila, což je přesně to selhání, které P0b jmenuje.
+
+Proto: `## Grid` je obrázek (jeden znak na buňku, přesun zdi = přesun znaku), `## Fields`
+jsou pole přesně tak, jak je drží `.tres` — pořadí i duplicity. Čte se seznam, mřížka je
+jeho vykreslení a `_test_ascii_sidecar` ji kontroluje buňku po buňce. Ta redundance je
+záměr: obrázek nemůže tiše lhát, protože když se rozejde s daty, padne test.
+
+Priorita znaků `O` > `#` > `S` > `~` > `.` musela být vyslovená — v `level_98` sdílí
+spawn rect a pruh buňky (0,6) a (0,7), takže bez pravidla by mřížka nebyla definovaná.
+
+Spawn rekty se zapisují **doslova**, ne odvozené z bloků, přesně jak zadání žádalo:
+`level_1` má `Rect2i(0,5,1,4)` a `level_98` `Rect2i(0,6,1,2)`, ani jeden není 3x3, takže
+re-blokující čtečka by vrátila jiné obdélníky, než jaké se zapekly.
+
+### Nález pro P0c (nesahal jsem na to)
+
+Komentář u bake v `map_editor.gd` tvrdí, že na pořadí `path_cells` záleží, protože „hra
+losuje variantu dlaždice po prvcích pole". **To dnes neplatí.** `game.gd:1297` a `:1306`
+losují `rng.seed = hash(cell) ^ seed_val`, tedy z SOUŘADNIC, a komentář na `game.gd:1382`
+to i vysvětluje („Neni to sekvencni rng, ale hash souradnic bloku"). Navíc
+`_build_path_layer()` se v `MODE_SQUARE` hned na začátku vrací, takže neběží vůbec.
+Pořadí `high_ground` ani `path_cells` tedy dnes není nosné nikde — `game.gd` z obojího
+staví slovník. Side-car ho přesto zachovává, protože zadání znělo „bezztrátový", ne
+„bezztrátový, kde to zrovna hraje roli". **Pro P0c je tohle podstatný vstup:** duplicita
+se dnes projevit nemůže, takže otázka „záměr, nebo chyba" se neřeší měřením dopadu.
+
+### Ověření, že brány opravdu chytají
+
+Obojí jsem vyzkoušel na úmyslně rozbitém side-caru a pak vrátil zpět:
+
+- **A) smazaná duplicita** `(25,2) (25,2)` → `(25,2)`:
+  `FAIL path_cells round-trips in order, with duplicates  38 vs 39 entries`, `--check`
+  exit 1.
+- **B) přesunutá zeď jen v mřížce**, pole nedotčená:
+  `FAIL grid matches the field list cell by cell  (14,10) drawn '#', fields say '.'`,
+  `--check` exit 1.
+
+### Hook a brána
+
+`_bake_to_level()` po úspěšném zápisu volá `_regenerate_ascii_sidecar()`, které **shellne
+python**, místo aby formát psalo znovu v GDScriptu — dvě implementace téhož formátu jsou
+přesně ten rozjezd, kterému má side-car bránit. **Selhání hooku nikdy neshodí bake:**
+`.tres` je autoritativní a v tu chvíli už zapsaný, chybějící python znamená jen zastaralý
+side-car a `verify.sh` to hlásí i s příkazem na opravu.
+
+Ve `verify.sh` je nová sekce `== level side-cars ==` volající `--check`. Použil jsem
+`--check` místo vzoru „vygeneruj a `git diff`", který má ROSTER.md: `--check` nikdy nic
+nezapisuje, takže ověřovací běh nemůže tiše „opravit" to, co ověřuje.
+
+### Kontrola pěti dalších zapisovačů geometrie (zadání říkalo ověřit, ne opravit)
+
+Všech pět skutečně zapisuje `.tres` přímo: `build_placeholder_level.gd` (`ResourceSaver`),
+`refit_levels.py`, `regrid_levels.py`, `build_level_first.py`, `build_level_iso.py`
+(všechny `write()` do souboru). **Jednosměrnost potvrzena:** protože side-car nikdo nečte
+do hry, žádný z nich o něm vědět nemusí — když některý poběží, `.tres` se změní, side-car
+zestárne a `verify.sh` to nahlas ohlásí i s návodem. Žádná tichá ztráta dat, jen hlasitá
+zastaralost. Do BLOCKED.md tedy nic nejde.
+
+Vedlejší poznatek: `build_level_first.py` píše do `data/levels/level_iso_1.tres` a
+`build_level_iso.py` do `level_iso.tres` — ani jeden soubor už neexistuje (zbyly jen
+`.bak`/`.bak2`), takže jsou to mrtvé cíle. `regrid_levels.py` počítá na mřížku 120x57,
+což si odporuje se současnou 30x14. Nesahal jsem na ně, zadání to zakazuje.
+
+- verify.sh: PASS (27 pass, 0 fail, 6 known-broken — `_test_phase3` v tomhle běhu padl,
+  je vedený jako flaky; předchozí běh měl 26/5, rozdíl je nový test + nová brána).
+- Status P0b: `todo` → `done`.
