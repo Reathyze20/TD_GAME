@@ -2149,3 +2149,5 @@ Nezahrnuto do commitu: `CLAUDE.md` a `project.godot` mají necommitnuté změny 
 souběžné session (PixelLab kredity / rendering nastavení) — nesouvisí s Q1, staged
 explicitně jmenovanými soubory, ne `git add -A`, aby se ta souběžná práce
 nepřimíchala pod tento commit.
+
+Commit: `c65dfa6`.
