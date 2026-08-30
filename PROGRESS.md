@@ -2756,4 +2756,4 @@ jen commitnutou kopii. `_test_art_prompts.tscn`: `PASSED (0 failures, 37 záznam
   (přegenerován — beze změny celkové ceny/rozpadu, jen platné payloady a
   opravený/rozšířený text), `scripts/_test_art_prompts.gd` (sekce 7 + parsování
   sloupce `nástroj`).
-- Commit: [doplní se]
+- Commit: 860d4d1
