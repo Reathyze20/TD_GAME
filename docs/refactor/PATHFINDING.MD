@@ -550,8 +550,8 @@ Detaily a čísla v `PROGRESS.md`.
 
 ## P8b — fog_bandwidth před P9
 Model: opus
-Needs-me: no
-Status: todo
+Needs-me: yes
+Status: blocked
 
 `_test_fog_bandwidth` hlásí, že arc nemá vliv na osvětlenou plochu (36 → 36 buněk
 při arc 15 → 120) a že otočení habitu světlem nehne. Podle P0e zjisti, jestli je
@@ -561,6 +561,74 @@ systému, o kterém nevím, jestli funguje.
 
 Hotovo když: test zelený, vyřazený z known-broken, a v PROGRESS.md je popsaná
 příčina.
+
+**DIAGNÓZA HOTOVÁ 2026-08-30, OPRAVA ZABLOKOVANÁ NA ROZHODNUTÍ.** Otázka „mrtvý
+parametr, nebo se osvětlení počítá jinak" má odpověď: **ani jedno. Kód mlhy je
+správně. Špatně jsou KONSTANTY — jsou naškálované pro desku, která už neexistuje.**
+
+Zjišťováno pěti nezávislými agenty, každý pak dvakrát adversariálně ověřován
+(refutace nad kódem + kontrola proti historii gitu). Čísla níž reprodukují oba
+hlášené řetězce **na číslici** a shodly se na nich nezávisle.
+
+**Mechanismus.** `26814f9` (T5) zmenšil desku z iso 24×24 @ tile 64 (1536×768 px)
+na 30×14 @ tile 16 (**480×224 px**) — zhruba desetinásobek plochy pryč — a nahradil
+`level_1` placeholderem. `git show 26814f9^:scripts/game.gd` ale ukazuje, že
+`CORE_ROUTINE_RADIUS` 330, `ANCHOR_ROUTINE_RADIUS` 260, `TOWER_LAMP_RADIUS` 56,
+`WEDGE_LIGHT_SCALE` 1.0, `LIGHT_SKIRT` 1.35 i `HabitData.range` 360 jsou před i po
+**bajtově identické**. Na nové desce:
+
+- `level_1` má objective `Vector2i(28, 7)` → jádro na `(456, 137)`, tedy u pravého
+  okraje 480px široké desky. Jádro se značí PRVNÍ a jeho disk 330 px pokryje
+  **35 z 50** bloků (`_lit_cells` je po 48px blocích a `world_to_cell` clampuje na
+  desku, takže víc než 50 bloků neexistuje).
+- `level_1` má jen **tři** build spoty — (10,4), (10,10), (19,7) — a všechny leží
+  **na západ** od jádra, ve vzdálenosti 292 / 292 / 144 px, tedy všechny uvnitř 330.
+  To je samo o sobě selhání č. 1 („empty spot outside the Routine"): je to obsah
+  levelu, ne logika.
+- Habit na (10,4) přidá svou 56px lampou přesně **1** blok → 35 + 1 = **36**.
+- Test před oběma měřeními arcu nastaví `facing_angle = 0.0`, tedy kužel míří **na
+  východ — přímo do disku jádra**. Všechny zbývající tmavé bloky mají `dx ≤ -48`,
+  tedy leží ZA habitem. Maximální skirtovaný půlúhel je `120 × 0.5 × 1.35 = 81°`,
+  což je **< 90°**, takže kužel mířící na východ na ně nedosáhne při ŽÁDNÉM
+  nastavení dialu → **36 → 36**. Otočení o PI neztratí nic (jádro to drží dál) a
+  získá přesně 7 → **−0, +7**.
+
+**Oprava v KNOWN_BROKEN.md:** věta „the arc dial has no effect on lighting
+whatsoever" je **nepravdivá, jak je napsaná**. Se stejným habitem otočeným na PI
+tentýž test čte `38 → 50` — dial funguje. Jeho příspěvek je jen v testovaném směru
+pohlcený sjednocením, na které fixture asserta (`_lit_cells.size()`).
+
+**Co NEfunguje jako oprava (ověřeno simulací, ne odhadem).** Zmenšit
+`CORE_ROUTINE_RADIUS` nestačí — `_find_spot` si spot vybírá znovu podle aktuálního
+rádiusu, takže:
+
+| CORE_ROUTINE_RADIUS | výsledek |
+|---|---|
+| 330 | in=(10,4), žádný out, −0/+7, 36→36 **FAIL** |
+| 292 | in=(10,4), žádný out, −0/+7, 35→35 **FAIL** |
+| 291 | in=(19,7), out=(10,4), −0/+19, 31→31 **FAIL** |
+| 200 | in=(19,7), −0/+23, 23→23 **FAIL** |
+| 144 | in=(19,7), −0/+23, 19→19 **FAIL** |
+| 143 | žádný spot v Routine → habit se nepostaví, padá „a habit was built" |
+
+Pod 292 je jediný spot v Routine (19,7) — 144 px přímo na západ od jádra — a jeho
+východní bloky leží do 136 px od jádra, přičemž rádius musí být ≥ 144, aby se tam
+vůbec dalo stavět. Disk jádra tedy kužel mířící na východ spolkne při **každém
+přípustném rádiusu**. Ladění konstanty umí opravit jen selhání č. 1, nikdy č. 2 a 3.
+
+**Skutečná vazba je LAYOUT LEVELU:** všechny tři build spoty jsou na západ od
+objective na `x = 28` z 30 sloupců, takže na východ od jádra není kam kužel poslat.
+
+**Širší nález, který přesahuje P8b:** stejný scale mismatch má `HabitData.range`
+= **360 px na 480 px široké desce** — jedna věž pokrývá skoro celou mapu. Mlha ani
+dostřel nebyly po T5 nikdy přeškálované. To se týká i P9/P10/P11 a balance obecně,
+ne jen tohohle testu.
+
+**Proč to nedokončím sám.** Každá reálná oprava spadá na jednu z tvých brzd
+v CLAUDE.md: přeškálovat světla/dostřel je **balance obsahu**, přeautorovat
+`level_1` jde **jen přes MapEditor** (vizuální práce), a otočit ve fixture facing
+na PI je **úprava `_test_*`, aby prošel** — a ta výslovně potřebuje tvoje svolení.
+Volby a jejich důsledky ti dávám v odpovědi; nehádám.
 
 ---
 
