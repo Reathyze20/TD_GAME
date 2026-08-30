@@ -30,6 +30,18 @@ extends Resource
 ## so replaying a level can't farm it.
 @export var cleared_levels: Array[String] = []
 
+## MapSegmentData.unlock_condition flags the player has earned (P8, docs/refactor/
+## PATHFINDING.MD). A set stored as a list, read only by MetaProgression.is_segment_
+## unlocked(); a flag in here means every map segment carrying that condition is part of
+## the board from now on.
+##
+## Its own list rather than a reuse of `cleared_levels` or `growth_ranks`, decided
+## 2026-08-30: the map growing is meta progress that must survive a LOST run, so it
+## cannot be per-level-completion, and it must not be something Insight buys, so it
+## cannot be a Growth node. Empty by default, which means an untouched save composes
+## every level down to its unconditional spine.
+@export var unlocked_segments: Array[String] = []
+
 ## --- Settings (persisted preferences, not progression) ---
 ## Linear 0..1 master SFX volume, applied to the "Sfx" audio bus by the Sfx autoload.
 @export var sfx_volume: float = 1.0

@@ -2055,6 +2055,49 @@ east) výběr snímku sedí na to, co dřív dělal `_draw_sprite_frames()`.
   actual go-ahead to generate Phase 0's three pieces — both still gated exactly as
   the plan's own rules require.
 
+## 2026-08-30 — A0 pokračování: Phase 0 zafrontována (uživatel schválil generování)
+
+- **`get_balance` (CLAUDE.md: před KAŽDOU dávkou):** `generations_remaining: 4943`,
+  `generations_used: 3716`, `generations_total: 8660`, `subscription: active
+  (Tier 3: Pixel Architect)`, `generations_reset: 2026-09-13`. CLAUDE.md uvádí 4944 —
+  rozdíl 1 generace, lokální účet (`pixellab.py ucet`) zná 2 zápisy na
+  `create_image_pixflux` (wall_material v1/v2), takže drobná neshoda mezi tím, co je
+  zapsané v CLAUDE.md, a živým stavem. Nekorigoval jsem CLAUDE.md — je to tvůj soubor.
+- **Balance šel zavolat, na rozdíl od dřívějšího tvrzení v BLOCKED.md.**
+  `mcp__pixellab__*` je sice na deny, ale `tools/pixellab.py` je přímý HTTP JSON-RPC
+  klient, který MCP celý obchází (existuje přesně proto, `reference-pixellab-mcp-path`).
+- **Nový nástroj `tools/phase0_batch.py`.** `tools/pixellab.py new` plán vygenerovat
+  neumí a je to tichá vada: posílá `mode:"v3"` natvrdo, neposílá `style_character_id`,
+  `color_image_url`, `negative_description` ani `size`, a zná jen `create_character`.
+  Kotvu bere VÝHRADNĚ `mode:"pro"` — přes `new` by tedy vznikly sprity mimo rodinu,
+  za peníze. Nový nástroj parametry NEOPISUJE, čte je z `GENERATION_PLAN.md`.
+- **Nález, který se týká celého plánu (520 generací), ne jen fáze 0: parametry
+  v `GENERATION_PLAN.md` neodpovídají živému API a server je odmítá.** První pokus
+  o zafrontování skončil `4 validation errors` / `3 validation errors` a
+  **nula utracených generací** (ověřeno druhým `get_balance`: 4943 → 4943).
+  Příčina je systémová — plán je psaný proti schématu `create_image_pixflux` (ten se
+  opravdu použil na `wall_material`, viz účet), ale posílá se na `create_character` a
+  `create_1_direction_object`, které mají jiné, menší schéma:
+  - `color_image_url` a `seed` existují **jen na pixfluxu**, na těchhle dvou ne;
+  - `negative_description` neexistuje na žádném ze tří;
+  - `create_1_direction_object` má **povinné** `description` (jednotné číslo), zatímco
+    plán nese text jen v `item_descriptions`.
+- **Jak to spouštěč řeší:** filtruje parametry proti ŽIVÉMU schématu ze `tools/list`,
+  ne proti pevnému seznamu (ten by zase zvětral), a `item_descriptions[0]` přenese do
+  povinného `description`. Dvě vyhozená pole mají náhradu, obě vynucené API, ne volba:
+  paleta se vynutí až po generování přes `reduce_colors(palette_image_url=palette_48)`
+  (což je i to, co CLAUDE.md žádá), a negativy povinný suffix promptu už dnes obsahuje
+  slovně. **`seed` náhradu nemá — postavy a objekty nejsou seedovatelné**, takže
+  regenerace nebude reprodukovatelná. To je skutečná ztráta, ne kosmetika.
+- **Opravena i chyba v účtování ve vlastním nástroji:** cena se sčítala z plánu bez
+  ohledu na výsledek, takže odmítnutá dávka hlásila „utraceno 80" při skutečných nule.
+  Teď se počítá jen job, který opravdu vznikl.
+- **Zafrontováno 3/3, utraceno 80 generací** (`prop_focus_core` 40 +
+  `focus_timer` 20 + `broccoli_knight` 20): `ecba9f9f-…`, `8e25c065-…`,
+  `5f252daf-…`. Všechny tři naráz, teprve pak polling (plán §4), fronta pod deseti.
+  Očekávaný zůstatek po dokončení: **4863**.
+- Phase 1 nezačata, podle zadání.
+
 ## 2026-08-30 — Q1 hotovo: total time control (0.25×–4× rychlost, pauza+příkazy, skip wave, hover staty)
 
 Status: done (docs/refactor/PATHFINDING.MD Q1). Cleared `Needs-me: no`, no check-in
@@ -2393,3 +2436,228 @@ auto-generovaný importem), `scenes/_shot_telegraph.tscn` (nový),
 (P7 → done).
 
 Commit: `9ddfa50`.
+
+## 2026-08-30 — P8 hotovo: MapSegmentData a skládání levelů
+
+`docs/refactor/PATHFINDING.MD` P8. Level N+1 = LevelData N + segment, **odkazem, ne
+kopií**, s tvrdým limitem „vejde se na jednu obrazovku". Tři rozhodnutí, která
+`Needs-me: yes` držel, uživatel odpověděl 2026-08-30 (`a42bceb`) — implementoval jsem
+je, nepřerozhodoval.
+
+### 1. Jak je odkaz vyjádřený (rozhodnutí #1)
+
+`MapSegmentData` (`scripts/resources/map_segment_data.gd`) má **přesně ta čtyři pole
+ze zadání** — `id`, `anchor_offset`, `unlock_condition`, `adds_spawns` — a **žádnou
+geometrii**. Odkaz na geometrii jde OPAČNÝM směrem, než se na první pohled čekalo:
+`LevelData` dostal dvě nová `@export` pole:
+
+* `base: LevelData` — level, na kterém tenhle stojí. Neprázdné = vlastní geometrie
+  je DELTA a při načtení se sjednotí s celým řetězem. To je to „odkazem, ne kopií",
+  které P0 rozhodl.
+* `segment: MapSegmentData` — neprázdné znamená „tenhle `LevelData` JE segment":
+  jeho vlastní `high_ground`/`path_cells`/… je geometrie segmentu a hlavička říká,
+  kam dosedne (`anchor_offset`), co ji otevře (`unlock_condition`) a jaké spawny
+  přináší (`adds_spawns`).
+
+**Proč tímhle směrem, a ne polem `geometry: LevelData` na `MapSegmentData`.** Zadání
+strukturu zmrazilo, takže jsem pár musel vyjádřit na straně `LevelData` — ale i bez
+toho by to bylo správně: segment musí být **autorovatelný**, a jediná posvěcená cesta
+k autorování geometrie je `scenes/MapEditor.tscn` bakující `LevelData` (CLAUDE.md,
+„Levely se autorují v MapEditor.tscn a bakují"). Segment jako `LevelData` se maluje
+nástroji, které už existují, a hlavička je jediná malá věc navíc. Pole s geometrií na
+`MapSegmentData` by si vynutilo druhý, paralelní editor. `addons/td_level_designer/`
+jsem nechal netknutý (CLAUDE.md STOP podmínka) — testovací laťka interaktivní
+autorování nevyžaduje.
+
+Skládání dělá `scripts/map_composer.gd` (`MapComposer`, `RefCounted`, statické API).
+Chodí řetěz `base` od kořene, sjednotí geometrii živých linků a vrátí **jeden plochý,
+nový `LevelData`**; vstup nikdy nemutuje. `Game._ready()` ho volá místo bývalého
+`level.duplicate(true)` — pro level bez `base`/`segment`, tedy **každý level na disku
+dnes**, JE `compose()` ten deep copy a nic dalšího se nemění (ověřeno diagnostickým
+harnessem: složený level 1 i 98 mají stejné `high_ground`/`path_cells`/objective jako
+zdroj, a mutace kopie se nedotkne `Data`).
+
+`_flat_copy()` navíc dělá `duplicate(false)` → useknout `base`/`segment` →
+`duplicate(true)`. Levnější než původní `duplicate(true)` (deep copy nikdy nechodí
+řetěz) a **nemůže zacyklit** na chybně autorovaném grafu; `chain_of()` cyklus stejně
+hlásí `push_error`em a odmítne skládat.
+
+**Které pole se skládá a které vyhrává hraný level** (celý kontrakt je v hlavičce
+`map_composer.gd`): skládají se `high_ground`, `path_cells`, `spawn_points`,
+`terrain_tiles`, `tile_overrides`, `decor` (posun v PIXELECH, `anchor * tile`) a
+`trods` (posunuté buňky). Hraný level vždy vyhrává `objective` (jádro je identita
+levelu — segment, který ho posune, znehodnotí každou zeď, kterou se hráč naučil),
+`spawn_zones` a všechno ekonomické/lekce/vlny (to jsou rozhodnutí o RUNU, ne o desce).
+Jediné místo, kde jsem musel volit bez opory: `spawn_zones` se nesou beze změny, což
+znamená autorské pravidlo — **level, který bere segmenty, má autorovat `spawn_points`,
+ne `spawn_zones`**, protože `Game._random_spawn_cell()` zóny ignoruje, jakmile jsou
+body neprázdné (P6). `MapComposer` na kombinaci obojího `push_warning`uje místo aby
+jedno tiše přepsal na druhé; přepis zón na body by změnil rozdělení losu na levelu
+s víc než jednou zónou, což je designové rozhodnutí, ne detail skládání.
+
+### 2. Co jsem udělal s mřížkou (rozhodnutí #2) — a proč jsem ji NEZMENŠIL
+
+Rozhodnutí #2 říká „místo se bere zmenšením základní mřížky, jen svisle, nikdy pod 29
+sloupců". Změřil jsem to sám, jak zadání žádalo, a **čísla v tom rozhodnutí nesedí
+o tři řádky**:
+
+```
+viewport 480x270, tile 16, origin (0,17), HUD lišty 17 nahoře / 24 dole
+sloupce vpravo od origin_x:                 480 / 16              = 30
+řádky pod origin_y (holý viewport):        (270 - 17) / 16        = 15
+řádky mezi oběma HUD lištami:              (270 - 24 - 17) / 16   = 14   <-- skutečnost
+Data.GRID                                                          = 30 x 14
+```
+
+Plánovaných „17 viditelných řádků" vyšlo z `270/16` **bez odečtení HUD lišt**.
+Skutečně použitelný pruh je 14 řádků — přesně tolik, kolik `Data.GRID` už má, a
+`data.gd` si to ve vlastním komentáři odvodil taky (mřížka končí na 241, spodní lišta
+začíná na 246).
+
+Důsledek: **zmenšení na 12 řádků by místo nevytvořilo, ale sebralo.** Oba levely
+obsazují jen `y = 2..11` (naměřeno, ne odhad — level 1 dokonce `3..11`), takže řádky
+0, 1, 12, 13 a sloupec 29 jsou volné UVNITŘ existující mřížky. To jsou **4 volné
+řádky**; mřížka o 12 řádcích by z nich nechala 2. `Data.GRID` proto zůstala 30×14 — to
+je inženýrská volba, kterou mi zadání explicitně nechalo („nebo implementuj skládání
+proti menší efektivní základně a konstantu nech být"), a směr rozhodnutí #2 (jen
+svisle, nikdy pod 29 sloupců) je splněn triviálně tím, že se nesahalo na nic.
+
+Nezmenšení má ještě jeden důsledek, který je čistý zisk: **skládání mřížku NIKDY
+nezvětšuje.** Mřížka JE obrazovka, takže obsah, který by opustil obrazovku, by opustil
+i mřížku, kam pathfinding a stavění nedosáhnou. Limit je tím strukturální, ne jen
+testovaný — a navíc ho `MapComposer` vynucuje aktivně: segment, jehož geometrie po
+`anchor_offset` vypadne z `board_budget()`, je **zahozen** s `push_error`em, který ho
+jmenuje. Scrollující mapa tak nemůže vzniknout ani z chybně autorovaného obsahu.
+
+Past, kterou rozhodnutí #2 jmenuje, hlídá `_test_segments` sám: objective je na `x=28`
+v obou levelech, takže kontrola „objective je uvnitř `board_budget()`" běží pro každý
+level v `data/` a spadne, kdyby mřížka kdy klesla pod 29 sloupců (přesně selhání T0
+z tohohle souboru výš).
+
+Přeautorování levelů v MapEditoru **nebylo potřeba** — žádná buňka žádného levelu
+nevypadla z rozsahu, protože se rozsah nezměnil. Eskalace podle „vyžaduje vizuální
+posouzení" tedy nenastala.
+
+### 3. Jak `requires_segment` visí na MetaProgression (rozhodnutí #3)
+
+`SaveGame.unlocked_segments: Array[String]` (nové `@export`, zpětně kompatibilní —
+starý save ho načte na defaultu, jak `save_game.gd` sám v hlavičce slibuje). Vlastní
+seznam, **ne** `cleared_levels` (ten je per level a svázal by desku s tím, co jsi
+naposled dohrál) a **ne** `growth_ranks` (ten se kupuje za Insight a dal by geometrii
+desky do obchodu) — přesně jak rozhodnutí #3 žádá.
+
+`MetaProgression.is_segment_unlocked(condition)` je jediný čtenář; prázdná podmínka je
+vždy splněná (segment bez podmínky je prostě nepodmíněná část mapy, což je bezpečný
+autorský default místo navždy tmavého křídla). `MetaProgression.unlock_segment()`
+uděluje a zapisuje save.
+
+**Klíčový detail: `SpawnPointData.requires_segment` se neptá save souboru, ale SLOŽENÉ
+DESKY.** `MapComposer` plní nové runtime pole `LevelData.active_segments`
+(nevyexportované, stejný kontrakt jako `waves`) id těch segmentů, které opravdu složil.
+`Game._segment_is_live()` je jediné místo, které ho čte, a používají ho oba gaty
+(`_active_spawn_point_cells()` i P7's `_pending_spawn_points()`), takže se nemůžou
+rozejít. Rozdíl je věcný, ne kosmetický: segment, který je odemčený, ale byl
+**zahozen** (nevešel se), na desce není — a nesmí z něj tedy nic spawnovat. Telegraf
+tak zůstává pravdivý ve smyslu P7.
+
+Prázdné `active_segments` = každý level, který nikdy neprošel skládáním = neprázdný
+`requires_segment` je „nikdy aktivní", **bit-identicky s tím, co P6 shipnul a na čem
+P7 stavěl**. Proto `_test_multispawn` i `_test_telegraph` zůstaly zelené beze změny.
+
+### `_test_segments` — co přesně dokazuje
+
+`scripts/_test_segments.gd` + `scenes/_test_segments.tscn`, ve `verify.sh`
+`FIXED_FPS_TESTS` (kvůli kontrole 8, `LevelSimulator`). Fixture je řetěz šesti linků
+**čistě v paměti** (`Resource.new()`, nikdy `.tres` v `data/` — stejný precedens jako
+P6's `_test_multispawn`):
+
+```
+root ── S1 ── S2 ── S3 ── S4 ── tip
+ │       └── čtyři odemykatelné segmenty ─┘  └── identita/ekonomika/vlny
+ └── páteř: skutečná geometrie levelu 1 + základní spawn body
+```
+
+Čtyři segmenty schválně sedí každý do jiné volné části mřížky, kterou §2 našla:
+`north_wing` do řádků 0/1 vpravo nahoře (+ vlastní spawn), `south_spur` do řádků 12/13
+vlevo dole (spawn od vlny 2), `east_gate` do jediného volného sloupce 29 (spawn od
+vlny 3, + trod), `inner_baffle` čistě zeď doprostřed otevřeného pole **bez jakéhokoli
+spawnu** — segment, který mění jen KUDY se dá jít, což je v maze TD ten zajímavější
+tvar. Na páteři je navíc spawn `(0,0)` s `requires_segment = "north_wing"`: je na
+desce vždy, ale aktivní jen když je segment živý. To je P6 zdokumentovaný případ
+použití a je to kontrola, která spadne, kdyby se `active_segments` ignorovalo.
+
+1. **Limit obrazovky je NAMĚŘENÝ, ne tvrzený** — test si budget odvodí nezávisle
+   z `ProjectSettings` + `Data.GRID` + `Game._HUD_*` a spadne, kdyby se rozešel
+   s `MapComposer.visible_tile_budget()`. Plus: mřížka sama se vejde, `board_budget()`
+   je přísnější z obou os, a objective každého levelu v `data/` je uvnitř.
+2. **Vyčerpaná mocninová množina** — `2^4 = 16` podmnožin, **skutečně všech 16**, ne
+   vzorek. Pro každou: vejde se, `active_segments` sedí přesně na složenou podmnožinu,
+   a **jedno** `FlowField` (P1, stejná konstrukce jako `AntiBlockValidator` z P2)
+   ověří trasu ke cíli pro každý spawn aktivní na kterékoli ze 4 vln —
+   **232 tras celkem**. Plus kontroly, že se anchor opravdu aplikoval na zdi, pruhy,
+   trod buňky, decor (pixely!), `terrain_tiles` i `tile_overrides`, a že se zdrojový
+   řetěz ani jednou nezmutoval.
+3. **Determinismus** — každá z 16 podmnožin složená **4× (2 pořadí řetězu × 2 pořadí
+   vkládání do množiny odemčení) = 64 skládání**, všechna musí dát bajtově identický
+   fingerprint. Druhý řetěz nese ty samé čtyři segmenty v OPAČNÝCH pozicích, takže se
+   opravdu testuje „závisí jen na množině", ne jen „dvakrát to samé volání". Plus
+   idempotence: `compose(compose(x)) == compose(x)`.
+4. **Negativní kontrola A: kontrola dosažitelnosti umí říct NE** — pátý segment zazdí
+   vlastní spawn do jednobuňkové kapsy; složí se, jeho spawn je AKTIVNÍ, a `FlowField`
+   ho musí hlásit jako nedosažitelný. Bez tohohle by „všech 16 kombinací prošlo" mohlo
+   znamenat jen že test nikdy neřekne ne.
+5. **Negativní kontrola B: přerostlý segment je ODMÍTNUT** — dva segmenty, jeden
+   o řádek pod spodním okrajem, druhý o sloupec vpravo, jsou zahozeny i když jsou
+   odemčené; deska se pořád vejde, jejich spawny nejsou na desce, nic z nich
+   neproteklo do geometrie. A ten samý segment posunutý o řádek výš se složí — takže
+   odmítnutí je o limitu, ne o těch dvou segmentech.
+6. **`unlock_condition` → MetaProgression** — a **BEZPEČNOST: mutuje se výhradně
+   `MetaProgression.current_save.unlocked_segments` V PAMĚTI**, `write_savegame()` se
+   nikdy nezavolá; test to sám dokazuje porovnáním `FileAccess.get_modified_time()`
+   skutečného `user://savegame.tres` před a po (poučení z `_test_save_round_trip.gd`).
+   Na konci se pole vrátí do původního stavu.
+7. **Produkční cesta** — do `Data._levels` se registruje **NESLOŽENÝ** vrchol řetězu
+   a skládání si udělá skutečná instancovaná `Game.tscn` sama; test pak volá reálnou
+   `Game._active_spawn_point_cells()` (ne reimplementaci) pro vlny 1–4. Navíc: vyndat
+   segment z `level.active_segments` musí okamžitě ztmavit i jeho vlastní spawn i ten
+   páteřní gatovaný.
+8. **Playthrough** — `LevelSimulator.run()` se `SimStrategyPassive` složený level
+   dohraje do vítězství (Focus 999, aby run neskončil dřív, než se stihnou aktivovat
+   všechny spawny).
+
+Ověřeno: `_test_segments` PASS samostatně (0 failures) i uvnitř celého `./verify.sh` —
+**37 pass, 0 fail, 4 known-broken (stejná čtyři jako baseline: `_test_deep_reading`,
+`_test_fog_bandwidth`, `_test_shadow_occlusion`, `_test_zen_pulsar` — P8 se žádného
+netýká), 0 flaky.** Baseline před P8 byl 36 pass; +1 je právě `_test_segments`.
+Regresní sada, kterou se P8 dotýká nejvíc, je zelená beze změny: `_test_flowfield`,
+`_test_antiblock`, `_test_multispawn`, `_test_telegraph`, `_test_timecontrol`,
+`_test_level_simulator`, `_test_levels`, `_test_mapeditor`, `_test_maze_validity`,
+`_test_save_round_trip` (nové `@export` v `SaveGame` je zpětně kompatibilní a jeho
+`_fields()` je explicitní seznam).
+
+Jediná chyba, kterou test odhalil při vývoji, byla skutečná: `compose(compose(x))`
+zapomínalo `active_segments`, protože běželo časnou větví „není co skládat" a
+`duplicate()` runtime pole nenese. Opraveno v `compose_with()` — časná větev ho teď
+přenáší, plná ho přepočítává.
+
+Nedotčeno záměrně: `addons/td_level_designer/` (CLAUDE.md STOP podmínka; segmenty
+zatím nejsou autorovatelné z docku — mimo rozsah, testovací laťka to nežádá),
+`data/` (žádný `.tres` nevznikl, nezměnil se ani nesmazal), `Data.GRID` (viz §2),
+`CLAUDE.md` (má necommitnuté změny ze souběžné session — `MapSegmentData` do jeho
+seznamu datových tříd doplní ten, kdo se ho dotkne příště).
+
+Nezahrnuto do commitu (souběžná session, nesouvisí): `BLOCKED.md`, `CLAUDE.md`,
+`project.godot` a `scenes/_diag_q1b.tscn`/`scripts/_diag_q1b.gd`/`.gd.uid` mají
+necommitnuté změny/soubory z jiné souběžné session — staged explicitně jmenovanými
+soubory, ne `git add -A`.
+
+Dotčené soubory: `scripts/resources/map_segment_data.gd` (nový),
+`scripts/resources/map_segment_data.gd.uid` (nový, auto-generovaný importem),
+`scripts/map_composer.gd` (nový), `scripts/map_composer.gd.uid` (nový),
+`scripts/_test_segments.gd` (nový), `scripts/_test_segments.gd.uid` (nový),
+`scenes/_test_segments.tscn` (nový), `scripts/resources/level_data.gd`
+(`base`/`segment`/`active_segments`), `scripts/game.gd` (skládání při načtení,
+`_segment_is_live()`, oba spawn gaty), `scripts/meta_progression.gd`
+(`is_segment_unlocked()`/`unlock_segment()`), `scripts/save_game.gd`
+(`unlocked_segments`), `verify.sh` (`_test_segments` do `FIXED_FPS_TESTS`),
+`docs/refactor/PATHFINDING.MD` (P8 → done).

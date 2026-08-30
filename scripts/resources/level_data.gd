@@ -88,6 +88,30 @@ class_name LevelData extends Resource
 ## Gameplay truth: these cells block movement AND are the only buildable spots.
 @export var high_ground: Array[Vector2i] = []
 
+@export_category("Composition")
+## The level this one is built ON TOP OF — "Level N+1 = LevelData N + segment, ODKAZEM,
+## NE KOPIÍ" (docs/refactor/PATHFINDING.MD P0/P8). Non-null means this level's own
+## geometry arrays are a DELTA: at load, MapComposer.compose() walks `base` to the root
+## and unions every link's geometry into one flat board. Editing the base map therefore
+## fixes every level standing on it at once, and no cell layout is ever stored twice.
+##
+## Null (every level today) means "I am a whole map on my own" and composition is a pure
+## deep copy — bit-identical to what game.gd did before P8 existed.
+##
+## Must not be cyclic. MapComposer refuses to walk a cycle rather than hanging, but a
+## cycle is an authoring bug with no sane composition, so it is an error, not a mode.
+@export var base: LevelData = null
+
+## Non-null means THIS LevelData is a SEGMENT: its own geometry only joins the composed
+## board when the header's `unlock_condition` is satisfied (see MapSegmentData), and it
+## lands shifted by the header's `anchor_offset`. Null means this link's geometry is
+## unconditional — the spine of the map, always present.
+##
+## The pairing is this way round (level owns header, not header owns level) so that a
+## segment is painted in scenes/MapEditor.tscn exactly like any other board; see
+## MapSegmentData's own header for why that mattered enough to decide the direction.
+@export var segment: MapSegmentData = null
+
 @export_category("Terrain art")
 ## Which tile sits on which cell: Vector2i cell -> Vector3i(source_id, atlas_x, atlas_y),
 ## against res://data/terrain/high_ground_tileset.tres.
@@ -169,3 +193,14 @@ class_name LevelData extends Resource
 
 ## Populated at runtime by Data.build_waves() — not exported/hand-authored.
 var waves: Array[WaveData] = []
+
+## Ids of the MapSegmentData headers whose geometry is actually part of THIS composed
+## board. Populated at runtime by MapComposer.compose() — not exported/hand-authored,
+## same contract as `waves` above.
+##
+## This is what gives SpawnPointData.requires_segment its meaning (P8): a spawn point
+## naming a segment is eligible only while that segment is in here. Empty — which is
+## every level that was never composed, i.e. every level on disk today — means any
+## non-empty requires_segment reads as "never active", exactly the behaviour P6 shipped
+## and P7 built on.
+var active_segments: Array[StringName] = []

@@ -451,7 +451,7 @@ neautoruje — mimo rozsah), segment-unlocking pro `requires_segment` (P8).
 ## P8 — MapSegmentData a skládání levelů
 Model: opus
 Needs-me: yes
-Status: todo
+Status: done
 
 Level N+1 = LevelData N + segment, **odkazem, ne kopií** (`@export var base: LevelData`).
 
@@ -498,6 +498,46 @@ držel.** Zadání výš je ponecháno beze změny; tohle je jeho doplnění, ne
      jen svisle.
 3. **Co kontroluje `unlock_condition`.** **`MetaProgression`** (existující
    autoload) — odemčení přežívá napříč runy, ne per-level a ne přes growth strom.
+
+**VYŘEŠENO 2026-08-30.** `MapSegmentData` má přesně ta čtyři pole ze zadání,
+žádné navíc. Odkaz na geometrii jde OPAČNÝM směrem, než se čekalo: `LevelData` dostal
+`base: LevelData` (řetěz, „odkazem ne kopií") **a `segment: MapSegmentData`** — link
+s hlavičkou JE segment, jeho vlastní `high_ground`/`path_cells`/… je geometrie
+segmentu, umístěná na `anchor_offset`. Důvod pro tenhle směr: segment musí být
+autorovatelný, a jediná posvěcená cesta k autorování geometrie je `MapEditor.tscn`
+bakující `LevelData` — takže segment se maluje existujícími nástroji a hlavička je ta
+jediná malá věc navíc. Pole s geometrií na `MapSegmentData` by si vyžádalo druhý,
+paralelní editor. `scripts/map_composer.gd` (`MapComposer`) chodí řetěz a vrací jeden
+plochý `LevelData`; `Game._ready()` ho volá místo bývalého `level.duplicate(true)`
+(pro level bez `base`/`segment`, tedy každý level na disku, JE compose ten deep copy).
+
+**Mřížka: `Data.GRID` ZŮSTALA 30×14, záměrně.** Rozhodnutí #2 stálo na „viditelných je
+17 řádků"; skutečně naměřeno je **14** — `(270 − 24 spodní lišta − 17 origin_y) / 16 =
+14`, přesně kolik `Data.GRID` má. Těch 17 vyšlo z `270/16` bez odečtení HUD lišt.
+Zmenšení na 12 řádků by proto místo nevytvořilo, ale **sebralo dva ze čtyř volných
+řádků**: levely obsazují jen `y = 2..11`, takže řádky 0, 1, 12, 13 a sloupec 29 jsou
+volné UVNITŘ existující mřížky a to je ta rezerva, kterou segmenty vyplňují. Vodorovně
+se nesahalo vůbec (rozhodnutí #2 to zakazuje a naměřeno 480/16 = přesně 30 sloupců).
+Skládání tak mřížku nikdy nezvětšuje — limit „vejde se na obrazovku" je strukturální,
+ne jen testovaný: segment, jehož geometrie po anchoru vypadne z `board_budget()`, je
+při skládání ZAHOZEN s `push_error`.
+
+**`unlock_condition` → `MetaProgression.is_segment_unlocked()`** nad novým
+`SaveGame.unlocked_segments` (vlastní seznam, ne `cleared_levels`, ne `growth_ranks` —
+přesně jak rozhodnutí #3 žádá). `SpawnPointData.requires_segment` (háček z P6) se ale
+neptá save souboru, nýbrž **složené desky**: `LevelData.active_segments` (runtime pole,
+jako `waves`) vyplní `MapComposer`, a `Game._segment_is_live()` je jediné místo, které
+ho čte. Odemčený, ale zahozený segment tedy nespawnuje — telegraf zůstává pravdivý.
+Prázdné `active_segments` (každý level na disku) = neprázdný `requires_segment` je
+„nikdy aktivní", bit-identicky s P6/P7.
+
+**Determinismus:** nepodmíněná páteř se skládá od kořene, živé segmenty pak podle
+`segment.id`; buňky jsou množiny řazené podle (y, x). Deska tedy závisí jen na tom,
+KTERÉ segmenty jsou živé — ne na pořadí v řetězu ani na pořadí v množině odemčení.
+
+`_test_segments` (+ `.tscn`, ve `verify.sh` `FIXED_FPS_TESTS`) — osm kontrol,
+16/16 kombinací vyčerpáno, 232 tras ověřeno, 64 skládání porovnáno na shodu.
+Detaily a čísla v `PROGRESS.md`.
 
 ## P8b — fog_bandwidth před P9
 Model: opus

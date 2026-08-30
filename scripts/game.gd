@@ -248,8 +248,14 @@ func _ready() -> void:
 		_goal_marker_tex = load("res://assets/markers/goal_core.png")
 	if ResourceLoader.exists("res://assets/terrain/iso/props/core.png"):
 		_core_prop_tex = load("res://assets/terrain/iso/props/core.png")
-	level = Data.get_level(GameState.current_level_index)
-	level = level.duplicate(true)
+	# P8: composition replaces the plain duplicate(true) that used to stand here. For a
+	# level with no `base` and no `segment` header — every level on disk today —
+	# MapComposer.compose() IS that deep copy and nothing else changes; for a level built
+	# on others it also unions in the geometry of whichever segments the save has
+	# unlocked. Either way the result is a fresh, flat LevelData, so the perks and
+	# sinking-walls edits below still land on a throwaway copy and never on Data's shared
+	# resource.
+	level = MapComposer.compose(Data.get_level(GameState.current_level_index))
 	fog_enabled = level.fog
 	shadow_enabled = level.shadows
 	routine_gates_enabled = level.routine_gates
@@ -1688,13 +1694,27 @@ func has_line_of_sight(from: Vector2, to: Vector2) -> bool:
 	var dir := ground_vec / dist
 	return cast_to_wall(from, dir, dist) >= dist
 
+## Whether a SpawnPointData.requires_segment names something that is actually part of
+## the board this level was composed into (P8). Empty — the default, and every spawn
+## point authored today — means "belongs to the base map", always true. The single
+## source of truth for both gates below, so they can never disagree about it.
+func _segment_is_live(required: StringName) -> bool:
+	if required == &"":
+		return true
+	return level != null and level.active_segments.has(required)
+
 ## Spawn points in `level.spawn_points` active for wave `wave_number` (1-based, matching
 ## LevelData.lean_waves/bait_waves' own convention): active_from_wave <= wave_number AND
-## requires_segment is empty. A non-empty requires_segment (P8, docs/refactor/
-## PATHFINDING.MD, not yet built) reads as "never available" rather than silently
-## ignored — nothing exists yet that could ever unlock a segment, so treating it as
-## always-inactive is the honest answer until P8 lands, not a guess about what P8 will
-## decide unlocking should look like.
+## the point's segment is actually part of this board.
+##
+## `requires_segment` (P8, docs/refactor/PATHFINDING.MD) names a MapSegmentData id, and
+## the point is eligible only while that id is in `level.active_segments` — the list
+## MapComposer.compose() fills in with the segments whose geometry it really composed in.
+## Gating on the COMPOSED BOARD rather than on the save flag directly is what keeps the
+## spawn honest: a segment that was unlocked but refused (it did not fit the screen) is
+## not on the board, so nothing may spawn from it. `active_segments` is empty for every
+## level that was never composed, which reproduces P6's original "a non-empty
+## requires_segment is never active" exactly.
 ##
 ## `wave_elapsed` (P7): seconds of SIM-TICK time (Game.wave_time — reset to 0.0 by
 ## _start_wave(), advanced only by _sim_tick(), never real/Engine.time_scale-scaled time)
@@ -1715,7 +1735,7 @@ func _active_spawn_point_cells(wave_number: int, wave_elapsed: float = INF) -> A
 	for sp: SpawnPointData in level.spawn_points:
 		if sp.active_from_wave > wave_number:
 			continue
-		if sp.requires_segment != &"":
+		if not _segment_is_live(sp.requires_segment):
 			continue
 		if sp.active_from_wave > 0 and sp.active_from_wave == wave_number \
 				and wave_elapsed < sp.telegraph_lead_time:
@@ -1740,7 +1760,7 @@ func _pending_spawn_points(wave_number: int, wave_elapsed: float) -> Array[Spawn
 	if level == null or not wave_spawning:
 		return pending
 	for sp: SpawnPointData in level.spawn_points:
-		if sp.requires_segment != &"":
+		if not _segment_is_live(sp.requires_segment):
 			continue
 		if sp.active_from_wave <= 0 or sp.active_from_wave != wave_number:
 			continue

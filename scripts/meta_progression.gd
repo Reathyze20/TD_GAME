@@ -216,6 +216,35 @@ func bank_run(level_id: String, victory: bool, carried: int, spent: int) -> Dict
 	current_save.write_savegame()
 	return {"total": subtotal, "spent": spent, "lines": lines}
 
+# ---------------------------------------------------------------- map segments
+#
+# P8 (docs/refactor/PATHFINDING.MD). A map segment is a piece of BOARD a level grows by
+# once the player has earned it — see scripts/resources/map_segment_data.gd and
+# scripts/map_composer.gd. The unlock lives here, beside the other things that outlive a
+# single run, because that is the decision the queue records for it: the map growing is
+# persistent progress, NOT a level-completion record (which would tie the board to which
+# level you last beat) and NOT a Growth Tree node (which would put board geometry behind
+# an Insight price).
+
+## True if `condition` — a MapSegmentData.unlock_condition, not a segment id — is
+## satisfied. An EMPTY condition is always satisfied: a segment with no condition is
+## simply an unconditional part of the map, which is what makes "no condition" the safe
+## authoring default rather than a permanently dark wing.
+func is_segment_unlocked(condition: StringName) -> bool:
+	if condition == &"":
+		return true
+	return current_save.unlocked_segments.has(String(condition))
+
+## Grants `condition` permanently and writes the save. Returns false (and writes nothing)
+## if it was empty or already granted, so a caller can react without pre-checking — the
+## same shape unlock_rank() above uses.
+func unlock_segment(condition: StringName) -> bool:
+	if condition == &"" or current_save.unlocked_segments.has(String(condition)):
+		return false
+	current_save.unlocked_segments.append(String(condition))
+	current_save.write_savegame()
+	return true
+
 # ---------------------------------------------------------------- level completion
 
 func complete_level(level_id: String, stars_earned: int, next_level_id: String = "") -> void:

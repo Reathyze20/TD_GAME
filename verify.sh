@@ -76,6 +76,7 @@ FIXED_FPS_TESTS=(
   _test_level_simulator
   _test_timecontrol
   _test_multispawn
+  _test_segments
 )
 _needs_fixed_fps() {
   local candidate="$1"
