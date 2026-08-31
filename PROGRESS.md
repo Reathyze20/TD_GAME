@@ -3252,3 +3252,105 @@ necommitnutá — jejich commit ji popíše sám.
   the first commit's `git commit` because they were sitting in the index; they were
   never part of this task's own change. The second commit undoes exactly that,
   leaving the deletion staged-but-uncommitted again, as it was found.
+
+## 2026-08-31 — Defender floor anchor: bottom-pivot fix, shadow exports, y-sort check, squash-tile mockup
+
+- **Task:** test the narrower hypothesis behind "units on the board look wrong" —
+  not camera angle, but missing floor anchoring (no shadow / wrong pivot / wrong
+  draw order). Diagnostic only: implement the fix for real, produce before/after
+  screenshots, render no verdict on which look is better.
+- **Found:** `defender_unit.gd`'s sprite draw was centre-pivoted
+  (`Rect2(-size/2.0, size)`) while `distraction_animator.gd`'s already drew
+  bottom-anchored (`Rect2(Vector2(-size.x*0.5,-size.y), size)`, feet at the node's
+  own origin) — the actual bug. The contact shadow DefenderUnit already had was
+  positioned by a hardcoded `Vector2(0.0, 12.0)` guess at half the sprite's height
+  under the old pivot, and squashed by a hardcoded `0.42` instead of routing
+  through `GridProjection.GROUND_Y_SCALE` the way `distraction_animator.gd`'s
+  shadow already did — a second, independent inconsistency between the two
+  families, not a style choice.
+- **`GridProjection.GROUND_Y_SCALE` is currently `1.0`** (`grid_projection.gd:38`,
+  `active_mode == MODE_SQUARE` per `:32`) — the top-down conversion already zeroed
+  the iso 2:1 squash out via the existing mode switch, so distraction contact
+  shadows already draw as plain circles, correctly, with no code change needed.
+  Kept as the single source of truth rather than re-deriving a squash constant
+  per file.
+- **Fix (`defender_unit.gd:554-644`):** sprite draw is now bottom-anchored
+  (`:616`), matching the distraction convention exactly. Shadow radius/squash/drop
+  now derive from the sprite's own drawn size instead of fixed pixel guesses
+  (`above_head_y`, computed at `:587`, also derives the health-bar Y from the same
+  sprite height instead of the old fixed `-20.0`, which would otherwise have sat
+  inside the new, taller bottom-anchored body). `debug_legacy_center_pivot`
+  (`:104`, static, default `false`) reproduces the exact pre-fix formula
+  byte-for-byte, gated behind a flag `_shot_defender_pivot.gd` toggles for a real
+  same-scene before/after — gameplay never sets it true.
+- **Exported shadow params, same names on both per-node scripts so they share one
+  mental model** (`defender_unit.gd:81-95`, `distraction_animator.gd:53-56`):
+  `shadow_radius_scale` (1.0), `shadow_squash_scale` (1.0, multiplies
+  `1.0/GridProjection.GROUND_Y_SCALE`), `shadow_alpha_scale` (1.0), `shadow_color`
+  (`#030308`), and `shadow_drop_ratio` (0.0, DefenderUnit only — fraction of sprite
+  height, replaces the `12.0` guess; correctly zero now that the anchor IS the
+  contact point). Every default reproduces the prior hardcoded numbers exactly, so
+  adding the exports was not itself a visual change. `horde_renderer.gd:80-81`
+  gets the two knobs that make sense for a shared batched draw
+  (`shadow_radius_scale`, `shadow_alpha_scale`); shadow colour stays un-exported
+  there on purpose (the shadow pixels are one soft-falloff texture baked once and
+  shared by every HordeRenderer — recolouring it means generating a per-instance
+  texture, real complexity this task's scope didn't need).
+- **Y-sort confirmed, not assumed:** `scripts/game.gd:277` sets
+  `entities.y_sort_enabled = true`; a repo-wide grep found no explicit `z_index` on
+  `defender_unit.gd`, `enemy.gd`, or `boss.gd` (only `game.gd`'s world layers and
+  `horde_renderer.gd`'s batched tier set one). Mechanism verified with a throwaway
+  `_diag_ysort_check.gd`/`.tscn` (deleted after use, per this project's
+  disposable-harness convention): two opaque squares at different Y inside a
+  `y_sort_enabled` parent, added to the tree in both orders, pixel-sampled at
+  their overlap — PASS both ways, so draw order follows Y position, not
+  add-order. The batched horde body's "always above habits" compromise
+  (`horde_renderer.gd`'s own header) is untouched, as instructed.
+- **`.dev/screenshots/defender_pivot_{before,after}.png`** (480x270, same
+  13-unit board — 6 defenders across all 4 recipes, 7 distractions across 5
+  sprited types) plus `_overlap_zoom` (a defender directly north of a distraction,
+  adjacent cells) and `_after_melee_zoom` (a defender holding a distraction via
+  `add_blocker`, which flips `is_batch_eligible()` false — the actual
+  non-batched-distraction y-sort case). In the overlap zoom, `before` shows the
+  knight's sprite sitting visibly high with its lower half overlapping the
+  distraction below it; `after` shows it sitting lower, closer to the shared
+  ground plane. `.dev/screenshots/squashed_tiles_{flat,88pct}.png` (+ `_squint`
+  quarter-size): item 4's board-geometry variant, `_shot_squashed_tiles.gd`,
+  building on `_shot_topdown_mockup.gd`'s exact GROUND/LANE/TOP colours, 14
+  colour-coded unit markers with tiny contact ellipses, identical layout/seed in
+  both, only `SQUASH_FACTOR = 0.88` differs (480x224 native height vs 480x197).
+  Pure `Image` pixel-buffer, no live `Game`/sprite render — independent of the
+  pivot/shadow fix above, per the task's framing.
+- **No verdict rendered** on either comparison, per the task's explicit ask.
+- **Worktree mixup discovered mid-task, worth logging:** this task's own earlier
+  attempt had been run from `C:\Users\reath\Projects\TD Project`, which had HEAD
+  moved to `main` mid-session (reflog: `checkout: moving from iso-to-topdown to
+  main`) — losing every uncommitted edit to tracked files there, though new
+  *untracked* scratch scripts survived the checkout (untracked files aren't
+  touched by `git checkout <branch>`). The actual `iso-to-topdown` checkout lives
+  in a sibling worktree, `C:\Users\reath\Projects\td-path` (`git branch -vv`
+  marks it `+`); that worktree's working tree was clean and already contained
+  this task's exact code fix, committed as `c0adf36` — from an earlier pass of
+  this same task, before whatever crashed it. Confirmed by diffing `c0adf36`
+  directly rather than trusting either session's assumption. This task's own new
+  work (harnesses, screenshots, this entry) was done and committed from
+  `td-path`; nothing was touched in the `TD Project` copy going forward.
+  `scripts/_diag_ysort_check.gd`(`.uid`)/`scenes/_diag_ysort_check.tscn` are left
+  behind untracked in BOTH worktrees — a sandbox permission denial blocked `rm`
+  from cleaning them up in either one (not committed here, not staged); harmless
+  (referenced by nothing, not part of this commit) but worth a manual delete in
+  each.
+- **`./verify.sh`: PASS — 38 pass, 0 fail, 0 skip, 4 known-broken (pre-existing,
+  unrelated to this task, includes `_test_horde_renderer` which itself PASSED),
+  0 flaky.**
+- Files: `scripts/defender_unit.gd`, `scripts/components/distraction_animator.gd`,
+  `scripts/components/horde_renderer.gd` (all three already committed as
+  `c0adf36` by the earlier pass of this task — no further changes made to them
+  here); `scripts/_shot_defender_pivot.gd`(`.uid`),
+  `scripts/_shot_squashed_tiles.gd`(`.uid`), `scenes/_shot_defender_pivot.tscn`,
+  `scenes/_shot_squashed_tiles.tscn` (new, kept — same permanent-comparison-tool
+  convention as `_shot_shadows.gd`/`_shot_crowd.gd`/`_shot_topdown_mockup.gd`),
+  9 files under `.dev/screenshots/` (new), this entry.
+- Commits: code fix `c0adf369aff4012d79120e959e8e2ef30d38bd8f` (pre-existing,
+  from the earlier interrupted pass — verified, not re-done); this entry's own
+  commit covers the harnesses, screenshots, and y-sort verification.

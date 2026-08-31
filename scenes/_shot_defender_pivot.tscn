@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/_shot_defender_pivot.gd" id="1_ybjwy"]
+
+[node name="ShotDefenderPivot" type="Node" unique_id=624014065]
+script = ExtResource("1_ybjwy")
