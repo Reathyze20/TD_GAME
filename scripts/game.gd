@@ -1352,13 +1352,23 @@ class TelegraphOverlay extends Node2D:
 	func _draw() -> void:
 		game._draw_spawn_telegraph(self)
 
+## Axis-aligned square bounds of a single grid cell in screen space -- the MODE_SQUARE
+## equivalent of GridProjection.cell_diamond(), which stays iso-only on purpose (see its
+## own doc comment: "no square equivalent implemented yet"). This is that equivalent,
+## scoped to the two call sites below plus the hover preview, all of which used to draw
+## a diamond on what is now a plain top-down board.
+func _cell_rect(cell: Vector2i) -> Rect2:
+	var t: float = float(Data.GRID.get("tile", 32))
+	var top_left := Data.cell_center(cell) - Vector2(t, t) * 0.5
+	return Rect2(top_left, Vector2(t, t))
+
 ## Kresli se JEDNOU, z _build_field(). Kdyz sem neco pribude, musi to byt taky staticke.
 func _draw_static_field(cv: CanvasItem) -> void:
 	var g = Data.GRID
 
 	for cells: Array in spawn_zone_cells:
 		for c: Vector2i in cells:
-			cv.draw_colored_polygon(GridProjection.cell_diamond(c), Color(0.9, 0.3, 0.4, 0.18))
+			cv.draw_rect(_cell_rect(c), Color(0.9, 0.3, 0.4, 0.18))
 
 	# Telegraf: trod, ktery se otevre PRISTI vlnu. Kresli se v barve pruhu, ale skoro
 	# pruhledne -- ma se to cist jako "tudy to zacina prosvitat", ne jako hotova cesta.
@@ -1368,7 +1378,7 @@ func _draw_static_field(cv: CanvasItem) -> void:
 		for c: Vector2i in soon.cells:
 			if lane_cells.has(c) or high_ground.has(c) or not _in_bounds(c):
 				continue
-			cv.draw_colored_polygon(GridProjection.cell_diamond(c), Color(0.85, 0.66, 0.31, 0.16))
+			cv.draw_rect(_cell_rect(c), Color(0.85, 0.66, 0.31, 0.16))
 
 	# Tecky po blocich 3x3 v isometricem prostoru
 	var b: int = Data.BUILD_BLOCK
@@ -1387,19 +1397,16 @@ func _draw_placement_preview(cv: CanvasItem) -> void:
 		and GameState.can_reserve_bandwidth(Data.get_habit(sel).bandwidth_cost)
 	var tint := Color(0.35, 1.0, 0.55) if ok else Color(1.0, 0.4, 0.4)
 
-	# Hover block 3x3 diamond vertices
+	# Hover block b x b square, centered on _hover_cell (was 4 diamond vertices via
+	# GridProjection.diamond_corners() -- iso-only, and the exact shape a live
+	# top-down screenshot caught floating over the board; see _cell_rect() above).
 	var b: int = Data.BUILD_BLOCK
-	var corners := GridProjection.diamond_corners()
 	var elevation := Vector2(0.0, WALL_HEIGHT) if high_ground.has(_hover_cell) else Vector2.ZERO
-	var v_top := Data.cell_center(_hover_cell - Vector2i(b / 2, b / 2)) + corners[0] - elevation
-	var v_right := Data.cell_center(_hover_cell + Vector2i(b / 2, -(b / 2))) + corners[1] - elevation
-	var v_bottom := Data.cell_center(_hover_cell + Vector2i(b / 2, b / 2)) + corners[2] - elevation
-	var v_left := Data.cell_center(_hover_cell + Vector2i(-(b / 2), b / 2)) + corners[3] - elevation
-
-	var diamond := PackedVector2Array([v_top, v_right, v_bottom, v_left])
-	cv.draw_colored_polygon(diamond, Color(tint.r, tint.g, tint.b, 0.20))
-	diamond.append(v_top)
-	cv.draw_polyline(diamond, tint, 2.5)
+	var t: float = float(Data.GRID.get("tile", 32))
+	var top_left := Data.cell_center(_hover_cell - Vector2i(b / 2, b / 2)) - Vector2(t, t) * 0.5 - elevation
+	var block_rect := Rect2(top_left, Vector2(t, t) * float(b))
+	cv.draw_rect(block_rect, Color(tint.r, tint.g, tint.b, 0.20))
+	cv.draw_rect(block_rect, tint, false, 2.5)
 
 	var sel_def := Data.get_habit(sel)
 	var pr: float = _preview_radius(sel_def)
@@ -2352,7 +2359,13 @@ func _draw() -> void:
 		# The health colour survives as a TINT rather than as the fill colour, so
 		# "the core goes red when Focus is low" still reads while the art stays art.
 		# Anchored at its feet like every other object on this board, not centred.
-		var csz := Vector2(_core_prop_tex.get_size()) * Data.pixel_scale()
+		# core.png is 112x112 raw px — leftover iso-canvas art (docs/art/ART_DEBT.md-class
+		# drift, never resized for the 480x270/16px-tile board), so pixel_scale()'s 1.0
+		# draws it at nearly a quarter of the whole board width and off the right edge
+		# near the objective. CORE_PROP_ART_SCALE is a first-pass stop-the-overflow factor,
+		# not a judged final size — tune this one constant if it should read bigger/smaller.
+		const CORE_PROP_ART_SCALE := 0.3
+		var csz := Vector2(_core_prop_tex.get_size()) * Data.pixel_scale() * CORE_PROP_ART_SCALE
 		var tint := Color.WHITE.lerp(core_color, 0.35)
 		if _glitch_hit > 0.01:
 			tint = tint.lerp(Color.WHITE, minf(1.0, _glitch_hit * 2.0))
@@ -3333,7 +3346,7 @@ func _open_panel(cell: Vector2i, bs: BuildSpot) -> void:
 		bs.current_habit as Habit if bs.current_habit is Habit else null)
 	stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	stats.custom_minimum_size = Vector2(210, 0)
+	stats.custom_minimum_size = Vector2(53, 0)
 	stats.add_theme_font_size_override("font_size", UI.FS_SMALL)
 	stats.add_theme_color_override("font_color", UI.TEXT_DIM)
 	box.add_child(stats)
@@ -4235,7 +4248,7 @@ func _refresh_wave_preview() -> void:
 	for e: Dictionary in entries:
 		if e.is_boss:
 			_wave_preview_box.add_child(UI.wrapped("⚠ BOSS: %s — shields up periodically"
-				% e.def.display_name, 240, UI.FS_SMALL, UI.DANGER))
+				% e.def.display_name, 60, UI.FS_SMALL, UI.DANGER))
 			continue
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
@@ -5301,8 +5314,8 @@ func _update_hands_off(delta: float) -> void:
 		_hands_off_active = true
 		_hands_off_label = UI.label("", UI.FS_TITLE, UI.FOCUS, HORIZONTAL_ALIGNMENT_CENTER)
 		_hands_off_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
-		_hands_off_label.position = Vector2(660, 150)
-		_hands_off_label.custom_minimum_size = Vector2(600, 0)
+		_hands_off_label.position = Vector2(165, 38)
+		_hands_off_label.custom_minimum_size = Vector2(150, 0)
 		_hud_root.add_child(_hands_off_label)
 
 	_idle_seconds += delta
@@ -5657,7 +5670,7 @@ func _build_draft_overlay(options: Array[CardData]) -> void:
 	# whether the draft offers three cards or the four a Clear Sight player gets.
 	var vbox := VBoxContainer.new()
 	vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
-	vbox.add_theme_constant_override("separation", 18)
+	vbox.add_theme_constant_override("separation", 5)
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	overlay.add_child(vbox)
 
@@ -5671,38 +5684,38 @@ func _build_draft_overlay(options: Array[CardData]) -> void:
 	vbox.add_child(UI.label("%d ◆ available" % GameState.run_insight, UI.FS_HEAD,
 		UI.INSIGHT, HORIZONTAL_ALIGNMENT_CENTER))
 
-	vbox.add_child(UI.spacer(Vector2(0, 8)))
+	vbox.add_child(UI.spacer(Vector2(0, 2)))
 
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 26)
+	row.add_theme_constant_override("separation", 7)
 	vbox.add_child(row)
 
 	for card: CardData in options:
 		row.add_child(_make_card_ui(card))
 
-	vbox.add_child(UI.spacer(Vector2(0, 8)))
+	vbox.add_child(UI.spacer(Vector2(0, 2)))
 
 	var buttons := HBoxContainer.new()
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
-	buttons.add_theme_constant_override("separation", 16)
+	buttons.add_theme_constant_override("separation", 4)
 	vbox.add_child(buttons)
 
 	if _draft_rerolls_left > 0:
 		var reroll := UI.button("↻ Reroll (%d left)" % _draft_rerolls_left, UI.FS_BODY,
-			Vector2(220, 48))
+			Vector2(55, 12))
 		reroll.pressed.connect(_on_draft_reroll)
 		buttons.add_child(reroll)
 
 	# The skip button names what skipping is worth. A saving decision the player can't
 	# see the value of isn't a decision — it just reads as "no thanks".
 	var skip := UI.button("Skip — keep %d ◆ for the Growth Tree" % GameState.run_insight,
-		UI.FS_BODY, Vector2(340, 48))
+		UI.FS_BODY, Vector2(85, 12))
 	skip.pressed.connect(_on_draft_skip)
 	buttons.add_child(skip)
 
-const _CARD_W := 380
-const _CARD_BODY_W := 316
+const _CARD_W := 95
+const _CARD_BODY_W := 79
 
 func _make_card_ui(card: CardData) -> PanelContainer:
 	var card_color := Data.card_color(card)
@@ -5716,7 +5729,7 @@ func _make_card_ui(card: CardData) -> PanelContainer:
 	panel.custom_minimum_size = Vector2(_CARD_W, 0)
 
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 10)
+	box.add_theme_constant_override("separation", 3)
 	panel.add_child(box)
 
 	# Header: rarity on the left, price on the right — the two things being traded, on
@@ -5758,19 +5771,19 @@ func _make_card_ui(card: CardData) -> PanelContainer:
 
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	spacer.custom_minimum_size = Vector2(0, 6)
+	spacer.custom_minimum_size = Vector2(0, 2)
 	box.add_child(spacer)
 
 	if affordable:
 		var btn := UI.primary_button("Buy — %d ◆" % price, card_color, UI.FS_BODY,
-			Vector2(0, 44))
+			Vector2(0, 11))
 		btn.pressed.connect(_on_card_picked.bind(card))
 		box.add_child(btn)
 	else:
 		# Unaffordable stays visible and readable — seeing the Breakthrough you can't
 		# afford is what makes the next Insight drop matter.
 		var btn := UI.button("%d ◆ short" % (price - GameState.run_insight), UI.FS_BODY,
-			Vector2(0, 44))
+			Vector2(0, 11))
 		btn.disabled = true
 		box.add_child(btn)
 		panel.modulate = Color(1, 1, 1, 0.55)
@@ -6502,7 +6515,7 @@ func _build_top_bar() -> void:
 	_focus_meter.caption = "Focus"
 	_focus_meter.fill_color = UI.FOCUS
 	_focus_meter.danger_below = 0.34
-	_focus_meter.custom_minimum_size = Vector2(300, 40)
+	_focus_meter.custom_minimum_size = Vector2(75, 10)
 	row.add_child(_focus_meter)
 
 	# --- Burnout, right next to Focus, because it is the consequence of the same event.
@@ -6511,7 +6524,7 @@ func _build_top_bar() -> void:
 	_burnout_meter = UIMeter.new()
 	_burnout_meter.caption = "Burnout"
 	_burnout_meter.fill_color = UI.DANGER
-	_burnout_meter.custom_minimum_size = Vector2(180, 40)
+	_burnout_meter.custom_minimum_size = Vector2(45, 10)
 	_burnout_meter.visible = false
 	row.add_child(_burnout_meter)
 
@@ -6521,7 +6534,7 @@ func _build_top_bar() -> void:
 	row.add_child(_wave_label)
 
 	_enemy_stats_label = UI.label("", UI.FS_SMALL, UI.TEXT_DIM, HORIZONTAL_ALIGNMENT_CENTER)
-	_enemy_stats_label.custom_minimum_size = Vector2(230, 0)
+	_enemy_stats_label.custom_minimum_size = Vector2(58, 0)
 	_enemy_stats_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(_enemy_stats_label)
 
@@ -6531,12 +6544,12 @@ func _build_top_bar() -> void:
 	_tolerance_meter = UIMeter.new()
 	_tolerance_meter.caption = "Tolerance"
 	_tolerance_meter.fill_color = UI.TOLERANCE
-	_tolerance_meter.custom_minimum_size = Vector2(250, 40)
+	_tolerance_meter.custom_minimum_size = Vector2(63, 10)
 	_tolerance_meter.visible = false
 	row.add_child(_tolerance_meter)
 
 	_combo_label = UI.label("", UI.FS_TITLE, UI.DOPAMINE, HORIZONTAL_ALIGNMENT_RIGHT)
-	_combo_label.custom_minimum_size = Vector2(110, 0)
+	_combo_label.custom_minimum_size = Vector2(28, 0)
 	_combo_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(_combo_label)
 
@@ -6564,7 +6577,7 @@ func _build_bottom_bar() -> void:
 	for i in range(Data.HABIT_ORDER.size()):
 		var key := String(Data.HABIT_ORDER[i])
 		var d := Data.get_habit(key)
-		var b := UI.button("%s\n%d ◆" % [d.short, d.build_cost], UI.FS_BODY, Vector2(132, 0))
+		var b := UI.button("%s\n%d ◆" % [d.short, d.build_cost], UI.FS_BODY, Vector2(33, 0))
 		# Numbers, not just prose: a tooltip the player can compare against the enemy's
 		# stats is a decision aid; flavor text alone is decoration.
 		b.tooltip_text = "%s — %d Dopamine · holds %d Bandwidth\n%s\n%s\nHotkey: %d" \
@@ -6576,16 +6589,16 @@ func _build_bottom_bar() -> void:
 		_habit_buttons[key] = b
 		b.add_child(_hotkey_badge(str(i + 1)))
 
-	row.add_child(UI.spacer(Vector2(18, 0)))
+	row.add_child(UI.spacer(Vector2(5, 0)))
 	var sep := VSeparator.new()
 	row.add_child(sep)
-	row.add_child(UI.spacer(Vector2(18, 0)))
+	row.add_child(UI.spacer(Vector2(5, 0)))
 
 	var intervention_keys: Array[String] = ["Q", "W", "E", "R", "T"]
 	for i in range(Data.INTERVENTION_ORDER.size()):
 		var ikey := String(Data.INTERVENTION_ORDER[i])
 		var idef := Data.get_intervention(ikey)
-		var b := UI.button(idef.short, UI.FS_BODY, Vector2(126, 0))
+		var b := UI.button(idef.short, UI.FS_BODY, Vector2(32, 0))
 		var hotkey: String = intervention_keys[i] if i < intervention_keys.size() else ""
 		b.tooltip_text = "%s\n%s%s" % [idef.name, idef.description,
 			("\nHotkey: " + hotkey) if hotkey != "" else ""]
@@ -6597,12 +6610,12 @@ func _build_bottom_bar() -> void:
 
 	row.add_child(UI.spacer(Vector2.ZERO, true))
 
-	_pause_button = UI.button("❚❚", UI.FS_HEAD, Vector2(64, 0))
+	_pause_button = UI.button("❚❚", UI.FS_HEAD, Vector2(16, 0))
 	_pause_button.tooltip_text = "Pause / resume (Esc)"
 	_pause_button.pressed.connect(_toggle_pause)
 	row.add_child(_pause_button)
 
-	_speed_button = UI.button(_speed_label(_current_speed()), UI.FS_HEAD, Vector2(72, 0))
+	_speed_button = UI.button(_speed_label(_current_speed()), UI.FS_HEAD, Vector2(18, 0))
 	_speed_button.tooltip_text = "Game speed — click to cycle 0.25× / 1× / 2× / 4× (+ and −)"
 	_speed_button.pressed.connect(_cycle_speed)
 	row.add_child(_speed_button)
@@ -6612,16 +6625,16 @@ func _build_bottom_bar() -> void:
 	# so it reads as part of the SAME time-control cluster rather than being the only
 	# time control buried in the wave-management area on the far right (Q1, docs/
 	# refactor/PATHFINDING.MD).
-	_skip_wave_button = UI.button("Skip ▶▶", UI.FS_BODY, Vector2(84, 0))
+	_skip_wave_button = UI.button("Skip ▶▶", UI.FS_BODY, Vector2(21, 0))
 	_skip_wave_button.tooltip_text = "Skip the build phase and jump straight into the " \
 		+ "next wave (same as Start Wave)."
 	_skip_wave_button.pressed.connect(_on_start_wave_pressed)
 	row.add_child(_skip_wave_button)
 
-	row.add_child(UI.spacer(Vector2(14, 0)))
+	row.add_child(UI.spacer(Vector2(4, 0)))
 
 	if GameState.quick_hit_enabled:
-		var q := UI.button("", UI.FS_BODY, Vector2(170, 0))
+		var q := UI.button("", UI.FS_BODY, Vector2(43, 0))
 		q.tooltip_text = "Instant Dopamine on demand. Each use pays less than the last and " \
 			+ "permanently raises your baseline Tolerance, which shrinks every reward for " \
 			+ "the rest of the level."
@@ -6632,7 +6645,7 @@ func _build_bottom_bar() -> void:
 
 	# The one call-to-action, filled and last in the reading order.
 	_start_wave_button = UI.primary_button("▶ Start Wave 1", UI.FOCUS, UI.FS_HEAD,
-		Vector2(260, 0))
+		Vector2(65, 0))
 	_start_wave_button.tooltip_text = "Call the wave now (Space). The sooner you call " \
 		+ "it, the bigger the Dopamine bonus."
 	row.add_child(_start_wave_button)
