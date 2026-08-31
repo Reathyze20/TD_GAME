@@ -3173,4 +3173,11 @@ necommitnutá — jejich commit ji popíše sám.
 - Files: `tools/check_art_colors.py` (new), `docs/art/ART_DEBT.md` (new,
   6 entries: `doomscroll`, `group_chat`, `focus_timer`, `zen_pulsar`, `anchor`,
   `focus_pillar`), `verify.sh` (new section), this entry.
-- Commit: pending — see the follow-up "log the commit hash" entry.
+- Commit: `46eb641a5835c257eef86afe7531558538e4ebdb`. A second, corrective commit
+  (`438394a4e4e18acfc184d377b4971c5be5068913`) restores `scripts/floating_text.gd`
+  and its `.uid`, which the first commit accidentally finalized as deleted — those
+  two files were already staged for deletion by a concurrent session before this
+  task started (visible in the git status this task began from) and got swept into
+  the first commit's `git commit` because they were sitting in the index; they were
+  never part of this task's own change. The second commit undoes exactly that,
+  leaving the deletion staged-but-uncommitted again, as it was found.
