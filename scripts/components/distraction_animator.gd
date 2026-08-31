@@ -44,6 +44,17 @@ const COLOR_ADULT_HOT := Color("ff9500")
 const COLOR_BOSS_CORE := Color("af52de")
 const COLOR_BOSS_TENDRILL := Color("bf5af2")
 
+## ------------------------------------------------------------ contact-shadow tuning
+## Exported so a type (or the DefenderUnit family — see its own matching exports in
+## scripts/defender_unit.gd, same names by design) can be tuned per-instance without
+## touching this file's draw math again. Defaults reproduce _draw_contact_shadow's
+## previous hardcoded numbers exactly, so adding these exports is not itself a visual
+## change — every multiplier below is a no-op at its default.
+@export var shadow_radius_scale: float = 1.0
+@export var shadow_squash_scale: float = 1.0  ## multiplies 1.0 / GridProjection.GROUND_Y_SCALE
+@export var shadow_alpha_scale: float = 1.0
+@export var shadow_color: Color = Color(0.01, 0.01, 0.04)
+
 ## The set currently on screen; always one of the four facings below, so existing code
 ## that asks "does this enemy have sprite art?" keeps working unchanged.
 var _frame_textures: Array[Texture2D] = []
@@ -216,15 +227,17 @@ func _draw_type_glow(r: float, strength: float) -> void:
 func _draw_contact_shadow(r: float, strength: float) -> void:
 	if strength <= 0.01:
 		return
-	var drop: float = r * 1.45 if enemy.is_flying else 0.0
-	var alpha: float = (0.22 if enemy.is_flying else 0.42) * strength
+	var rr: float = r * shadow_radius_scale
+	var drop: float = rr * 1.45 if enemy.is_flying else 0.0
+	var alpha: float = (0.22 if enemy.is_flying else 0.42) * strength * shadow_alpha_scale
 	# Dynamic bobbing: shadow gently tightens on upward steps for physical ground anchor (2:1 projection)
 	var bob: float = 1.0 - absf(sin(_time * 6.0)) * (0.06 if enemy.is_flying else 0.12)
-	draw_set_transform(Vector2(0.0, drop), 0.0, Vector2(bob, bob / GridProjection.GROUND_Y_SCALE))
+	var squash: float = (bob / GridProjection.GROUND_Y_SCALE) * shadow_squash_scale
+	draw_set_transform(Vector2(0.0, drop), 0.0, Vector2(bob, squash))
 	# 3-tier soft shadow (core, mid-body, soft rim)
-	draw_circle(Vector2.ZERO, r * 1.15, Color(0.01, 0.01, 0.04, alpha * 0.25))
-	draw_circle(Vector2.ZERO, r * 0.85, Color(0.01, 0.01, 0.04, alpha * 0.65))
-	draw_circle(Vector2.ZERO, r * 0.50, Color(0.01, 0.01, 0.04, alpha * 0.95))
+	draw_circle(Vector2.ZERO, rr * 1.15, Color(shadow_color.r, shadow_color.g, shadow_color.b, alpha * 0.25))
+	draw_circle(Vector2.ZERO, rr * 0.85, Color(shadow_color.r, shadow_color.g, shadow_color.b, alpha * 0.65))
+	draw_circle(Vector2.ZERO, rr * 0.50, Color(shadow_color.r, shadow_color.g, shadow_color.b, alpha * 0.95))
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 ## Draws the current frame centred on the enemy.

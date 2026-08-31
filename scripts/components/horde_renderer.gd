@@ -61,6 +61,25 @@ extends Node2D
 const Z_GLOW := -8   ## below every unit, matches docs/core/01's "shadows are z-only, never y-sorted"
 const Z_SHADOW := -6 ## same tier, drawn after glow so it sits on top of it (matches old stacking order)
 
+## ------------------------------------------------------------ contact-shadow tuning
+## Same intent as DistractionAnimator's and DefenderUnit's per-instance shadow exports
+## (scripts/components/distraction_animator.gd, scripts/defender_unit.gd), but exported
+## on the RENDERER instead: this class draws the whole batched horde through one shared
+## MultiMesh, so there is no per-creature node to hang a per-instance export on — see
+## this file's own header on why the batch trades per-instance control for draw-call
+## count. One HordeRenderer exists per Game (see header), so these two knobs still
+## reach every batched shadow; they just move together instead of independently.
+## Deliberately NOT exporting a shadow colour here: unlike the two per-node scripts
+## above, the shadow's pixels are a single soft-falloff texture baked ONCE and shared
+## by every HordeRenderer that will ever exist (the static _shadow_tex below, same
+## pattern as game.gd's dopamine-burst dot — see _ensure_shadow_texture()'s own
+## comment). Recolouring it would mean generating a per-instance texture instead of
+## reusing that shared bake, which is real added complexity this diagnostic task's
+## scope does not need — the per-node scripts above already cover "can a shadow's
+## colour be tuned at all" for the (non-batched) cases that matter here.
+@export var shadow_radius_scale: float = 1.0
+@export var shadow_alpha_scale: float = 1.0
+
 var _body_mmi: MultiMeshInstance2D
 var _glow_mmi: MultiMeshInstance2D
 var _shadow_mmi: MultiMeshInstance2D
@@ -249,8 +268,8 @@ func rebuild(distractions: Array) -> void:
 
 		# ---- shadow ----
 		var drop: float = vr * 1.45 if d.is_flying else 0.0
-		var shadow_d: float = vr * 2.3
-		var salpha: float = 0.22 if d.is_flying else 0.42
+		var shadow_d: float = vr * 2.3 * shadow_radius_scale
+		var salpha: float = (0.22 if d.is_flying else 0.42) * shadow_alpha_scale
 		_shadow_mm.set_instance_transform_2d(i,
 			Transform2D(Vector2(shadow_d, 0.0), Vector2(0.0, shadow_d * gy), d.position + Vector2(0.0, drop)))
 		_shadow_mm.set_instance_color(i, Color(1.0, 1.0, 1.0, salpha))

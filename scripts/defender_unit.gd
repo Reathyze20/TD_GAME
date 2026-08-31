@@ -72,6 +72,37 @@ var _color := Color("2bd6c0")
 var _facing_left := false
 var _hurt_flash: float = 0.0
 
+## ------------------------------------------------------------ contact-shadow tuning
+## Same knob names as DistractionAnimator's own shadow exports (scripts/components/
+## distraction_animator.gd) so both families are tuned from one mental model. Defaults
+## reproduce this file's prior hardcoded shadow numbers (radius 15/11/6.5, squash 0.42,
+## color #030308) as closely as the bottom-anchor pivot fix below allows — see _draw()'s
+## own comment at the shadow block for what actually changed and why.
+@export var shadow_radius_scale: float = 1.0
+## Multiplies 1.0 / GridProjection.GROUND_Y_SCALE, the same ground-projection squash
+## DistractionAnimator's contact shadow already uses. The old code hardcoded 0.42
+## instead of reading this shared value — a real inconsistency between the two
+## families' shadows, not a style choice, so this routes through the same mechanism
+## instead of re-deriving its own squash constant.
+@export var shadow_squash_scale: float = 1.0
+@export var shadow_alpha_scale: float = 1.0
+@export var shadow_color: Color = Color(0.01, 0.01, 0.04)
+## Vertical drop from the anchor point, as a fraction of the sprite's own height.
+## Replaces a hardcoded Vector2(0.0, 12.0) that was really a guess at "half this
+## particular sprite's height" for the OLD center-pivoted draw. Now that the sprite is
+## bottom-anchored (see _draw()), the true contact point IS the anchor, so 0.0 is
+## correct by construction rather than by tuning.
+@export var shadow_drop_ratio: float = 0.0
+
+## ------------------------------------------------------------ diagnostic-only toggle
+## Reproduces the OLD centre-pivoted draw + fixed shadow this task replaces, for
+## scripts/_shot_defender_pivot.gd's before/after comparison ONLY — it is the one thing
+## in this file allowed to resurrect the bug on purpose, so the "before" screenshot is
+## real old behaviour rather than a hand-drawn approximation of it. Gameplay always
+## runs the fixed branch below (false); nothing outside that one shot harness may set
+## this true.
+static var debug_legacy_center_pivot: bool = false
+
 # ---------------------------------------------------------------- setup
 
 ## Guild path: everything from the DefenderData, tier-scaled by the guild's own def.
@@ -523,19 +554,13 @@ func _current_frame() -> Array:
 func _draw() -> void:
 	var pick := _current_frame()
 	var tex: Texture2D = pick[0]
+	# Where the health bar/lifetime ring sit "above the head" — depends on which body
+	# is actually drawn below, since the sprite and the vector-body fallback have very
+	# different vertical extents. Overwritten inside the sprite branch; this default
+	# matches the small vector-body token (radius 10, unaffected by the pivot fix since
+	# it was already drawn centred on the unit's own origin, not on a texture rect).
+	var above_head_y: float = -20.0
 	if tex != null:
-		# Contact shadow first, so the unit is anchored to the floor like the creatures
-		# are — a fading one under a dying body, mirroring the distraction animator.
-		var fade := 1.0
-		if _dying and _frames.has("death"):
-			fade = 1.0 - clampf(_anim_t * _FPS / float(_frames["death"].size()), 0.0, 1.0)
-		var bob: float = 1.0 - absf(sin(_anim_t * 6.0)) * 0.10
-		draw_set_transform(Vector2(0.0, 12.0), 0.0, Vector2(bob, 0.42 * bob))
-		draw_circle(Vector2.ZERO, 15.0, Color(0.01, 0.01, 0.04, 0.12 * fade))
-		draw_circle(Vector2.ZERO, 11.0, Color(0.01, 0.01, 0.04, 0.28 * fade))
-		draw_circle(Vector2.ZERO, 6.5, Color(0.01, 0.01, 0.04, 0.45 * fade))
-		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-
 		# Same raster as the creature it blocks — and as the ground both stand on.
 		# Was a hardcoded 2.0 while the terrain drew at 3.0; see Data.pixel_scale().
 		# Data.UNIT_ART_SCALE on top: raw 48px defender frames still drew 3 grid cells
@@ -543,12 +568,53 @@ func _draw() -> void:
 		# numbers. Same factor distraction_animator.gd applies, so defenders and
 		# distractions stay sized consistently against each other.
 		var size := Vector2(tex.get_size()) * Data.pixel_scale() * Data.UNIT_ART_SCALE
+
+		var fade := 1.0
+		if _dying and _frames.has("death"):
+			fade = 1.0 - clampf(_anim_t * _FPS / float(_frames["death"].size()), 0.0, 1.0)
+		var bob: float = 1.0 - absf(sin(_anim_t * 6.0)) * 0.10
+
+		if debug_legacy_center_pivot:
+			# The exact pre-fix formula, byte-for-byte — see debug_legacy_center_pivot's
+			# own comment. Shot-harness use only.
+			above_head_y = -20.0
+			draw_set_transform(Vector2(0.0, 12.0), 0.0, Vector2(bob, 0.42 * bob))
+			draw_circle(Vector2.ZERO, 15.0, Color(0.01, 0.01, 0.04, 0.12 * fade))
+			draw_circle(Vector2.ZERO, 11.0, Color(0.01, 0.01, 0.04, 0.28 * fade))
+			draw_circle(Vector2.ZERO, 6.5, Color(0.01, 0.01, 0.04, 0.45 * fade))
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		else:
+			above_head_y = -size.y - 4.0
+			# Contact shadow first, so the unit is anchored to the floor like the
+			# creatures are — a fading one under a dying body, mirroring the distraction
+			# animator. Sized off the sprite's own width (like DistractionAnimator sizes
+			# its shadow off the sprite's visual radius) instead of the fixed
+			# 15/11/6.5px this replaced.
+			var rr: float = size.x * 0.5 * shadow_radius_scale
+			var squash: float = (bob / GridProjection.GROUND_Y_SCALE) * shadow_squash_scale
+			var drop: float = size.y * shadow_drop_ratio
+			var alpha: float = fade * shadow_alpha_scale
+			draw_set_transform(Vector2(0.0, drop), 0.0, Vector2(bob, squash))
+			draw_circle(Vector2.ZERO, rr * 1.15, Color(shadow_color.r, shadow_color.g, shadow_color.b, 0.12 * alpha))
+			draw_circle(Vector2.ZERO, rr * 0.85, Color(shadow_color.r, shadow_color.g, shadow_color.b, 0.28 * alpha))
+			draw_circle(Vector2.ZERO, rr * 0.50, Color(shadow_color.r, shadow_color.g, shadow_color.b, 0.45 * alpha))
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+		# Bottom-anchored: the sprite's FEET sit at the node's own origin, matching the
+		# convention DistractionAnimator._draw_texture_centred() already uses —
+		# Rect2(Vector2(-size.x*0.5, -size.y), size). This WAS ALWAYS Rect2(-size/2.0,
+		# size) (centre-pivoted) before this task, which is the actual pivot bug being
+		# fixed: a defender's midpoint sat on its logical ground position instead of its
+		# feet, so it floated half a body-height above the floor while every distraction
+		# already stood on it. debug_legacy_center_pivot reproduces that exact rect too.
 		var flip := -1.0 if pick[1] else 1.0
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2(flip, 1.0))
 		var tint := Color.WHITE
 		if _hurt_flash > 0.0 and not _dying:
 			tint = Color(1.0 + _hurt_flash, 1.0 + _hurt_flash, 1.0 + _hurt_flash)
-		draw_texture_rect(tex, Rect2(-size / 2.0, size), false, tint)
+		var rect: Rect2 = Rect2(-size / 2.0, size) if debug_legacy_center_pivot \
+			else Rect2(Vector2(-size.x * 0.5, -size.y), size)
+		draw_texture_rect(tex, rect, false, tint)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		if _dying:
 			return   # no bars, rings or auras over a corpse
@@ -573,7 +639,7 @@ func _draw() -> void:
 
 	if current_health < max_health:
 		var w := 22.0
-		var y := -20.0
+		var y := above_head_y
 		draw_rect(Rect2(-w / 2.0 - 1.0, y - 1.0, w + 2.0, 4.0), Color(0, 0, 0, 0.6))
 		var ratio: float = clampf(float(current_health) / float(max_health), 0.0, 1.0)
 		draw_rect(Rect2(-w / 2.0, y, w * ratio, 2.0), _color)
