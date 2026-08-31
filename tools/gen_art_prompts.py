@@ -117,6 +117,7 @@ def load_bible(path=BIBLE):
         "contrast": _table(text, "contrast"),
         "vocabulary": _table(text, "vocabulary"),
         "suffix": _fence(text, "suffix", "suffix"),
+        "design_constraints": _fence(text, "design_constraints", "design_constraints"),
         "negative": _fence(text, "negative", "negative"),
         "why0": _block(text, "why0").strip(),
         "gate0": _block(text, "gate0").strip(),
@@ -338,7 +339,11 @@ def build(bible, schema):
                     batch_id = "%s_%02d" % (kind, batch_no)
                     open_batches[kind] = (batch_id, [eid])
 
-            prompt = "%s; %s" % (r["form"], bible["suffix"])
+            # Design constraints (STYLE_BIBLE.md §7b) jdou hned za formu, PRED technicky
+            # suffix (§7) -- obsah driv, technika kresby az po nem. Je to jedina cesta,
+            # jak dostat perspektivu do promptu pro `create_1_direction_object`: ten
+            # nastroj ma jiny enum `view` a "low top-down" mu poslat nejde (§9).
+            prompt = "%s; %s; %s" % (r["form"], bible["design_constraints"], bible["suffix"])
 
             # negative_description/color_image_url zustavaji v `params` az do filtru
             # nize -- ne proto, ze by je nektery ze tri skutecnych nastroju prijal
@@ -364,7 +369,8 @@ def build(bible, schema):
                     first, second = forms[riders[eid]]["form"], r["form"]
                 else:
                     first, second = r["form"], forms[r["base"]]["form"]
-                params["description"] = "1). %s 2). %s; %s" % (first, second, bible["suffix"])
+                params["description"] = "1). %s 2). %s; %s; %s" % (
+                    first, second, bible["design_constraints"], bible["suffix"])
                 params["tile_size"] = gen
                 prompt = params["description"]
             elif tool["mcp_tool"].endswith("create_1_direction_object"):

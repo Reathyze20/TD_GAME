@@ -409,6 +409,62 @@ v promptu pojmenovávají slovem („amber“, „indigo“, „teal“) — slo
 k tónu, který `reduce_colors` pak dotáhne na přesnou paletu; hex by mu dal záminku
 vyrobit si vlastní.
 
+## 7b. Design constraints — vynuceno DOSLOVA v každém promptu
+
+*Přidáno 30. 8. 2026, priorita před zbytkem fáze 1.* Kontaktní list fáze 0 (28 kandidátů)
+ukázal, že šest základních otázek se dá zodpovědět jinak pokaždé, když se nechá na
+generátoru — a oprava po vygenerování je regenerace, ne úprava. Tahle sekce je proto
+stejný mechanismus jako §7 (povinný suffix), jen o úroveň výš: **§7 řeší JAK se to kreslí**
+(obrys, stínování, dithering), **tahle sekce řeší CO se smí a nesmí objevit v obsahu**, a
+obojí jde do promptu doslova, ne odkazem — jinak to generátor při první příležitosti poruší
+(stejný důvod, proč §1 už varuje před doslovným mozkem).
+
+Šest otázek, které musí mít odpověď před KAŽDÝM voláním:
+
+<!-- gen:design_constraints_table -->
+
+| otázka | pravidlo | výjimka |
+|---|---|---|
+| oči a obličej | žádná entita nemá oči ani obličej | **jediná výjimka: `clickbait`** — jedno velké holé oko s trnitým lemem (§8), a nic jiného obličejového k němu (žádné obočí, žádná ústa) |
+| končetiny | žádná entita nemá ruce ani nohy | **jediná výjimka: čtyři obránci Nutrition Guild** (`broccoli_knight`, `avocado_monk`, `chilli_berserker`, `garlic_mage`) — drží zbraň nebo nástroj (kopí, pěsti, nůž, hůl), a to bez rukou nejde. Distrakce sdílejí s obránci tutéž kotvu (§6), ale končetiny NEDĚDÍ — jsou to spory/cysty/výtrusy, ne postavy, viz §2a |
+| tón | habits a defenders vřelé a klidné; distractions studené a hrozivé; terén, props a focus core neutrální a tiché | žádná — to je přímo §1 a §2a, tahle tabulka to jen shrnuje pro prompt |
+| detail | ploché barvy, žádný dithering, žádná textura, žádný gradient | shoduje se s §7 — schválně zdvojeno, protože tahle sekce jde do promptu jinam a dřív |
+| postoj | postavené věci (habits, defenders, props, focus core) sedí zakotvené a nehybné; cokoli, co se hýbe (distractions), zůstává nízko a v kontaktu s povrchem, nikdy ve vzduchu | ⚠ **v rozporu s dnešním textem `phantom_buzz`** (§8: „hovers“, „no legs“) — schválně to tady neopravuji sám, viz poznámka pod tabulkou |
+| perspektiva | low top-down, čelní pohled, nulový izometrický náklon, žádný náklon kamery | žádná |
+
+<!-- /gen:design_constraints_table -->
+
+**Proč zrovna tahle sekce, a ne spolehnutí na `view` parametr (§9):** `create_1_direction_object`
+(nástroj pro `prop`, `focus_core`, `habit`) má jiný enum `view` než `create_character` a
+**„low top-down" mu poslat nejde** — to už §9 zdokumentovalo jako past. Pro tři z šesti
+`kind` tedy perspektiva **nemá jinou cestu do generátoru než text promptu**. Tahle sekce
+je ta cesta — a jde do promptu pro všech šest `kind`, ne jen pro ty tři, aby se pravidlo
+nemuselo pamatovat dvakrát.
+
+**Nevyřešený rozpor, čeká na rozhodnutí:** `phantom_buzz` je v §8 popsaný jako „a hollow
+blue spore husk that hovers, no legs, a sharp vibrating rim" — to je vznášení, a pravidlo
+postoje výše říká „nikdy ve vzduchu". Nepřepisuju §8 sám, protože nevím, jestli je vznášení
+u týhle jedný entity záměr (přízračná distrakce, na rozdíl od ostatních, co lezou/tečou po
+tkáni) nebo jen nedopatření z doby, než tahle sekce existovala. Až se schválí, buď (a) se
+`phantom_buzz` v §8 přepíše na „flows low" apod., nebo (b) se do výjimky u postoje přidá
+`phantom_buzz` po vzoru výjimky u očí — obojí je jednořádková změna, jen ji nemám dělat bez
+tebe.
+
+Doslovný text, co jde do každého promptu (parsuje `tools/gen_art_prompts.py`, ověřuje
+`scripts/_test_art_prompts.gd`):
+
+<!-- gen:design_constraints -->
+
+```design_constraints
+no eyes and no face anywhere, except the clickbait family of distractions, which keeps one huge lidless eye and nothing else facial, no brows, no mouth; no arms and no legs anywhere, except the four Nutrition Guild defenders, who hold a weapon or tool and therefore have hands; habits and defenders read warm, calm and inviting; every distraction, including the boss, reads cold and threatening; terrain, props and the focus core read neutral and quiet; flat colour fields only, no dithering, no texture noise, no gradient banding; built and rooted things sit still and anchored to the tissue, anything that moves stays low and in contact with the surface, nothing floats or hovers clear of the ground; camera is a low top-down view straight at the subject, front-facing, zero isometric tilt, no camera pitch
+```
+
+<!-- /gen:design_constraints -->
+
+**Kam v promptu jde:** hned za popis formy (`form` z §8) a před povinný suffix (§7) — obsah
+dřív, technika kresby až po něm. Test `scripts/_test_art_prompts.gd` ověřuje, že blok je
+v KAŽDÉM promptu v `docs/art/GENERATION_PLAN.md`, stejným mechanismem, jakým už ověřuje §7.
+
 ## 8. Rodiny a formy jednotlivých entit
 
 `kind` řídí, kterým nástrojem se to generuje (§9) a do které fáze to spadá (§10).

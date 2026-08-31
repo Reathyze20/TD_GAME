@@ -156,6 +156,7 @@ func _run() -> void:
 		return
 
 	var suffix := _bible_fence(bible, "suffix", "suffix")
+	var design_constraints := _bible_fence(bible, "design_constraints", "design_constraints")
 	var sizes := {}
 	var gen_sizes := {}
 	for row in _bible_table(bible, "sizes"):
@@ -217,6 +218,13 @@ func _run() -> void:
 	print("\n-- 3. každý prompt obsahuje povinný suffix --")
 	for r in records:
 		_check("%s má suffix" % r["id"], String(r["prompt"]).contains(suffix))
+
+	print("\n-- 3b. každý prompt obsahuje design constraints (STYLE_BIBLE.md §7b) --")
+	_check("bible: design constraints se načetly", design_constraints.length() > 40,
+		"%d znaků" % design_constraints.length())
+	for r in records:
+		_check("%s má design constraints" % r["id"],
+			String(r["prompt"]).contains(design_constraints))
 
 	print("\n-- 4. žádný prompt si nedefinuje vlastní paletu --")
 	var hex_re := RegEx.create_from_string("#[0-9a-fA-F]{6}")
