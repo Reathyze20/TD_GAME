@@ -538,7 +538,11 @@ func _draw() -> void:
 
 		# Same raster as the creature it blocks — and as the ground both stand on.
 		# Was a hardcoded 2.0 while the terrain drew at 3.0; see Data.pixel_scale().
-		var size := Vector2(tex.get_size()) * Data.pixel_scale()
+		# Data.UNIT_ART_SCALE on top: raw 48px defender frames still drew 3 grid cells
+		# wide at pixel_scale() alone — see Data.UNIT_ART_SCALE's header for the measured
+		# numbers. Same factor distraction_animator.gd applies, so defenders and
+		# distractions stay sized consistently against each other.
+		var size := Vector2(tex.get_size()) * Data.pixel_scale() * Data.UNIT_ART_SCALE
 		var flip := -1.0 if pick[1] else 1.0
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2(flip, 1.0))
 		var tint := Color.WHITE

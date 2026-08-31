@@ -201,7 +201,12 @@ func rebuild(distractions: Array) -> void:
 		_shadow_mm.visible_instance_count = 0
 		return
 	_grow(distractions.size())
-	var scale: float = Data.pixel_scale()
+	# Data.UNIT_ART_SCALE on top of pixel_scale(): this batch sizes sprites independently
+	# of DistractionAnimator._sprite_size(), so it needs the same combined factor or a
+	# batched (walking) body would visibly mismatch the size of a non-batched (dying/
+	# blocked/fallback) one drawn through the per-node path. See Data.UNIT_ART_SCALE's
+	# own header for the measured raw-pixel numbers behind it.
+	var scale: float = Data.pixel_scale() * Data.UNIT_ART_SCALE
 	var gy: float = 1.0 / maxf(GridProjection.GROUND_Y_SCALE, 0.001)
 	var i := 0
 	for d in distractions:

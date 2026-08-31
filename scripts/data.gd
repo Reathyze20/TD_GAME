@@ -131,6 +131,25 @@ static func pixel_scale() -> float:
 	return ISO_PIXEL_SCALE
 	# return maxf(1.0, floorf(float(GRID["tile"]) / float(TERRAIN_ART_PX)))  # pre-iso formula
 
+## Same bug as ISO_PIXEL_SCALE's header, one level down: a moving combat unit's sprite
+## (enemy Distraction and DefenderUnit) is drawn at its texture's raw PNG size times
+## pixel_scale() with no further adjustment, and the shipped frames (measured with
+## Pillow, not assumed — assets/distractions/*_frame_1.png, assets/defenders/*_frame_1.png)
+## are 48x48 for every regular unit and 96x96 for the one boss (social_media_binge) —
+## generous character-sheet art, not sized for this 480x270/16px-tile board. At
+## pixel_scale()=1.0 that draws a regular unit 3 grid cells wide, which is what made a
+## live playtest screenshot show creatures reading as oversized blobs.
+##
+## UNIT_ART_SCALE brings a regular 48px frame down to ~19px (~1.2 tiles), inside the
+## "roughly 1.0-1.5 cells" target — first-pass technical fix (stop the overflow, keep
+## units tell-apart-able in a crowd), not a judged final size; retune this one constant
+## if units should read bigger/smaller. Shared by distraction_animator.gd,
+## defender_unit.gd and horde_renderer.gd (its MultiMesh batch path sizes the same
+## sprites independently of DistractionAnimator's own per-node draw, so it needs the
+## same factor or batched and non-batched units would visibly mismatch) — every one of
+## them multiplies this in ALONGSIDE pixel_scale(), never replacing it.
+const UNIT_ART_SCALE := 0.4
+
 # UI display order — not gameplay balance data, so these stay plain id lists here
 # rather than becoming their own Resource type.
 ## Build-panel order and hotkey assignment (index + 1). Every entry needs a matching

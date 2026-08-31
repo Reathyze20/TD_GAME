@@ -382,13 +382,18 @@ func _draw_texture_centred(tex: Texture2D, r: float, glow: float = 1.0,
 ## and the creatures were half a pixel finer than the world they walked on.
 ##
 ## The scale now comes from the map (Data.pixel_scale), which is the only thing entitled
-## to decide it. Size differences stay authored into the art itself: regulars ship 32px
-## art and draw at 96, the boss ships 64px and draws at 192 — four cells, as a boss should.
+## to decide it. Size differences stay authored into the art itself: regulars ship 48px
+## art, the boss ships 96px — twice the size, as a boss should read.
+##
+## Data.UNIT_ART_SCALE on top of that is a second, narrower factor: pixel_scale() alone
+## still draws a regular 48px frame 3 grid cells wide on this board (see its own
+## comment) — UNIT_ART_SCALE brings that down to ~1.2 cells. See Data.UNIT_ART_SCALE's
+## header for the measured numbers behind it.
 func _sprite_size(tex: Texture2D) -> Vector2:
 	var src := Vector2(tex.get_width(), tex.get_height())
 	if src.x <= 0.0:
 		return Vector2.ZERO
-	return src * Data.pixel_scale()
+	return src * Data.pixel_scale() * Data.UNIT_ART_SCALE
 
 ## Half of what the body actually covers on screen — as opposed to `radius`, which is the
 ## hitbox. Ground FX and status rings must wrap THIS: the art is now wider than the
