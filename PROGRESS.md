@@ -3105,3 +3105,72 @@ necommitnutá — jejich commit ji popíše sám.
   identická tally s baseline před úkolem.
 - `docs/refactor/PATHFINDING.MD` P9: `Status: todo` → `done`.
 - Commit: `84842e8184f0d189eae769c7ea5ce0fbe97c32ad`.
+
+## 2026-08-31 — Art color audit: doomscroll amber/brown bug, ART_DEBT.md ledger, verify.sh gate
+
+- **Task:** a live-gameplay screenshot review found `doomscroll`'s shipped PNG is
+  amber/brown while its own `data/distractions/doomscroll.tres`
+  (`color = "33cc77"`) and `STYLE_BIBLE.md:496` both say green. Root cause (given
+  verbatim by the task, not re-derived): `distraction_animator.gd:618-621` — art on
+  disk always wins over the procedural fallback, and `.tres` `color` only drives
+  the glow halo, never body pixels, so drift is silent once real PNG frames exist.
+  Three asks, audit-and-document only (no PixelLab calls, no remediation): (1)
+  create `docs/art/ART_DEBT.md` and log doomscroll as its first entry, (2) audit
+  every `.tres` in `data/distractions|defenders|habits` that has real shipped PNG
+  art for the same class of drift and log every real mismatch found, (3) add an
+  automated `verify.sh` check so future drift is caught, using `ART_DEBT.md` itself
+  as the known-mismatch allowlist so today's findings don't fail the build.
+- **Methodology** (full account in `tools/check_art_colors.py`'s own docstring):
+  dominant hue = circular mean of hue over bright+saturated pixels (saturation
+  >= 0.35, value >= 140 — filters out the near-black outline/shadow tone that
+  otherwise dominates every sprite by raw pixel count) across the base idle/walk
+  frame set only, never death/attack/effects. Compared against the `.tres` `color`
+  field (skipped when its own saturation <= 0.15 — hue is unstable near-neutral,
+  mirrors `check_terrain_contrast.py`'s own `saturation()` guard) and against
+  `STYLE_BIBLE.md` §8's per-id `form` text where it names an explicit color word
+  (reported as "no bible entry" otherwise, never invented). `HUE_GAP_THRESHOLD` is
+  a loose 100°, calibrated against doomscroll itself (measured gap ~103° with this
+  method) so it clears ordinary same-family shade/glow variance — every
+  non-mismatch control in the roster measured under 90° — while still catching
+  gross hue swaps.
+- **Audited:** 13 distractions (10 shipped, 3 procedural-only skipped — nothing to
+  compare), all 4 defenders, all 15 habits (8 with their own head PNG, 7 tier-2
+  habits that inherit the tier-1 head via `tower.gd`'s upgrade-root fallback,
+  replicated in Python since GDScript can't be called from `tools/`). Found 5 new
+  mismatches beyond doomscroll — all confirmed by opening the actual PNGs (`Read`
+  as an image, nothing generated): `focus_timer`/`focus_timer_2` (declared blue,
+  shipped a red tomato/Pomodoro character — `color` looks simply never set on the
+  root habit, so it silently carries the resource script's blue default),
+  `zen_pulsar`/`zen_pulsar_2a`/`zen_pulsar_2b` (declared cyan, shipped a brown
+  mortar-and-pestle — this PROGRESS.md's own `0465a23` entry documents the head-art
+  swap that dropped the prior 8-frame set), `anchor` (declared cyan, shipped a
+  purple lamp), `focus_pillar` (declared cyan, copied verbatim from `zen_pulsar`
+  per its own `.tres` placeholder header comment, shipped a brown hourglass). Also
+  found `group_chat` (declared/bible green, shipped orange/brown with only a minor
+  green trim) by direct visual review — its numeric gap (~87°) sits under the
+  checker's own threshold, so it's logged in `ART_DEBT.md` but the automated tool
+  will not independently re-flag it going forward; documented explicitly in that
+  entry so it doesn't read as stale. `accountability`/`accountability_2` were
+  reviewed and NOT logged — a brown crate of green vegetables, gap ~90°, judged not
+  a clear mismatch on inspection. All 4 defenders and the remaining
+  distractions/habits check out clean.
+- **`tools/check_art_colors.py`:** mirrors `tools/check_terrain_contrast.py`'s
+  structure (`check()`-style ok/FAIL printing, `hue()`/`hue_gap()`/`saturation()`
+  formulas copied verbatim so numbers stay comparable across both checks, `main()`
+  returns 0/1) but needs real pixel data, so it uses Pillow+numpy the way
+  `tools/style_audit.py`/`tools/art_check.py` already do (vectorized — no new
+  project dependency). Parses `docs/art/ART_DEBT.md`'s `## <id>` headings and
+  `**Affected ids:**` lines as its own allowlist — single source of truth, no copy,
+  same philosophy `check_terrain_contrast.py`'s own docstring argues for. A
+  mismatch not yet logged there prints `FAIL` and reddens `verify.sh`; one that is
+  prints `KNOWN` and does not count against the exit code.
+- **`verify.sh`:** new `== art colors ==` section, same shape as the existing
+  `== terrain contrast ==`/`== art prompts ==` sections immediately above it.
+- **`./verify.sh`: PASS — 38 pass, 0 fail, 0 skip, 4 known-broken (pre-existing,
+  unrelated to this task), 0 flaky.** The new `art colors` check itself: 0 FAIL,
+  8 KNOWN (6 `ART_DEBT.md` entries — `focus_timer` counts twice across its tier-2,
+  `zen_pulsar` three times across its tier-2 pair).
+- Files: `tools/check_art_colors.py` (new), `docs/art/ART_DEBT.md` (new,
+  6 entries: `doomscroll`, `group_chat`, `focus_timer`, `zen_pulsar`, `anchor`,
+  `focus_pillar`), `verify.sh` (new section), this entry.
+- Commit: pending — see the follow-up "log the commit hash" entry.

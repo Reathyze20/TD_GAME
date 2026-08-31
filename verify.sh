@@ -338,6 +338,29 @@ else
   pass=$((pass + 1))
 fi
 
+echo "== art colors =="
+# Doomscroll shipped amber/brown while its own .tres and STYLE_BIBLE.md both say green
+# (found in live-gameplay review, 31.8.2026) — the art-on-disk-wins rule in
+# distraction_animator.gd means `.tres` `color` only drives the glow halo, never the body
+# pixels, so shipped art can drift from what the data/bible claim and nothing re-derives
+# one from the other. This measures the shipped PNG's actual dominant hue for every
+# distraction/defender/habit with real art and compares it against both. Known mismatches
+# are logged in docs/art/ART_DEBT.md, which the script treats as its own allowlist (same
+# "single source of truth" shape as the roster/terrain-contrast checks above) — only a
+# NEW, undocumented mismatch fails the build.
+art_colors_log="$LOG_DIR/art_colors.log"
+PYTHONIOENCODING=utf-8 python tools/check_art_colors.py >"$art_colors_log" 2>&1
+art_colors_status=$?
+if [ "$art_colors_status" -ne 0 ]; then
+  echo "FAIL art colors (exit $art_colors_status) — see $art_colors_log"
+  grep "FAIL" "$art_colors_log" | sed 's/^/  /'
+  fail=$((fail + 1))
+  failed_names+=("art colors")
+else
+  echo "PASS art colors"
+  pass=$((pass + 1))
+fi
+
 echo
 echo "== summary =="
 echo "pass: $pass  fail: $fail  skip: $skip  known-broken: $known  flaky: $flaky"
