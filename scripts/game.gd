@@ -906,26 +906,6 @@ class WallShadow extends Node2D:
 		draw_rect(Rect2(x, y + DEPTH * 0.5, w, DEPTH * 0.5), far)
 
 
-## Built only for the tilemap terrain; the vector fallback paints its own shadow pass.
-func _build_wall_shadow_layer() -> void:
-	if terrain_layer == null or level == null:
-		return
-	var g = Data.GRID
-	var sh := WallShadow.new()
-	sh.name = "WallShadow"
-	sh.z_index = Z_WALL_SHADOW
-	sh.ox = int(g.origin_x)
-	sh.oy = int(g.origin_y)
-	sh.tile = int(g.tile)
-	sh.cols = int(g.cols)
-	sh.rows = int(g.rows)
-	sh.face_h = WALL_FACE_H if _has_wall_faces() else 0
-	for c: Vector2i in level.high_ground:
-		if c != level.objective:
-			sh.solid[c] = true
-	add_child(sh)
-
-
 const WALL_FACE_DIR := "res://assets/terrain/face"
 
 ## Face art is optional. With no files the game keeps the flat top-down look it had
@@ -952,30 +932,6 @@ func _load_wall_face_variants() -> Array[Texture2D]:
 
 func _has_wall_faces() -> bool:
 	return not _load_wall_face_variants().is_empty()
-
-
-func _build_wall_face_layer() -> void:
-	if terrain_layer == null or level == null:
-		return
-	var variants := _load_wall_face_variants()
-	if variants.is_empty():
-		return
-	var g = Data.GRID
-	var wf := WallFace.new()
-	wf.name = "WallFace"
-	wf.z_index = Z_WALL_FACE
-	wf.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	wf.ox = int(g.origin_x)
-	wf.oy = int(g.origin_y)
-	wf.tile = int(g.tile)
-	wf.rows = int(g.rows)
-	wf.face_h = WALL_FACE_H
-	wf.variants = variants
-	wf.seed_val = hash(level.id)
-	for c: Vector2i in level.high_ground:
-		if c != level.objective:
-			wf.solid[c] = true
-	add_child(wf)
 
 
 ## Container for the LightOccluder2D geometry _build_shadow_occluders() below builds —
@@ -1106,15 +1062,6 @@ func _add_shadow_occluder_rect(x: int, y: int, w: int, h: int) -> void:
 	_shadow_occluder_layer.add_child(occ)
 
 
-func _build_decor_layer() -> void:
-	decor_layer = DecorLayer.new()
-	decor_layer.name = "Decor"
-	add_child(decor_layer)
-	decor_layer.z_index = Z_DECOR
-	# Seeded from the level so a restart lays out identically; hash keeps it stable
-	# across runs, unlike randi() which would rearrange the world every load.
-	decor_layer.build(self, hash(level.id))
-
 ## Predicted walking routes shown during the build phase: a few faint polylines from
 ## each spawn zone to the objective, so the player can see where the pressure will come
 ## from BEFORE paying for anything. Computed once per level — towers only ever stand on
@@ -1138,54 +1085,6 @@ func _compute_path_previews() -> void:
 			for c: Vector2i in cells:
 				line.append(cell_center(c))
 			_spawn_path_previews.append(line)
-
-## Path to the shared terrain TileSet. load()ed rather than preload()ed so a checkout
-## without the generated tileset still runs (and simply falls back to vector walls)
-## instead of failing to parse.
-const TERRAIN_TILESET_PATH := "res://data/terrain/high_ground_tileset.tres"
-
-## Corner-based (Wang) atlas from PixelLab. When this file exists it wins over the legacy
-## side-mask tileset above; delete or rename it to fall back.
-# TENTYŽ soubor, který zapisuje tools/tiles.py a čte náhled v editoru. Dřív tu bylo
-# high_ground_corner_atlas.png — hra pak tiše kreslila starý atlas, zatímco editor nový,
-# a nebylo z čeho poznat proč.
-const CORNER_ATLAS_PATH := "res://assets/terrain/high_ground_atlas.png"
-
-var terrain_layer: TileMapLayer = null
-
-## Builds the painted terrain, if a level has any. Moved to child index 0 so it draws
-## above the background that Game._draw() paints and below every unit.
-##
-## The move is not cosmetic. _build_field() runs after `entities` and the BuildSpots are
-## already children, so a plain add_child() puts the terrain LAST and Godot paints it over
-## every habit, soldier and distraction on the field. That stayed invisible only while the
-## placeholder atlas was a plus-shaped block with transparent corners — the moment the
-## tiles became solid 48px squares, towers built on high ground vanished behind them.
-func _build_terrain_layer() -> void:
-	if ResourceLoader.exists(CORNER_ATLAS_PATH) and not level.high_ground.is_empty():
-		_build_corner_terrain()
-		return
-
-	# Legacy path: per-cell side-mask tiles authored in the map editor (terrain_tiles).
-	if level.terrain_tiles.is_empty():
-		return
-	if not ResourceLoader.exists(TERRAIN_TILESET_PATH):
-		push_warning("Game: level has painted tiles but %s is missing — "
-			% TERRAIN_TILESET_PATH + "run tools/build_terrain_tileset.gd")
-		return
-
-	var g = Data.GRID
-	terrain_layer = TileMapLayer.new()
-	terrain_layer.name = "Terrain"
-	terrain_layer.tile_set = load(TERRAIN_TILESET_PATH)
-	terrain_layer.position = Vector2(g.origin_x, g.origin_y)
-	add_child(terrain_layer)
-	terrain_layer.z_index = Z_TERRAIN
-
-	for key in level.terrain_tiles:
-		var cell: Vector2i = key
-		var t: Vector3i = level.terrain_tiles[key]
-		terrain_layer.set_cell(cell, t.x, Vector2i(t.y, t.z))
 
 ## Corner-based ("dual grid") terrain. The PixelLab tileset stores terrain on tile
 ## CORNERS, not in tile centres — one tile straddles four game cells. So the layer is
@@ -1402,77 +1301,6 @@ func _add_tile_source(ts: TileSet, path: String, id: int) -> int:
 	src.create_tile(Vector2i.ZERO)
 	ts.add_source(src, id)
 	return id
-
-func _build_corner_terrain() -> void:
-	var g = Data.GRID
-	var tile: int = int(g.tile)
-
-	# Mirror the vector renderer: the objective cell is never drawn as terrain.
-	var solid := {}
-	for c: Vector2i in level.high_ground:
-		if c != level.objective:
-			solid[c] = true
-	if solid.is_empty():
-		return
-
-	# The TileSet is assembled at runtime instead of generated into a .tres — plain tiles
-	# need no terrain sets or peering bits, only atlas coordinates.
-	#
-	# The atlas may stack several VARIANTS of the same sixteen slots: a 192x192 sheet is
-	# one variant, 192x384 is two, and so on. Sixteen shapes alone tile visibly — a long
-	# wall repeats the identical texture every cell — so each cell rolls its own variant.
-	var atlas_tex: Texture2D = load(CORNER_ATLAS_PATH)
-	var variants: int = maxi(1, int(atlas_tex.get_height() / float(tile * 4)))
-
-	var ts := TileSet.new()
-	ts.tile_size = Vector2i(tile, tile)
-	var src := TileSetAtlasSource.new()
-	src.texture = atlas_tex
-	src.texture_region_size = Vector2i(tile, tile)
-	for v in range(variants):
-		for m in range(16):
-			src.create_tile(Vector2i(m % 4, v * 4 + int(m / 4.0)))
-	ts.add_source(src, 0)
-
-	terrain_layer = TileMapLayer.new()
-	terrain_layer.name = "Terrain"
-	terrain_layer.tile_set = ts
-	terrain_layer.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	terrain_layer.position = Vector2(g.origin_x - tile / 2.0, g.origin_y - tile / 2.0)
-	add_child(terrain_layer)
-	terrain_layer.z_index = Z_TERRAIN
-
-	# Seeded from the level, like the decor: the same level must look the same on every
-	# load, or the walls would re-texture themselves under the player on each restart.
-	var base_seed: int = hash(level.id) ^ 0x7e44a1
-
-	# VARIANTA SE LOSUJE NA BLOK 3x3, NE NA BUNKU.
-	#
-	# Puvodne na bunku, a pri bunce 48 px to bylo spravne: jeden los = jeden kus zdi.
-	# Po zjemneni mrizky (Data.GRID, 18. 8. 2026) ma tentyz kus zdi devet bunek, takze
-	# los na bunku znamenal devet ruznych textur v jedne cihle -- zed prestala byt masa
-	# a zacala sumet jako televizni snih. Los na blok vraci velke plochy zpatky a
-	# variace zustava presne tam, kde ji chceme: mezi sousednimi kusy zdi.
-	#
-	# Neni to sekvencni rng, ale hash souradnic bloku: sekvencni losovani by zaviselo na
-	# poradi pruchodu a cely teren by se prekreslil, kdyby se smycka jednou obratila.
-	var blk: int = Data.BUILD_BLOCK
-	var vrng := RandomNumberGenerator.new()
-
-	# One vertex more than cells in each axis, or the outermost walls lose their rim.
-	for j in range(g.rows + 1):
-		for i in range(g.cols + 1):
-			var m := 0
-			if solid.has(Vector2i(i - 1, j - 1)): m |= 1
-			if solid.has(Vector2i(i, j - 1)): m |= 2
-			if solid.has(Vector2i(i - 1, j)): m |= 4
-			if solid.has(Vector2i(i, j)): m |= 8
-			if m != 0:
-				vrng.seed = hash(Vector2i(
-					int(floorf(float(i) / blk)), int(floorf(float(j) / blk)))) ^ base_seed
-				var v: int = vrng.randi() % variants
-				terrain_layer.set_cell(Vector2i(i, j), 0,
-					Vector2i(m % 4, v * 4 + int(m / 4.0)))
 
 ## True while a level has no painted terrain, so Game._draw() should render the vector
 ## walls instead. Both renderers must never run at once or the capsules show through.
@@ -5688,12 +5516,11 @@ func _set_sunk(sunk: bool) -> void:
 
 ## Repaints the walls after the maze changed shape.
 ##
-## Calls _build_wall_segments(), NOT _build_terrain_layer(). That distinction cost an
-## hour: _build_terrain_layer/_build_corner_terrain paint square corner tiles and are
-## dead code on this branch — nothing calls them during _ready (the iso field builds
-## _build_path_layer + _build_wall_segments instead). Invoking the square-tile builder
-## over an iso field produced a shower of "Cannot create tile" errors and painted the
-## wrong geometry. If the corner-terrain path is ever revived, this needs to pick.
+## Calls _build_wall_segments(), the same builder _build_field() uses during _ready.
+## An earlier square corner-tile builder existed here and was never wired into either
+## path (removed in the C1 dead-code cleanup, docs/CLEANUP_AUDIT.md) — mixing it with
+## the iso field used to produce a shower of "Cannot create tile" errors from the
+## wrong geometry, which is why this comment used to warn against calling it here.
 func _rebuild_walls() -> void:
 	_build_wall_segments()
 

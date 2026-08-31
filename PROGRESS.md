@@ -3106,6 +3106,77 @@ necommitnutá — jejich commit ji popíše sám.
 - `docs/refactor/PATHFINDING.MD` P9: `Status: todo` → `done`.
 - Commit: `84842e8184f0d189eae769c7ea5ce0fbe97c32ad`.
 
+## 2026-08-31 — C1 (audit mrtvého kódu): BLOKOVÁNO, špatný model
+
+- **Úkol:** C1 — vytvořit `docs/CLEANUP_AUDIT.md`, kategorie A–E, nic nemazat.
+  Hlavička úkolu: `Model: opus`, `Needs-me: yes`, `Status: todo`.
+- **Nezačato.** Běžím jako Sonnet 5 (`claude-sonnet-5`), úkol chce Opus.
+  CLAUDE.md, „Autonomní běh — pravidla": *„Když má úkol `Model: opus` a ty jsi
+  Sonnet, NEZAČÍNEJ — zapiš do BLOCKED.md »špatný model« a skonči."* Druhá,
+  nezávislá zarážka: `Needs-me: yes`.
+- **Změněno:** jen `BLOCKED.md` (nová sekce „C1 … ŠPATNÝ MODEL") a tenhle
+  zápis. Žádný kód, žádná data, `docs/CLEANUP_AUDIT.md` nevznikl.
+- Status: todo → blocked.
+- Commit: necommitováno — pracovní strom nese rozdělanou práci z jiných úkolů
+  (A0/P8b art + diag harnessy), zabalit do ní tenhle zápis by smíchalo dvě věci.
+
+## 2026-08-31 — C1 pokračování: cleanup podle docs/CLEANUP_AUDIT.md (uživatel přímo potvrdil)
+
+- **Úkol:** uživatel po přečtení `docs/CLEANUP_AUDIT.md` řekl „udělej cleanup".
+  Rozsah: kategorie A (jisté mrtvé) + B (na A přímo navěšené) + D-obsolentní
+  (nástroje bez živého cíle). Kategorie C (iso legacy, nejednoznačné) a
+  E (nejisté) záměrně nedotčeny, přesně jak audit doporučoval.
+- **Smazáno** (`git rm`, žádný `--force`, žádné nesledované soubory):
+  - `scripts/floating_text.gd` (+ `.uid`) — nahrazeno `game.gd`'s `_pop_text()`.
+  - `scripts/_probe_align.gd` (+ `.uid`) + `scenes/_probe_align.tscn` — jednorázová
+    sonda, použitá 21. 8. 2026, nikdy nesmazaná podle vlastního pravidla CLAUDE.md.
+  - `scripts/animation_test.gd` (+ `.uid`) + `scenes/AnimationTest.tscn` — bez
+    reference kdekoli, vlastní roster distrakcí zastaralý o 4 typy.
+  - `data/ads/{brain_blast,jackpot_real,monk_mode,pull_the_pin,reward_video,
+    scrollr}.tres` — žádný level je v `ads` poli nepoužívá.
+  - `assets/towers/_topdown_backup/` (67 PNG + 67 `.import`) — cíl vlastního
+    zálohovacího přesunu `tools/install_iso_art.py`, nic ho nečte zpátky.
+  - `tools/refit_levels.py`, `tools/regrid_levels.py`, `tools/build_level_first.py`,
+    `tools/build_level_iso.py` — cílí na grid rozměry/soubory, co v `data/levels/`
+    dnes vůbec neexistují (T6 je smazal celé, ne migroval).
+- **`scripts/game.gd` chirurgie** — pět mrtvých funkcí smazáno spolu s podporou,
+  co byla živá JEN skrz ně (ověřeno `grep` přes celý soubor před smazáním, ne jen
+  odhadem): `_build_decor_layer()`, `_build_wall_shadow_layer()`,
+  `_build_wall_face_layer()`, `_build_terrain_layer()`, `_build_corner_terrain()`
+  (B — visela jen na `_build_terrain_layer()`), plus `terrain_layer` proměnná a
+  konstanty `TERRAIN_TILESET_PATH`/`CORNER_ATLAS_PATH`, jejichž JEDINÉ použití
+  bylo uvnitř těchto pěti. Opraven i navazující komentář u `_rebuild_walls()`,
+  co dřív varoval „nikdy nevolej `_build_terrain_layer()` spolu s tímhle" —
+  teď říká, že ta funkce byla smazána, ne že je „dead code on this branch".
+  Živý plochý teren (`_build_square_terrain()`) žádnou z těch pěti nikdy nevolal.
+- **Vědomě NEsmazáno**, objeveno až při chirurgii, mimo schválený rozsah:
+  `_load_wall_face_variants()`/`_has_wall_faces()`/`WALL_FACE_H`/třídy
+  `WallFace`/`WallShadow` jsou po smazání svých jediných volajících taky mrtvé,
+  ale `tools/board_preview.py`, `tools/build_wall_face.py`,
+  `tools/refit_wall_face.py` a `tools/stylized_renderer.gd` je v komentářích
+  citují jako závaznou vizuální specifikaci k ruční synchronizaci — smazání by
+  potřebovalo zvlášť posoudit dopad na čtyři další soubory. Podobně
+  `tools/stylized_renderer.gd:473` a `tools/board_preview.py:168` teď jmenují
+  smazanou `_build_corner_terrain()` v komentáři — název je stále čitelný jako
+  historická reference, needitoval jsem to, přesahuje schválený rozsah.
+- **Ověření:** `godot --headless --path . --import` bez chyby; `./verify.sh`:
+  **PASS 38, fail 0, skip 0, known-broken 4 (stejné 4 jako před úkolem —
+  `_test_deep_reading`, `_test_fog_bandwidth`, `_test_shadow_occlusion`,
+  `_test_zen_pulsar`, viz `docs/KNOWN_BROKEN.md`), flaky 0**. `tools/roster.py`
+  přes verify.sh proběhl bez rozdílu (žádná ze smazaných šesti reklam nebyla v
+  `docs/ROSTER.md`).
+- **Commit scope, vědomě zúžený:** commitnuty jsou jen soubory, které jsem v
+  tomhle úkolu sám změnil — mazání + `scripts/game.gd` + `docs/CLEANUP_AUDIT.md`
+  + tenhle zápis. `BLOCKED.md` má rozdělanou práci z jiného, necommitnutého
+  úkolu (Q1b) přímo navazující na můj vlastní dřívější zápis ve stejném
+  souboru — nešlo je odseknout bez interaktivního `git add -p`, takže
+  `BLOCKED.md` zůstává necommitnuté beze změny stavu. `CLAUDE.md` a zbytek
+  rozdělané práce z `git status` na začátku session (art skripty, MapEditor,
+  UI rescale) jsem se vůbec nedotkl a nezahrnul.
+- Kategorie E (notification.tres prázdný, ~90 MB pipeline assetů, netrackované
+  `_diag_*`/`_shot_*` scratch soubory) zůstává neřešená — audit sám řekl proč.
+- Commit: viz `git log` (zapsáno hned po commitu).
+
 ## 2026-08-31 — Art color audit: doomscroll amber/brown bug, ART_DEBT.md ledger, verify.sh gate
 
 - **Task:** a live-gameplay screenshot review found `doomscroll`'s shipped PNG is
