@@ -9,11 +9,11 @@ signal closed
 
 func _ready() -> void:
 	add_theme_stylebox_override("panel", UI.card_style(UI.BORDER_HI, 1, UI.PANEL))
-	custom_minimum_size = Vector2(440, 0)
+	custom_minimum_size = Vector2(110, 0)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 12)
+	box.add_theme_constant_override("separation", 3)
 	add_child(box)
 
 	box.add_child(UI.label("Settings", UI.FS_TITLE, UI.ACCENT))
@@ -21,7 +21,7 @@ func _ready() -> void:
 
 	# --- SFX volume: apply live while dragging, persist once on release -----------
 	var vol_row := HBoxContainer.new()
-	vol_row.add_theme_constant_override("separation", 10)
+	vol_row.add_theme_constant_override("separation", 3)
 	box.add_child(vol_row)
 	vol_row.add_child(UI.label("SFX volume", UI.FS_BODY, UI.TEXT))
 	var slider := HSlider.new()
@@ -30,7 +30,7 @@ func _ready() -> void:
 	slider.step = 0.05
 	slider.value = Sfx.get_volume_linear()
 	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	slider.custom_minimum_size = Vector2(180, 24)
+	slider.custom_minimum_size = Vector2(45, 6)
 	slider.value_changed.connect(func(v: float): Sfx.preview_volume_linear(v))
 	slider.drag_ended.connect(func(_changed: bool):
 		Sfx.set_volume_linear(slider.value)
@@ -49,7 +49,7 @@ func _ready() -> void:
 	# decoration. Folding it into the SFX slider would let a player who turns the sound
 	# down silently lose one of the five things the game says with.
 	var music_row := HBoxContainer.new()
-	music_row.add_theme_constant_override("separation", 10)
+	music_row.add_theme_constant_override("separation", 3)
 	box.add_child(music_row)
 	music_row.add_child(UI.label("Music volume", UI.FS_BODY, UI.TEXT))
 	var music_slider := HSlider.new()
@@ -58,7 +58,7 @@ func _ready() -> void:
 	music_slider.step = 0.05
 	music_slider.value = Music.get_volume_linear()
 	music_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	music_slider.custom_minimum_size = Vector2(180, 24)
+	music_slider.custom_minimum_size = Vector2(45, 6)
 	music_slider.value_changed.connect(func(v: float): Music.preview_volume_linear(v))
 	music_slider.drag_ended.connect(func(_changed: bool):
 		Music.set_volume_linear(music_slider.value))
@@ -100,7 +100,7 @@ func _ready() -> void:
 	box.add_child(UI.label("Your data", UI.FS_BODY, UI.TEXT))
 	box.add_child(UI.wrapped(
 		"Everything the post-level screen shows is stored only on this computer, in "
-		+ "user://mirror.json. It is never sent anywhere.", 400, UI.FS_SMALL, UI.TEXT_DIM))
+		+ "user://mirror.json. It is never sent anywhere.", 100, UI.FS_SMALL, UI.TEXT_DIM))
 	var forget := UI.button("Delete my behaviour history", UI.FS_SMALL)
 	forget.pressed.connect(func():
 		Mirror.forget()
@@ -108,8 +108,8 @@ func _ready() -> void:
 		forget.disabled = true)
 	box.add_child(forget)
 
-	box.add_child(UI.spacer(Vector2(0, 4)))
+	box.add_child(UI.spacer(Vector2(0, 1)))
 
-	var close := UI.primary_button("Close", UI.FOCUS, UI.FS_BODY, Vector2(0, 44))
+	var close := UI.primary_button("Close", UI.FOCUS, UI.FS_BODY, Vector2(0, 11))
 	close.pressed.connect(func(): closed.emit())
 	box.add_child(close)

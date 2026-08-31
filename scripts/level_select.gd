@@ -19,8 +19,8 @@ func _ready() -> void:
 	add_child(centre)
 
 	var box := VBoxContainer.new()
-	box.custom_minimum_size = Vector2(860, 0)
-	box.add_theme_constant_override("separation", 14)
+	box.custom_minimum_size = Vector2(215, 0)
+	box.add_theme_constant_override("separation", 4)
 	centre.add_child(box)
 
 	var header := HBoxContainer.new()
@@ -30,14 +30,14 @@ func _ready() -> void:
 	header.add_child(UI.label("%d ◆" % MetaProgression.current_save.insight,
 		UI.FS_HEAD, UI.INSIGHT))
 
-	box.add_child(UI.spacer(Vector2(0, 8)))
+	box.add_child(UI.spacer(Vector2(0, 2)))
 
 	for i in range(Data.get_level_count()):
 		box.add_child(_build_level_card(i))
 
-	box.add_child(UI.spacer(Vector2(0, 14)))
+	box.add_child(UI.spacer(Vector2(0, 4)))
 
-	var back := UI.button("Back", UI.FS_BODY, Vector2(160, 46))
+	var back := UI.button("Back", UI.FS_BODY, Vector2(40, 12))
 	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	box.add_child(back)
 	back.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/Menu.tscn"))
@@ -53,12 +53,12 @@ func _build_level_card(index: int) -> PanelContainer:
 		panel.modulate = Color(1, 1, 1, 0.5)
 
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 20)
+	row.add_theme_constant_override("separation", 5)
 	panel.add_child(row)
 
 	var info := VBoxContainer.new()
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	info.add_theme_constant_override("separation", 6)
+	info.add_theme_constant_override("separation", 2)
 	row.add_child(info)
 
 	info.add_child(UI.label(level.display_name if unlocked else "??? — Locked",
@@ -73,10 +73,10 @@ func _build_level_card(index: int) -> PanelContainer:
 	var play: Button
 	if unlocked:
 		play = UI.primary_button("Replay" if best_stars > 0 else "Play", UI.FOCUS,
-			UI.FS_BODY, Vector2(140, 50))
+			UI.FS_BODY, Vector2(35, 13))
 		play.pressed.connect(_on_play.bind(index))
 	else:
-		play = UI.button("Locked", UI.FS_BODY, Vector2(140, 50))
+		play = UI.button("Locked", UI.FS_BODY, Vector2(35, 13))
 		play.disabled = true
 	play.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(play)
@@ -85,7 +85,7 @@ func _build_level_card(index: int) -> PanelContainer:
 
 func _build_star_row(best_stars: int) -> HBoxContainer:
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 4)
+	row.add_theme_constant_override("separation", 1)
 	if best_stars <= 0:
 		row.add_child(UI.label("Not yet cleared", UI.FS_SMALL, UI.TEXT_DIM))
 		return row

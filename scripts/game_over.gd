@@ -14,7 +14,7 @@ func _ready() -> void:
 	var box := VBoxContainer.new()
 	box.set_anchors_preset(Control.PRESET_FULL_RECT)
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.add_theme_constant_override("separation", 10)
+	box.add_theme_constant_override("separation", 3)
 	add_child(box)
 
 	_add_label(box, "FOCUS DEPLETED", UI.FS_DISPLAY, UI.DANGER)
@@ -31,18 +31,18 @@ func _ready() -> void:
 
 	_add_insight_breakdown(box)
 
-	box.add_child(UI.spacer(Vector2(0, 22)))
+	box.add_child(UI.spacer(Vector2(0, 6)))
 
 	var buttons := HBoxContainer.new()
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
-	buttons.add_theme_constant_override("separation", 16)
+	buttons.add_theme_constant_override("separation", 4)
 	box.add_child(buttons)
 
-	var retry := UI.primary_button("Retry", UI.FOCUS, UI.FS_HEAD, Vector2(200, 54))
+	var retry := UI.primary_button("Retry", UI.FOCUS, UI.FS_HEAD, Vector2(50, 14))
 	buttons.add_child(retry)
 	retry.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/Game.tscn"))
 
-	var menu := UI.button("Menu", UI.FS_HEAD, Vector2(180, 54))
+	var menu := UI.button("Menu", UI.FS_HEAD, Vector2(45, 14))
 	buttons.add_child(menu)
 	menu.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/Menu.tscn"))
 
@@ -55,18 +55,18 @@ func _add_insight_breakdown(parent: Node) -> void:
 	if run.is_empty():
 		return
 
-	parent.add_child(UI.spacer(Vector2(0, 28)))
+	parent.add_child(UI.spacer(Vector2(0, 7)))
 
 	# The takings sit in a panel of their own — this is the reason to look at this screen
 	# rather than reflexively hitting Retry, so it gets a frame instead of being one more
 	# line of centred text.
 	var panel := UI.panel(UI.INSIGHT, 1)
 	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	panel.custom_minimum_size = Vector2(560, 0)
+	panel.custom_minimum_size = Vector2(140, 0)
 	parent.add_child(panel)
 
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 4)
+	box.add_theme_constant_override("separation", 1)
 	panel.add_child(box)
 
 	box.add_child(UI.label("Insight banked  +%d ◆" % int(run.get("total", 0)),

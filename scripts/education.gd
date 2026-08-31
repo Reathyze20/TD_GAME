@@ -35,11 +35,11 @@ func _ready() -> void:
 	add_child(centre)
 
 	var panel := UI.panel(UI.ACCENT, 1)
-	panel.custom_minimum_size = Vector2(1100, 0)
+	panel.custom_minimum_size = Vector2(275, 0)
 	centre.add_child(panel)
 
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 16)
+	box.add_theme_constant_override("separation", 4)
 	panel.add_child(box)
 
 	var concept: String = card.concept
@@ -53,12 +53,12 @@ func _ready() -> void:
 	if not stats.is_empty():
 		var earned: int = int(stats.get("stars", 0))
 		var star_row := HBoxContainer.new()
-		star_row.add_theme_constant_override("separation", 6)
+		star_row.add_theme_constant_override("separation", 2)
 		box.add_child(star_row)
 		for i in range(3):
 			star_row.add_child(UI.label("★", UI.FS_TITLE,
 				UI.DOPAMINE if i < earned else UI.TEXT_FAINT))
-		star_row.add_child(UI.spacer(Vector2(14, 0)))
+		star_row.add_child(UI.spacer(Vector2(4, 0)))
 		var summary := UI.label("%d distractions defeated  ·  %d waves  ·  %d/%d Focus kept"
 			% [int(stats.get("kills", 0)), int(stats.get("waves_cleared", 0)),
 				int(stats.get("focus", 0)), int(stats.get("max_focus", 0))],
@@ -83,7 +83,7 @@ func _ready() -> void:
 	# its own rather than being a differently-coloured paragraph among paragraphs.
 	var take := UI.panel(UI.DOPAMINE, 1)
 	box.add_child(take)
-	take.add_child(UI.wrapped("→ " + _fill_placeholders(card.takeaway), 1000,
+	take.add_child(UI.wrapped("→ " + _fill_placeholders(card.takeaway), 250,
 		UI.FS_HEAD, UI.DOPAMINE))
 
 	# The mirror, under the lesson and above the bookkeeping. Deliberately in that order:
@@ -114,10 +114,10 @@ func _ready() -> void:
 		if not parts.is_empty():
 			_add_wrapped(box, "  ·  ".join(parts), UI.FS_SMALL, UI.TEXT_FAINT)
 
-	box.add_child(UI.spacer(Vector2(0, 12)))
+	box.add_child(UI.spacer(Vector2(0, 3)))
 
 	var btn := UI.primary_button("Continue" if has_next else "Finish", UI.FOCUS,
-		UI.FS_HEAD, Vector2(240, 56))
+		UI.FS_HEAD, Vector2(60, 14))
 	btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	box.add_child(btn)
 	btn.pressed.connect(_on_continue.bind(has_next, idx))
@@ -157,7 +157,7 @@ func _add_label(parent: Node, text: String, font_size: int, color: Color, center
 		HORIZONTAL_ALIGNMENT_CENTER if center else HORIZONTAL_ALIGNMENT_LEFT))
 
 func _add_wrapped(parent: Node, text: String, font_size: int, color: Color) -> void:
-	parent.add_child(UI.wrapped(text, 1000, font_size, color))
+	parent.add_child(UI.wrapped(text, 250, font_size, color))
 
 func _on_continue(has_next: bool, idx: int) -> void:
 	if has_next:

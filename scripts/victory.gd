@@ -15,18 +15,18 @@ func _ready() -> void:
 	var box := VBoxContainer.new()
 	box.set_anchors_preset(Control.PRESET_FULL_RECT)
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.add_theme_constant_override("separation", 12)
+	box.add_theme_constant_override("separation", 3)
 	add_child(box)
 
 	_add_label(box, "FOCUS RECLAIMED", UI.FS_DISPLAY, UI.FOCUS)
 	_add_label(box, "You defended your attention through every distraction thrown at it.",
 		UI.FS_HEAD, UI.TEXT_DIM)
 
-	box.add_child(UI.spacer(Vector2(0, 20)))
+	box.add_child(UI.spacer(Vector2(0, 5)))
 
 	var chips := HBoxContainer.new()
 	chips.alignment = BoxContainer.ALIGNMENT_CENTER
-	chips.add_theme_constant_override("separation", 14)
+	chips.add_theme_constant_override("separation", 4)
 	box.add_child(chips)
 	var star_out: Array = []
 	chips.add_child(UI.stat_chip("Clarity Stars", UI.DOPAMINE, star_out, UI.FS_TITLE))
@@ -35,15 +35,15 @@ func _ready() -> void:
 	chips.add_child(UI.stat_chip("Insight", UI.INSIGHT, ins_out, UI.FS_TITLE))
 	ins_out[0].text = "%d ◆" % MetaProgression.current_save.insight
 
-	box.add_child(UI.spacer(Vector2(0, 20)))
+	box.add_child(UI.spacer(Vector2(0, 5)))
 
 	var panel := UI.panel(UI.BORDER, 1)
 	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	panel.custom_minimum_size = Vector2(620, 0)
+	panel.custom_minimum_size = Vector2(155, 0)
 	box.add_child(panel)
 
 	var summary := VBoxContainer.new()
-	summary.add_theme_constant_override("separation", 6)
+	summary.add_theme_constant_override("separation", 2)
 	panel.add_child(summary)
 
 	for i in range(Data.get_level_count()):
@@ -52,9 +52,9 @@ func _ready() -> void:
 		var stars: int = MetaProgression.current_save.level_stars.get(level_id, 0)
 		summary.add_child(_build_level_row(level.display_name, stars))
 
-	box.add_child(UI.spacer(Vector2(0, 24)))
+	box.add_child(UI.spacer(Vector2(0, 6)))
 
-	var menu := UI.primary_button("Return to Menu", UI.FOCUS, UI.FS_HEAD, Vector2(260, 56))
+	var menu := UI.primary_button("Return to Menu", UI.FOCUS, UI.FS_HEAD, Vector2(65, 14))
 	menu.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	box.add_child(menu)
 	menu.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/Menu.tscn"))
@@ -63,7 +63,7 @@ func _ready() -> void:
 ## unrelated things instead of a scorecard you can scan down.
 func _build_level_row(display_name: String, stars: int) -> HBoxContainer:
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
+	row.add_theme_constant_override("separation", 3)
 	row.add_child(UI.label(display_name, UI.FS_BODY, UI.TEXT))
 	row.add_child(UI.spacer(Vector2.ZERO, true))
 	for i in range(3):

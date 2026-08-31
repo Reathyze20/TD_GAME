@@ -52,7 +52,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_slot = CenterContainer.new()
 	_slot.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	_slot.offset_top = 84
+	_slot.offset_top = 21
 	_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_slot)
 
@@ -130,16 +130,16 @@ func _dismiss(toast: Control) -> void:
 func _make_toast(icon: String, swatch_color, title: String, body: String,
 		seconds: float, got_it: bool) -> Control:
 	var panel := UI.panel(UI.BORDER_HI, 1)
-	panel.custom_minimum_size = Vector2(560, 0)
+	panel.custom_minimum_size = Vector2(140, 0)
 
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
+	row.add_theme_constant_override("separation", 3)
 	panel.add_child(row)
 
 	if swatch_color != null:
 		var swatch := ColorRect.new()
 		swatch.color = swatch_color
-		swatch.custom_minimum_size = Vector2(16, 16)
+		swatch.custom_minimum_size = Vector2(4, 4)
 		swatch.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		swatch.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(swatch)
@@ -147,12 +147,12 @@ func _make_toast(icon: String, swatch_color, title: String, body: String,
 		row.add_child(UI.label(icon, UI.FS_HEAD, UI.ACCENT))
 
 	var text_box := VBoxContainer.new()
-	text_box.add_theme_constant_override("separation", 2)
+	text_box.add_theme_constant_override("separation", 1)
 	text_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(text_box)
 	if title != "":
 		text_box.add_child(UI.label(title, UI.FS_BODY, UI.TEXT))
-	text_box.add_child(UI.wrapped(body, 460, UI.FS_SMALL, UI.TEXT_DIM))
+	text_box.add_child(UI.wrapped(body, 115, UI.FS_SMALL, UI.TEXT_DIM))
 
 	if got_it:
 		var ok := UI.button("Got it", UI.FS_SMALL)

@@ -23,21 +23,21 @@ func _ready() -> void:
 	var box := VBoxContainer.new()
 	box.set_anchors_preset(Control.PRESET_FULL_RECT)
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.add_theme_constant_override("separation", 14)
+	box.add_theme_constant_override("separation", 4)
 	add_child(box)
 
-	_add_label(box, "DOPAMINE DEFENSE", 76, UI.ACCENT)
+	_add_label(box, "DOPAMINE DEFENSE", UI.FS_DISPLAY, UI.ACCENT)
 	_add_label(box, "Defend your Focus from digital distractions.", UI.FS_TITLE, UI.TEXT)
 	_add_label(box, "Build habits. Spend Dopamine. Learn how the feed hooks you.",
 		UI.FS_HEAD, UI.TEXT_DIM)
 
-	box.add_child(UI.spacer(Vector2(0, 18)))
+	box.add_child(UI.spacer(Vector2(0, 5)))
 
 	# Currencies as chips rather than a run-on sentence, so the two are visibly separate
 	# things: Insight is spent in the tree, Stars are a record of how well you cleared.
 	var chips := HBoxContainer.new()
 	chips.alignment = BoxContainer.ALIGNMENT_CENTER
-	chips.add_theme_constant_override("separation", 14)
+	chips.add_theme_constant_override("separation", 4)
 	box.add_child(chips)
 	var ins_out: Array = []
 	chips.add_child(UI.stat_chip("Insight", UI.INSIGHT, ins_out, UI.FS_TITLE))
@@ -47,22 +47,22 @@ func _ready() -> void:
 	_clarity_label = star_out[0]
 	_update_stars_display()
 
-	box.add_child(UI.spacer(Vector2(0, 18)))
+	box.add_child(UI.spacer(Vector2(0, 5)))
 
 	var btn_row := HBoxContainer.new()
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	btn_row.add_theme_constant_override("separation", 18)
+	btn_row.add_theme_constant_override("separation", 5)
 	box.add_child(btn_row)
 
-	var start := UI.primary_button("Start Game", UI.FOCUS, UI.FS_HEAD, Vector2(240, 60))
+	var start := UI.primary_button("Start Game", UI.FOCUS, UI.FS_HEAD, Vector2(60, 15))
 	btn_row.add_child(start)
 	start.pressed.connect(_on_start)
 
-	var growth := UI.button("Growth Tree", UI.FS_HEAD, Vector2(240, 60))
+	var growth := UI.button("Growth Tree", UI.FS_HEAD, Vector2(60, 15))
 	btn_row.add_child(growth)
 	growth.pressed.connect(_open_growth_tree)
 
-	var settings := UI.button("Settings", UI.FS_HEAD, Vector2(240, 60))
+	var settings := UI.button("Settings", UI.FS_HEAD, Vector2(60, 15))
 	btn_row.add_child(settings)
 	settings.pressed.connect(_open_settings)
 
@@ -117,14 +117,14 @@ func _open_growth_tree() -> void:
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 120)
-	margin.add_theme_constant_override("margin_right", 120)
-	margin.add_theme_constant_override("margin_top", 48)
-	margin.add_theme_constant_override("margin_bottom", 40)
+	margin.add_theme_constant_override("margin_left", 30)
+	margin.add_theme_constant_override("margin_right", 30)
+	margin.add_theme_constant_override("margin_top", 12)
+	margin.add_theme_constant_override("margin_bottom", 10)
 	overlay.add_child(margin)
 
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 12)
+	box.add_theme_constant_override("separation", 3)
 	margin.add_child(box)
 
 	# Header row: title left, spendable balance right — the number you are about to
@@ -138,22 +138,22 @@ func _open_growth_tree() -> void:
 
 	box.add_child(UI.wrapped(
 		"Insight is earned on every run, won or lost. Spend it here on permanent upgrades that carry across levels — or spend it on cards mid-run. Not both.",
-		1600, UI.FS_BODY, UI.TEXT_DIM))
+		400, UI.FS_BODY, UI.TEXT_DIM))
 
-	box.add_child(UI.spacer(Vector2(0, 8)))
+	box.add_child(UI.spacer(Vector2(0, 2)))
 
 	# One column per branch, built from whatever Data found on disk. Adding a growth
 	# .tres shows up here with no change to this file; adding a whole branch only needs
 	# an entry in Data.GROWTH_BRANCHES for its name and colour.
 	var columns := HBoxContainer.new()
-	columns.add_theme_constant_override("separation", 18)
+	columns.add_theme_constant_override("separation", 5)
 	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	box.add_child(columns)
 
 	for branch: StringName in Data.growth_branches():
 		columns.add_child(_build_growth_branch(branch))
 
-	var close := UI.button("Close", UI.FS_BODY, Vector2(180, 46))
+	var close := UI.button("Close", UI.FS_BODY, Vector2(45, 12))
 	close.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	close.pressed.connect(_close_growth_tree)
 	box.add_child(close)
@@ -161,7 +161,7 @@ func _open_growth_tree() -> void:
 func _build_growth_branch(branch: StringName) -> VBoxContainer:
 	var meta := Data.growth_branch_meta(branch)
 	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 10)
+	col.add_theme_constant_override("separation", 3)
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	# Branch header sits on a tinted strip so the three columns read as three distinct
@@ -170,11 +170,11 @@ func _build_growth_branch(branch: StringName) -> VBoxContainer:
 	var branch_color := Color(meta.color)
 	head_panel.add_theme_stylebox_override("panel", UI.flat(
 		Color(branch_color.r * 0.18, branch_color.g * 0.18, branch_color.b * 0.18),
-		branch_color, 1, UI.RADIUS_SM, 10))
+		branch_color, 1, UI.RADIUS_SM, 3))
 	col.add_child(head_panel)
 
 	var head_box := VBoxContainer.new()
-	head_box.add_theme_constant_override("separation", 2)
+	head_box.add_theme_constant_override("separation", 1)
 	head_panel.add_child(head_box)
 	head_box.add_child(UI.label(String(meta.display).to_upper(), UI.FS_HEAD, branch_color,
 		HORIZONTAL_ALIGNMENT_CENTER))
@@ -205,12 +205,12 @@ func _build_growth_node(nd: GrowthNodeData, branch_color: Color) -> PanelContain
 	elif unlocked_reqs:
 		border = UI.BORDER_HI
 	var panel := UI.panel(border, 1)
-	panel.add_theme_stylebox_override("panel", UI.flat(UI.PANEL, border, 1, UI.RADIUS_SM, 11))
+	panel.add_theme_stylebox_override("panel", UI.flat(UI.PANEL, border, 1, UI.RADIUS_SM, 3))
 	if not unlocked_reqs:
 		panel.modulate = Color(1, 1, 1, 0.5)
 
 	var info := VBoxContainer.new()
-	info.add_theme_constant_override("separation", 5)
+	info.add_theme_constant_override("separation", 1)
 	panel.add_child(info)
 
 	var title_row := HBoxContainer.new()
@@ -227,16 +227,16 @@ func _build_growth_node(nd: GrowthNodeData, branch_color: Color) -> PanelContain
 
 	var btn: Button
 	if maxed:
-		btn = UI.button("Maxed", UI.FS_SMALL, Vector2(0, 34))
+		btn = UI.button("Maxed", UI.FS_SMALL, Vector2(0, 9))
 		btn.disabled = true
 	elif not unlocked_reqs:
-		btn = UI.button("🔒 Requires %s" % _requirement_names(nd), UI.FS_SMALL, Vector2(0, 34))
+		btn = UI.button("🔒 Requires %s" % _requirement_names(nd), UI.FS_SMALL, Vector2(0, 9))
 		btn.disabled = true
 	elif affordable:
 		btn = UI.primary_button("Unlock — %d ◆" % price, branch_color, UI.FS_SMALL,
-			Vector2(0, 34))
+			Vector2(0, 9))
 	else:
-		btn = UI.button("Unlock — %d ◆" % price, UI.FS_SMALL, Vector2(0, 34))
+		btn = UI.button("Unlock — %d ◆" % price, UI.FS_SMALL, Vector2(0, 9))
 		btn.disabled = true
 	if affordable:
 		btn.pressed.connect(func():

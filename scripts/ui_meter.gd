@@ -39,7 +39,7 @@ class_name UIMeter extends Control
 
 func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	custom_minimum_size = Vector2(180, 34)
+	custom_minimum_size = Vector2(45, 9)
 
 func set_value(v: float) -> void:
 	value = v
@@ -68,11 +68,11 @@ func update_meter(new_value: float, new_max: float, new_readout: String,
 
 func _draw() -> void:
 	var font := ThemeDB.fallback_font
-	var cap_h := 13.0 if caption != "" else 0.0
-	var bar_rect := Rect2(0.0, cap_h, size.x, maxf(8.0, size.y - cap_h))
+	var cap_h := 3.0 if caption != "" else 0.0
+	var bar_rect := Rect2(0.0, cap_h, size.x, maxf(2.0, size.y - cap_h))
 
 	if caption != "":
-		draw_string(font, Vector2(1, 10), caption.to_upper(),
+		draw_string(font, Vector2(1, 3), caption.to_upper(),
 			HORIZONTAL_ALIGNMENT_LEFT, -1, UI.FS_MICRO, UI.TEXT_FAINT)
 
 	draw_style_box(UI.flat(track_color, UI.BORDER, 1, UI.RADIUS_SM), bar_rect)
@@ -81,7 +81,7 @@ func _draw() -> void:
 	# segment made the floor and the live fill read as two detached pills sitting in a
 	# box, rather than as one bar with two zones — the inset border is what ties them
 	# back together.
-	const PAD := 2.0
+	const PAD := 1.0
 	var inner := Rect2(bar_rect.position + Vector2(PAD, PAD),
 		Vector2(maxf(0.0, bar_rect.size.x - PAD * 2.0), maxf(0.0, bar_rect.size.y - PAD * 2.0)))
 
@@ -110,7 +110,7 @@ func _draw() -> void:
 	# emerges from underneath, which is the entire point of putting it here.
 	if split_value >= 0.0:
 		var s_ratio: float = clampf(split_value / max_value, 0.0, 1.0)
-		var s_h: float = maxf(3.0, inner.size.y * 0.34)
+		var s_h: float = maxf(1.0, inner.size.y * 0.34)
 		var s_y: float = inner.position.y + inner.size.y - s_h
 		var s_w: float = inner.size.x * s_ratio
 		if s_w > 0.5:
@@ -119,8 +119,8 @@ func _draw() -> void:
 	# A brighter cap on the leading edge — reads as "this is the current level" and keeps
 	# a nearly-empty bar visible.
 	var tip: float = inner.size.x * ratio
-	if tip > 2.0:
-		draw_rect(Rect2(inner.position.x + tip - 2.0, inner.position.y, 2.0, inner.size.y),
+	if tip > 1.0:
+		draw_rect(Rect2(inner.position.x + tip - 1.0, inner.position.y, 1.0, inner.size.y),
 			Color(col.r, col.g, col.b, 1.0).lightened(0.35))
 
 	if readout != "":
@@ -128,8 +128,8 @@ func _draw() -> void:
 		# empty remainder and read as a separate box tacked onto the end of the meter.
 		var ts := font.get_string_size(readout, HORIZONTAL_ALIGNMENT_LEFT, -1, UI.FS_SMALL)
 		var pos := Vector2(bar_rect.position.x + (bar_rect.size.x - ts.x) * 0.5,
-			bar_rect.position.y + (bar_rect.size.y + ts.y) * 0.5 - 3.0)
+			bar_rect.position.y + (bar_rect.size.y + ts.y) * 0.5 - 1.0)
 		# Outlined so it stays readable over both the filled and empty halves.
 		draw_string_outline(font, pos, readout, HORIZONTAL_ALIGNMENT_LEFT, -1,
-			UI.FS_SMALL, 4, Color(0, 0, 0, 0.85))
+			UI.FS_SMALL, 1, Color(0, 0, 0, 0.85))
 		draw_string(font, pos, readout, HORIZONTAL_ALIGNMENT_LEFT, -1, UI.FS_SMALL, UI.TEXT)

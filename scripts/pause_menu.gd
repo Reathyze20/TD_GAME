@@ -30,27 +30,27 @@ func _ready() -> void:
 
 	var box := VBoxContainer.new()
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.add_theme_constant_override("separation", 12)
+	box.add_theme_constant_override("separation", 3)
 	center.add_child(box)
 
 	box.add_child(UI.label("PAUSED", UI.FS_DISPLAY, UI.ACCENT, HORIZONTAL_ALIGNMENT_CENTER))
 	box.add_child(UI.label("The feed can wait.", UI.FS_BODY, UI.TEXT_DIM,
 		HORIZONTAL_ALIGNMENT_CENTER))
-	box.add_child(UI.spacer(Vector2(0, 10)))
+	box.add_child(UI.spacer(Vector2(0, 3)))
 
-	var resume := UI.primary_button("Resume", UI.FOCUS, UI.FS_HEAD, Vector2(300, 54))
+	var resume := UI.primary_button("Resume", UI.FOCUS, UI.FS_HEAD, Vector2(75, 14))
 	resume.pressed.connect(func(): resume_requested.emit())
 	box.add_child(resume)
 
-	var restart := UI.button("Restart level", UI.FS_BODY, Vector2(300, 46))
+	var restart := UI.button("Restart level", UI.FS_BODY, Vector2(75, 12))
 	restart.pressed.connect(func(): restart_requested.emit())
 	box.add_child(restart)
 
-	var settings := UI.button("Settings", UI.FS_BODY, Vector2(300, 46))
+	var settings := UI.button("Settings", UI.FS_BODY, Vector2(75, 12))
 	settings.pressed.connect(_open_settings)
 	box.add_child(settings)
 
-	var quit := UI.button("Quit to menu", UI.FS_BODY, Vector2(300, 46))
+	var quit := UI.button("Quit to menu", UI.FS_BODY, Vector2(75, 12))
 	quit.tooltip_text = "The run is abandoned — Insight you carried is NOT banked mid-run."
 	quit.pressed.connect(func(): quit_requested.emit())
 	box.add_child(quit)
