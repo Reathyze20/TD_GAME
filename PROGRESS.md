@@ -3175,7 +3175,7 @@ necommitnutá — jejich commit ji popíše sám.
   UI rescale) jsem se vůbec nedotkl a nezahrnul.
 - Kategorie E (notification.tres prázdný, ~90 MB pipeline assetů, netrackované
   `_diag_*`/`_shot_*` scratch soubory) zůstává neřešená — audit sám řekl proč.
-- Commit: viz `git log` (zapsáno hned po commitu).
+- Commit: `7f5ac72`.
 
 ## 2026-08-31 — Art color audit: doomscroll amber/brown bug, ART_DEBT.md ledger, verify.sh gate
 
