@@ -1006,3 +1006,162 @@ Still open, and not this session's to close: live `get_balance` (this session
 has no PixelLab tool at all — see above) and the actual go-ahead to generate,
 which the plan's own gate still requires before Phase 0's three pieces are
 ordered.
+
+## Q1b (_test_timecontrol root cause) — ZMĚŘENO 2026-08-30: příčina je (a), rozhodovací kadence driveru. Oprava NESPADÁ pod výjimku v CLAUDE.md — potřebuje tvoje rozhodnutí.
+
+Odpověď na zadanou otázku (a) vs (b): **(a)** — a přesně v tom smyslu, jak to
+zadání formuluje, *„čeká na snímky místo na čas"*. Není to (b): fixní tick v
+enginu sám o sobě není prokázán jako rychlostně závislý.
+
+**Dvě věci se předtím pletly dohromady, a ani jedna nebyla to, co se hlásilo:**
+
+1. **FAIL, kvůli kterému úkol vznikl, už neexistuje a nebyl to determinismus.**
+   Byl to `timeout after 120s`, ne assertion. Když se verify.sh pouštěl (nad
+   `6a06a31`), byl `_test_timecontrol` ještě netrackovaný a `FIXED_FPS_TESTS`
+   obsahoval jen `_test_level_simulator` — test tedy běžel **bez `--fixed-fps 60`**
+   a se 120s místo 520s. Commit Q1 (`c65dfa6`) přidal do verify.sh ten jeden
+   chybějící řádek. Přeměřeno po Q1: **`PASSED (0 failures)`, exit 0.**
+2. **Test na cross-speed rozchod ani neasertuje** — `_test_timecontrol.gd` u
+   `SimStrategyCheapEven` porovnává jen same-speed (drží) a „4× doběhne dřív"
+   (drží); 1× vs 4× jen tiskne jako `(info)`. Takže i s rozchodem projde.
+
+**Rozchod je ale reálný a reprodukovaný nezávisle** (sedí na kus s čísly, která
+Q1 zapsalo výš): 1× → 30 killů / 507 Dopamine / frame 2919; 4× → 39 killů /
+543 Dopamine / frame 804.
+
+### Kde přesně se to rozchází — „od kterého kroku simulace"
+
+Změřeno dočasným harnessem, který logoval každou akci strategie proti
+**`Game._sim_tick_count`** (autoritativní hodiny) místo proti reálnému snímku:
+
+```
+1x  tick=2     built=0->2  dopamine=300->269  wave=0
+4x  tick=6     built=0->2  dopamine=300->269  wave=0     <-- PRVNÍ ROZDÍL
+1x  tick=447   dopamine=281->311   |  4x  tick=453   dopamine=293->323
+1x  tick=1042  dopamine=347->377   |  4x  tick=1049  dopamine=359->389
+1x  tick=1768  dopamine=401->430   |  4x  tick=1748  dopamine=421->450
+1x  tick=2578  dopamine=478->507   |  4x  tick=2609  dopamine=478->507
+```
+
+**První divergence je hned první akce běhu: 1× jedná na sim ticku 2, 4× až na
+ticku 6.** Rozhodnutí je *totožné* (postaví 2 věže, 300→269) — liší se jen
+okamžik v simulovaném čase. Od druhé build fáze se rozjíždí Dopamine (281 vs
+293) a odtud se to kumuluje do konečných 507 vs 543 a 30 vs 39 killů.
+
+**Mechanismus, přečtený ze zdroje (ne odhad):**
+- `scripts/level_simulator.gd:91-94` — driver loop je
+  `await get_tree().process_frame; _frame += 1; _step()`, tedy strategie se tiká
+  **jednou za vykreslený snímek**.
+- `scripts/game.gd:3696-3720` — simulace běží v `_physics_process()` a přičítá
+  `_current_speed()` do tick budgetu: **1 tick/snímek při 1×, 4 při 4×**.
+- `scripts/sim_strategy.gd` (hlavička) — *„Ticked once per simulated frame"*.
+
+Strategie tedy pozoruje a jedná na **4× hrubší mřížce simulovaného času**. To je
+vlastnost *driveru*, ne fixního ticku. Proto jsou `passive` i `quick-hit-spam`
+1× vs 4× bit-identické (žádné časově citlivé rozhodnutí) a rozejde se jen
+`SimStrategyCheapEven`, jediná strategie, která staví a bojuje.
+
+### Proč jsem to NEOPRAVIL, i když je to (a)
+
+Zadání říká „pokud (a): oprav podle výjimky v CLAUDE.md". **Ta výjimka sem
+nesahá** — selhávají dvě ze čtyř jejích podmínek:
+1. *„Test je ve verify.sh veden v `FLAKY_TESTS`"* — `_test_timecontrol` není ani
+   ve `FLAKY_TESTS` (ten je prázdný), ani v `KNOWN_BROKEN_TESTS`, a **prochází**.
+2. *„Mění se JEN mechanika čekání, NE žádná assertion ani očekávaná hodnota"* —
+   oprava by nebyla v testu, ale ve **sdílené infrastruktuře**
+   `scripts/level_simulator.gd`, kterou používá i `_test_level_simulator`,
+   `_balance_sweep` a `_shot_readability`. Změna kadence rozhodování **změní
+   čísla v `docs/BALANCE.md`**. To je věcná změna výsledků, ne oprava měření.
+
+### Dopad na `docs/BALANCE.md` — užší, než to vypadá
+
+Sweep jede **všechno na 1×** (`_balance_sweep.gd`), takže je vnitřně konzistentní
+a same-speed reprodukovatelný (`_test_level_simulator` to hlídá). Nespolehlivé by
+bylo srovnávat čísla z různých rychlostí. **Pro Q2 (dominantní strategie Quick
+Hitu) to znamená: dokud se Q2 měří celé na 1×, závěry stojí.**
+
+### Co zůstává neověřené
+
+Kontrolní experiment (napevno přišpendlit každé rozhodnutí na tentýž sim tick u
+obou rychlostí a ověřit, že pak výsledky sednou) **neproběhl** — v tu chvíli
+pracovní strom rozbila souběžná práce na **P6** (`scripts/resources/
+spawn_point_data.gd` je netrackovaný, `LevelData` se kvůli němu nezkompiluje →
+`LevelSimulator: level id 98 not found`). Dokud ten kontrolní běh neproběhne,
+**nelze vyloučit druhou, engine-level divergenci** schovanou za tou první.
+Bez ní je poctivá formulace: první divergence je prokazatelně artefakt driveru.
+
+### Možnosti (tvoje volba)
+
+1. **Tikat strategii ze sim ticku, ne ze snímku** — driver by volal `_step()`
+   z `_sim_tick()`, ne z `process_frame`. Odstraní příčinu úplně a udělá ze
+   `_test_timecontrol` plnohodnotný cross-speed determinismus. **Cena: přegenerovat
+   `docs/BALANCE.md`, čísla se změní** (i na 1×, protože se změní počet rozhodnutí).
+2. **Nechat driver být a zapsat omezení** — cross-speed se prostě neasertuje
+   (dnešní stav), do `BALANCE.md` přijde věta „platí pro 1×". Nulová cena, ale
+   rychlost dál měřitelně mění balanc a hráč na 4× hraje jinou hru.
+3. **Nejdřív doběhnout kontrolní experiment** (až P6 dosedne), aby se vyloučila
+   druhá příčina, a teprve pak volit mezi 1 a 2.
+
+Doporučení: **3, pak 1.** Bez kontrolního běhu se může stát, že se udělá 1 a
+rozchod nezmizí celý.
+
+## P10 (docs/refactor/PATHFINDING.MD) — čeká na tebe, `Needs-me: yes`, `Status: todo`
+
+Ne design nejasnost — čistý gate, který úkol sám nese ve svém textu: *„Nezačínej,
+dokud si nezahraju P9 a nepotvrdím to. Až uvidím mlhu v pohybu, poznám, jestli je
+»věž nestřílí, co nevidí« zajímavé, nebo jen otravné."* P9 (mlha, vizuál) je
+hotová a commitnutá (`84842e8`/`3b34a35`), čtyři varianty čekají v
+`.dev/screenshots/p9_fog_*.png` na tvůj pohled — sám úkol říká „NEPOSUZUJ je,
+vyberu sám", takže jsem je jen vygeneroval a ověřil, ne posoudil.
+
+`tools/next_task.py docs/refactor/PATHFINDING.MD` teď hlásí P10 jako další v
+pořadí. Nezačínám ho a nehádám odpověď — čekám na tvé zahrání P9 a potvrzení.
+
+## C1 (audit mrtvého kódu → docs/CLEANUP_AUDIT.md) — ŠPATNÝ MODEL, navíc `Needs-me: yes`
+
+Nezačato. Ani jeden řádek nezměněn, `docs/CLEANUP_AUDIT.md` nevznikl. Dvě
+nezávislé zarážky z „Autonomní běh — pravidla" v CLAUDE.md, každá sama o sobě
+stačí:
+
+1. **`Model: opus`, běžím jako Sonnet 5** (`claude-sonnet-5`). Pravidlo:
+   *„Zkontroluj, na jakém modelu běžíš. Když má úkol `Model: opus` a ty jsi
+   Sonnet, NEZAČÍNEJ — zapiš do BLOCKED.md »špatný model« a skonči."* Tohle je
+   bezpodmínečné, nemá výjimku a nezávisí na tom, jak úkol vypadá těžký.
+2. **`Needs-me: yes`.** Pravidlo: *„Když má úkol `Needs-me: yes`, nepracuj na
+   něm. Napiš do BLOCKED.md, co ode mě potřebuješ rozhodnout, a skonči."*
+
+Zadání samo je jinak konzistentní se stop pravidly — je čistě read-only
+(„NIC NEMAŽ", „NEMAŽ NIC. Rozhodnu podle dokumentu.") a končí u dokumentu,
+takže riziko škody je nulové. To ale nemění model gate: audit mrtvého kódu je
+přesně ten druh úlohy, kde falešně pozitivní nález (prohlásit za mrtvé něco, na
+co se odkazuje přes UID, přes `class_name`, z `.tres`, nebo z dokumentace) vede
+k nevratnému smazání, jakmile podle dokumentu rozhodneš. Proto je opus gate
+věcný, ne formální — a proto ho neobcházím.
+
+### Co od tebe potřebuju, aby C1 mohl proběhnout
+
+- **Spustit ho na Opusu** (jediná blokující věc; `Needs-me` je pak splněno tím,
+  že rozhoduješ podle hotového dokumentu, ne během práce).
+- **Potvrdit rozsah kategorie C.** Zadání ji definuje jako „izometrická
+  projekce / starý pathfinding / pozice jako vzdálenost podél cesty". `BLOCKED.md`
+  výš dokládá, že část iso kódu je **záměrně živá** (`GridProjection` má obě větve
+  a `MODE_ISO` je pořád platný režim, `tools/stylized_renderer.gd` drží tři
+  render cesty vědomě). Bez tvého slova, jestli je iso větev „legacy k odstranění"
+  nebo „podporovaný druhý režim", by se kategorie C psala od stolu.
+- **Rozhodnout, co s `data/levels/*.bak`/`.bak2`** (zálohy smazaného
+  `level_iso_1.tres`) — CLAUDE.md říká ZASTAV u čehokoli, co chce smazat soubor
+  v `data/`, takže i pouhé zařazení do kategorie A je hraniční.
+
+### Poznámka k duplicitě nástrojů (kategorie D), ať se nemusí hledat znovu
+
+`BLOCKED.md` už jednou tenhle seznam vyjmenoval — v analýze P0, sekce „Scope of
+intervention into td_level_designer": *„`tools/map_editor.gd` není jediný zapisovatel
+geometrie levelů. `tools/build_placeholder_level.gd`, `tools/refit_levels.py`,
+`tools/regrid_levels.py`, `tools/build_level_first.py` a `tools/build_level_iso.py`
+všechny sahají na `high_ground`."* Kategorie D tedy nezačíná od nuly; ten odstavec
+je pro ni výchozí bod. Zároveň T6 je uzavřený jako **obsolete** právě proto, že
+staré iso levely byly smazány (`26814f9`) — což je silná indicie, že
+`build_level_iso.py` a `regrid_levels.py` jsou po migraci bez předmětu. Indicie,
+ne závěr: ověřit patří do samotného C1.
+
+Status: todo → blocked.

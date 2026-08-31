@@ -1,7 +1,7 @@
 [gd_scene format=4 uid="uid://cdetbu1tum2mv"]
 
 [ext_resource type="Script" uid="uid://bjnuc3s6pf1th" path="res://tools/map_editor.gd" id="1_script"]
-[ext_resource type="Resource" uid="uid://cafidi6chy1gd" path="res://data/levels/level_iso_1.tres" id="2_36806"]
+[ext_resource type="Resource" path="res://data/levels/level_1.tres" id="2_36806"]
 [ext_resource type="Texture2D" uid="uid://bkeu861hi4b35" path="res://assets/terrain/iso/ground/ground_00.png" id="3_a1cej"]
 [ext_resource type="Texture2D" uid="uid://b0m18ef8p8d3e" path="res://assets/terrain/iso/ground/ground_01.png" id="4_0wfuu"]
 [ext_resource type="Texture2D" uid="uid://c3umbwqn2o56f" path="res://assets/terrain/iso/ground/ground_accent_02.png" id="5_5sjk3"]

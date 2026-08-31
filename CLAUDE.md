@@ -185,3 +185,19 @@ GDScript: cokoli, co potřebuje Godot API (TileSet, SpriteFrames, PackedScene).
   race condition), a oprava nemění, CO test tvrdí o hře. Změna očekávané hodnoty,
   prahu nebo vypuštění kontroly vždy potřebuje moje svolení.
   Každou takovou opravu zapiš do PROGRESS.md s odůvodněním, proč spadá sem.
+
+  - Předplacené generace: 4944 zbývá, **reset 13. 9. 2026**. Nevyužité propadají.
+- Před KAŽDOU dávkou zavolej get_balance a zapiš zůstatek do PROGRESS.md.
+- Do 13. 9. je art priorita: když je volba mezi „počkat na mlhu" a „vygenerovat
+  teď", generuj teď — kredity po resetu už nebudou.
+- VÝJIMKA: terén a cokoli, kde jde o luminanční kontrast, se posuzuje AŽ v mlze.
+  To negeneruj předčasně. Plochý terén přes tools/flat_terrain.py stojí 0 generací
+  a je nastavitelný, takže tam žádný spěch není.
+- Pravidlo nezměněné deadlinem: každý asset jde přes style anchor
+  fa8294b1-c3ec-4ae5-92fb-39570ced0f65 a přes reduce_colors s palette_48.
+  Kredity navíc nejsou důvod slevit z konzistence.
+
+  - Výsledky PixelLab jobů expirují na serveru cca po 8 hodinách. Raw výstupy
+  (včetně VŠECH kandidátů) se stahují a commitují okamžitě po dokončení jobu.
+  Nečekej na výběr ani na schválení — nevybraní kandidáti jsou levnější
+  v repu než znovu vygenerovaní.
