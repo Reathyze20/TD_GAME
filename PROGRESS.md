@@ -4864,3 +4864,93 @@ kužel postaveného habitu, minimapa ukazující jen prozkoumaný kus.
 - Soubory: `scripts/game.gd` (seed shake + přesun tlumení), `data/levels/level_98.tres`
   (`fog = true`), `scripts/_shot_fog.gd`, `docs/BALANCE.md`, `BLOCKED.md`,
   `PATHFINDING.MD`, `.dev/screenshots/p_fog_live.png`, tento zápis.
+
+## 2026-09-02 — H1: HUD dostal /4, které při T5 dostalo jen písmo
+
+Podnět byl tvůj screenshot a rozbor k němu. Rozbor měl pravdu v tom, že „něco je špatně
+s měřítkem", a mýlil se skoro ve všech konkrétních bodech. Proto jsem nezačal opravovat,
+ale **měřit**.
+
+### Nejdřív měřidlo: `scenes/_shot_scale_audit.tscn`
+
+Vypíše v pixelech i v dlaždicích desku, jádro, velikost jednotek a **každý ovládací prvek,
+který opouští plátno 480×270** nebo leze na jiný panel — a uloží snímek v nativním
+rozlišení i ve 4×. Není to `_test_*` (nic netvrdí, jen měří), je to `_shot_*` a **zůstává**,
+protože tuhle otázku si projekt klade opakovaně. Důvod, proč vůbec vznikl: tenhle typ vady
+se v repu řešil už třikrát a pokaždé argumentem „vypadá to moc velké", což nejde ověřit,
+předat ani hlídat proti regresi.
+
+### Co měření našlo
+
+| tvrzení | verdikt |
+|---|---|
+| „Focus core přetéká, zabírá roh" | **nepravda** — 2,10×2,10 dlaždice, přesah 0,0 px; jádro *je* na buňce (28,7) z 30 |
+| „HUD je oříznutý" | **pravda, a hůř, než to vypadalo** |
+| „terén je nedodělaný placeholder" | **nepravda** — ploché pole + tečky po blocích je záměr s výkonovým odůvodněním |
+| „nepřátelé jsou placeholder" | **nepravda** — `DistractionAnimator` kreslí procedurálně, tak je to navržené |
+| „starý junk-food asset" | **nepravda** — junk food je referencovaný jen v `_shot_palette_swap.gd` |
+
+Spodní lišta byla **690 px široká na 480px plátně** a **40 px vysoká proti deklarovaným
+24**. Za pravým okrajem bylo pět tlačítek včetně **▶ Start Wave**, tedy jediného hlavního
+call-to-action; ostatním se ořezávaly popisky zdola. Horní lišta byla **33 px proti
+deklarovaným 17** a zakrývala nultou řadu desky. Panel „Next Wave" ležel **60×13 px pod
+horní lištou**.
+
+### Příčina byla jedna, a repo ji má napsanou
+
+`ui.gd` v hlavičce říká, že se při T5 plátno zmenšilo přesně /4 a **velikosti písma** se
+podle toho vydělily. **Content marginy stylů se nevydělily nikdy.** Každý `Button` balil
+4px text do 10 px paddingu na stranu; `card_style()` 14, `stat_chip` 8, tooltip 8. Ve spodní
+liště je až 24 tlačítek — jen ten padding dělal ~440 px z 480.
+
+Opraveno jako `UI.PAD_BUTTON` = 2, `PAD_PANEL` = 4, `PAD_TOOLTIP` = 2 (pojmenované
+konstanty, ne další rozseté číslo), plus `custom_minimum_size` tlačítek spodní lišty,
+odsazení obou lišt a separace řádku (u 24 dětí stojí každý px separace 23 px šířky).
+
+`_HUD_BOTTOM_H` 24 → **29**. To není volné číslo: deska končí na 241, plátno má 270, takže
+29 je **přesně** volné místo pod deskou — lišta na ni sedí těsně, nic nezakrývá, nenechává
+mrtvý pruh. A je to strop: řady se odvozují jako `floor((270 − _HUD_BOTTOM_H − origin_y) /
+tile)`, což je 14 až do 29 a při 30 spadne na 13. Napsáno u konstanty, ať to nikdo nezvedne.
+
+### Nová funkce, protože deklarovaná výška lhala
+
+`Game.top_bar_height()` vrací, **kolik lišta doopravdy zabírá**. `PanelContainer` roste
+podle obsahu bez ohledu na přiřazenou `size`, takže `_HUD_TOP_H + n` znamená „pod lištou"
+jen dokud obsah není vyšší — a přesně tak skončil panel „Next Wave" pod ní. Řídí se tím
+teď on i designer badge.
+
+Kontrola překryvů v harnessu vznikla kvůli tomu samému: **oba panely byly celé na plátně**,
+takže žádná kontrola hranic je nemohla najít.
+
+### Poslední čtyři literály velikosti textu
+
+Zbývaly čtyři místa, kde velikost písma byla holé číslo místo `UI.FS_*`, každé 3-4× větší
+než sousední popisky: plovoucí čísla poškození (16), odpočet u spawn telegrafu (14),
+popisek `FOCUS` pod jádrem (12) a štítek úhlu kuželu u zaměřovače (14). Dostaly /4 a s nimi
+i jejich posuny — jsou ve stejných jednotkách, takže zmenšit jen glyfy by text nechalo
+zaparkovaný tam, kde bývaly ty staré.
+
+### Cestou čtvrtý výskyt inherited-subject vady
+
+`_shot_hud_rescale` měl v sobě opsané `BOTTOM_H := 24` a `TOP_H := 17` s komentářem, že
+duplikace je v pořádku, protože je harness jednorázový. Není — je v repu dodneška, a jeho
+jediná práce je ukazovat skutečnou geometrii lišt. Se změnou na 29 by fotil „tady je build
+panel" **5 px nad build panelem**. Teď čte `Game._HUD_BOTTOM_H` a `game.top_bar_height()`.
+
+### Ověření
+
+- `_shot_scale_audit` na obou levelech: **0 prvků opouští plátno** (85 resp. 87), horní
+  lišta 17 px, spodní 29 px, jediný zbylý překryv je obdélník celoplošného centrovaného
+  banneru přes pravý panel — text do něj nesahá.
+- Snímky: `.dev/screenshots/p_scale_l0_native.png` / `_4x.png` (level 1),
+  `p_scale_l1_*` (level 98, se zapnutou mlhou).
+- Soubory: `scripts/ui.gd`, `scripts/game.gd`, `scripts/_shot_hud_rescale.gd`,
+  nové `scripts/_shot_scale_audit.gd` + `scenes/_shot_scale_audit.tscn`, tento zápis.
+
+### Co jsem NEDĚLAL, protože to chce tvoje oko
+
+Deska je pořád plochá tmavá plocha s tečkami po blocích a pár světlými bloky. Je to
+záměr (Rogue Tower laťka) a výkonově odůvodněný, ale **jestli je to dost, neposoudím.**
+Stejně tak velikost jádra (`CORE_PROP_ART_SCALE = 0.3`, jedna konstanta) a velikost
+banneru „Build Phase" (`UI.FS_TITLE` = 8, dvojnásobek `FS_HEAD`). Ani jedno není vada —
+obojí je rozhodnutí.

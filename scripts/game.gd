@@ -161,6 +161,10 @@ var _tolerance_meter: UIMeter
 var _wave_label: Label
 var _enemy_stats_label: Label
 var _message_label: Label
+## The top bar itself. Held because _HUD_TOP_H is what the bar is ASKED to be and
+## top_bar_height() is what it turns out to be -- two different numbers whenever the
+## content needs more, and everything positioned under the bar must follow the second.
+var _top_bar: PanelContainer
 var _start_wave_button: Button = null
 var _habit_buttons := {}
 var _intervention_buttons := {}
@@ -1461,8 +1465,8 @@ func _draw_spawn_telegraph(cv: CanvasItem) -> void:
 			cv.draw_line(tip, tip + Vector2.RIGHT.rotated(dir_ang + PI * 0.85) * 8.0, col, 3.0)
 			cv.draw_line(tip, tip + Vector2.RIGHT.rotated(dir_ang - PI * 0.85) * 8.0, col, 3.0)
 		var label := "%.1fs" % remaining
-		cv.draw_string(ThemeDB.fallback_font, center + Vector2(-14, -30), label,
-			HORIZONTAL_ALIGNMENT_CENTER, -1, 14, UI.DANGER)
+		cv.draw_string(ThemeDB.fallback_font, center + Vector2(-4, -8), label,
+			HORIZONTAL_ALIGNMENT_CENTER, -1, UI.FS_BODY, UI.DANGER)
 
 func cell_center(cell: Vector2i) -> Vector2:
 	return Data.cell_center(cell)
@@ -2451,8 +2455,8 @@ func _draw() -> void:
 
 	# Sleek Minimalist Text Label
 	var text_col := core_color.lightened(0.2)
-	draw_string(ThemeDB.fallback_font, objective_pos + Vector2(-22, base_radius + 20.0), "FOCUS",
-		HORIZONTAL_ALIGNMENT_LEFT, -1, 12, text_col)
+	draw_string(ThemeDB.fallback_font, objective_pos + Vector2(-6, base_radius + 5.0), "FOCUS",
+		HORIZONTAL_ALIGNMENT_LEFT, -1, UI.FS_SMALL, text_col)
 
 	# Habit build preview lives on _placement_overlay (drawn above terrain) — see
 	# _draw_placement_preview().
@@ -2527,7 +2531,8 @@ func _draw() -> void:
 
 		# Dynamic cone angle tag next to reticle
 		var arc_text := "%d°" % int(aiming_habit.arc_angle)
-		draw_string(ThemeDB.fallback_font, mouse_pos + Vector2(18, -8), arc_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("ffd479"))
+		draw_string(ThemeDB.fallback_font, mouse_pos + Vector2(5, -2), arc_text,
+			HORIZONTAL_ALIGNMENT_LEFT, -1, UI.FS_BODY, Color("ffd479"))
 
 	# Rally placement preview — the same clamp set_rally_point() will apply, drawn live,
 	# so the flag the player sees is the flag they get (never past the leash, never in a
@@ -4339,15 +4344,31 @@ func upcoming_wave_summary() -> Array[Dictionary]:
 		out.append({"def": boss_def, "count": 1, "is_new": true, "is_boss": true})
 	return out
 
+## What the top bar ACTUALLY occupies, not what it declares. A PanelContainer grows to
+## its content minimum size no matter what size is assigned to it, so anything placed
+## at _HUD_TOP_H + n lands UNDERNEATH the bar as soon as the content is taller than the
+## constant. That is exactly how the wave preview came to have 60x13 px of itself behind
+## the top bar -- caught by scenes/_shot_scale_audit.tscn, which is why that harness
+## checks panel OVERLAP and not only canvas bounds: both panels were fully on screen and
+## the collision was invisible to a bounds check.
+func top_bar_height() -> float:
+	if _top_bar == null:
+		return float(_HUD_TOP_H)
+	return maxf(float(_HUD_TOP_H), _top_bar.get_combined_minimum_size().y)
+
+
 func _build_wave_preview() -> void:
 	_wave_preview_panel = UI.panel(UI.BORDER, 1)
 	# Right edge, just under the top bar — clear of the tower panel's clamp range and
 	# the Start Wave corner.
-	_wave_preview_panel.position = Vector2(480.0 - 72.0, float(_HUD_TOP_H) + 3.0)
-	_wave_preview_panel.custom_minimum_size = Vector2(67, 0)
+	# x is re-derived in _refresh_wave_preview() once the labels exist -- this is only a
+	# sane starting point. The panel's width follows its longest label, so a hardcoded
+	# left edge drifts off-canvas the moment the wave count reaches two digits.
+	_wave_preview_panel.position = Vector2(480.0 - 72.0, top_bar_height() + 2.0)
+	_wave_preview_panel.custom_minimum_size = Vector2(60, 0)
 	_hud_root.add_child(_wave_preview_panel)
 	_wave_preview_box = VBoxContainer.new()
-	_wave_preview_box.add_theme_constant_override("separation", 4)
+	_wave_preview_box.add_theme_constant_override("separation", 1)
 	_wave_preview_panel.add_child(_wave_preview_box)
 
 func _refresh_wave_preview() -> void:
@@ -4371,10 +4392,13 @@ func _refresh_wave_preview() -> void:
 				% e.def.display_name, 60, UI.FS_SMALL, UI.DANGER))
 			continue
 		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 8)
+		row.add_theme_constant_override("separation", 2)
 		var swatch := ColorRect.new()
 		swatch.color = Color(e.def.color)
-		swatch.custom_minimum_size = Vector2(12, 12)
+		# 5, not 12: same missed /4 as the button padding. A 12 px block on a 480x270
+		# canvas is three quarters of a grid cell -- it read as a piece of level art
+		# sitting in the HUD rather than as a colour key next to a name.
+		swatch.custom_minimum_size = Vector2(5, 5)
 		swatch.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		swatch.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(swatch)
@@ -4384,6 +4408,13 @@ func _refresh_wave_preview() -> void:
 			row.add_child(UI.spacer(Vector2.ZERO, true))
 			row.add_child(UI.label("NEW", UI.FS_MICRO, UI.ACCENT))
 		_wave_preview_box.add_child(row)
+	# Right-align against the real width, measured after the labels are in. Anchoring
+	# would be the Control-native way, but this panel is positioned by hand from two
+	# other call sites too, so one honest number beats a half-converted layout.
+	_wave_preview_panel.position = Vector2(480.0
+		- maxf(_wave_preview_panel.custom_minimum_size.x,
+			_wave_preview_panel.get_combined_minimum_size().x) - 3.0,
+		top_bar_height() + 2.0)
 
 func _hide_wave_preview() -> void:
 	if _wave_preview_panel != null:
@@ -6382,7 +6413,17 @@ func _update_glitch(delta: float) -> void:
 # ---------------------------------------------------------------- HUD (built in code)
 
 const _HUD_TOP_H := 17
-const _HUD_BOTTOM_H := 24
+## 29, not 24 (2026-09-02). The board ends at origin_y + rows * tile = 17 + 224 = 241 and
+## the canvas is 270, so 29 px is EXACTLY the space under the board -- the bar now sits
+## flush against it, covering no playfield and leaving no dead strip. It had to grow
+## because the build row genuinely needs 29 px (two lines of FS_BODY plus padding, all
+## measured by scenes/_shot_scale_audit.tscn) and was silently taking them, overflowing
+## 5 px past the bottom of the canvas.
+##
+## 29 is the CEILING, not a free number: MapComposer and _test_segments derive the row
+## count as floor((270 - _HUD_BOTTOM_H - origin_y) / tile), which is 14 for anything up
+## to 29 and drops to 13 at 30. Going past 29 silently deletes a row of every level.
+const _HUD_BOTTOM_H := 29
 
 # ---------------------------------------------------------------- speed & pause
 #
@@ -6540,7 +6581,7 @@ func _build_hud() -> void:
 		var badge := UI.label(
 			"DESIGNER MODE — F1 +500 Dopamine · F2 +10 Insight · F3 turbo 5× · F4 clear wave · F5/F6 Tolerance -/+ · F7 sinking walls · telemetry off",
 			UI.FS_SMALL, Color("ffb454"))
-		badge.position = Vector2(6, _HUD_TOP_H + 1)
+		badge.position = Vector2(6, top_bar_height() + 1.0)
 		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_hud_root.add_child(badge)
 
@@ -6582,6 +6623,7 @@ func _build_top_bar() -> void:
 	var bar := PanelContainer.new()
 	bar.add_theme_stylebox_override("panel",
 		UI.flat(Color(UI.SURFACE.r, UI.SURFACE.g, UI.SURFACE.b, 0.96), UI.BORDER, 0, 0))
+	_top_bar = bar
 	bar.position = Vector2.ZERO
 	bar.size = Vector2(480, _HUD_TOP_H)
 	# STOP, not IGNORE: world_to_cell() clamps out-of-grid coordinates back into the grid,
@@ -6590,14 +6632,17 @@ func _build_top_bar() -> void:
 	_hud_root.add_child(bar)
 
 	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 6)
-	margin.add_theme_constant_override("margin_right", 6)
-	margin.add_theme_constant_override("margin_top", 2)
-	margin.add_theme_constant_override("margin_bottom", 2)
+	margin.add_theme_constant_override("margin_left", 3)
+	margin.add_theme_constant_override("margin_right", 3)
+	# 0 top and bottom, not 1: the chips already carry their own padding, and these two
+	# px were the last thing making the bar 19 tall against a declared 17 -- two rows of
+	# board pixels covered by a bar that says it does not cover any.
+	margin.add_theme_constant_override("margin_top", 0)
+	margin.add_theme_constant_override("margin_bottom", 0)
 	bar.add_child(margin)
 
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 4)
+	row.add_theme_constant_override("separation", 2)
 	row.alignment = BoxContainer.ALIGNMENT_BEGIN
 	margin.add_child(row)
 
@@ -6689,6 +6734,13 @@ func _build_bottom_bar() -> void:
 	var bar := PanelContainer.new()
 	bar.add_theme_stylebox_override("panel",
 		UI.flat(Color(UI.SURFACE.r, UI.SURFACE.g, UI.SURFACE.b, 0.96), UI.BORDER, 0, 0))
+	# _HUD_BOTTOM_H is a CONTRACT, not a hint: Data.GRID's row count, MapComposer and
+	# Minimap all derive their geometry from it (and _test_segments asserts the board
+	# size that falls out), so the bar must FIT in it. A Container's minimum size wins
+	# over anything set here -- until 2026-09-02 the content demanded 690x40 and Godot
+	# silently gave it that, putting 210 px of build bar (Start Wave included) past the
+	# right edge and 16 px past the bottom. Re-check with scenes/_shot_scale_audit.tscn
+	# after touching this row; it prints every control that leaves the canvas.
 	bar.position = Vector2(0, 270 - _HUD_BOTTOM_H)
 	bar.size = Vector2(480, _HUD_BOTTOM_H)
 	# Same reason as the top bar: the gaps between buttons used to build towers on row 18.
@@ -6696,20 +6748,24 @@ func _build_bottom_bar() -> void:
 	_hud_root.add_child(bar)
 
 	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 6)
-	margin.add_theme_constant_override("margin_right", 6)
-	margin.add_theme_constant_override("margin_top", 3)
-	margin.add_theme_constant_override("margin_bottom", 3)
+	margin.add_theme_constant_override("margin_left", 3)
+	margin.add_theme_constant_override("margin_right", 3)
+	margin.add_theme_constant_override("margin_top", 1)
+	margin.add_theme_constant_override("margin_bottom", 1)
 	bar.add_child(margin)
 
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 3)
+	# 1, not 3: this row holds up to 24 children, so every px of separation costs 23 px
+	# of width -- and 480 is all there is. At 2 the Quick-Hit levels (which add two more
+	# children) still pushed Start Wave 5 px off the right edge; at 1 both level shapes
+	# fit with room to spare. Measured by scenes/_shot_scale_audit.tscn, both levels.
+	row.add_theme_constant_override("separation", 1)
 	margin.add_child(row)
 
 	for i in range(Data.HABIT_ORDER.size()):
 		var key := String(Data.HABIT_ORDER[i])
 		var d := Data.get_habit(key)
-		var b := UI.button("%s\n%d ◆" % [d.short, d.build_cost], UI.FS_BODY, Vector2(33, 0))
+		var b := UI.button("%s\n%d ◆" % [d.short, d.build_cost], UI.FS_BODY, Vector2(20, 0))
 		# Numbers, not just prose: a tooltip the player can compare against the enemy's
 		# stats is a decision aid; flavor text alone is decoration.
 		b.tooltip_text = "%s — %d Dopamine · holds %d Bandwidth\n%s\n%s\nHotkey: %d" \
@@ -6721,16 +6777,16 @@ func _build_bottom_bar() -> void:
 		_habit_buttons[key] = b
 		b.add_child(_hotkey_badge(str(i + 1)))
 
-	row.add_child(UI.spacer(Vector2(5, 0)))
+	row.add_child(UI.spacer(Vector2(2, 0)))
 	var sep := VSeparator.new()
 	row.add_child(sep)
-	row.add_child(UI.spacer(Vector2(5, 0)))
+	row.add_child(UI.spacer(Vector2(2, 0)))
 
 	var intervention_keys: Array[String] = ["Q", "W", "E", "R", "T"]
 	for i in range(Data.INTERVENTION_ORDER.size()):
 		var ikey := String(Data.INTERVENTION_ORDER[i])
 		var idef := Data.get_intervention(ikey)
-		var b := UI.button(idef.short, UI.FS_BODY, Vector2(32, 0))
+		var b := UI.button(idef.short, UI.FS_BODY, Vector2(16, 0))
 		var hotkey: String = intervention_keys[i] if i < intervention_keys.size() else ""
 		b.tooltip_text = "%s\n%s%s" % [idef.name, idef.description,
 			("\nHotkey: " + hotkey) if hotkey != "" else ""]
@@ -6742,12 +6798,12 @@ func _build_bottom_bar() -> void:
 
 	row.add_child(UI.spacer(Vector2.ZERO, true))
 
-	_pause_button = UI.button("❚❚", UI.FS_HEAD, Vector2(16, 0))
+	_pause_button = UI.button("❚❚", UI.FS_HEAD, Vector2(11, 0))
 	_pause_button.tooltip_text = "Pause / resume (Esc)"
 	_pause_button.pressed.connect(_toggle_pause)
 	row.add_child(_pause_button)
 
-	_speed_button = UI.button(_speed_label(_current_speed()), UI.FS_HEAD, Vector2(18, 0))
+	_speed_button = UI.button(_speed_label(_current_speed()), UI.FS_HEAD, Vector2(13, 0))
 	_speed_button.tooltip_text = "Game speed — click to cycle 0.25× / 1× / 2× / 4× (+ and −)"
 	_speed_button.pressed.connect(_cycle_speed)
 	row.add_child(_speed_button)
@@ -6757,16 +6813,16 @@ func _build_bottom_bar() -> void:
 	# so it reads as part of the SAME time-control cluster rather than being the only
 	# time control buried in the wave-management area on the far right (Q1, docs/
 	# refactor/PATHFINDING.MD).
-	_skip_wave_button = UI.button("Skip ▶▶", UI.FS_BODY, Vector2(21, 0))
+	_skip_wave_button = UI.button("Skip ▶▶", UI.FS_BODY, Vector2(16, 0))
 	_skip_wave_button.tooltip_text = "Skip the build phase and jump straight into the " \
 		+ "next wave (same as Start Wave)."
 	_skip_wave_button.pressed.connect(_on_start_wave_pressed)
 	row.add_child(_skip_wave_button)
 
-	row.add_child(UI.spacer(Vector2(4, 0)))
+	row.add_child(UI.spacer(Vector2(2, 0)))
 
 	if GameState.quick_hit_enabled:
-		var q := UI.button("", UI.FS_BODY, Vector2(43, 0))
+		var q := UI.button("", UI.FS_BODY, Vector2(26, 0))
 		q.tooltip_text = "Instant Dopamine on demand. Each use pays less than the last and " \
 			+ "permanently raises your baseline Tolerance, which shrinks every reward for " \
 			+ "the rest of the level."
@@ -6777,7 +6833,7 @@ func _build_bottom_bar() -> void:
 
 	# The one call-to-action, filled and last in the reading order.
 	_start_wave_button = UI.primary_button("▶ Start Wave 1", UI.FOCUS, UI.FS_HEAD,
-		Vector2(65, 0))
+		Vector2(42, 0))
 	_start_wave_button.tooltip_text = "Call the wave now (Space). The sooner you call " \
 		+ "it, the bigger the Dopamine bonus."
 	row.add_child(_start_wave_button)
@@ -7082,12 +7138,14 @@ func _pop_text(pos: Vector2, text: String, color: Color) -> void:
 	l.text = text
 	l.position = pos
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	l.add_theme_font_size_override("font_size", 16)
+	# UI.FS_BODY, not 16: at 16 a single damage number stood 6% of the canvas tall, four
+	# times every label around it. The 36 px rise below is the same pre-/4 number.
+	l.add_theme_font_size_override("font_size", UI.FS_BODY)
 	l.modulate = color
 	_hud_layer.add_child(l)
 	var tw := create_tween()
 	tw.set_parallel(true)
-	tw.tween_property(l, "position:y", pos.y - 36.0, 0.65).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(l, "position:y", pos.y - 9.0, 0.65).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	tw.tween_property(l, "modulate:a", 0.0, 0.65).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 	tw.set_parallel(false)
 	tw.tween_callback(l.queue_free)

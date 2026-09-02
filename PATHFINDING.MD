@@ -1259,6 +1259,60 @@ disclosure vyplnit poctivě za celou hru včetně toho, že in-game sprity přes
 vznikly — a hlídat konzistenci s `palette_48`, protože nejspolehlivější indicie není
 rukopis, ale capsule, jejíž světlo a paleta nesedí na screenshoty.
 
+## H1 — HUD nesedí na 480×270 (dokončení /4 rescale z T5)
+Model: opus
+Needs-me: no
+Status: done
+
+**Zadání vzniklo z tvého screenshotu, ale nezakládá se na něm.** Postavil jsem měřicí
+harness `scenes/_shot_scale_audit.tscn`, který vypíše v pixelech a v dlaždicích, co kde je,
+a který ovládací prvek opouští plátno nebo leze na jiný panel. Až podle jeho čísel se něco
+měnilo.
+
+**Co bylo skutečně rozbité (naměřeno, ne odhadnuto):**
+
+- Spodní build lišta byla **690 px široká na 480px plátně** a **40 px vysoká proti
+  deklarovaným 24**. Mimo obraz bylo 5 tlačítek včetně **▶ Start Wave** — jediné hlavní
+  call-to-action ve hře. Popisky všech ostatních byly uříznuté zdola.
+- Horní lišta byla **33 px vysoká proti deklarovaným 17**, tedy zakrývala celou nultou
+  řadu desky (`Data.GRID.origin_y` = 17). `data.gd` na tuhle podmínku má vlastní komentář.
+- Panel „Next Wave" ležel **60×13 px pod horní lištou** a 22 px za pravým okrajem.
+
+**Příčina je jedna a je dokumentovaná v repu.** `ui.gd` má v hlavičce napsáno, že se při
+T5 (29. 8. 2026) plátno zmenšilo přesně /4 a že se **velikosti písma** podle toho vydělily.
+Content marginy stylů se ale nevydělily nikdy: každé `Button` obalovalo 4px text
+**10 px paddingu na každé straně**, `card_style()` 14, `stat_chip` 8, tooltip 8. Ve spodní
+liště je až 24 tlačítek, takže jen ten padding dělal ~440 px na 480px plátně.
+
+**Co se změnilo:** padding dostal to samé /4 (`UI.PAD_BUTTON` 2, `PAD_PANEL` 4,
+`PAD_TOOLTIP` 2 — pojmenované konstanty, ne další rozseté číslo), `custom_minimum_size`
+tlačítek spodní lišty a odsazení obou lišt taky. `_HUD_BOTTOM_H` 24 → **29**, což je
+**přesně** místo pod deskou (`origin_y + rows*tile` = 241, plátno 270) — lišta teď sedí
+těsně na desku, nezakrývá ji a nenechává mrtvý pruh. Nad 29 se nesmí: počet řad se odvozuje
+jako `floor((270 − _HUD_BOTTOM_H − origin_y) / tile)` a při 30 spadne ze 14 na 13, tedy by
+každému levelu tiše zmizela řada. Je to napsané u konstanty.
+
+Přibyl `Game.top_bar_height()` — **kolik lišta doopravdy zabírá**, ne co deklaruje.
+`PanelContainer` roste podle obsahu bez ohledu na přiřazenou `size`, takže `_HUD_TOP_H + n`
+je souřadnice „pod lištou" jen tehdy, když obsah není vyšší. Panel „Next Wave" a designer
+badge se teď řídí naměřenou výškou.
+
+Poslední čtyři velikosti textu, které byly holé literály místo `UI.FS_*`, taky dostaly /4:
+plovoucí čísla poškození (16 → `FS_BODY`), odpočet u spawn telegrafu (14), popisek `FOCUS`
+pod jádrem (12) a štítek úhlu kuželu u zaměřovače (14). S nimi i jejich posuny, protože jsou
+ve stejných jednotkách.
+
+**Hotovo:** `_shot_scale_audit` hlásí na obou levelech **0 z 85 (resp. 87) prvků opouští
+plátno**, horní lišta 17 px, spodní 29 px, žádný překryv panelů kromě jednoho neškodného:
+celoplošný centrovaný banner má obdélník přes pravý panel, ale text do něj nesahá.
+
+**Co NEBYLA vada, i když to tak vypadalo:** jádro (`FOCUS`) **nepřetéká**. Měřeno:
+33,6 × 33,6 px = 2,10 × 2,10 dlaždice, obdélník x 439..473 na desce 0..480, přesah
+**0,0 px** do plátna i do desky. Vypadá to jako roh proto, že `objective` **je** na buňce
+(28, 7) z 30 sloupců — to je level design, ne měřítko. `CORE_PROP_ART_SCALE = 0.3` už tam
+je a jeho komentář sám říká, že je to „first-pass stop-the-overflow factor, ne posouzená
+finální velikost". Kdyby ti jádro přišlo malé nebo velké, je to ta jedna konstanta.
+
 ## F1 — mlha nesmí číst screen shake (blokuje zapnutí mlhy)
 Model: opus
 Needs-me: no

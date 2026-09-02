@@ -3,6 +3,40 @@
 Design decisions found ambiguous or contradictory during autonomous runs.
 Not fixed by guessing — recorded here with options, then moved past.
 
+## Po H1 zbývají tři čísla, která jsou rozhodnutí, ne vada (2026-09-02)
+
+HUD je změřený a sedí: `scenes/_shot_scale_audit.tscn` hlásí na obou levelech **0 prvků
+mimo plátno**, horní lišta 17 px, spodní 29 px. Snímky `.dev/screenshots/p_scale_l0_4x.png`
+(level 1) a `p_scale_l1_4x.png` (level 98, s mlhou).
+
+Tohle už ale nejsou vady — jsou to tři konstanty, u kterých **měření nemá co říct** a
+rozhodnout je můžeš jen ty. Každá je jeden řádek.
+
+1. **Velikost jádra.** `Game.CORE_PROP_ART_SCALE = 0.3` → 2,10 × 2,10 dlaždice.
+   **Nepřetéká** (přesah 0,0 px do plátna i do desky, měřeno). Komentář u ní sám říká, že
+   je to „first-pass stop-the-overflow factor, ne posouzená finální velikost". Že jádro
+   sedí u pravého okraje, je tím, že `objective` **je** na buňce (28, 7) z 30 sloupců —
+   to je level design, ne měřítko.
+
+2. **Prázdnost desky.** Ploché tmavé pole, tečka na každý stavební blok 3×3 a světlé
+   bloky high groundu. Je to záměr (`SquareTerrain._draw()`, laťka Rogue Tower) a tečky
+   mají tvrdé výkonové odůvodnění — verze po buňkách srazila hru na 6 FPS i na prázdném
+   poli. **Ale jestli to takhle stačí, neposoudím.**
+
+3. **Banner „Build Phase".** `UI.FS_TITLE` = 8, tedy dvojnásobek `FS_HEAD`. Po H1 je to
+   zdaleka největší text na obrazovce. Je to titulek, takže to *má* být větší — o kolik,
+   je vkus.
+
+**A jedna drobnost, kterou harness bude hlásit napořád:** celoplošný centrovaný banner má
+obdélník 60×2 px přes panel „Next Wave". Text do něj nesahá, takže to nic nepřekrývá —
+ale obdélníky se protínají, a schovat ten signál by znamenalo přijít o kontrolu, která
+našla skutečný překryv 60×13 px pod horní lištou. Nechal jsem to hlásit.
+
+**Co rozbor k tvému screenshotu tvrdil a měření to vyvrátilo** (ať se to nevrací):
+jádro nepřetéká; tečkovaná mřížka není debug čára ani nedodělaný terén; nepřátelé nejsou
+placeholder (`DistractionAnimator` je navržená procedurální kresba); junk-food asset ve
+hře nikde není (jediná zmínka v celém repu je `_shot_palette_swap.gd`).
+
 ## Zapnutá mlha rozbije determinismus — **VYŘEŠENO 2026-09-02 (F1), mlha je zapnutá**
 
 **Zavřeno, a oprava je jinde, než tenhle záznam čekal.** Nemuselo se sahat na

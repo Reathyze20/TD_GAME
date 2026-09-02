@@ -60,18 +60,20 @@ func _run() -> void:
 	# Zoomed crop of just the bottom build panel row — the row with the most fixed-width
 	# buttons packed side by side (8 habit + 5 intervention + pause/speed/skip/quick-hit/
 	# start-wave), so the one most likely to still show overflow if a literal was missed.
-	# Hardcoded 24/17 rather than reading Game's private consts (mirrors the values at
-	# scripts/game.gd _HUD_BOTTOM_H / _HUD_TOP_H — this harness is disposable, not worth
-	# a public accessor on Game just to avoid the duplication).
-	const BOTTOM_H := 24
-	const TOP_H := 17
+	# Read from Game rather than copied. The copies said 24/17 and went stale the moment
+	# _HUD_BOTTOM_H grew to 29 (2026-09-02), which would have cropped this harness's
+	# "here is the build panel" picture 5 px above the build panel — the same
+	# inherited-subject failure _shot_fog had, in the one place whose entire job is to
+	# show a bar's real geometry.
+	var bottom_h: int = Game._HUD_BOTTOM_H
+	var top_h: int = int(game.top_bar_height())
 	var bh := full.get_height()
-	var bar_rect := Rect2i(0, bh - BOTTOM_H, full.get_width(), BOTTOM_H)
+	var bar_rect := Rect2i(0, bh - bottom_h, full.get_width(), bottom_h)
 	var bottom_crop := full.get_region(bar_rect)
 	_save(_upscale4x(bottom_crop), "%s/p_hudrescale_buildpanel.png" % OUT_DIR)
 
 	# Zoomed crop of just the top bar row (Focus/Burnout/Tolerance meters + combo label).
-	var top_rect := Rect2i(0, 0, full.get_width(), TOP_H)
+	var top_rect := Rect2i(0, 0, full.get_width(), top_h)
 	var top_crop := full.get_region(top_rect)
 	_save(_upscale4x(top_crop), "%s/p_hudrescale_topbar.png" % OUT_DIR)
 

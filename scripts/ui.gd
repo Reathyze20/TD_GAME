@@ -59,6 +59,18 @@ const FS_MICRO   := 3
 const RADIUS     := 2
 const RADIUS_SM  := 1
 
+## The /4 above reached the font sizes and STOPPED THERE. Every number below is a
+## style-box CONTENT MARGIN and each was still the 1920x1080 value until 2026-09-02:
+## a Button wrapped 4 px text in 10 px of padding per side, so 20 of a habit button's
+## 33 px was padding. With up to 24 controls in the bottom bar that alone is ~440 px
+## on a 480 px canvas, which is why _build_bottom_bar's row measured 690 px wide and put
+## Start Wave -- the one call to action -- entirely off screen (measured by
+## scenes/_shot_scale_audit.tscn, not eyeballed). Same /4, applied late.
+const PAD_BUTTON  := 2   # was 10
+const PAD_PANEL   := 4   # was 14
+const PAD_TOOLTIP := 2   # was 8
+const PAD_CHIP    := 2   # was 8
+
 # ---------------------------------------------------------------- style boxes
 
 static func flat(bg: Color, border: Color = Color.TRANSPARENT, border_width: int = 0,
@@ -76,7 +88,7 @@ static func flat(bg: Color, border: Color = Color.TRANSPARENT, border_width: int
 ## Panel with a hairline border — the default container look.
 static func card_style(border_color: Color = BORDER, border_width: int = 1,
 		bg: Color = PANEL) -> StyleBoxFlat:
-	return flat(bg, border_color, border_width, RADIUS, 14)
+	return flat(bg, border_color, border_width, RADIUS, PAD_PANEL)
 
 # ---------------------------------------------------------------- theme
 #
@@ -93,11 +105,11 @@ static func theme() -> Theme:
 
 	# --- Button: flat, quiet at rest, clearly reactive. Godot's stock button chrome
 	# reads as a desktop app dialog, which is what made the draft screen look unfinished.
-	t.set_stylebox("normal", "Button", flat(PANEL, BORDER, 1, RADIUS_SM, 10))
-	t.set_stylebox("hover", "Button", flat(PANEL_HI, BORDER_HI, 1, RADIUS_SM, 10))
-	t.set_stylebox("pressed", "Button", flat(TRACK, BORDER_HI, 1, RADIUS_SM, 10))
-	t.set_stylebox("focus", "Button", flat(Color.TRANSPARENT, BORDER_HI, 1, RADIUS_SM, 10))
-	t.set_stylebox("disabled", "Button", flat(SURFACE, BORDER, 1, RADIUS_SM, 10))
+	t.set_stylebox("normal", "Button", flat(PANEL, BORDER, 1, RADIUS_SM, PAD_BUTTON))
+	t.set_stylebox("hover", "Button", flat(PANEL_HI, BORDER_HI, 1, RADIUS_SM, PAD_BUTTON))
+	t.set_stylebox("pressed", "Button", flat(TRACK, BORDER_HI, 1, RADIUS_SM, PAD_BUTTON))
+	t.set_stylebox("focus", "Button", flat(Color.TRANSPARENT, BORDER_HI, 1, RADIUS_SM, PAD_BUTTON))
+	t.set_stylebox("disabled", "Button", flat(SURFACE, BORDER, 1, RADIUS_SM, PAD_BUTTON))
 	t.set_color("font_color", "Button", TEXT)
 	t.set_color("font_hover_color", "Button", Color.WHITE)
 	t.set_color("font_pressed_color", "Button", ACCENT)
@@ -108,7 +120,7 @@ static func theme() -> Theme:
 	t.set_stylebox("panel", "PanelContainer", card_style())
 
 	t.set_color("font_color", "TooltipLabel", TEXT)
-	t.set_stylebox("panel", "TooltipPanel", flat(SURFACE, BORDER, 1, RADIUS_SM, 8))
+	t.set_stylebox("panel", "TooltipPanel", flat(SURFACE, BORDER, 1, RADIUS_SM, PAD_TOOLTIP))
 
 	_theme = t
 	return t
@@ -157,10 +169,10 @@ static func primary_button(text: String, tint: Color = FOCUS, size: int = FS_HEA
 	var b := button(text, size, min_size)
 	var base := Color(tint.r * 0.22, tint.g * 0.22, tint.b * 0.22, 1.0)
 	var hi := Color(tint.r * 0.34, tint.g * 0.34, tint.b * 0.34, 1.0)
-	b.add_theme_stylebox_override("normal", flat(base, tint, 1, RADIUS_SM, 10))
-	b.add_theme_stylebox_override("hover", flat(hi, tint, 2, RADIUS_SM, 10))
-	b.add_theme_stylebox_override("pressed", flat(base, tint, 2, RADIUS_SM, 10))
-	b.add_theme_stylebox_override("disabled", flat(SURFACE, BORDER, 1, RADIUS_SM, 10))
+	b.add_theme_stylebox_override("normal", flat(base, tint, 1, RADIUS_SM, PAD_BUTTON))
+	b.add_theme_stylebox_override("hover", flat(hi, tint, 2, RADIUS_SM, PAD_BUTTON))
+	b.add_theme_stylebox_override("pressed", flat(base, tint, 2, RADIUS_SM, PAD_BUTTON))
+	b.add_theme_stylebox_override("disabled", flat(SURFACE, BORDER, 1, RADIUS_SM, PAD_BUTTON))
 	b.add_theme_color_override("font_color", tint)
 	b.add_theme_color_override("font_hover_color", Color.WHITE)
 	return b
@@ -190,7 +202,7 @@ static func spacer(min_size: Vector2 = Vector2.ZERO, expand: bool = false) -> Co
 static func stat_chip(caption: String, accent: Color, out_value: Array,
 		value_size: int = FS_HEAD) -> PanelContainer:
 	var p := panel(BORDER, 1, SURFACE)
-	p.add_theme_stylebox_override("panel", flat(SURFACE, BORDER, 1, RADIUS_SM, 8))
+	p.add_theme_stylebox_override("panel", flat(SURFACE, BORDER, 1, RADIUS_SM, PAD_CHIP))
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 0)
 	p.add_child(box)
