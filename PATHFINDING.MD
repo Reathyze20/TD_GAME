@@ -1081,13 +1081,29 @@ je trvalá potřeba, ne vada). `./verify.sh` s displejem: **41 pass, 0 fail,
 ## P10 — brainfog jako herní pravidlo
 Model: opus
 Needs-me: no
-Status: todo
+Status: done
 
 **Brána otevřena 2026-09-02 plná autorizací.** Původní brána zněla „nazačínej, dokud
 si nezahraju P9 a nepotvrdím to" a byla o VIZUÁLNÍM úsudku, který si přisvojit nemůžu.
 Řeším to tak, že pravidlo stavím za `LevelData.fog`, který už existuje a je `false` na
 obou levelech: mechanismus vznikne a otestuje se, ale zapnout ho na konkrétním levelu
 zůstane jeden bool v `.tres` — tvoje oko, ne moje.
+
+**Hotovo 2026-09-02.** Ze čtyř pravidel v zadání už tři byly hotové a otestované
+(`visible` grid = `Game._lit_cells`; věž odmítne cíl, který neprojde `is_pos_visible()`
+— `tower.gd:292`, střela projde tělem v mlze — `projectile.gd:201`; herní logika čte
+grid, ne texturu; nepřátelé „vidění" nemají, jdou po flow fieldu). Chybělo jen
+**`explored`** — a to je teď `Game._explored_cells` + `is_explored()`, klíčované po
+stejných 48px blocích a rostoucí **jen nahoru**, čištěné per level.
+
+Nová trvalá fixture **`_test_fog`** (15 kontrol, všechny zelené) dokazuje to podstatné:
+postaví habit (17 → 27 prozkoumaných bloků), **prodá ho**, přepočítá mlhu —
+`_lit_cells` prokazatelně klesne (27 → 18 svítících), a **ani jeden prozkoumaný blok
+nezmizí**. Plus monotonie přes 30 přepočtů.
+
+**Rozhodnutí k přehodnocení:** Moment of Clarity **neprozkoumává**. Jinak by jedno
+seslání prozkoumalo celou desku navždy a test P12 by byl od té chvíle prázdný.
+Nahlédnutí není průzkum; přepnutí je jedna smyčka, popsané u `_explored_cells`.
 
 **Nezačínej, dokud si nezahraju P9 a nepotvrdím to.** Až uvidím mlhu v pohybu,
 poznám, jestli je „věž nestřílí, co nevidí" zajímavé, nebo jen otravné.

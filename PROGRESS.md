@@ -4360,3 +4360,67 @@ ven.
   0 no-display.**
 - Soubory: `scripts/_test_fog_bandwidth.gd`, `docs/KNOWN_BROKEN.md`, `BLOCKED.md`,
   `PATHFINDING.MD` (Status), tento zápis.
+
+## 2026-09-02 — P10 hotovo: `explored` mřížka. Zbytek pravidla už ve hře byl
+
+### Nejdřív jsem zjistil, co z P10 existuje — a byla to většina
+
+Zadání chce pět věcí. Čtyři z nich už ve hře byly a byly i otestované:
+
+| pravidlo | stav před P10 |
+|---|---|
+| `visible` grid přepočítávaný z pozic a dosahů habitů | **je** — `Game._lit_cells`, přestavovaný v `_update_fog()` |
+| věž smí cílit jen buňky ve `visible` | **je** — `tower.gd:292` v `is_point_in_cone()` odmítne cíl, který neprojde `is_pos_visible()`; `projectile.gd:201` nechá střelu projít tělem v mlze |
+| herní logika čte grid, ne texturu | **je** — `is_pos_visible()` čte `_lit_cells`, ne shader |
+| nepřátelé nevidí skrz mlhu, když hráč ne | **je** — distrakce jdou po flow fieldu k cíli, „vidění" nemají |
+| `explored` grid, jen roste | **NEBYLO VŮBEC** |
+
+A ta tři už otestovaná pravidla testuje `_test_fog_bandwidth` jmenovitě („a fog-hidden
+distraction does not light the board", „a shot passes through a fog-hidden body", „the same
+shot lands once the fog lifts"). Napsat je znovu do nové fixture by bylo divadlo, ne
+pokrytí. P10 je tedy `explored` a jeho test.
+
+### `Game._explored_cells`
+
+Stejné klíčování po 48px blocích jako `_lit_cells`, ale **jen roste**: co jednou svítilo,
+zůstává prozkoumané i po prodeji habitu, který to osvětlil. Čistí se **per level**, nikdy
+během něj. Doplněno `is_explored(pos)`, které kopíruje tvar `is_pos_visible()` včetně
+zkratky „mlha vypnutá → všechno" — jinak by minimapa na levelu s `fog = false` ukazovala
+prázdno místo celé mapy.
+
+Proč to `_lit_cells` být nemůže: přestavuje se každý snímek od nuly, takže mapa z něj
+nakreslená zapomene desku ve chvíli, kdy prodáš věž. Tak se místa neznají. P12 (minimapa)
+na tom stojí přímo — jeho „Hotovo" zní „test ověří, že minimapa nikdy neukáže víc, než co
+je v `explored`".
+
+### Jedno rozhodnutí, které jsem udělal a zapsal: Moment of Clarity NEPROZKOUMÁVÁ
+
+Sesláním se nastaví `fog_reveal_left`, `is_pos_visible()` pak vrací `true` všude — ale
+`_lit_cells` se nedotkne, takže se nic neakumuluje. Nechal jsem to tak schválně: číst
+okamžité prosvětlení jako trvalou znalost by znamenalo, že **jedno seslání prozkoumá celou
+desku navždy**, a test P12 („minimapa neukáže víc než `explored`") by od té chvíle byl
+prázdný. Nahlédnutí není průzkum. Přepnout to je jedna smyčka — popsáno v komentáři
+u `_explored_cells`.
+
+### `_test_fog` — nová trvalá fixture, 15 kontrol, všechny zelené
+
+Vedle běžných kontrol dvě, na kterých P10 stojí:
+
+- **„explored never shrinks"** — postaví habit mířící pryč od jádra (17 → 27 bloků),
+  udělá snímek, habit **prodá**, přepočítá mlhu: `_lit_cells` prokazatelně klesne
+  (27 → 18 svítících bloků), a **ani jeden prozkoumaný blok nezmizí** (0 z 27).
+  Ta první polovina je důležitá — bez důkazu, že se něco opravdu odsvítilo, by druhá
+  polovina prošla naprázdno.
+- **monotonie přes 30 přepočtů** za sebou, ne jen přes jeden.
+
+Fixture si taky **zapíná `fog_enabled` a `routine_gates_enabled` sama**, poučeně
+z P8b: `_test_fog_bandwidth` je dědil z `level_1.tres` a tiše přestal měřit, když je M3
+v obsahovém souboru vypnul.
+
+### Ověření
+
+- `_test_fog`: **ALL PASS** (15 kontrol).
+- `./verify.sh` (s displejem): **42 pass, 0 fail, 0 skip, 3 known-broken, 0 flaky,
+  0 no-display** — o jednu fixture víc než dosud.
+- Soubory: `scripts/game.gd`, `scripts/_test_fog.gd`(`.uid`), `scenes/_test_fog.tscn`,
+  `PATHFINDING.MD` (Status), tento zápis.

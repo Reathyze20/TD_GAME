@@ -257,6 +257,8 @@ func _ready() -> void:
 	# resource.
 	level = MapComposer.compose(Data.get_level(GameState.current_level_index))
 	fog_enabled = level.fog
+	# Per level, not per frame: a fresh board has been seen by nobody.
+	_explored_cells.clear()
 	shadow_enabled = level.shadows
 	routine_gates_enabled = level.routine_gates
 	level.waves = Data.build_waves(level)
@@ -1727,6 +1729,24 @@ var routine_gates_enabled := true
 var fog_reveal_left := 0.0
 var _fog_reveal_vis := 0.0
 var _lit_cells := {}                  # Vector2i -> true, rebuilt in _update_fog()
+
+## Every block the player has EVER been able to see this level — the "explored" half of
+## the fog rule (P10). Same 48 px block keying as `_lit_cells`, and it only ever GROWS:
+## once a block has been lit, it stays explored after the light moves away or the habit
+## that lit it is sold. Cleared per level, never during one.
+##
+## `_lit_cells` alone cannot serve a minimap (P12): it is rebuilt from scratch every frame,
+## so a map drawn from it would forget the board the moment a habit is sold, which is not
+## how knowing a place works.
+##
+## MOMENT OF CLARITY DOES NOT EXPLORE, and that is a decision, not an oversight. A cast
+## sets `fog_reveal_left`, which makes is_pos_visible() return true everywhere WITHOUT
+## touching `_lit_cells` — so nothing accumulates here. Reading a momentary lift as
+## permanent knowledge would mean one cast explores the whole board forever, which makes
+## P12's own "the minimap never shows more than `explored`" test vacuous from that point
+## on. A peek is not a survey. Flip this by accumulating the board rect while
+## `fog_reveal_left > 0.0` if that reads wrong in play.
+var _explored_cells := {}
 var _fog_rect: ColorRect = null
 var _fog_mat: ShaderMaterial = null
 var _light_viewport: SubViewport = null
@@ -1973,6 +1993,10 @@ func _update_fog(delta: float) -> void:
 	for l: Dictionary in sight:
 		_mark_lit(l)
 
+	# Explored grows here and nowhere else — see _explored_cells' own comment.
+	for c: Vector2i in _lit_cells:
+		_explored_cells[c] = true
+
 	# The mask gets the same list plus the two cosmetic extras: the core breathes a
 	# little, and projectiles glow (shine, not sight).
 	var t := Time.get_ticks_msec() / 1000.0
@@ -2046,6 +2070,15 @@ func is_pos_visible(pos: Vector2) -> bool:
 ## horde N times.
 var _vis_cache_frame := -1
 var _vis_cache := false
+
+## Has the player ever been able to see this position on this level (P10)? Mirrors
+## is_pos_visible()'s shape, including its "fog off means everything" short-circuit, so the
+## two can never disagree about a board that has no fog at all — a minimap built on this
+## must show the whole map there, not nothing.
+func is_explored(pos: Vector2) -> bool:
+	if not fog_enabled:
+		return true
+	return _explored_cells.has(Data.build_block(world_to_cell(pos)))
 
 func has_visible_distraction() -> bool:
 	var f := Engine.get_process_frames()
