@@ -651,7 +651,7 @@ Nové nástroje, obojí trvalé: `scripts/sim_recorder.gd` (rozpad po vlnách) a
 ## M2 — level 98 „First Light" musí jít vyhrát
 Model: opus
 Needs-me: no
-Status: todo
+Status: done
 
 Nejmenší datová změna podle M1, po které je `level_98` vyhratelný — a **pořád
 prohratelný**. Level, který se vyhraje sám, neučí nic; pilíř je „fun first".
@@ -666,6 +666,15 @@ level vyladěný tak, aby vyhrál i on, by musel jít vyhrát s věžemi otočen
 hordy. Nová laťka je „kdo udělá dvě zjevná rozhodnutí, vyhraje; kdo nedělá nic,
 prohraje", a `cheap_even` mezi tím tvoří gradient dovednosti — vlastnost, kterou má
 dobrý level mít.
+
+**Hotovo 2026-09-02.** Změna: **čtyři čísla ve `wave_curve`** `level_98`, nic jiného
+(`notification` `base_count` 6→4, `growth_per_wave` 2.5→1.5; `doomscroll` 2→1, 1.5→0.5).
+Horda 67→41 kusů, celkový leak 78→46, „musí se zabránit" **54→22** (69 % → 48 % hordy).
+Výsledek na třech seedech: `counter-pick + aim` **WIN/WIN/WIN** (zbylo 10, 7, 13 z 25
+Focusu), `cheap_even` WIN ×3, `passive` **LOSS ×3**. Focus ani start_dopamine se
+nehnuly — větší pool by level jen prodloužil, ne změnil poměr „kolik zvládnou dvě věže".
+Že jsou na desce 30×14 jen **dva** stavební bloky, zůstává otevřené a patří do M3.
+Sweep zároveň umí tři seedy (`SEEDS`), protože verdikt z jednoho seedu není verdikt.
 
 ## M3 — `level_1` přestane být placeholder
 Model: opus

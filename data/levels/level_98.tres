@@ -16,16 +16,16 @@ announce = "A new trod has opened to the west"
 [sub_resource type="Resource" id="Resource_kc8si"]
 script = ExtResource("5_i6xal")
 distraction = ExtResource("6_6fdwn")
-base_count = 6
-growth_per_wave = 2.5
+base_count = 4
+growth_per_wave = 1.5
 spacing = 0.8
 
 [sub_resource type="Resource" id="Resource_6smu4"]
 script = ExtResource("5_i6xal")
 distraction = ExtResource("7_r8kcd")
 from_wave = 3
-base_count = 2
-growth_per_wave = 1.5
+base_count = 1
+growth_per_wave = 0.5
 spacing = 1.4
 
 [resource]

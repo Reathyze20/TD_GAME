@@ -3883,3 +3883,69 @@ podezřelé zůstává. Nejbližší nepodezřelejší kandidát je stav sdílen
 uvnitř jednoho `verify.sh` — `user://savegame.tres` se během běhu **opravdu přepisuje**
 (timestamp se mezi testy mění) a `MetaProgression` z něj čte perky, které do dosahu
 a kapacity mluví.
+
+## 2026-09-02 — M2 hotovo: `level_98` „First Light" jde vyhrát, a pořád jde prohrát
+
+**Poprvé v historii repu má hra level, který někdo dohraje.** Do teď byl výsledek každého
+měřeného běhu `victory=false` — 24 z 24 v Q2, 10 z 10 po M1.
+
+### Změna: dvě čísla ve vlnové křivce, nic jiného
+
+`data/levels/level_98.tres`, jen `wave_curve`:
+
+| křivka | pole | před | po |
+|---|---|---|---|
+| `notification` | `base_count` | 6 | **4** |
+| `notification` | `growth_per_wave` | 2.5 | **1.5** |
+| `doomscroll` | `base_count` | 2 | **1** |
+| `doomscroll` | `growth_per_wave` | 1.5 | **0.5** |
+
+Žádné `focus`, žádné `start_dopamine`, žádná konstanta v `game.gd`, žádná geometrie,
+žádný habit ani distrakce. `spacing`, `from_wave` i `wave_count` zůstaly.
+
+Dopad na aritmetiku z M1 §0: horda **67 → 41 kusů**, celkový leak **78 → 46**, a „musí se
+zabránit" **54 → 22** — tedy z 69 % hordy na 48 %.
+
+### Proč zrovna tohle, a ne větší Focus pool
+
+M1 §4 ukázalo, že `level_98` má na celé desce 30×14 **dva** stavební bloky. Zvětšit pool
+by udělalo level odpustnější, ale nezměnilo by poměr „kolik hordy zvládnou dvě věže" —
+jen by prodloužilo prohru. Menší horda ten poměr mění přímo. Deska se dvěma místy je
+ovšem sama o sobě chudá na tower defense; to je otázka geometrie a patří do M3, ne sem —
+M2 mělo výslovně za úkol **nejmenší datovou změnu**.
+
+### Výsledek: tři seedy, žádný nerozhodl jinak
+
+| strategie | 20260829 | 20260902 | 20260903 |
+|---|---|---|---|
+| build nothing | LOSS (0/25, vlna 3) | LOSS | LOSS |
+| spam Quick Hit | LOSS (0/25, vlna 3) | LOSS | LOSS |
+| build cheap towers evenly | **WIN** (9/25) | **WIN** (8/25) | **WIN** (9/25) |
+| habits + emergency Quick Hit | **WIN** (9/25) | **WIN** (8/25) | **WIN** (9/25) |
+| counter-pick + aim | **WIN** (10/25) | **WIN** (7/25) | **WIN** (13/25) |
+
+Kritérium z fronty („vyhraje `counter-pick + aim`, prohraje `passive`") je splněné na
+všech třech. Vítězství končí se **7–13 z 25 Focusu**, tedy s třetinou poolu — je to
+těsné, ne procházka. Rozptyl 7–13 u counter-picku ukazuje skutečnou závislost na RNG,
+která ale **verdiktem nehne** — přesně to, co se od vyváženého levelu čeká.
+
+`spam Quick Hit` je pořád bit-identický s `passive`, protože `LevelData.quick_hit` je na
+tomhle levelu dál `false`. To je předmět M4, ne nedopatření.
+
+### Sweep umí tři seedy, protože jeden nestačí
+
+`scripts/_balance_sweep.gd` běžel dosud na jediném seedu (20260829). Závěr „level jde
+vyhrát" přečtený z jednoho seedu není závěr — spawn stream i draft se se seedem hýbou.
+Q2 si tři seedy muselo zařídit ručně; teď je to v nástroji (`SEEDS`), takže si to nikdo
+nemusí pamatovat. Detailní rozpad po vlnách (§2) se tiskne jen pro první seed
+(`DETAIL_SEED`) — tři kopie téhož tvaru by dokument ztrojnásobily bez nové informace,
+a seedová závislost se ukáže v tabulce nad ním.
+
+### Ověření
+
+- `./verify.sh` (s displejem): **41 pass, 0 fail, 0 skip, 3 known-broken, 0 flaky,
+  0 no-display.** `_test_levels` a `_test_maze_validity` zelené — geometrie se nedotkla,
+  takže ani ASCII side-cary (`tools/level_to_ascii.py --check`) nehlásí drift.
+- `docs/BALANCE.md` přegenerované: 30 běhů (2 levely × 5 strategií × 3 seedy).
+- Soubory: `data/levels/level_98.tres`, `scripts/_balance_sweep.gd`, `docs/BALANCE.md`,
+  `PATHFINDING.MD` (Status), tento zápis.
