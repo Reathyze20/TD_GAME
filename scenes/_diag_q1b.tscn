@@ -1,6 +1,0 @@
-[gd_scene format=3]
-
-[ext_resource type="Script" path="res://scripts/_diag_q1b.gd" id="1_2orot"]
-
-[node name="DiagQ1b" type="Node" unique_id=2086924483]
-script = ExtResource("1_2orot")

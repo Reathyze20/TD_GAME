@@ -210,6 +210,30 @@ else
   pass=$((pass + 1))
 fi
 
+echo "== committed throwaway harnesses =="
+# scripts/_diag_* and scenes/_diag_* are this project's convention for a ONE-OFF
+# diagnostic, and CLAUDE.md is explicit: "Docasny jednorazovy harness po pouziti smaz
+# (i .gd.uid sidecar)". Having one in the WORKING TREE while you are using it is fine and
+# this check does not look there. Having one COMMITTED means it outlived the question it
+# was written to answer.
+#
+# Added 2026-09-02 after finding SEVEN of them tracked -- _diag_arc_mask, _diag_p8b,
+# _diag_q1b, _diag_q2, _diag_map_editor_fix, _diag_pausemenu_live, _diag_ysort_check --
+# 21 files whose own headers said "DELETE after use" and whose subjects were all closed.
+# PROGRESS.md records the same "rm was refused, left behind" note three separate times,
+# which is what a rule with no gate behind it looks like. The orphan checks above only
+# ever looked at _test_*, so these were invisible.
+tracked_diag=$(git ls-files "scripts/_diag_*" "scenes/_diag_*" 2>/dev/null)
+if [ -n "$tracked_diag" ]; then
+  echo "FAIL committed throwaway harnesses - delete them (with .gd.uid and .tscn), or rename to _test_*/_shot_* if one has become permanent:"
+  echo "$tracked_diag" | sed 's/^/  - /'
+  fail=$((fail + 1))
+  failed_names+=("committed throwaway harnesses")
+else
+  echo "PASS committed throwaway harnesses"
+  pass=$((pass + 1))
+fi
+
 echo "== fixed-fps roster sanity =="
 # A name in FIXED_FPS_TESTS with no matching scene is not necessarily wrong --
 # _test_multispawn and _test_segments are pre-staged for P6/P8 and that is fine, the

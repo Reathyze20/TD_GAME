@@ -1,6 +1,0 @@
-[gd_scene format=3]
-
-[ext_resource type="Script" path="res://scripts/_diag_ysort_check.gd" id="1_3psib"]
-
-[node name="DiagYsortCheck" type="Node" unique_id=43176476]
-script = ExtResource("1_3psib")
