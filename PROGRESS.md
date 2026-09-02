@@ -4211,3 +4211,64 @@ vadu (1× vs 4× se lišila **jen `tolerance`**, 19,873 vs 20,257). Ta příčin
 - `docs/BALANCE.md` přegenerované; výsledková tabulka bajtově shodná s předchozí verzí.
 - Soubory: `scripts/game.gd`, `scripts/level_simulator.gd`, `docs/BALANCE.md`,
   `BLOCKED.md`, `PATHFINDING.MD` (Status), tento zápis.
+
+## 2026-09-02 — M4 dokončeno: Quick Hit je zapnutý, živý a deterministický
+
+M5 odstranil příčinu, kvůli které to ráno muselo zpátky. `data/levels/level_98.tres`:
+**`quick_hit = true`** a **`start_dopamine` 300 → 40**.
+
+### Proč i `start_dopamine`
+
+Se 300 dopaminy peníze nikdy nevázaly: `cheap_even` utratil 60 ze 300 a zbytek nikdy,
+takže Quick Hit neměl co koupit — jeho přínos byl nulový a jeho cena neviditelná.
+Změřeno ráno (`quick_hit = true`, `start_dopamine = 300`): spam skončil s **víc Focusu,
+víc killů a +120 dopaminu** na každém seedu, tedy čistě výhodný. Se 40 (přesně na jednu
+`focus_timer`) je úvodní nákup skutečná volba a druhá věž se musí vydělat.
+
+### Jak `level_98` vypadá teď (tři seedy)
+
+| strategie | zbylý Focus |
+|---|---|
+| build nothing | **LOSS / LOSS / LOSS** |
+| spam Quick Hit (nic nestaví) | **LOSS / LOSS / LOSS** |
+| `cheap_even` | 9 / 3 / 4 |
+| `cheap_even + Quick Hit spam` | **7 / 8 / 11** |
+| `counter-pick + aim` | **17 / 19 / 19** |
+
+Čte se to takhle: **samotné tlačítko tě nezachrání** (spam bez stavění prohrává vždycky),
+**jako berlička slabé hry pomáhá** (8 vs 3 a 11 vs 4 na dvou seedech ze tří), a
+**dobrá hra ho poráží** (17–19 proti 7–11). Tolerance je na spamujících bězích 21,9–28,7,
+poprvé v repu skutečně v pohybu.
+
+### Kritérium „Hotovo" je splněné z poloviny, a nezakrývám to
+
+Zadání chtělo „spam lepší zpočátku **a horší na konci**". První půlka sedí. Druhá ne —
+a je to **mimo dosah datové vrstvy**, ze tří příčin doložených ráno:
+
+1. **Dopamin nemá kam odtéct.** Dvě stavební místa; jakmile stojí, peníze zase nic
+   nekupují. Skutečný odtok by byly upgrady, ale žádná baseline neupgraduje.
+2. **Quick Hit dává i Craving, a to je záměrně skutečný buff** (`tower.gd` to sám píše).
+   Stisk je tedy bojová výhoda nezávisle na penězích.
+3. **Jediný mechanický postih Tolerance je násobič výplaty** — zdražuje měnu z bodu 1.
+   Postih, který téma slibuje (zúžená pozornost), je **P11**.
+
+Lítost tedy nemůže dorazit, dokud Tolerance nezasáhne něco, co hráč **potřebuje**. To je
+P11, ne dolaďování čísel. Zapsáno tam.
+
+### Zbytkový nález: ještě jedna rychlostní závislost, tentokrát ne v driveru
+
+`_test_timecontrol` prochází, ale jeho neasertovaná `(info)` řádka ukazuje, že
+`cheap-even` se při `start_dopamine = 40` mezi 1× a 4× pořád trochu liší (focus 3 vs 5,
+24 vs 26 killů) — přestože M5 rozhodování srovnal na sim tick. Zdroj je jinde:
+`_physics_process()` při přechodu vlny **zahodí zbytek tickového rozpočtu**
+(`_tick_budget = 0.0`). Při 1× je to no-op, při 4× to zahodí až tři ticky na každém
+přechodu. Rozbor a rozhodnutí, které to potřebuje, jsou v `BLOCKED.md`.
+
+### Ověření
+
+- `./verify.sh` (s displejem): **41 pass, 0 fail, 0 skip, 3 known-broken, 0 flaky,
+  0 no-display** — se zapnutým Quick Hitem, tedy přesně tam, kde to ráno padalo.
+- `_test_timecontrol`: `passive` i `quick-hit spam` bit-identické 1× vs 4×, včetně
+  `tolerance` (19,8733333333332 na obou) — to bylo to jediné, co se ráno rozcházelo.
+- Soubory: `data/levels/level_98.tres`, `docs/BALANCE.md`, `BLOCKED.md`,
+  `PATHFINDING.MD` (Status), tento zápis.

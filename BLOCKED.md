@@ -3,6 +3,44 @@
 Design decisions found ambiguous or contradictory during autonomous runs.
 Not fixed by guessing — recorded here with options, then moved past.
 
+## Tickový rozpočet se při přechodu vlny zahazuje — poslední rychlostní závislost (2026-09-02)
+
+Není to nic rozbitého; je to kompromis, který má dvě strany a rozhodnout ho máš ty.
+
+**Nález.** Po M5 rozhoduje `SimStrategy` na sim ticku, takže `passive` i `quick-hit spam`
+jsou 1× vs 4× bit-identické a zavřelo to `Q1`. `_test_timecontrol`ova neasertovaná
+`(info)` řádka ale ukazuje, že `cheap-even` se při `level_98` se `start_dopamine = 40`
+mezi rychlostmi pořád mírně rozchází — focus 3 vs 5, 24 vs 26 killů, 223 vs 231 dopaminu.
+
+**Příčina, přečtená ze zdroje.** `Game._physics_process()` po každém ticku, který změnil
+`between_waves`, udělá `_tick_budget = 0.0` a `break`. Při 1× je to prokazatelně no-op
+(nikdy není víc než jeden tick na snímek). Při 4× to **zahodí až tři ticky** na každém
+přechodu fáze — a přechodů je při pěti vlnách kolem deseti. Běh při 4× tedy odsimuluje
+o pár desítek ticků míň než tentýž běh při 1×.
+
+**Proč to tam je.** Vlastní komentář to říká: aby cokoli, co čeká na změnu fáze — *„a real
+player, or LevelSimulator's frame-granular SimStrategy"* — dostalo šanci zareagovat dřív,
+než začnou ticky utrácet hodiny nové fáze (např. odpočet bonusu za brzké zavolání vlny).
+
+**Proč je to teď sporné.** Půlka toho odůvodnění zanikla: `SimStrategy` už
+frame-granular není. Zbylá půlka platí — **skutečný hráč** při 4× pořád jedná jen jednou
+za snímek, a pro něj je ta pojistka pořád funkční.
+
+**Volby:**
+- **(a) Nechat, jak je.** 4× zůstane pro boj o chlup jinak než 1×. Nikoho to dnes
+  neblokuje: sweep i `docs/BALANCE.md` jedou celé na 1×, `_test_timecontrol` to
+  neasertuje a záměrně tiskne jen jako `(info)`.
+- **(b) Zahození zrušit.** 4× by se stalo bitově identickým s 1× i pro `cheap-even`,
+  a **žádné číslo v `docs/BALANCE.md` by se nehnulo** (je celé z 1×, kde je to no-op).
+  Cena: skutečný hráč při 4× ztratí tu reakční pojistku u přechodu vlny — což je přesně
+  ten bug, kvůli kterému to vzniklo (pár dopaminů rozdílu u bonusu za brzké zavolání).
+- **(c) Zahazovat jen tehdy, když `sim_observer` NENÍ nastavený.** Deterministické pro
+  scriptované běhy, beze změny pro člověka. Cena: hra by se pod měřením chovala jinak
+  než v ruce, což je přesně ta třída rozdílu, kterou S2 celou dobu vyhání.
+
+Nedělám nic — (b) i (c) mění chování hry pro člověka nebo pro měření a ani jedno není
+tak jednoznačné, aby se to rozhodlo za tebe.
+
 ## Zkrácená fronta — `PATHFINDING.MD` přišla o 822 řádků a o pravdivé statusy — 2026-09-02
 
 Nezablokovaný úkol, ale nález, který by jinak stál celý autonomní běh za nic, tak

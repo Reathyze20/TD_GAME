@@ -715,7 +715,7 @@ ze 3**. Vznikl gradient: First Ping končí na 15/15, First Light na 7–13 z 25
 ## M4 — Quick Hit zapnout a doručit jeho lekci
 Model: opus
 Needs-me: no
-Status: blocked
+Status: done
 
 `LevelData.quick_hit` je `false` na **každém** levelu v projektu, takže „stiskni Quick
 Hit" a „nedělej nic" jsou dnes bitově identická akce (Q2, 0 použití ve 24 bězích).
@@ -751,7 +751,19 @@ v `PROGRESS.md`:
   (rozejde se i `passive`) — čtyři kroky uvnitř jednoho snímku pozorují týž simulovaný
   okamžik. Oprava musí být hook **uvnitř `Game._sim_tick()`**. To je M5.
 
-Až M5 projde, tenhle úkol je jedna řádka v `.tres` a jeden sweep.
+**M5 prošel, tenhle úkol je dokončený (2026-09-02).** `level_98` má
+`quick_hit = true` a `start_dopamine` 300 → 40 (se 300 peníze nikdy nevázaly, takže
+Quick Hit neměl co koupit — jeho přínos byl nulový a cena neviditelná).
+
+Jak to teď vychází na třech seedech: **samotné tlačítko nezachrání** (spam bez stavění
+LOSS ×3), **jako berlička slabé hry pomáhá** (7/8/11 proti 9/3/4 u `cheap_even`),
+a **dobrá hra ho poráží** (`counter-pick + aim` 17/19/19). Tolerance 21,9–28,7, poprvé
+v pohybu.
+
+**Kritérium je splněné z poloviny a nezakrývám to:** „spam lepší zpočátku" ✅,
+„a horší na konci" ❌ — a je to mimo dosah datové vrstvy, protože jediný mechanický
+postih Tolerance je násobič výplaty na měně, kterou hráč nepotřebuje (dvě stavební místa,
+utratí se 60). Lítost dorazí, až Tolerance zasáhne něco potřebného — to je **P11**.
 
 ## M5 — Q1b: strategie musí rozhodovat na sim ticku, ne na vykresleném snímku
 Model: opus
