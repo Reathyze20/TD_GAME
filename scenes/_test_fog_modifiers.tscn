@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/_test_fog_modifiers.gd" id="1_fogmod"]
+
+[node name="TestFogModifiers" type="Node"]
+script = ExtResource("1_fogmod")

@@ -3,6 +3,35 @@
 Design decisions found ambiguous or contradictory during autonomous runs.
 Not fixed by guessing — recorded here with options, then moved past.
 
+## Mlha je vypnutá na obou levelech, takže P10 i P11 jsou ve hře mrtvé (2026-09-02)
+
+**Jeden bool, dva hotové systémy.** `data/levels/level_1.tres` i `level_98.tres` mají
+`fog = false`. `Game._update_fog()` se při vypnuté mlze vrací hned na začátku, takže:
+
+- **P10** (`explored` mřížka) se nikdy neplní — `is_explored()` zkratkuje na `true`.
+- **P11** (Tolerance zužuje dohled, Quick Hit prosvětluje) se nikdy neuplatní —
+  `sight_radius_mult()` se nevolá a `is_pos_visible()` vrací všude `true`.
+- `docs/BALANCE.md` se po P11 nezměnil **ani o řádek**, a to je ten důkaz.
+
+Obojí je postavené a otestované (`_test_fog` 15 kontrol, `_test_fog_modifiers` 14, obě
+zelené, obě si mlhu zapínají samy). Ve hře to ale nedělá nic.
+
+**Proč to nezapínám sám.** Je to vizuální rozhodnutí a je to přesně ta brána, na které
+P10 od začátku stálo: *„Nezačínej, dokud si nezahraju P9 a nepotvrdím to. Až uvidím mlhu
+v pohybu, poznám, jestli je »věž nestřílí, co nevidí« zajímavé, nebo jen otravné."*
+P9 vygeneroval čtyři varianty do `.dev/screenshots/p9_fog_*.png` s poznámkou
+„NEPOSUZUJ je, vyberu sám" — a ty pořád čekají.
+
+**Co od tebe potřebuju:** podívat se na těch pět obrázků (`p9_fog_baseline`,
+`p9_fog_blur`, `p9_fog_desaturate`, `p9_fog_blur_desaturate`) a říct ano/ne. Když ano,
+je to `fog = true` na `level_98` (druhý level — první by mlhu mít neměl, ten učí základy)
+plus jeden sweep, který ukáže, jestli Tolerance jako cena za Quick Hit konečně obrátí to,
+co M4 změřil jako „spam je čistě výhodný".
+
+**Poznámka k pořadí, ať to nepřekvapí:** jakmile mlhu zapneš, `_test_fog_bandwidth`
+přestane být jediný test, který ji vidí — a jeho otevřená vada (kvantizace mlhy po 48px
+blocích, viz záznam výš) začne být vidět i ve hře, ne jen v harnessu.
+
 ## Mlha je kvantovaná po 48px blocích, a u věže to schová hranu jejího vlastního kužele (2026-09-02, P8b)
 
 **Nález.** `game.gd _mark_lit()` značí buňku jako osvětlenou podle toho, jestli **střed

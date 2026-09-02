@@ -1988,8 +1988,14 @@ func _update_fog(delta: float) -> void:
 		if is_instance_valid(u) and not u._dying:
 			sight.append(_light(u.global_position, DEFENDER_LIGHT_RADIUS))
 
+	# Tolerance narrows everything the player can see, in ONE place so the gameplay grid
+	# below and the shader mask further down can never disagree about how far sight reaches.
+	var sight_mult := sight_radius_mult()
+	for l: Dictionary in sight:
+		l["r"] = l["r"] * sight_mult
+
 	_lit_cells.clear()
-	_mark_lit(_light(core_pos, CORE_ROUTINE_RADIUS))
+	_mark_lit(_light(core_pos, CORE_ROUTINE_RADIUS * sight_mult))
 	for l: Dictionary in sight:
 		_mark_lit(l)
 
@@ -2000,11 +2006,32 @@ func _update_fog(delta: float) -> void:
 	# The mask gets the same list plus the two cosmetic extras: the core breathes a
 	# little, and projectiles glow (shine, not sight).
 	var t := Time.get_ticks_msec() / 1000.0
-	_frame_lights = [_light(core_pos, CORE_ROUTINE_RADIUS * (1.0 + sin(t * 2.0) * 0.025))]
+	_frame_lights = [_light(core_pos,
+		CORE_ROUTINE_RADIUS * sight_mult * (1.0 + sin(t * 2.0) * 0.025))]
 	_frame_lights.append_array(sight)
 	for p in _live_projectiles:
 		if is_instance_valid(p) and not p.dead:
 			_frame_lights.append(_light(p.global_position, PROJECTILE_LIGHT_RADIUS))
+
+## How much of its sight radius the board keeps right now (P11). Tolerance is the
+## narrowing: at 0 nothing is lost, at 100 every light — the core's Routine, every habit's
+## wedge, every defender — is SIGHT_TOLERANCE_PENALTY smaller.
+##
+## This is the cost Tolerance was missing. Before P11 its only mechanical effect was a
+## payout multiplier, which on a board with two build spots priced a currency the player
+## had no way to spend (measured in M4: spamming Quick Hit came out purely beneficial —
+## more Focus, more kills, more Dopamine). Sight is different: a habit refuses a target it
+## cannot see (tower.gd is_point_in_cone), so narrowing it takes away shots, not pocket
+## money.
+##
+## Floored at 0.2 so a maxed meter dims the board rather than blinding it — a fog that
+## closes to nothing is not a lesson, it is a lost run with no way back.
+const SIGHT_TOLERANCE_PENALTY := 0.4
+
+func sight_radius_mult() -> float:
+	var t: float = clampf(GameState.tolerance / 100.0, 0.0, 1.0)
+	var base: float = 1.0 - SIGHT_TOLERANCE_PENALTY * t
+	return maxf(0.2, ModifierManager.get_modified_stat(base, ModifierManager.STAT_SIGHT_RADIUS))
 
 ## Marks the cells one light reaches. A full circle and a wedge differ by one dot product,
 ## so they share a body — two loops would be two places for the shapes to drift apart.
@@ -4760,6 +4787,11 @@ const QUICK_HIT_BASE := 15
 const QUICK_HIT_COOLDOWN := 6.0
 const QUICK_HIT_SPIKE := 18.0
 const QUICK_HIT_FLOOR_GAIN := 2.0
+## Seconds of full clarity one Quick Hit buys (P11). Reuses Moment of Clarity's own
+## fog_reveal_left rather than a second mechanism — a surge of attention is a surge of
+## attention, whatever paid for it. Short on purpose: the point is that the bright moment
+## ends and the Tolerance it cost does not.
+const QUICK_HIT_CLARITY := 1.2
 
 var _quick_hit_cd := 0.0
 var _quick_hit_button: Button = null
@@ -4870,6 +4902,12 @@ func do_quick_hit() -> void:
 	GameState.add_dopamine(payout)
 	GameState.set_tolerance(GameState.tolerance + QUICK_HIT_SPIKE)
 	GameState.raise_tolerance_floor(QUICK_HIT_FLOOR_GAIN)
+	# THE TRADE THIS MECHANIC IS FOR (P11). The press buys a moment where the whole board
+	# is visible — and pays for it with a Tolerance floor that never comes down, which
+	# permanently narrows every sight radius through sight_radius_mult(). Borrowed
+	# attention now, less attention from here on. `maxf` so pressing again mid-surge
+	# extends it rather than cutting a longer Moment of Clarity short.
+	fog_reveal_left = maxf(fog_reveal_left, QUICK_HIT_CLARITY)
 	_quick_hit_cd = QUICK_HIT_COOLDOWN
 	# Wanting up, liking down, from the same press. Two lines that started as one and
 	# come apart over a campaign — that picture is the lesson, and this is where it gets

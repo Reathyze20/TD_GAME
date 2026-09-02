@@ -10,6 +10,12 @@ const STAT_FIRE_COOLDOWN      := "fire_cooldown"     # lower = faster; cards use
 const STAT_DISTRACTION_SPEED  := "distraction_speed" # lower = slower; cards use negative values
 const STAT_DISTRACTION_HEALTH := "distraction_health" # lower = frailer; cards use negative values
 const STAT_DOPAMINE_BONUS     := "dopamine_bonus"    # flat bonus per distraction defeated
+## How far the board can be SEEN, as a multiplier on every sight radius (P11). Cards use
+## percentages. Distinct from STAT_RANGE on purpose: range is how far a habit can shoot,
+## this is how far anything can be seen at all — and since a habit refuses a target it
+## cannot see (tower.gd is_point_in_cone), shrinking this one shrinks effective range too,
+## while widening range alone buys nothing in the dark.
+const STAT_SIGHT_RADIUS       := "sight_radius"
 
 var active_cards: Array[CardData] = []
 

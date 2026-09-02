@@ -4424,3 +4424,76 @@ v obsahovém souboru vypnul.
   0 no-display** — o jednu fixture víc než dosud.
 - Soubory: `scripts/game.gd`, `scripts/_test_fog.gd`(`.uid`), `scenes/_test_fog.tscn`,
   `PATHFINDING.MD` (Status), tento zápis.
+
+## 2026-09-02 — P11 hotovo: Tolerance konečně něco stojí. Ale žádný level mlhu nezapíná
+
+### Mechanika
+
+- **Quick Hit → nával pozornosti.** `do_quick_hit()` nastaví `fog_reveal_left` na
+  `QUICK_HIT_CLARITY = 1,2 s` — celá deska je na okamžik vidět. Používá stejnou dráhu jako
+  Moment of Clarity, ne druhý mechanismus: nával pozornosti je nával pozornosti, ať ho
+  zaplatilo cokoli. `maxf`, takže stisk uprostřed delšího prosvětlení ho prodlouží,
+  nezkrátí.
+- **Tolerance → zúžená pozornost.** Nová `Game.sight_radius_mult()`:
+  `1.0 − SIGHT_TOLERANCE_PENALTY × (tolerance/100)`, s podlahou 0,2. Násobí **každý**
+  zdroj dohledu — Routine jádra, kužel každého habitu, světlo obránců — na **jednom
+  místě**, takže herní mřížka a shaderová maska se nemůžou rozejít v tom, kam až je vidět.
+- **Přes `ModifierManager`**, jak zadání chtělo: nový `STAT_SIGHT_RADIUS`, takže tuhle
+  hodnotu můžou ovlivňovat i karty. Zadání psalo „obojí přes `ModifierManager`", ale ten
+  je **kartový systém** (`get_modified_stat` iteruje `active_cards`), ne obecná sběrnice —
+  protlačit skrz něj průběžný herní stav jako Tolerance by ho zneužilo. Věrné řešení je
+  tohle: Tolerance se čte tam, kde se používá (jako `_payout_multiplier` v `GameState`),
+  a `ModifierManager` dostane stat, kterým do toho můžou mluvit karty.
+
+### Proč zrovna dohled, a ne další násobič
+
+M4 změřil, co byla Tolerance do teď: **jediný mechanický postih byl násobič výplaty**,
+a na desce se dvěma stavebními místy zdražoval měnu, kterou hráč neměl kde utratit — takže
+spam Quick Hitu vycházel **čistě výhodný** (víc Focusu, víc killů, +120 dopaminu na každém
+seedu). Dohled je jiná cena: **habit odmítne cíl, na který nevidí** (`tower.gd
+is_point_in_cone`), takže zúžení bere rány, ne kapesné.
+
+Podlaha 0,2 schválně: naplno vytočený metr má desku ztlumit, ne oslepit. Mlha, která se
+zavře úplně, není lekce, je to prohraný run bez cesty zpátky.
+
+### `_test_fog_modifiers` — nová trvalá fixture, 14 kontrol, všechny zelené
+
+| kontrola | naměřeno |
+|---|---|
+| Tolerance 0 → plný dohled | mult 1,000 |
+| Tolerance 100 → zúžený, přesně o `SIGHT_TOLERANCE_PENALTY` | 1,000 → **0,600** |
+| a projeví se to na skutečné mřížce, ne jen v čísle | **18 → 9** osvětlených bloků |
+| monotonie přes celý metr | 0:18 25:16 50:13 75:13 100:9 |
+| Quick Hit prosvětlí | `fog_reveal_left` 1,20 s, vzdálený roh vidět |
+| **a týž stisk to zaplatí, trvale** | floor 2,0; mult 1,000 → 0,928 |
+| **i po odeznění špičky drží floor dohled pod původní hodnotou** | **0,992 < 1,000** |
+| karta se `STAT_SIGHT_RADIUS` s tím hne | 1,000 → 0,500, mřížka 18 → 6 bloků |
+| ani naplno to dohled nezruší | mult 0,600 ≥ 0,2 |
+
+Ta předposlední řádka je celá lekce v jednom čísle: **špička opadne, podlaha ne.** Dohled
+se po stisku částečně vrátí, ale **nikdy až tam, kde byl.**
+
+### A teď nález, který to celé zatím drží na místě
+
+`docs/BALANCE.md` se po P11 **nezměnil ani o řádek**. Důvod: **`fog = false` na obou
+shipnutých levelech.** `_update_fog()` se při vypnuté mlze vrací hned na začátku, takže
+`sight_radius_mult()` se nikdy neuplatní a `is_pos_visible()` vrací všude `true`.
+
+Je to přesně ta samá třída nálezu jako M4ovo „`quick_hit = false` na každém levelu":
+mechanika existuje, je otestovaná, a ve hře je **mrtvá**, dokud jeden bool v `.tres`
+neřekne jinak.
+
+**Nezapínám to.** Zapnout mlhu na levelu je vizuální rozhodnutí — přesně to, na čem P10
+původně stálo („nezačínej, dokud si nezahraju P9 a nepotvrdím to"), a P9 nechal čtyři
+varianty čekat v `.dev/screenshots/p9_fog_*.png` s poznámkou „NEPOSUZUJ je, vyberu sám".
+Držím tu hranici, kterou jsem si u plné autorizace vytyčil. Zapsáno do `BLOCKED.md`.
+
+### Ověření
+
+- `_test_fog_modifiers`: **ALL PASS** (14 kontrol). `_test_fog` beze změny zelený.
+- `./verify.sh` (s displejem): **43 pass, 0 fail, 0 skip, 3 known-broken, 0 flaky,
+  0 no-display.**
+- `docs/BALANCE.md` přegenerované — bajtově shodné, což je samo o sobě ten nález výš.
+- Soubory: `scripts/game.gd`, `scripts/modifier_manager.gd`,
+  `scripts/_test_fog_modifiers.gd`(`.uid`), `scenes/_test_fog_modifiers.tscn`,
+  `BLOCKED.md`, `PATHFINDING.MD` (Status), tento zápis.

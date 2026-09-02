@@ -1123,7 +1123,7 @@ a že `explored` se nikdy nezmenší.
 ## P11 — Quick Hit a Tolerance napojené na mlhu
 Model: sonnet
 Needs-me: no
-Status: todo
+Status: done
 
 - **Quick Hit** dočasně prosvětlí mapu (nával pozornosti)
 - **Tolerance** zmenšuje poloměr odhalení (zúžená pozornost)
@@ -1136,6 +1136,26 @@ distrakce nebo habit se od teď násobí s každou hodnotou Tolerance.
 
 Hotovo když: regresní testy ekonomiky zelené, `_test_fog_modifiers` ověří obě
 vazby na hraničních hodnotách Tolerance 0 a 100.
+
+**Hotovo 2026-09-02.** `Game.sight_radius_mult()` = `1 − SIGHT_TOLERANCE_PENALTY ×
+(tolerance/100)`, podlaha 0,2, násobí **každý** zdroj dohledu na jednom místě.
+`do_quick_hit()` nastaví `fog_reveal_left = QUICK_HIT_CLARITY` (1,2 s). Přes
+`ModifierManager` nový `STAT_SIGHT_RADIUS`, aby do toho mohly mluvit karty — zadání psalo
+„obojí přes ModifierManager", ale ten je kartový systém, ne obecná sběrnice, takže
+průběžný stav (Tolerance) se čte tam, kde se používá, a karty dostaly stat.
+
+**Proč dohled a ne další násobič:** M4 změřil, že jediný postih Tolerance byl násobič
+výplaty — zdražoval měnu, kterou hráč nemá kde utratit. Dohled bere **rány**, protože
+habit odmítne cíl, na který nevidí.
+
+`_test_fog_modifiers` (14 kontrol, zelené): Tolerance 0→100 dá mult 1,000 → 0,600
+a mřížku **18 → 9 bloků**, monotonně přes celý metr; Quick Hit prosvětlí na 1,2 s
+a týmž stiskem zvedne floor, takže **i po odeznění špičky zůstane dohled pod původní
+hodnotou** (0,992 < 1,000). To je celá lekce v jednom čísle.
+
+**ALE: `fog = false` na obou levelech, takže P10 i P11 jsou ve hře mrtvé** —
+`docs/BALANCE.md` se po P11 nezměnil ani o řádek. Zapnout mlhu je vizuální rozhodnutí
+a je to původní brána P10 (čekají čtyři varianty z P9). Viz `BLOCKED.md`.
 
 ## P12 — minimapa
 Model: sonnet
