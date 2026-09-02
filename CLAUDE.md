@@ -151,9 +151,14 @@ zdokumentovaný v `docs/REFACTOR_PLAN.md` pod „Verification pattern":
     `62772f73-28d8-442b-add6-f33684f16415` a `0ef2d964-dd67-4132-97b9-39083228db14`
     (junk-food rodina, zrušena 17. 8. 2026 spolu s celým junk-food směrem),
     `7ba5d829-5a10-4ed9-b038-52978ec20782` (jednooká scrollerka, obvazový styl).
-  - **Rozdíl mezi rodinami nenese kotva, ale silueta a barevná zóna palety.** Habity kulaté
-    a teplé, distrakce ostré a studeně jedovaté. Proč zrovna silueta: viz
-    `docs/art/STYLE_BIBLE.md` §2a.
+  - **Rozdíl mezi rodinami nenese kotva, ale silueta a barevná zóna palety.** Proč zrovna
+    silueta: viz `docs/art/STYLE_BIBLE.md` §2a.
+    **POZOR, teplo a chlad si 2. 9. 2026 vyměnily strany** (rozhodl uživatel, směr A —
+    `STYLE_BIBLE.md` §12, bod 0 pod tabulkou slovníku). Tady dřív stálo „habity kulaté
+    a teplé, distrakce ostré a studeně jedovaté"; **to už neplatí a bible je ground truth.**
+    Teď: **distrakce = teplá sytá „dopaminová" zóna** (magenta, oranžová, jantarová),
+    protože distrakce jsou návnady a návnada nemá vypadat odpudivě; **habity = studená
+    tichá zóna**, protože nesou klid a kontrolu. Logika se přepnula z biologie na téma hry.
   - Terén, věže a rekvizity kotvu nemají a mít nemůžou — `style_character_id` bere jediný
     nástroj v katalogu (`create_character`) a ty se jím negenerují. Rodinu jim drží
     `style_images`.
