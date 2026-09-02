@@ -812,13 +812,36 @@ všechna měření z M1/M2/M3 zůstávají srovnatelná. Obava zapsaná v Q1b, �
 ## P8b — fog_bandwidth před P9
 Model: opus
 Needs-me: no
-Status: todo
+Status: done
 
 **Brána otevřena 2026-09-02 plná autorizací** (viz hlavičku souboru). Diagnóza níž
 zůstává platná; rozhodnutí, na která čekala — přeškálovat balanc, přeautorovat layout
 levelu, nebo otočit facing ve fixture — dělám sám. Sekvenčně to patří AŽ ZA M2/M3:
 příčina je layout levelu a ten se v M2/M3 stejně mění, takže sahat na to dřív by
 znamenalo opravovat něco, co se vzápětí přepíše.
+
+**Hotovo 2026-09-02 — a titulní tvrzení bylo NEPRAVDIVÉ.** „Arc nemá vliv na osvětlení"
+neplatí: měření mířilo **do světla**. Fixture měla zadrátované `facing_angle = 0.0`
+(východ), zatímco objective `level_1` leží na `x = 28` z 30 sloupců, tedy na východ od
+každého stavebního místa — a habit se smí stavět jen uvnitř Routine disku jádra, takže
+kužel mířil na plochu, která svítí bez ohledu na dial. Navíc se měřilo `_lit_cells`,
+což je **union všech světel**.
+
+Dvě opravy měření, žádná assertion: měřit **vlastní příspěvek habitu** (odečtený baseline
+z doby před postavením) a **odvodit směr od jádra** místo `0.0`. Pak:
+`turning the habit moves the light` **−0/+9 → −6/+6**, `a wider arc lights more board`
+**18→18 → 3→15 buněk**. Dial funguje.
+
+Cestou se opravila i regrese, kterou způsobil M3: fixture si předmět měření
+(`fog_enabled`, `routine_gates_enabled`) **dědila z `level_1.tres`**, M3 je tam vypnul
+a test tiše šel z 2 selhání na 14, protože je v `KNOWN_BROKEN_TESTS`. Teď si je zapíná sám.
+
+Poctivé měření odhalilo **novou skutečnou vadu**: mlha je kvantovaná po 48px blocích
+a blok svítí podle svého **středu**, zatímco střelba testuje body přesně — u věže je proto
+hrana vlastního kužele neosvětlená (2 ze 6 sond, obě nejbližší). Odporuje to komentáři
+`is_pos_visible()` („never hides something standing in plain light") i smyslu skirtu.
+**Neopravuji** — obě možné opravy mění, jak mlha vypadá; volby v `BLOCKED.md`.
+`_test_fog_bandwidth` zůstává v known-broken s **jedním** selháním a pravdivou příčinou.
 
 `_test_fog_bandwidth` hlásí, že arc nemá vliv na osvětlenou plochu (36 → 36 buněk
 při arc 15 → 120) a že otočení habitu světlem nehne. Podle P0e zjisti, jestli je

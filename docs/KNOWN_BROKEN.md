@@ -207,7 +207,81 @@ collision and pathing while its cast shadow keeps the old shape. Found while reu
 function's recipe; not touched, since it is a game-side question and this task's brief was
 the fixture.
 
-## `_test_fog_bandwidth` — real regression, arc width does nothing
+## `_test_fog_bandwidth` — **the headline claim was FALSE**; corrected 2026-09-02 (P8b)
+
+**„Arc width has no effect on lighting at all" is not true, and the measurement that said
+so was aimed into the light.** The fixture hard-coded `facing_angle = 0.0` — due EAST —
+while level 1's objective sits at `x = 28` of 30 columns, i.e. **east of every build spot
+on the board**. A habit may only be built inside the core's own Routine disk, so a cone
+pointed at the core is pointed at ground that is lit no matter what the dial does. And
+`_lit_cells` is the UNION of every light source, so the fixture was asking "did the whole
+board change" — which the core's disk answers "no" to, whatever the habit does.
+
+Two changes to the measurement, no assertion touched:
+
+1. **Measure the habit's OWN contribution** (`_lit_cells` minus a baseline captured before
+   the habit was built) instead of the union.
+2. **Derive the facing from the core** (`(habit.position - objective_pos).angle()`)
+   instead of writing `0.0`, so re-authoring a level cannot silently aim the test into the
+   light again. The turn check compares ±45° around that direction rather than flipping
+   180°, since a straight flip swings the cone back into the core's disk where the habit
+   lights nothing of its own — one side of the comparison would be empty by construction.
+
+With that, the same three assertions read:
+
+| check | before | after |
+|---|---|---|
+| turning the habit moves the light | −0 cells, +9 | **−6, +6** |
+| a wider arc lights more board (15° → 120°) | 18 → 18 cells | **3 → 15** |
+
+**The arc dial works.** At `0.0` rad the habit contributes exactly **zero** cells of its
+own at every width from 15° to 120° — that was a dead direction, not a dead parameter.
+
+### What the honest measurement then exposed — a real defect, and a new one
+
+One check now fails that used to pass **vacuously** (the core's disk lit its probes):
+
+```
+FAIL the firing edge is lit along its whole length (2 of 6 probes dark)
+```
+
+Instrumented, the pattern is the opposite of a range problem — the **near** probes are
+dark and the far ones are lit:
+
+```
+si=-1 f=0.3 ang=150deg pos=(265.2, 164.0) block=(16, 10) vis=false
+si=-1 f=0.6 ang=150deg pos=(218.5, 191.0) block=(13, 10) vis=true
+si=-1 f=0.9 ang=150deg pos=(171.7, 218.0) block=(10, 13) vis=true
+si=+1 f=0.3 ang=210deg pos=(265.2, 110.0) block=(16,  4) vis=false
+si=+1 f=0.6 ang=210deg pos=(218.5,  83.0) block=(13,  4) vis=true
+si=+1 f=0.9 ang=210deg pos=(171.7,  56.0) block=(10,  1) vis=true
+```
+
+**Cause, read from `game.gd _mark_lit()`:** the fog grid is quantised to
+`Data.BUILD_BLOCK` = 3 cells = **48 px blocks**, and a block counts as lit when its
+**centre** falls inside the wedge. Firing and targeting, by contrast, test points exactly
+(`is_point_in_cone`). Close to the tower those two disagree: the probe at
+`0.3 × 180 px = 54 px` sits on the firing edge, but its block's centre is 45° off the
+axis — outside even the skirted half-angle (`60° × 0.5 × LIGHT_SKIRT 1.35 = 40.5°`). The
+angular width of one 48 px block shrinks with distance, which is exactly why the far
+probes pass.
+
+That contradicts two written promises: `is_pos_visible()`'s own comment (*"errs slightly
+generous at light edges and **never hides something standing in plain light**"*) and the
+skirt's stated contract in the fixture (*"sight must cover fire… fading inward instead
+would leave it shooting into its own dark edge, which is the one thing this fog must never
+do"*). Near a tower it does exactly that.
+
+**Not fixed here.** Both plausible repairs — finer fog granularity, or marking a block when
+the wedge *reaches* it rather than when its centre is inside — change how the fog LOOKS
+around every tower. That is a visual judgement, and it is written up with options in
+`BLOCKED.md`.
+
+**Class:** measurement defect (now fixed) stacked on a real quantisation defect (open).
+**Stays in `KNOWN_BROKEN_TESTS`** — 1 failure, with the cause above rather than the one
+this entry used to give.
+
+### Original entry (2026-08-30), kept for the record — its headline is superseded above
 
 ```
 FAIL level has an empty spot outside the Routine
@@ -327,7 +401,7 @@ with the status system it was meant to be testing.
 | `_test_deep_reading` | data/test contract | `0465a23` | `0465a23` |
 | `_test_zen_pulsar` | missing file | `0465a23` | `0465a23` |
 | `_test_shadow_occlusion` | harness mismatch + **stale sampler constant, NOT a render regression** — **fixed** 2026-09-02 | `5d72b07` (headless) | `26814f9` (zero delta, since disproven) |
-| `_test_fog_bandwidth` | logic regression | ≤ `5d72b07` | `26814f9` |
+| `_test_fog_bandwidth` | **measurement defect (fixed 2026-09-02) + fog block quantisation (open)** — the "arc does nothing" headline was FALSE | ≤ `5d72b07` | `26814f9` |
 | `_test_suppression` | logic regression — **fixed** 2026-08-30 (P4) | ≤ `5d72b07` | `26814f9` |
 | `_test_phase3` | test-design defect — **fixed** 2026-08-30 | n/a (race) | n/a |
 

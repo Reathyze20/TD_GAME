@@ -32,6 +32,21 @@ func _check(label: String, ok: bool, detail: String = "") -> void:
 		fails += 1
 		print("  FAIL %s %s" % [label, detail])
 
+## Cells lit ONLY thanks to the habit — `_lit_cells` minus the baseline captured before it
+## was built. The wedge checks below need this because `_lit_cells` is the UNION of every
+## light source, and a habit legally placed inside the core's own Routine disk is, by
+## construction, standing inside light it did not make. Measuring the union therefore asks
+## "did the whole board change", which the core's disk answers "no" to no matter what the
+## habit's dial does (P8b: rotating gained 9 cells and lost 0, and widening 15 deg -> 120
+## moved 18 -> 18). Subtracting the baseline asks the question the checks are actually
+## worded for — what this habit lights — and that one has a visible answer.
+func _own_cells(game: Game, baseline: Dictionary) -> Dictionary:
+	var out := {}
+	for c in game._lit_cells:
+		if not baseline.has(c):
+			out[c] = true
+	return out
+
 ## First EMPTY spot inside/outside the current Routine, or (-999,-999) when none.
 func _find_spot(game: Game, inside: bool) -> Vector2i:
 	for cell: Vector2i in game.build_spots:
@@ -51,6 +66,21 @@ func _run() -> void:
 	# _game_over()'s scene change frees this harness mid-test.
 	GameState.max_focus = 999999
 	GameState.focus = 999999
+	# THE FIXTURE OWNS ITS OWN PRECONDITIONS. This file's header has always said it covers
+	# these rules "with the gates ON — this is the one place they are the subject", but it
+	# never actually turned them on: it inherited whatever `data/levels/level_1.tres`
+	# happened to carry, and that file left `fog`/`routine_gates` unset, so LevelData's
+	# `true` defaults applied by accident rather than by intent.
+	#
+	# M3 (2026-09-02) set both to false on level 1 for good reasons of its own — M1 had
+	# measured that the silent `routine_gates = true` alone made 2 of that level's 3 build
+	# blocks unusable — and this harness went from 2 failures to 14 without a word, because
+	# it is baselined in verify.sh's KNOWN_BROKEN_TESTS and a baselined test failing costs
+	# nothing. A fixture whose subject can be switched off from a content file, while it
+	# still reports as "known broken for an unrelated reason", is not measuring anything.
+	# Same class of hidden dependency _test_shadow_occlusion had on level geometry.
+	game.fog_enabled = true
+	game.routine_gates_enabled = true
 	await get_tree().process_frame   # one full _process so routine + fog are computed
 
 	print("=== routine build gate")
@@ -150,6 +180,10 @@ func _run() -> void:
 	# would rot the first time a spot moves. What cannot be coincidence is that turning the
 	# dial moves the light — so the test turns it and compares.
 	print("=== wedge light")
+	# Snapshot the board with NO habit on it, so every wedge measurement below can be read
+	# as "cells this habit is responsible for" — see _own_cells().
+	game._update_fog(0.0)
+	var no_habit: Dictionary = game._lit_cells.duplicate()
 	GameState.dopamine = 10000
 	GameState.select_habit("focus_timer")
 	game._build_on(in_cell)
@@ -158,7 +192,17 @@ func _run() -> void:
 	if hab == null:
 		_check("wedge: a habit was built", false)
 	else:
-		hab.facing_angle = 0.0
+		# AIM AWAY FROM THE CORE, do not hard-code east. Every check below reads what THIS
+		# habit lights, and a legal build spot is by definition inside the core's own Routine
+		# disk — so a cone pointed at the core is pointed at ground that is lit whatever the
+		# dial says. This fixture hard-coded `facing_angle = 0.0` (east) while level 1's
+		# objective sits at x=28 of 30 columns, i.e. east of every build spot on the board:
+		# the measurement was aimed into the light. Measured at 0.0 rad this habit contributes
+		# exactly ZERO cells of its own at every arc width from 15 to 120 degrees — that is not
+		# a dead parameter, it is a dead direction. Derived from the core rather than written
+		# down, so re-authoring a level cannot silently aim this test at the light again.
+		var away: float = (hab.global_position - game.objective_pos).angle()
+		hab.facing_angle = away
 		hab.set_arc_angle(60.0)
 		game._update_fog(0.0)
 		var ahead: Vector2 = hab.global_position \
@@ -166,27 +210,35 @@ func _run() -> void:
 		_check("the cone's own reach is lit", game.is_pos_visible(ahead),
 			"(%.0f px out)" % (hab.current_attack_range * 0.8))
 
-		var before: Dictionary = game._lit_cells.duplicate()
-		hab.facing_angle = PI
+		# Two facings that BOTH light real ground: 45 degrees either side of "away". A straight
+		# 180-degree flip would swing the cone into the core's disk, where the habit lights
+		# nothing of its own — so one side of the comparison would be empty and "lost > 0 and
+		# gained > 0" could never both hold, for reasons that have nothing to do with whether
+		# turning the dial works.
+		hab.facing_angle = away - deg_to_rad(45.0)
 		game._update_fog(0.0)
+		var before: Dictionary = _own_cells(game, no_habit)
+		hab.facing_angle = away + deg_to_rad(45.0)
+		game._update_fog(0.0)
+		var after: Dictionary = _own_cells(game, no_habit)
 		var lost := 0
 		for c in before:
-			if not game._lit_cells.has(c):
+			if not after.has(c):
 				lost += 1
 		var gained := 0
-		for c in game._lit_cells:
+		for c in after:
 			if not before.has(c):
 				gained += 1
 		_check("turning the habit moves the light", lost > 0 and gained > 0,
 			"(-%d cells, +%d)" % [lost, gained])
 
-		hab.facing_angle = 0.0
+		hab.facing_angle = away
 		hab.set_arc_angle(ArcProfile.ARC_MIN)
 		game._update_fog(0.0)
-		var narrow: int = game._lit_cells.size()
+		var narrow: int = _own_cells(game, no_habit).size()
 		hab.set_arc_angle(ArcProfile.ARC_MAX)
 		game._update_fog(0.0)
-		var wide: int = game._lit_cells.size()
+		var wide: int = _own_cells(game, no_habit).size()
 		_check("a wider arc lights more board", wide > narrow,
 			"(%d -> %d cells, arc %.0f -> %.0f)" % [narrow, wide,
 				ArcProfile.ARC_MIN, ArcProfile.ARC_MAX])
@@ -196,7 +248,7 @@ func _run() -> void:
 		# habit can hit are still lit — fading inward instead would leave it shooting
 		# into its own dark edge, which is the one thing this fog must never do.
 		hab.set_arc_angle(60.0)
-		hab.facing_angle = 0.0
+		hab.facing_angle = away
 		game._update_fog(0.0)
 		var edge_dark := 0
 		var edge_tested := 0

@@ -3,6 +3,37 @@
 Design decisions found ambiguous or contradictory during autonomous runs.
 Not fixed by guessing — recorded here with options, then moved past.
 
+## Mlha je kvantovaná po 48px blocích, a u věže to schová hranu jejího vlastního kužele (2026-09-02, P8b)
+
+**Nález.** `game.gd _mark_lit()` značí buňku jako osvětlenou podle toho, jestli **střed
+48px bloku** (`Data.BUILD_BLOCK` = 3 buňky) padne do kužele. Střelba a zaměřování ale
+testují body přesně (`is_point_in_cone`). Blízko věže se to rozejde: bod na hraně palebného
+kužele ve vzdálenosti 54 px leží v bloku, jehož střed je 45° od osy — mimo i skirtovaný
+půlúhel (60° × 0,5 × `LIGHT_SKIRT` 1,35 = 40,5°). Úhlová šířka jednoho bloku s rostoucí
+vzdáleností klesá, takže vzdálené sondy projdou a blízké ne.
+
+Změřeno v `_test_fog_bandwidth` poté, co P8b opravil směr měření: **2 ze 6 sond na palebné
+hraně jsou tmavé, obě ty nejbližší.**
+
+**Proč to je vada, a ne jen hrubost.** Odporuje to dvěma napsaným slibům:
+`is_pos_visible()` má ve vlastním komentáři *„errs slightly generous at light edges and
+**never hides something standing in plain light**"*, a skirt existuje přesně proto, aby
+*„sight must cover fire"*. U věže platí opak: habit má v dosahu i v kuželu bod, na který
+kvůli mlze nevystřelí.
+
+**Volby:**
+- **(a) Nechat.** Je to úzké (jen blízko věže, jen na krajních stupních kužele) a nikoho
+  to dnes neblokuje. `_test_fog_bandwidth` zůstane v `KNOWN_BROKEN_TESTS` s jedním
+  selháním a pravdivou příčinou.
+- **(b) Značit blok, když ho kužel PROTNE**, ne když je v něm jeho střed. Levné, řádově
+  jedna podmínka navíc v `_mark_lit()`. Rozsvítí to o něco víc plochy kolem každé věže —
+  **mění to, jak mlha vypadá.**
+- **(c) Zjemnit mřížku mlhy** z bloku na buňku. Nejpřesnější, nejdražší (9× víc testů na
+  světlo, a `_lit_cells` čte i projektilová smyčka), a mění vzhled nejvíc.
+
+Nedělám nic: (b) i (c) jsou vizuální rozhodnutí a to je tvoje. Kdyby (b), je to změna na
+pár minut a `_test_fog_bandwidth` by pak měl jít úplně z known-broken ven.
+
 ## Tickový rozpočet se při přechodu vlny zahazuje — poslední rychlostní závislost (2026-09-02)
 
 Není to nic rozbitého; je to kompromis, který má dvě strany a rozhodnout ho máš ty.

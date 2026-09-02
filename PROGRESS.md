@@ -4272,3 +4272,91 @@ přechodu. Rozbor a rozhodnutí, které to potřebuje, jsou v `BLOCKED.md`.
   `tolerance` (19,8733333333332 na obou) — to bylo to jediné, co se ráno rozcházelo.
 - Soubory: `data/levels/level_98.tres`, `docs/BALANCE.md`, `BLOCKED.md`,
   `PATHFINDING.MD` (Status), tento zápis.
+
+## 2026-09-02 — P8b: „arc nemá na osvětlení vliv" byla NEPRAVDA. Měření mířilo do světla
+
+P8b byl v `BLOCKED.md` otevřený od 30. 8. Diagnóza z tehdejška („kód mlhy je správně,
+špatně jsou konstanty naškálované pro desku, která už neexistuje") mířila správným směrem,
+ale skutečná příčina byla jinde a jednodušší.
+
+### Nejdřív jsem musel opravit regresi, kterou jsem sám způsobil v M3
+
+Hlavička téhle fixture roky tvrdí, že pokrývá své téma *„with the gates ON — this is the
+one place they are the subject"*. **Nikdy je ale nezapínala.** Dědila, co zrovna nesl
+`data/levels/level_1.tres`, a ten `fog`/`routine_gates` nenastavoval, takže platily
+defaulty `true` — omylem, ne záměrem.
+
+M3 (dnes ráno) je na `level_1` z dobrých důvodů nastavil na `false`, a tahle fixture tím
+šla z **2 selhání na 14** — beze slova, protože je vedená v `KNOWN_BROKEN_TESTS` a tam
+selhání nic nestojí. Přesně to riziko, před kterým `verify.sh` u toho seznamu sám varuje.
+Fixture si teď zapíná `game.fog_enabled` a `game.routine_gates_enabled` sama; obsahový
+soubor jí předmět měření vypnout nemůže. Stejná třída skryté závislosti, jakou měl
+`_test_shadow_occlusion` na geometrii levelu.
+
+### Vlastní P8b: dvě opravy měření, ani jedna assertion
+
+1. **Měřit vlastní příspěvek habitu**, ne sjednocení. `_lit_cells` je union všech světel,
+   a habit se smí stavět jen uvnitř Routine disku jádra — takže stojí ve světle, které
+   nevyrobil. Fixture se tím ptala „změnila se celá deska?", na což disk jádra odpovídá
+   „ne", ať dial dělá co chce. Nová pomocná funkce `_own_cells()` odečítá baseline
+   pořízený **před** postavením habitu.
+2. **Odvodit směr od jádra**, ne psát `0.0`. Fixture mířila **na východ**, zatímco
+   objective `level_1` leží na `x = 28` z 30 sloupců — tedy **na východ od každého
+   stavebního místa na desce**. Měření bylo namířené do světla. Turn check teď porovnává
+   ±45° kolem směru „pryč od jádra"; rovné otočení o 180° by kužel poslalo zpátky do
+   disku, kde habit nesvítí nic vlastního, takže by jedna strana porovnání byla prázdná
+   z principu.
+
+### Výsledek: dial funguje
+
+| kontrola | před | po |
+|---|---|---|
+| turning the habit moves the light | −0 buněk, +9 | **−6, +6** |
+| a wider arc lights more board (15° → 120°) | 18 → 18 buněk | **3 → 15** |
+
+Při `0.0` rad přispěje habit **nula** vlastních buněk při každé šířce od 15° do 120°.
+Nebyl to mrtvý parametr, byl to mrtvý směr. `docs/KNOWN_BROKEN.md` opraven — jeho původní
+záznam zůstává níž jako historie, ale jeho titulní tvrzení je označené za nepravdivé.
+
+### A poctivé měření odhalilo novou, skutečnou vadu
+
+Jedna kontrola teď padá, protože dřív procházela **naprázdno** (její sondy osvětloval disk
+jádra):
+
+```
+FAIL the firing edge is lit along its whole length (2 of 6 probes dark)
+```
+
+Instrumentováno — a vzorec je opačný, než by čekal problém s dosahem: tmavé jsou
+**nejbližší** sondy, vzdálené svítí.
+
+```
+f=0.3  pos=(265.2, 164.0)  block=(16, 10)  vis=false
+f=0.6  pos=(218.5, 191.0)  block=(13, 10)  vis=true
+f=0.9  pos=(171.7, 218.0)  block=(10, 13)  vis=true
+```
+
+**Příčina, přečtená v `game.gd _mark_lit()`:** mlha je kvantovaná po **48px blocích**
+(`Data.BUILD_BLOCK` = 3 buňky) a blok se počítá za osvětlený, když do kužele padne jeho
+**střed**. Střelba testuje body přesně. Blízko věže se to rozejde: sonda na palebné hraně
+ve 54 px leží v bloku, jehož střed je 45° od osy — mimo i skirtovaný půlúhel
+(60° × 0,5 × `LIGHT_SKIRT` 1,35 = 40,5°). Úhlová šířka bloku s dálkou klesá, proto
+vzdálené sondy projdou.
+
+Odporuje to dvěma napsaným slibům: `is_pos_visible()` má ve vlastním komentáři *„never
+hides something standing in plain light"*, a skirt existuje přesně proto, aby *„sight must
+cover fire"*. U věže platí opak.
+
+**Neopravuji to.** Obě možné opravy — značit blok, když ho kužel protne, nebo zjemnit
+mřížku na buňku — **mění, jak mlha kolem každé věže vypadá**. To je vizuální rozhodnutí
+a drží se to hranice, kterou jsem si u plné autorizace vytyčil. Volby s cenami jsou
+v `BLOCKED.md`; kdyby padla ta levná, `_test_fog_bandwidth` by šel z known-broken úplně
+ven.
+
+### Ověření
+
+- `_test_fog_bandwidth`: **14 → 1 selhání**, a to jedno má pravdivou příčinu.
+- `./verify.sh` (s displejem): **41 pass, 0 fail, 0 skip, 3 known-broken, 0 flaky,
+  0 no-display.**
+- Soubory: `scripts/_test_fog_bandwidth.gd`, `docs/KNOWN_BROKEN.md`, `BLOCKED.md`,
+  `PATHFINDING.MD` (Status), tento zápis.
