@@ -17,6 +17,36 @@ než který ti určil runner.
 > `docs/refactor/PATHFINDING.MD` je smazaná. Rozbor v `BLOCKED.md` →
 > „Zkrácená fronta". Stejná nehoda se stala už jednou, viz `c833e76`.
 
+> **PLNÁ AUTORIZACE 2026-09-02.** Uživatel: *„je potřeba s projektem postoupit, tak
+> udělej autonomní plán beze mě, vše ti povoluji jako uživatel."* Tím padají brány
+> `Needs-me: yes` u P8b, P10 a Q3 — rozhodnutí, na která čekaly, dělám sám a každé
+> zapisuju s odůvodněním do `PROGRESS.md`, aby se dalo kterékoli z nich vrátit jednou
+> větou. Padá i podmínka „změna assertion v `_test_*` potřebuje moje svolení".
+>
+> **Co ani tahle autorizace nemění, a proč:**
+> - **Negeneruju v PixelLabu.** Utrácí to tvoje předplacené generace (peníze) a
+>   `CLAUDE.md` to zakazuje jmenovitě. „Povoluji ti vše" v chatu nečtu jako „utrať mi
+>   kredity". `_test_zen_pulsar` vyřeším bez generování.
+> - **Nepushuju a nepřepínám větev** — taky explicitní pravidlo a nevratné směrem ven.
+> - **Nemažu nic v `data/`.** Co je k vyřazení, vyřadím tak, že to přestane být
+>   načítané, a napíšu to; smazání je tvoje.
+> - **Nehodnotím vzhled, jako bych ho viděl.** Mechanismy stavím za existující
+>   per-level přepínače v `LevelData` (`fog`, `shadows`, `quick_hit`, …), takže
+>   estetické rozhodnutí zůstává tvoje a je to jeden bool v `.tres`.
+>
+> **Plán, který z toho vznikl,** je milník „prvních 15 minut" (M1–M4, M9 níž). Fronta
+> si ho sama odložila slovy *„Není rozepsaný schválně. Bude záviset na výsledku P10
+> a Q2."* — Q2 je hotové (`3e6a87e`) a P10 je teď odblokované, takže je čas ho napsat.
+>
+> **Proč právě tohle pořadí, a ne rovnou P10/P11/P12:** Q2 změřilo, že **hru dnes nejde
+> vyhrát** — 24 z 24 simulovaných běhů (2 levely × 4 strategie × 3 seedy) končí porážkou,
+> `victory=false` bez výjimky. `docs/core/00_overview.md` přitom hru definuje jako
+> *„a small, **winnable**, easily-tuned prototype"* a jako první pilíř má *„Fun first,
+> lesson second. If a level isn't fun, the lesson doesn't land."* Mlha jako pravidlo,
+> modifikátory a minimapa jsou vrstvy na hře, kterou zatím nikdo neporazí — proto jdou
+> M1–M4 první. Není to změna priorit od stolu: je to ten pilíř aplikovaný na měření,
+> které už v repu leží.
+
 ## Konvence platné pro celý soubor
 
 - **Testy:** `scripts/_test_*.gd` + `scenes/_test_*.tscn` podle „Verification pattern"
@@ -571,10 +601,91 @@ KTERÉ segmenty jsou živé — ne na pořadí v řetězu ani na pořadí v mno�
 16/16 kombinací vyčerpáno, 232 tras ověřeno, 64 skládání porovnáno na shodu.
 Detaily a čísla v `PROGRESS.md`.
 
+## M1 — proč hru nejde vyhrát (DIAGNÓZA, měřením, ne dojmem)
+Model: opus
+Needs-me: no
+Status: todo
+
+Q2 (`BLOCKED.md`) doložil: **24 z 24 běhů prohra** — obě existující úrovně, všechny
+čtyři strategie, tři seedy, `victory=false` pokaždé. `docs/core/00_overview.md` říká
+„a small, **winnable**, easily-tuned prototype". Tohle je nejzávažnější rozpor v repu.
+
+Změř, kde přesně se run láme. Ne odhad — čísla:
+- Efektivní DPS každého habitu proti `compulsion`/`rationalization` každé distrakce,
+  a kolik sekund tedy trvá zabít jeden kus.
+- Kolik sekund je distrakce vůbec v dosahu habitu na skutečné dráze levelu
+  (`path_cells` + flow field), tj. kolik DPS se reálně uplatní.
+- `focus_damage` × počet průniků za vlnu proti `LevelData.focus`.
+- Wave curve: kolik kusů kdy přijde (`base_count` + `growth_per_wave`).
+- Zvlášť pro `level_1`: proč **0 killů** i s postavenými habity. Nula je moc kulaté
+  číslo na „je to těsné" — hledej vadu, ne balanc.
+
+Rozšiř `scripts/_balance_sweep.gd` o rozpad **po vlnách** (kills, leaks, Focus na konci
+vlny), aby se dalo vidět, která vlna run zabije.
+
+Hotovo: `docs/BALANCE.md` má tabulku „kde se run láme" a **jmenuje příčinu**, ne dojem.
+Žádná změna balance v tomhle úkolu — M1 měří, M2 opravuje.
+
+## M2 — level 98 „First Light" musí jít vyhrát
+Model: opus
+Needs-me: no
+Status: todo
+
+Nejmenší datová změna podle M1, po které je `level_98` vyhratelný — a **pořád
+prohratelný**. Level, který se vyhraje sám, neučí nic; pilíř je „fun first".
+
+Hotovo: sweep dokazuje `victory=true` pro `cheap_even` a `victory=false` pro `passive`
+na všech třech seedech; `_test_levels` a `_test_maze_validity` zelené; čísla před/po
+v `docs/BALANCE.md` i s tím, které pole v `data/` se hnulo a proč.
+
+## M3 — `level_1` přestane být placeholder
+Model: opus
+Needs-me: no
+Status: todo
+
+`display_name = "Placeholder — square grid smoke test"`, 0 killů pro každou strategii,
+smrt ve vlně 2 vždy. Design doc chce „start with 2 levels" — dnes je jeden nedodělaný
+a jeden skoro hratelný.
+
+Rozhodni podle M1 (obojí je legitimní, ale rozhodnutí zapiš):
+- (a) udělat z něj skutečný **tutoriálový** level 1: jedna dráha, jeden druh distrakce,
+  bez Quick Hitu — první level nesmí učit dvě věci naráz;
+- (b) vyřadit ho z kampaně (přestat ho načítat) a povýšit `level_98` na level 1.
+
+**NEPIŠ level `.tres` ručně** — geometrie patří přes `tools/`, jak říká CLAUDE.md.
+Změna čísel (`focus`, `start_dopamine`, `wave_curve`) je běžná datová editace.
+
+Hotovo: `data/levels/` obsahuje dva levely, které dávají smysl vedle sebe; sweep má pro
+oba nenulové killy; `_test_levels`, `_test_ascii_sidecar` a side-cary zelené.
+
+## M4 — Quick Hit zapnout a doručit jeho lekci
+Model: opus
+Needs-me: no
+Status: todo
+
+`LevelData.quick_hit` je `false` na **každém** levelu v projektu, takže „stiskni Quick
+Hit" a „nedělej nic" jsou dnes bitově identická akce (Q2, 0 použití ve 24 bězích).
+Signature mechanika #2 z `00_overview.md` tím pádem neexistuje ve hře, jen v dokumentaci.
+
+Zapni ji na druhém levelu (overview: *„Introduced on level 2"*) a vyvaž ji tak, aby
+**lekce dorazila**: spam Quick Hitu musí být zpočátku objektivně nejlepší tah a později
+se vymstít přes Toleranci. Q2 už vypsalo, které páky existují — a taky že
+`QUICK_HIT_BASE/COOLDOWN/SPIKE/FLOOR_GAIN` jsou konstanty v `game.gd`, ne pole
+v `data/`; jestli se hýbe konstantou, patří to do zápisu.
+
+Hotovo: sweep ukazuje `quick_hit_spam` **lepší než `cheap_even` v prvních dvou vlnách
+a horší na konci levelu**, na všech třech seedech. Tohle je ta lekce, měřená.
+
 ## P8b — fog_bandwidth před P9
 Model: opus
-Needs-me: yes
-Status: blocked
+Needs-me: no
+Status: todo
+
+**Brána otevřena 2026-09-02 plná autorizací** (viz hlavičku souboru). Diagnóza níž
+zůstává platná; rozhodnutí, na která čekala — přeškálovat balanc, přeautorovat layout
+levelu, nebo otočit facing ve fixture — dělám sám. Sekvenčně to patří AŽ ZA M2/M3:
+příčina je layout levelu a ten se v M2/M3 stejně mění, takže sahat na to dřív by
+znamenalo opravovat něco, co se vzápětí přepíše.
 
 `_test_fog_bandwidth` hlásí, že arc nemá vliv na osvětlenou plochu (36 → 36 buněk
 při arc 15 → 120) a že otočení habitu světlem nehne. Podle P0e zjisti, jestli je
@@ -812,9 +923,15 @@ je trvalá potřeba, ne vada). `./verify.sh` s displejem: **41 pass, 0 fail,
 3 known-broken, 0 no-display**. Detail v `PROGRESS.md` a `docs/KNOWN_BROKEN.md`.
 
 ## P10 — brainfog jako herní pravidlo
-Model: sonnet
-Needs-me: yes
+Model: opus
+Needs-me: no
 Status: todo
+
+**Brána otevřena 2026-09-02 plná autorizací.** Původní brána zněla „nazačínej, dokud
+si nezahraju P9 a nepotvrdím to" a byla o VIZUÁLNÍM úsudku, který si přisvojit nemůžu.
+Řeším to tak, že pravidlo stavím za `LevelData.fog`, který už existuje a je `false` na
+obou levelech: mechanismus vznikne a otestuje se, ale zapnout ho na konkrétním levelu
+zůstane jeden bool v `.tres` — tvoje oko, ne moje.
 
 **Nezačínej, dokud si nezahraju P9 a nepotvrdím to.** Až uvidím mlhu v pohybu,
 poznám, jestli je „věž nestřílí, co nevidí" zajímavé, nebo jen otravné.
@@ -891,8 +1008,12 @@ Kompletní tabulka a návrh čísel: `BLOCKED.md` → `## Q2`.
 
 ## Q3 — capsule art specifikace
 Model: sonnet
-Needs-me: yes
+Needs-me: no
 Status: todo
+
+**Brána otevřena 2026-09-02 plná autorizací.** Úkol sám říká „NEGENERUJ přes PixelLab
+... Art udělám nebo objednám já" — je to psaní specifikace, ne výroba artu, takže
+autonomně proveditelné beze zbytku.
 
 **NEGENERUJ přes PixelLab.** Steam capsule art je nejčastější terč „AI slop"
 kritiky a první věc, kterou hráč na Steamu vidí. Doložené případy backlashe
@@ -900,6 +1021,25 @@ existují i tam, kde bylo obvinění falešné.
 
 Připrav specifikaci: rozměry všech Steam capsule formátů, co má obrázek
 komunikovat, jaké prvky ze hry použít. Art udělám nebo objednám já.
+
+## M9 — vyčistit known-broken dluh
+Model: opus
+Needs-me: no
+Status: todo
+
+Tři fixtures, každá jiná třída, žádná z nich už nečeká na povolení:
+- `_test_deep_reading` — `head_aims = false` ve všech čtyřech `.tres`, test žádá `true`.
+  Nejdřív zjisti, **která strana má pravdu** (proč se `head_aims` vypnul), teprve pak
+  srovnej; změna assertion je teď povolená, ale ne jako první sáhnutí.
+- `_test_fog_bandwidth` — P8b to diagnostikoval do detailu: vada je v **layoutu levelu**
+  (všechny build spoty na západ od jádra), ne v kódu mlhy. Po M2/M3 může být vyřešená
+  sama; ověř, než na to sáhneš.
+- `_test_zen_pulsar` — chybí `assets/towers/head_zen_pulsar_frame_1..8.png`.
+  **NEGENERUJ art.** Buď data ukážou na existující `head_zen_pulsar.png`, nebo se
+  fixture srovná s realitou; rozhodnutí zapiš.
+
+Hotovo: `KNOWN_BROKEN_TESTS` je prázdné, nebo každý zbylý záznam má v
+`docs/KNOWN_BROKEN.md` důvod, který není „nikdo na to nesáhl".
 
 ---
 

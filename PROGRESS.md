@@ -3681,3 +3681,43 @@ commitem.
   a prochází.
 - Soubory: `scripts/_test_shadow_occlusion.gd`, `verify.sh`, `docs/KNOWN_BROKEN.md`,
   `PATHFINDING.MD` (Status), tento zápis.
+
+## 2026-09-02 — plná autorizace a autonomní plán: milník „prvních 15 minut" (M1–M4, M9)
+
+- **Autorizace, doslovně:** *„hele takhle, je potřeba s projektem postoupit, tak udělej
+  autonomní plán beze mě, vše ti povoluji jako uživatel."* Tím padají brány
+  `Needs-me: yes` u **P8b**, **P10** a **Q3** a padá i podmínka „změna assertion
+  v `_test_*` potřebuje moje svolení". Zapsáno do hlavičky `PATHFINDING.MD`, aby to
+  příští běh viděl dřív než frontu.
+- **Co jsem si z toho NEVZAL, a proč:** (1) **negeneruju v PixelLabu** — utrácí to
+  předplacené generace, tedy peníze, a `CLAUDE.md` to zakazuje jmenovitě; „povoluji ti
+  vše" v chatu nečtu jako „utrať mi kredity"; (2) **nepushuju ani nepřepínám větev**;
+  (3) **nemažu nic v `data/`** — co je k vyřazení, přestane být načítané a napíše se to;
+  (4) **nehodnotím vzhled, jako bych ho viděl** — mechanismy jdou za existující
+  per-level přepínače v `LevelData`, takže estetické rozhodnutí zůstává jeden bool
+  v `.tres`.
+- **Plán stojí na měření, které už v repu leželo, ne na dojmu.** Q2 (`3e6a87e`,
+  `BLOCKED.md`) doložilo, že **hru dnes nejde vyhrát**: 2 levely × 4 strategie × 3 seedy
+  = **24 z 24 běhů `victory=false`**. `docs/core/00_overview.md` přitom hru definuje
+  jako *„a small, **winnable**, easily-tuned prototype"* a jako první pilíř nese *„Fun
+  first, lesson second. If a level isn't fun, the lesson doesn't land."*
+- **Druhý doložený rozpor:** `LevelData.quick_hit` je `false` na každém levelu
+  v projektu (grep `quick_hit = true` v `data/`: nula shod). Signature mechanika #2
+  z overview („Tolerance + Quick Hit... Introduced on level 2") tedy existuje
+  v dokumentaci a v kódu, ale ne ve hře — „stiskni Quick Hit" a „nedělej nic" jsou dnes
+  bitově identická akce.
+- **Proto pořadí M1–M4 PŘED P10/P11/P12.** Mlha jako pravidlo, modifikátory a minimapa
+  jsou vrstvy na hře, kterou zatím nikdo neporazí. Není to přeskládání priorit od stolu:
+  fronta si milník „prvních 15 minut" sama odložila slovy *„Není rozepsaný schválně.
+  Bude záviset na výsledku P10 a Q2"* — Q2 je hotové a P10 odblokované, takže je čas ho
+  napsat.
+- **Nové úkoly:** **M1** diagnóza „proč hru nejde vyhrát" (měřením, žádná změna balance),
+  **M2** `level_98` vyhratelný a pořád prohratelný, **M3** `level_1` přestane být
+  placeholder (0 killů pro každou strategii), **M4** Quick Hit zapnout a doručit jeho
+  lekci (spam nejlepší zpočátku, vymstí se na konci — doložit sweepem), **M9** vyčistit
+  zbylý known-broken dluh. P8b zařazen AŽ ZA M2/M3, protože jeho příčina je layout
+  levelu, který se v M2/M3 stejně mění.
+- `./verify.sh` beze změny (tenhle commit je čistě dokumentační — žádný `.gd`, `.tres`
+  ani `.tscn`). Poslední naměřený stav: **41 pass, 0 fail, 3 known-broken, 0 no-display**
+  (s displejem, `a43f678`).
+- Soubory: `PATHFINDING.MD`, tento zápis.
