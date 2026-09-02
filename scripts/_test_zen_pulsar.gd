@@ -107,8 +107,21 @@ func _test_data() -> void:
 
 func _test_art_fallback() -> void:
 	print("=== upgraded tiers inherit the sprite instead of vanishing")
+	# THE PRECONDITION NAMED THE WRONG FILE (M9, 2026-09-02). It demanded
+	# `head_zen_pulsar_frame_1.png` — the first frame of an eight-frame animation that is
+	# not on disk. But this section is about the FALLBACK, and its precondition is only
+	# "the base tier has head art at all". It does: `head_zen_pulsar.png` ships.
+	#
+	# The animation is OPTIONAL to the code being tested. tower.gd `_head_art_key()`
+	# accepts EITHER spelling (line ~643: `head_%s.png` OR `head_%s_frame_1.png`), and the
+	# loader takes the static file first and only then looks for frames. So the fixture was
+	# stricter than the function it exists to exercise, and docs/KNOWN_BROKEN.md's "a
+	# genuinely missing file" was half right: the frames really are gone, but nothing needs
+	# them. Mirroring `_head_art_key()`'s own condition here is what keeps the two from
+	# disagreeing again the next time the art changes shape.
 	_check("the base has head art",
-		FileAccess.file_exists("res://assets/towers/head_zen_pulsar_frame_1.png"))
+		FileAccess.file_exists("res://assets/towers/head_zen_pulsar.png")
+			or FileAccess.file_exists("res://assets/towers/head_zen_pulsar_frame_1.png"))
 	# The old fallback was trim_suffix("_2"), which leaves "zen_pulsar_2a" untouched and
 	# would have loaded nothing at all for a branching line.
 	for key in [&"zen_pulsar_2a", &"zen_pulsar_2b"]:

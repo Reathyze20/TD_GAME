@@ -4603,3 +4603,61 @@ Ověřeno i to, že `CAPSULE_SPEC.md` nekoliduje case-insensitivně s ničím v 
 - `./verify.sh` (s displejem): **44 pass, 0 fail, 0 skip, 3 known-broken, 0 flaky,
   0 no-display** — čistě dokumentační commit, tally beze změny.
 - Soubory: `docs/art/CAPSULE_SPEC.md`, `PATHFINDING.MD` (Status), tento zápis.
+
+## 2026-09-02 — M9 hotovo: známé rozbité 3 → 2, a oba zbylé mají pravdivý důvod
+
+Nejzajímavější zjištění celého úkolu: **z šesti selhání, která ty tři fixtures dohromady
+měly, byla čtyři zastaralá očekávání — ne vady hry.** Seznam known-broken je přesně to
+místo, kde takové věci roky přežijí, protože baselinované selhání nic nestojí.
+
+### `_test_zen_pulsar` — OPRAVEN, vyřazen ze seznamu
+
+Precondition žádala `assets/towers/head_zen_pulsar_frame_1.png`. Ten soubor opravdu není —
+ale **nic ho nepotřebuje**. Ta sekce testuje *fallback* a její premisa je jen „základní
+tier má nějaký head art"; ten má, `head_zen_pulsar.png` shipuje. Animace je pro testovanou
+funkci volitelná: `tower.gd _head_art_key()` (~ř. 643) bere **obě** varianty a loader sahá
+nejdřív po statickém souboru. Fixture byla přísnější než kód, který má prověřovat.
+Precondition teď zrcadlí podmínku `_head_art_key()`. **Nic negenerováno** — zadání to
+zakazuje a nebylo to potřeba.
+
+### `_test_deep_reading` — 6 selhání na 1
+
+**`head_aims` (4 selhání) vyřazen z leak guardu.** Ta kontrola hlídá, aby vlastnosti Deep
+Reading neprosákly do jiných habitů přes **sdílený pooled projektil** — a vlastnost může
+prosáknout jen z habitu, který ji má. `real_hobby` má `head_aims = false` jako všichni,
+takže **nebylo z čeho unikat**. Navíc to tvrdilo opak zdokumentovaného záměru: `head_aims`
+je `false` na **všech patnácti** habitech a `tower.gd` (~ř. 610) píše proč — rotace bitmapy
+je špatná operace, osmisměrný art ji nahradil. `projectile_spin` a `boredom`, tedy dvě
+vlastnosti, které Deep Reading opravdu nastavuje, v kontrole zůstaly.
+
+**`range >= 500.0` (1 selhání) — práh delší než deska.** Tohle KNOWN_BROKEN vůbec
+nezaznamenal, protože zčervenalo **až po** napsání toho záznamu: P8b (`612a043`)
+přeškáloval dostřely na skutečných 480×224 a `real_hobby` šel na 260. 500 px je víc než
+celá šířka desky. Přesně ta třída artefaktu, kterou `BLOCKED.md` už jednou zavřel
+u `_test_phase7`. Práh se teď odvozuje z maxima rosteru — což je to, co ta kontrola
+tvrdila v popisku celou dobu, a nemůže to zetlít při dalším přeškálování.
+
+### Poslední selhání jsem NEOPRAVIL, a to je taky výsledek
+
+Výstřel v `_test_dot_source_semantics` netrefí — cíli se nehne život a žádný Boredom se
+nepřipíše — zatímco **bajtově stejné** volání `_shoot()` v sekci přímo nad ním trefí a DoT
+nechá. Dvě hypotézy jsem měl a **obě jsem vyvrátil měřením, ne úvahou:**
+
+1. *Pacing snímek vs. tick.* `_shoot()` čeká šest `process_frame`, zatímco projektily se
+   hýbou na sim ticku — klasický nesoulad. Jenže pod `--fixed-fps 60`, kde jsou 1:1, padá
+   **identicky**.
+2. *Ústí mimo desku.* `from` je 30 px na západ od cíle a spawn sloupec levelu 1 dává cíl na
+   `x=8`, takže ústí padne na `x=-22`, mimo pole. Střelba z **východu** padá **identicky**.
+
+Otevřená stopa pro příště: sonda ukázala `active=1` **na začátku** té sekce — projektil
+z předchozího sub-testu je pořád ve vzduchu a `_drain_projectiles()` ho zjevně neuklidil.
+
+Nevymýšlel jsem opravu pro něco, co jsem nepochopil. Zapsáno do `docs/KNOWN_BROKEN.md`
+i s tím, co je vyloučené, aby další běh nezačínal od nuly.
+
+### Ověření
+
+- `./verify.sh` (s displejem): **45 pass, 0 fail, 0 skip, known-broken 3 → 2, 0 flaky,
+  0 no-display.**
+- Soubory: `scripts/_test_deep_reading.gd`, `scripts/_test_zen_pulsar.gd`, `verify.sh`,
+  `docs/KNOWN_BROKEN.md`, `PATHFINDING.MD` (Status), tento zápis.

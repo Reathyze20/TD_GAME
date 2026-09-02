@@ -38,15 +38,19 @@ mkdir -p "$LOG_DIR"
 # that used to be spelled out here were WRONG, which is why they now live in one place
 # that was actually checked instead of being paraphrased at the call site.
 KNOWN_BROKEN_TESTS=(
-  # head_aims is false in all four habits' .tres; the test still demands true. A data
-  # change nobody reflected in the test that pins it. First red: 0465a23.
+  # ONE failure left of six (M9, 2026-09-02): a shot in _test_dot_source_semantics does not
+  # land, while a byte-identical _shoot() call lands in the sub-test above it. Ruled out:
+  # frame-vs-tick pacing (fails the same under --fixed-fps 60) and the muzzle spawning off
+  # the west edge (fails the same fired from the east). Not diagnosed further -- see
+  # docs/KNOWN_BROKEN.md. The head_aims and >=500px range failures this list used to
+  # describe are FIXED; both were stale expectations, not defects.
   _test_deep_reading
-  # Arc width has no effect on lighting at all (15 deg -> 120 deg lights the same 36
-  # cells) and rotation moves the lit set asymmetrically. Real. First red: 26814f9.
+  # ONE failure left of two (P8b, 2026-09-02), and it is NOT "arc width does nothing" --
+  # that claim was measured false: the fixture was aimed into the core's own light. What
+  # remains is real: the fog grid is quantised to 48px blocks and a block lights by its
+  # CENTRE, while firing tests points exactly, so near a tower the edge of its own cone is
+  # unlit. Both repairs change how the fog looks, so it is a decision -- see BLOCKED.md.
   _test_fog_bandwidth
-  # assets/towers/head_zen_pulsar_frame_1..8.png are gone; head_zen_pulsar.png survives.
-  # A genuinely missing file, not an expectation. First red: 0465a23.
-  _test_zen_pulsar
 )
 
 # Fixtures that read back rendered pixels (get_viewport().get_texture().get_image()).

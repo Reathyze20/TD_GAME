@@ -46,7 +46,61 @@ checkout at all.
 
 ---
 
-## `_test_deep_reading` — data/test contract, NOT art
+## `_test_deep_reading` — **five of six failures FIXED 2026-09-02 (M9)**; one left, undiagnosed
+
+Both causes this entry described turned out to be **stale expectations, not defects**, and a
+third failure had appeared that this entry never recorded.
+
+**1. `head_aims` — removed from the leak guard, with the user's say-so.** The check exists
+to catch Deep Reading's traits bleeding into other habits through the POOLED projectile,
+and a trait can only leak from a habit that HAS it — `real_hobby` carries
+`head_aims = false` like everyone else, so there was nothing to leak from. It was also
+asserting the opposite of a deliberate decision: `head_aims` is false on **all fifteen**
+habits in `data/`, and `tower.gd` (~line 610) says why in as many words — *"presne to je
+duvod, proc `head_aims` zustava u cele rodiny false: rotace bitmapy je spatna operace"*.
+Eight-direction head art replaced rotation; nothing aims a head any more.
+`projectile_spin` and `boredom` — the two traits Deep Reading actually sets — stay.
+
+**2. `both still outrange everything else` — a threshold longer than the board.** This
+entry never mentioned it, because it went red *after* the entry was written: the check
+demanded `range >= 500.0`, and P8b (`612a043`, 2026-08-30) rescaled every fire radius to
+the real 480x224 field, taking `real_hobby` to 260. 500 px is longer than the whole board.
+Exactly the artifact class `BLOCKED.md` already closed for `_test_phase7` (*"hardcoded
+400px ... was a pre-migration scale artifact"*). Now derived from the roster's own maximum,
+which is what the label claimed all along and cannot rot on the next rescale.
+
+**3. Still failing, and NOT understood:**
+
+```
+FAIL a second habit does stack (0.0/s vs 0.0/s)
+```
+
+In `_test_dot_source_semantics` the shot does not land — the target's health never moves
+and no Boredom is applied — while a **byte-identical** `_shoot()` call in the sub-test
+directly above it does land and leaves its DoT. Probed state at the failing call:
+
+```
+PROBE pre  valid=true dead=false hp=99999 pos=(8.0, 153.0) active=1
+PROBE post valid=true dead=false hp=99999 pos=(8.0, 153.0) active=2 dps=0.00
+```
+
+**Ruled out, each by measurement rather than reasoning:**
+
+- *Frame-vs-tick pacing.* `_shoot()` waits six `process_frame`s while projectiles move on
+  the sim tick, which looks like the classic mismatch — but the test fails **identically**
+  under `--fixed-fps 60`, where the two are 1:1.
+- *The muzzle spawning off the board.* `from` is 30 px west of the target, and level 1's
+  spawn column puts the target at x=8, so the muzzle lands at x=-22, outside the field.
+  Firing from the **east** instead (`from + 30px`, angle PI) fails identically.
+
+**Still open:** `active=1` at the section's start — a projectile from the previous sub-test
+is in flight when this one begins, and `_drain_projectiles()` evidently did not clear it.
+That is the most concrete remaining thread and nobody has pulled it.
+
+**Class:** two stale expectations (fixed) plus one real, undiagnosed miss.
+**Stays in `KNOWN_BROKEN_TESTS`** with one failure instead of six.
+
+### Original entry (2026-08-30), superseded above
 
 ```
 FAIL focus_timer still aims its head and fires plain bolts
@@ -71,7 +125,25 @@ broken at runtime; a deliberate data change was never reflected in the test that
 - **Note for whoever fixes it:** this is the one entry where the correct fix might be to
   change the test rather than the code, which CLAUDE.md says needs the user's say-so.
 
-## `_test_zen_pulsar` — missing file, with a name and a commit
+## `_test_zen_pulsar` — **FIXED 2026-09-02 (M9)**; the precondition named the wrong file
+
+**Removed from `KNOWN_BROKEN_TESTS`. The fixture passes.**
+
+This entry was half right and its conclusion was wrong. The frames really are gone —
+`assets/towers/head_zen_pulsar_frame_1..8.png` do not exist — but **nothing needs them**.
+
+The failing line is a *precondition* for the art-fallback section, and that section's
+premise is only "the base tier has head art at all". It does: `head_zen_pulsar.png` ships.
+The animation is optional to the very function under test — `tower.gd _head_art_key()`
+accepts **either** spelling (`head_%s.png` OR `head_%s_frame_1.png`, ~line 643), and the
+loader takes the static file first and only then looks for frames. The fixture was stricter
+than the code it exists to exercise.
+
+The precondition now mirrors `_head_art_key()`'s own condition, so the two cannot disagree
+again the next time the art changes shape. **No art was generated** — the task forbids it
+and none was needed.
+
+### Original entry (2026-08-30), superseded above
 
 ```
 FAIL the base has head art
@@ -399,7 +471,7 @@ with the status system it was meant to be testing.
 | fixture | class | first red (any) | first red (today's symptom) |
 |---|---|---|---|
 | `_test_deep_reading` | data/test contract | `0465a23` | `0465a23` |
-| `_test_zen_pulsar` | missing file | `0465a23` | `0465a23` |
+| `_test_zen_pulsar` — **FIXED 2026-09-02** | missing file | `0465a23` | `0465a23` |
 | `_test_shadow_occlusion` | harness mismatch + **stale sampler constant, NOT a render regression** — **fixed** 2026-09-02 | `5d72b07` (headless) | `26814f9` (zero delta, since disproven) |
 | `_test_fog_bandwidth` | **measurement defect (fixed 2026-09-02) + fog block quantisation (open)** — the "arc does nothing" headline was FALSE | ≤ `5d72b07` | `26814f9` |
 | `_test_suppression` | logic regression — **fixed** 2026-08-30 (P4) | ≤ `5d72b07` | `26814f9` |

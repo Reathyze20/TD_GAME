@@ -1262,7 +1262,7 @@ rukopis, ale capsule, jejíž světlo a paleta nesedí na screenshoty.
 ## M9 — vyčistit known-broken dluh
 Model: opus
 Needs-me: no
-Status: todo
+Status: done
 
 Tři fixtures, každá jiná třída, žádná z nich už nečeká na povolení:
 - `_test_deep_reading` — `head_aims = false` ve všech čtyřech `.tres`, test žádá `true`.
@@ -1277,6 +1277,30 @@ Tři fixtures, každá jiná třída, žádná z nich už nečeká na povolení:
 
 Hotovo: `KNOWN_BROKEN_TESTS` je prázdné, nebo každý zbylý záznam má v
 `docs/KNOWN_BROKEN.md` důvod, který není „nikdo na to nesáhl".
+
+**Hotovo 2026-09-02. Známé rozbité: 3 → 2, a oba zbylé mají pravdivý důvod.**
+
+- **`_test_zen_pulsar` OPRAVEN a vyřazen.** Precondition jmenovala špatný soubor: žádala
+  `head_zen_pulsar_frame_1.png` (osmisnímková animace, která na disku není), ale ta sekce
+  testuje **fallback** a její premisa je jen „základní tier má nějaký head art". Ten má —
+  `head_zen_pulsar.png` shipuje. Animace je pro testovanou funkci **volitelná**:
+  `tower.gd _head_art_key()` bere **obě** varianty. Fixture byla přísnější než kód, který
+  má prověřovat. **Nic negenerováno.**
+- **`_test_deep_reading`: 6 selhání → 1.** Oba dokumentované důvody byly **zastaralá
+  očekávání, ne vady**. `head_aims` vyřazen z leak guardu (leak zachytit nemohl —
+  `real_hobby` ho má `false` jako všichni, není z čeho unikat — a tvrdil opak záměru,
+  který `tower.gd:610` sám popisuje). A `range >= 500.0` je práh **delší než celá deska**;
+  P8b přeškáloval dostřely na 480×224 a `real_hobby` má 260. Ten záznam v KNOWN_BROKEN
+  o tom nevěděl, protože vznikl před tím přeškálováním. Teď se práh odvozuje z maxima
+  rosteru.
+- **Zbylé jedno selhání jsem NEOPRAVIL** a je zapsané tak, aby se nezačínalo od nuly:
+  výstřel v `_test_dot_source_semantics` netrefí, zatímco bajtově stejné volání v sekci
+  nad ním trefí. Vyloučeno **měřením**, ne úvahou: pacing snímek-vs-tick (padá stejně pod
+  `--fixed-fps 60`) i ústí mimo desku (padá stejně při střelbě z východu). Otevřená stopa:
+  na začátku sekce je `active=1`, tedy projektil z předchozího sub-testu je pořád ve
+  vzduchu.
+- **`_test_fog_bandwidth`** zůstává s jedním selháním a pravdivou příčinou z P8b
+  (kvantizace mlhy po 48px blocích) — obě možné opravy mění vzhled, volby v `BLOCKED.md`.
 
 ---
 

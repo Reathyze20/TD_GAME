@@ -77,7 +77,25 @@ func _test_data() -> void:
 	_check("both fire fast enough to read as automatic",
 		t1.fire_cooldown <= 0.2 and t2.fire_cooldown <= 0.2,
 		"(%.2fs, %.2fs)" % [t1.fire_cooldown, t2.fire_cooldown])
-	_check("both still outrange everything else", t1.range >= 500.0 and t2.range >= t1.range,
+	# THRESHOLD WAS A HARDCODED `>= 500.0` AND IS NOW DERIVED (M9, 2026-09-02). 500 px is
+	# longer than the whole board: the field is 480x224 since the T5 square migration, and
+	# P8b (`612a043`) rescaled every fire radius down to match — real_hobby went to 260.
+	# So the check has been failing since 2026-08-30 for a reason that has nothing to do
+	# with Deep Reading, and docs/KNOWN_BROKEN.md never recorded it because that entry was
+	# written before the rescale landed. Exactly the artifact class BLOCKED.md already
+	# closed for _test_phase7 ("hardcoded 400px ... was a pre-migration scale artifact").
+	#
+	# Comparing against the roster's OWN maximum is what the label says anyway, and it
+	# cannot rot when the board is rescaled again.
+	var longest_other := 0.0
+	for other_key: StringName in Data.HABIT_ORDER:
+		if other_key == &"real_hobby":
+			continue
+		var od: HabitData = Data.get_habit(other_key)
+		if od != null:
+			longest_other = maxf(longest_other, od.range)
+	_check("both still outrange everything else",
+		t1.range > longest_other and t2.range >= t1.range,
 		"(%d, %d)" % [int(t1.range), int(t2.range)])
 	# A book GPU-rotated through 360 degrees spins like a plate. The pages aim; the book does not.
 	_check("the book does not swivel", not t1.head_aims and not t2.head_aims)
@@ -176,11 +194,26 @@ func _test_dot_source_semantics(game: Game) -> void:
 
 func _test_other_habits_unchanged(game: Game) -> void:
 	print("=== the shared projectile is pooled — no leaking into other habits")
+	# `head_aims` USED TO BE IN THIS CONJUNCTION AND WAS REMOVED (M9, 2026-09-02), with the
+	# user's say-so, because it was wrong on both counts.
+	#
+	# It could never have caught a leak. This check guards against Deep Reading's traits
+	# bleeding into other habits through the POOLED projectile, and a trait can only leak
+	# from a habit that has it — `real_hobby`/`real_hobby_2` carry `head_aims = false` like
+	# everyone else, so there was nothing to leak from. `projectile_spin` and `boredom` are
+	# the two that Deep Reading actually sets, and they are the two that stay.
+	#
+	# And it asserted the opposite of a deliberate, documented decision: `head_aims` is
+	# false on ALL FIFTEEN habits in data/, and tower.gd's own comment (~line 610) says why
+	# in as many words — "presne to je duvod, proc `head_aims` zustava u cele rodiny false:
+	# rotace bitmapy je spatna operace". The eight-direction head art replaced rotation, so
+	# nothing aims a head any more. The fixture was pinning a default that the roster left
+	# behind, and docs/KNOWN_BROKEN.md had it filed as "a deliberate data change nobody
+	# reflected in the test that pins it" — which was exactly right.
 	for key in [&"focus_timer", &"focus_timer_2", &"exercise", &"exercise_2"]:
 		var h := Data.get_habit(key)
-		_check("%s still aims its head and fires plain bolts" % key,
-			h.head_aims and is_equal_approx(h.projectile_spin, 0.0)
-				and is_equal_approx(h.boredom, 0.0))
+		_check("%s fires plain bolts — no borrowed spin or Boredom" % key,
+			is_equal_approx(h.projectile_spin, 0.0) and is_equal_approx(h.boredom, 0.0))
 
 	# A pooled projectile is reused: if a page's DoT/spin were not reset on setup, the
 	# next habit to borrow that instance would inherit them.
