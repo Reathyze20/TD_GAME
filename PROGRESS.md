@@ -3559,3 +3559,50 @@ commitem.
   `scripts/_diag_q2.gd`(`.uid`)/`scenes/_diag_q2.tscn` zůstávají netrackované
   (sandbox odmítl `rm`) — nejsou v commitu, harmless, chtějí ruční smazání.
 - Commit: `3e6a87e`.
+
+## 2026-09-02 — fronta obnovena: `PATHFINDING.MD` přišla o 822 řádků a o pravdivé statusy
+
+- **Nález, ne zadaný úkol.** Autonomní běh začal tím, že si přečetl frontu — a ta
+  neseděla se skutečností. Commit `2331f13` („test", 08:54) zkrátil
+  `docs/refactor/PATHFINDING.MD` z **866 řádků na 44** a přitom přepsal
+  `Status: done` zpátky na `todo` u **P4**, **P5** a **Q1**. `tools/next_task.py`
+  vrací první `todo`, takže `loop.sh` by jako první věc začal znovu dělat P4
+  (přesun jednotek na flow field + zaměřování věží přes prostorový hash) nad
+  kódem, kde ten refaktor už půl dne je. Ne ztráta času — nejrychlejší způsob,
+  jak si rozbít hotovou práci.
+- **Ověřeno čtyřmi nezávislými stopami u každého z těch tří úkolů**, ne odhadem:
+  commit je předkem `HEAD` (`9d47688` / `bd39167` / `c65dfa6`), `PROGRESS.md` má
+  jeho zápis, kód je na disku (`scripts/flow_field.gd`, `game.gd`'s
+  `_distraction_hash`, `scripts/components/horde_renderer.gd`,
+  `SPEED_STEPS`/`_apply_time_scale()`), a fixture, kterou si úkol sám klade jako
+  podmínku „Hotovo", je zelená. U P4 navíc `_test_suppression` už není
+  v `KNOWN_BROKEN_TESTS` a `docs/KNOWN_BROKEN.md` ho vede jako „**fixed**
+  2026-08-30 (P4)" — přesně ta podmínka, kterou P4 vyžaduje.
+- **Zkrácení vyhodilo z fronty úplně** P6, P7, P8, P8b, P9, P10, P11, P12, Q2 a Q3.
+  Ptal jsem se, jestli je mám vrátit; odpověď byla „mělo by vše být
+  v PATHFINDING.md", takže je obsah vrácený **celý**: kořenový `PATHFINDING.MD`
+  má teď **905 řádků** — znění z `git show 80b56e7:docs/refactor/PATHFINDING.MD`
+  (poslední verze před zkrácením), statusy srovnané podle commitů, plus úkol
+  `_test_shadow_occlusion`, který ve staré frontě nebyl a přišel až s přepisem.
+  Fronta zůstává v kořeni (kam míří `run.sh` i `loop.sh`), `docs/refactor/
+  PATHFINDING.MD` zůstává smazaná.
+- **Statusy po srovnání:** P4/P5/Q1 `done` (každý s doložením přímo v sekci),
+  Q2 `done` (commit `3e6a87e`, mezitím hotové), P3 zpět na `obsolete` (stav, který
+  mu dal `67f891b`) s poznámkou o re-openu ze 2026-09-02, P8b/P10/Q3 beze změny
+  (`Needs-me: yes`), P11/P12 beze změny (`todo`).
+- **Na P11 ani P12 jsem nešel**, přestože mají `Needs-me: no` a po obnově jsou
+  ve frontě: obojí je věcně závislé na P10, které `Needs-me: yes` má. P11 sám
+  začíná větou „do P10 stavíš dobrý tower defense; P11 je ta jedna vrstva",
+  P12 říká „nutná, jakmile je P10 zapnuté". Napojit `ModifierManager` a minimapu
+  na pravidlo mlhy, které uživatel ještě nepřijal, je přesně to hádání, co
+  CLAUDE.md zakazuje. Zapsáno do `BLOCKED.md`.
+- **Je to podruhé.** `c833e76` („fix(docs): repair reverted P2/P3 status and
+  missing P8b in PATHFINDING.MD", 2026-08-30) opravoval tu samou nehodu o čtyři
+  dny dřív. Návrh levné pojistky (kontrola ve `verify.sh` v duchu „orphan test
+  scripts": pro každý `Status: done` ověřit zápis v `PROGRESS.md`) je
+  v `BLOCKED.md` — nestavěl jsem ji, je to změna gate, ne úkol z fronty.
+- `./verify.sh` baseline před zásahem: **40 pass, 0 fail, 0 skip, 3 known-broken,
+  0 flaky, 1 no-display**. Tenhle commit je čistě dokumentační (žádný `.gd`,
+  `.tres` ani `.tscn`), takže tally platí beze změny.
+- Soubory: `PATHFINDING.MD` (obnovená fronta, přesun z `docs/refactor/`),
+  `BLOCKED.md`, tento zápis.

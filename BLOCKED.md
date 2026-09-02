@@ -3,6 +3,125 @@
 Design decisions found ambiguous or contradictory during autonomous runs.
 Not fixed by guessing — recorded here with options, then moved past.
 
+## Zkrácená fronta — `PATHFINDING.MD` přišla o 822 řádků a o pravdivé statusy — 2026-09-02
+
+Nezablokovaný úkol, ale nález, který by jinak stál celý autonomní běh za nic, tak
+patří sem.
+
+**Co se stalo.** Commit `2331f13` („test", 2026-09-02 08:54) zkrátil
+`docs/refactor/PATHFINDING.MD` z **866 řádků na 44** (`git show --stat 2331f13`).
+Ten commit zároveň sáhl na `CLAUDE.md`, `docs/art/ART_DEBT.md`,
+`GENERATION_PLAN.md`, `STYLE_BIBLE.md`, `verify.sh` a přidal `tools/
+check_style_failure_modes.py` a `tools/direction_a_masters.py` — jinými slovy to
+nebyla editace fronty, fronta se do něj svezla. Pak byl v pracovní kopii
+`docs/refactor/PATHFINDING.MD` smazán a místo něj vznikl netrackovaný
+`PATHFINDING.MD` v kořeni (na ten míří `loop.sh` i `run.sh`).
+
+**Proč to bylo nebezpečné.** Zkrácená verze přepsala `Status: done` zpátky na
+`todo` u úkolů, které jsou prokazatelně hotové:
+
+| úkol | status ve frontě | skutečnost |
+|---|---|---|
+| P4 — jednotky na flow fieldu | `todo` | hotovo, commit `9d47688` (hash log `d662d5a`) |
+| P5 — MultiMeshInstance2D | `todo` | hotovo, commit `bd39167` (hash log `4fec023`) |
+| Q1 — total time control | `todo` | hotovo, commit `c65dfa6` (hash log `90a5e6f`) |
+| P3 — dirty-region | `todo` | jednou zavřený jako obsoletní, commit `67f891b` |
+
+`tools/next_task.py` vrací **první** `todo`, takže autonomní smyčka by začala
+znovu dělat P4 — refaktor pohybu jednotek a zaměřování věží — nad kódem, kde ten
+refaktor už je. To není jen ztráta času; je to nejrychlejší způsob, jak si
+rozbít hotovou práci.
+
+**Jak jsem to poznal, ne odhadl.** Pro každý ze tří úkolů sedí čtyři nezávislé
+stopy: (1) commit s tou zprávou je předek `HEAD`, (2) `PROGRESS.md` má jeho
+zápis i s tally z `verify.sh`, (3) kód je na disku (`scripts/flow_field.gd`,
+`game.gd`'s `_distraction_hash`, `scripts/components/horde_renderer.gd`,
+`SPEED_STEPS`/`_apply_time_scale()`), (4) fixture, kterou úkol vyžaduje jako
+podmínku „Hotovo", je zelená (`_test_suppression`, `_test_horde_renderer`,
+`_test_timecontrol` — všechny v baseline běhu 40 pass / 0 fail). U P4 navíc
+`_test_suppression` už není v `KNOWN_BROKEN_TESTS` ve `verify.sh` a
+`docs/KNOWN_BROKEN.md` ho vede jako „**fixed** 2026-08-30 (P4)" — přesně to,
+co P4 jako svou podmínku žádá.
+
+**Co jsem s tím udělal.** Ptal jsem se, jestli mám vyhozené úkoly vrátit; řekl
+jsi „mělo by vše být v PATHFINDING.md", takže jsem obsah **vrátil celý** —
+kořenový `PATHFINDING.MD` má teď 905 řádků: znění z
+`git show 80b56e7:docs/refactor/PATHFINDING.MD` (866 řádků, poslední verze před
+zkrácením), statusy srovnané podle commitů a `PROGRESS.md`, plus úkol
+`_test_shadow_occlusion`, který ve staré frontě nebyl a přišel až s tvým
+přepisem. Stará cesta `docs/refactor/PATHFINDING.MD` zůstává smazaná — fronta
+žije v kořeni, kam míří `run.sh` i `loop.sh`.
+
+**Co se tím vrátilo do fronty** (zkrácení to vyhodilo úplně):
+
+- **P6** (SpawnPointData, `done`), **P7** (telegraf směru, `done`),
+  **P8** (MapSegmentData, `done`), **P9** (brainfog jako vizuál, `done`) —
+  hotové, ztráta je jen dokumentační.
+- **P8b** (fog_bandwidth před P9) — `Status: blocked`, `Needs-me: yes`. Pořád
+  otevřené a pořád čeká na tebe.
+- **P10** (brainfog jako herní pravidlo) — `todo`, `Needs-me: yes`.
+- **P11** (Quick Hit a Tolerance napojené na mlhu) — `todo`, `Needs-me: no`.
+  **Tohle je jediný vyhozený úkol, který by autonomní běh mohl rovnou dělat.**
+- **P12** (minimapa) — `todo`, `Needs-me: no`. Totéž.
+- **Q2** (Quick Hit analýza) — mezitím hotové, commit `3e6a87e`.
+- **Q3** (capsule art specifikace) — `todo`, `Needs-me: yes`.
+
+Zdroj obnovy: `git show 80b56e7:docs/refactor/PATHFINDING.MD`, kopie leží
+i v `.dev/queue_lastgood.md`.
+
+**Co z toho pro autonomní běh reálně zbývá.** Po obnově je první `todo`
+`_test_shadow_occlusion` (na tom jsem pracoval). Za ním stojí **P10**
+s `Needs-me: yes` — a P11 i P12 jsou na něm věcně závislé: P11 začíná větou
+„do P10 stavíš dobrý tower defense; P11 je ta jedna vrstva", P12 říká „nutná,
+jakmile je P10 zapnuté". Dělat P11/P12 před tvým schválením P10 by znamenalo
+napojit `ModifierManager` a minimapu na pravidlo mlhy, které jsi ještě
+nepřijal — proto na nich nedělám, i když samy `Needs-me: no` mají.
+**Odblokovává je jedna věta od tebe u P10** („zahrál jsem si P9, mlha jede,
+zapni pravidlo" nebo „ne, jinak").
+
+**Poznámka pro příště, ne výtka.** Tohle je podruhé — `c833e76` („fix(docs):
+repair reverted P2/P3 status and missing P8b in PATHFINDING.MD", 2026-08-30) a
+`## docs/refactor/PATHFINDING.MD — content-integrity repair 2026-08-30` níž
+v tomhle souboru popisují tu samou nehodu o čtyři dny dřív. Dvakrát stejná
+nehoda na stejném souboru je vzorec: fronta je jediný stav, který autonomní
+běh čte a kterému bezvýhradně věří, a přitom je to obyčejný markdown, který
+komukoli stačí přepsat. Levná pojistka by byla kontrola ve `verify.sh` ve
+stejném duchu jako „orphan test scripts": pro každý `Status: done` ověřit, že
+existuje odpovídající zápis v `PROGRESS.md`. Nestavěl jsem ji — je to změna
+gate, ne úkol z fronty.
+
+## P3 (dirty-region přepočet) — `Needs-me: yes`, nepracováno, a je to už podruhé zavřené
+
+Status ve frontě zůstává `obsolete` — to je stav, který mu dal commit `67f891b`
+(P2) a který zkrácená fronta přepsala na `todo`. Tvůj přepis ze 2026-09-02 ho
+otevřel znovu, ale s `Needs-me: yes`, takže na něm stejně pracovat nesmím;
+místo změny statusu je re-open poznamenaný přímo v sekci P3 ve frontě.
+
+**Proč jsem na tom nedělal.** `Needs-me: yes`. CLAUDE.md je bezpodmínečné:
+„Když má úkol `Needs-me: yes`, nepracuj na něm."
+
+**Co k tomu ale už existuje, aby ses nerozhodoval od nuly.** Zadání chce
+*změřit* a *doporučit*, ne implementovat — a to měření z velké části proběhlo:
+
+- `docs/PERF.md` §„Flow field / anti-block (P1, P2)": full rebuild flow fieldu
+  **584 µs** proti limitu 5 ms.
+- `docs/PERF.md` §„Does this reopen P3 (dirty-region flow field recompute)?" —
+  psáno po P4, tedy přesně to „změř na reálné hře po P4/P5", které zadání žádá.
+- P2 bench: kontrola zdi **559,5 µs**, rychlé stavění **550,3 µs/zeď**, strop
+  ~1817 zdí/s ≈ 0,55 % intervalu mezi kliky hráče klikajícího 10×/s.
+- Commit `67f891b` (P2) na základě toho P3 zavřel jako **obsoletní, ale
+  revizovatelné** — rozbor v `## P3 (docs/refactor/PATHFINDING.MD) — closed as
+  OBSOLETE 2026-08-30, but REVISITABLE, not final (unlike T6)` níž.
+
+Všechna čísla jsou o řád pod prahem ~2 ms, od kterého má dirty-region podle
+zadání vůbec smysl.
+
+**Co od tebe potřebuju.** Buď „P3 zavři jako obsoletní natrvalo" (pak `Status:
+obsolete` a je to), nebo „chci ta čísla znovu, ale ze živé hry se stovkami
+jednotek, ne ze syntetického benche" — druhá varianta je práce navíc, kterou
+sám udělám, ale nezačnu ji bez tvého slova, protože `Needs-me: yes` znamená, že
+rozhodnutí o obsoletnosti je tvoje, ne moje.
+
 ## Q2 — Quick Hit analysis (S2 simulator, read-only measurement) — 2026-09-02
 
 Read-only per the task's own "NEMĚŇ ŽÁDNÁ ČÍSLA": no value in `data/` or in
