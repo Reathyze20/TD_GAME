@@ -715,7 +715,7 @@ ze 3**. Vznikl gradient: First Ping končí na 15/15, First Light na 7–13 z 25
 ## M4 — Quick Hit zapnout a doručit jeho lekci
 Model: opus
 Needs-me: no
-Status: todo
+Status: blocked
 
 `LevelData.quick_hit` je `false` na **každém** levelu v projektu, takže „stiskni Quick
 Hit" a „nedělej nic" jsou dnes bitově identická akce (Q2, 0 použití ve 24 bězích).
@@ -729,6 +729,59 @@ v `data/`; jestli se hýbe konstantou, patří to do zápisu.
 
 Hotovo: sweep ukazuje `quick_hit_spam` **lepší než `cheap_even` v prvních dvou vlnách
 a horší na konci levelu**, na všech třech seedech. Tohle je ta lekce, měřená.
+
+**BLOKOVÁNO 2026-09-02 na M5 (Q1b). Změřeno je všechno, zapnuto nic** — plné znění
+v `PROGRESS.md`:
+
+- Vznikla a zůstává nová baseline `scripts/sim_strategy_cheap_even_plus_quick_hit.gd`
+  (staví jako `cheap_even` **a** mačká). Bez ní lekci změřit nejde: `quick_hit_spam`
+  nestaví, `habits + emergency QH` mačká až pod 30 % Focusu.
+- Se zapnutým `quick_hit` byla Tolerance poprvé nenulová (19,8–29,5) — a spam vyšel
+  **čistě výhodný**: víc Focusu, víc killů, +120 dopaminu na každém seedu. Hra by dnes
+  učila opak toho, co má.
+- Tři doložené příčiny: (1) **dopamin nemá kam odtéct** — dvě stavební místa, utratí se
+  60 z 300; (2) **Quick Hit dává i Craving, což je záměrně skutečný buff** (`tower.gd`
+  to sám píše), takže stisk je bojová výhoda; (3) **jediný postih Tolerance je násobič
+  výplaty** na měně z bodu 1 — postih, který téma slibuje (zúžená pozornost), je P11.
+- **Proč vráceno:** se zapnutým Quick Hitem padá `_test_timecontrol` — 1× vs 4×, liší se
+  **jen `tolerance`** (19,873 vs 20,257), vše ostatní identické. Je to `## Q1b`
+  z `BLOCKED.md`, do teď neviditelné, protože Tolerance byla vždycky 0.
+- **Pokus o opravu Q1b selhal a je to zapsané**, aby to nikdo nezkoušel podruhé: číst
+  `_sim_tick_count` a udělat tolik `_step()`, kolik ticků uběhlo, **situaci zhorší**
+  (rozejde se i `passive`) — čtyři kroky uvnitř jednoho snímku pozorují týž simulovaný
+  okamžik. Oprava musí být hook **uvnitř `Game._sim_tick()`**. To je M5.
+
+Až M5 projde, tenhle úkol je jedna řádka v `.tres` a jeden sweep.
+
+## M5 — Q1b: strategie musí rozhodovat na sim ticku, ne na vykresleném snímku
+Model: opus
+Needs-me: no
+Status: todo
+
+`LevelSimulator` tiká `SimStrategy` jednou za **vykreslený snímek**, zatímco
+`game.gd _physics_process()` odpálí `_current_speed()` sim ticků uvnitř každého z nich.
+Při 4× tedy strategie jedná na **čtyřikrát hrubší** mřížce simulovaného času — což není
+ovládání rychlosti, ale obtížnost. `sim_strategy.gd` přitom ve vlastní hlavičce slibuje
+„ticked once per simulated frame".
+
+Diagnóza je hotová (`BLOCKED.md` → `## Q1b`, 30. 8.): první akce běhu padne na sim tick 2
+při 1× a na tick 6 při 4×, stejné rozhodnutí, jiný okamžik — a od druhé build fáze se to
+kumuluje (507 vs 543 dopaminu, 30 vs 39 killů).
+
+**Co NEDĚLAT** (změřeno 2. 9., zhoršuje to): číst `game._sim_tick_count` v driveru a volat
+`_step()` tolikrát, kolik ticků uběhlo. Čtyři kroky uvnitř jednoho snímku pozorují týž
+simulovaný okamžik, takže se granularita neopraví — a rozejde se i `passive`
+(dopamine 158 vs 159), který byl předtím bit-identický.
+
+Oprava tedy musí dostat rozhodování dovnitř `Game._sim_tick()` — volitelný pozorovatel na
+autoritativních hodinách, který nastaví jen `LevelSimulator`. Pozor na dvě věci:
+`_step()` řeší i draft overlay (ten žije na vykreslených snímcích, ne na ticích), a při 1×
+se **nesmí změnit nic** — `docs/BALANCE.md` se generuje celé na 1× a všechna dosavadní
+čísla musí zůstat srovnatelná.
+
+Hotovo: `_test_timecontrol` je zelený i se **zapnutým** `quick_hit` na `level_98`
+(`passive` i `quick-hit spam` bit-identické 1× vs 4×), `_test_level_simulator` zelený,
+a sweep na 1× dá tatáž čísla jako před opravou.
 
 ## P8b — fog_bandwidth před P9
 Model: opus

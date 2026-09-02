@@ -4029,3 +4029,107 @@ A vznikl gradient obtížnosti: **First Ping končí na 15/15, First Light na 7�
 - `docs/BALANCE.md` přegenerované (30 běhů), `docs/levels/1.md` přegenerovaný.
 - Soubory: `data/levels/level_1.tres`, `docs/levels/1.md`, `docs/BALANCE.md`,
   `PATHFINDING.MD` (Status), tento zápis.
+
+## 2026-09-02 — M4 BLOKOVÁNO na Q1b: Quick Hit změřen, ale zapnout ho zatím nejde
+
+Zapnul jsem `quick_hit`, změřil, co to udělá, a **vrátil to** — protože to shodí
+`_test_timecontrol`, což je gating test. Měření zůstává; zapnutí čeká na M5.
+
+### Co v repu zůstává
+
+- **`scripts/sim_strategy_cheap_even_plus_quick_hit.gd`** — nová trvalá baseline: staví
+  jako `cheap_even` **a zároveň** mačká Quick Hit od prvního snímku. Bez ní se lekce
+  změřit nedá: `quick_hit_spam` mačká, ale nestaví (prohrává z důvodu, který s Tolerancí
+  nesouvisí), a `habits + emergency QH` mačká až pod 30 % Focusu, tedy když je run
+  stejně ztracený. Hráč, na kterého lekce míří, **má obranu a přesto sahá po levném
+  tlačítku** — a srovnání proti `cheap_even` je přesně to měření: stejné stavby, o jedno
+  tlačítko navíc.
+- Zaregistrovaná v `_balance_sweep.gd`. Dokud je `quick_hit` vypnutý, vychází bit-identicky
+  s `cheap_even` — což v `docs/BALANCE.md` **znovu dokládá** Q2ův nález, že stisk tlačítka
+  a nicnedělání jsou dnes táž akce.
+
+### Co bylo změřeno (a pak vráceno)
+
+**Konfigurace A — `quick_hit = true`, `start_dopamine = 300` (dnešní ekonomika).**
+Tolerance byla poprvé v historii repu nenulová: **19,8–29,5** místo `0.0`. A spam vyšel
+**čistě výhodný, bez jakéhokoli postihu** — `cheap_even` vs. `cheap_even + spam`:
+
+| | zbylý Focus | dopamine | killy |
+|---|---|---|---|
+| `cheap_even` | 9 / 8 / 9 | 507 / 503 / 507 | 30 / 29 / 30 |
+| **`+ Quick Hit spam`** | **9 / 14 / 10** | **622 / 642 / 626** | **30 / 35 / 31** |
+
+Víc Focusu, víc killů, +120 dopaminu na každém ze tří seedů. Hra by dnes učila **pravý
+opak** toho, co má: *levný dopamin je zadarmo.*
+
+**Konfigurace B — navíc `start_dopamine` 300 → 40** (peníze poprvé opravdu vážou):
+
+| strategie | zbylý Focus (3 seedy) |
+|---|---|
+| build nothing | LOSS / LOSS / LOSS |
+| `cheap_even` | 9 / **3** / **4** |
+| `cheap_even + Quick Hit spam` | 7 / **8** / **11** |
+| `counter-pick + aim` | **17 / 19 / 19** |
+
+Spam teď na dvou seedech ze tří vyhrává výrazně (8 vs. 3, 11 vs. 4), protože dřív postaví
+druhou věž — **první polovina lekce sedí**. Druhá (lítost) ne: level skončí dřív, než
+ratchet Tolerance (`raise_tolerance_floor(+2)` za stisk, ten na rozdíl od špičky **nikdy
+neklesá**) stihne sebrat víc, než ty peníze koupily.
+
+### Proč lekce nedorazí — tři příčiny, všechny doložené v kódu
+
+1. **Dopamin nemá kam odtéct.** `level_98` má **dvě** stavební místa (M1 §4); `cheap_even`
+   utratí 60 z 300 a zbytek nikdy. Peníze navíc nekupují nic, takže jejich cena je neviditelná.
+2. **Quick Hit dává i Craving, a Craving je skutečný buff.** `do_quick_hit()` volá
+   `GameState.add_craving(14.0)`, a `tower.gd` u toho má vlastní komentář: *„CRAVING IS A
+   REAL BUFF, and it has to be… a downregulated brain is not slower, it is more urgent."*
+   Záměr, ne chyba — ale stisk tlačítka je tím pádem **bojová výhoda** nezávisle na
+   penězích, což vysvětluje ty killy navíc.
+3. **Jediný mechanický postih Tolerance je násobič výplaty** (`reward × (1 − 0.6 ×
+   tolerance/100)` v `game_state.gd`, táž křivka v `quick_hit_payout()`). Zdražuje měnu,
+   kterou hráč podle bodu 1 nepotřebuje. Postih, který téma slibuje — zúžená pozornost —
+   je **P11, a ten neexistuje.**
+
+### Proč to je vráceno: `_test_timecontrol`
+
+Se zapnutým Quick Hitem `verify.sh` spadl (**40 pass / 1 fail**). Rozchod je úzký a
+přesný — 1× vs. 4×, `quick-hit spam`, **liší se JEN `tolerance`**: 19,873333 vs.
+20,256667. `victory`, `focus`, `dopamine`, `kills` i `wave` jsou identické.
+
+Není to nový bug, je to `## Q1b` z `BLOCKED.md`, který předchozí běh diagnostikoval
+30. 8. do detailu a **odmítl opravit, protože to potřebovalo rozhodnutí uživatele**:
+`LevelSimulator` tiká strategii **jednou za vykreslený snímek**, zatímco `game.gd`
+odpálí `_current_speed()` sim ticků uvnitř každého z nich — 1 při 1×, 4 při 4×. Strategie
+tedy při 4× jedná na čtyřikrát hrubší mřížce simulovaného času. Do teď to bylo neviditelné,
+protože `tolerance` byla vždycky 0; Quick Hit ji odhalil.
+
+### Pokus o opravu, který SELHAL — a to je taky výsledek
+
+S plnou autorizací jsem Q1b zkusil opravit v `level_simulator.gd`: číst
+`game._sim_tick_count` a vykonat tolik `_step()`, kolik ticků reálně uběhlo.
+**Zhoršilo to to** — rozešel se i `passive`, který byl předtím bit-identický
+(dopamine 158 vs. 159):
+
+```
+FAIL passive: 1x dopamine=158   4x dopamine=159
+FAIL quick-hit spam: 1x tolerance=19.8733  4x tolerance=20.5633
+```
+
+Důvod je při zpětném pohledu zřejmý a stojí za zápis, aby to nikdo nezkoušel podruhé:
+čtyři `_step()` za sebou uvnitř jednoho snímku pozorují **týž simulovaný okamžik** —
+simulace mezi nimi neběží. Granularitu to neopraví, jen zopakuje totéž rozhodnutí
+čtyřikrát. Skutečná oprava vyžaduje, aby se hook strategie volal **uvnitř
+`Game._sim_tick()`**, tedy pozorovatele na autoritativních hodinách — což je zásah do
+hlavní smyčky `game.gd`, ne do driveru. Vráceno; `level_simulator.gd` je bajtově shodný
+s `HEAD`.
+
+### Stav a co dál
+
+- **M4 → `blocked`.** Zapnutí `quick_hit` je připravené a změřené, ale nesmí jít dovnitř,
+  dokud gate padá.
+- **Nová úloha M5** (hned za M4): opravit Q1b tak, jak to ten neúspěšný pokus vymezil —
+  hook uvnitř `_sim_tick`. Až projde, M4 je jedna řádka v `.tres` a jeden sweep.
+- **Druhá polovina lekce** („a vymstí se ti to") zůstává mimo dosah datové vrstvy, dokud
+  Tolerance nemá jinou cenu než násobič výplaty. To je **P11**, zapsáno tam.
+- `data/levels/level_98.tres` i `scripts/level_simulator.gd` jsou bajtově shodné s `HEAD`
+  (ověřeno `git diff --stat` — prázdný).

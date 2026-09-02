@@ -50,6 +50,7 @@ const STRATEGIES := [
 	["spam Quick Hit", "SimStrategyQuickHitSpam"],
 	["habits + emergency Quick Hit", "SimStrategyHabitsEmergencyQuickHit"],
 	["counter-pick + aim", "SimStrategyCounterPick"],
+	["cheap towers + Quick Hit spam", "SimStrategyCheapEvenPlusQuickHit"],
 ]
 
 func _make_strategy(class_id: String) -> SimStrategy:
@@ -64,6 +65,8 @@ func _make_strategy(class_id: String) -> SimStrategy:
 			return SimStrategyHabitsEmergencyQuickHit.new()
 		"SimStrategyCounterPick":
 			return SimStrategyCounterPick.new()
+		"SimStrategyCheapEvenPlusQuickHit":
+			return SimStrategyCheapEvenPlusQuickHit.new()
 	return null
 
 func _outcome_label(r: Dictionary) -> String:
