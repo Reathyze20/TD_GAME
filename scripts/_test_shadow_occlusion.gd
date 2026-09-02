@@ -53,19 +53,34 @@ func _ready() -> void:
 	call_deferred("_run")
 
 
-## Luma of the pixel at a world position. NOT direct 1:1 with viewport pixels, even
-## though there is no Camera2D anywhere in this project (ruled out as the cause first):
-## window/stretch/mode is "canvas_items", which scales the 1920x1080 LOGICAL canvas to
-## fit whatever the actual window turned out to be — measured here as 1895x1066, not
-## 1920x1080, presumably this environment's window/DPI, not something the shipped game
-## controls. brain_fog.gdshader's own SCREEN_UV lookups do not care (0..1 is resolution-
-## independent by construction) but a raw pixel readback from a CPU-side Image does. A
-## first pass at this test skipped this and got confusing near-zero deltas at points that
-## should have been brightly lit — off by ~1.3%, i.e. ~26px at this map's scale, plenty to
-## land a sample meant to be "just past a 16px-thick wall" on the wrong side of it.
+## Luma of the pixel at a world position. NOT assumed 1:1 with the readback image, and
+## NOT hardcoded to a canvas size either — the ratio is read from the live viewport every
+## call. World coordinates are logical-canvas coordinates; `img` is whatever size the
+## readback happened to come back at.
+##
+## THIS LINE IS THE ENTIRE "KNOWN-BROKEN" STORY, so it gets the long version. It used to
+## read `Vector2(sz.x / 1920.0, sz.y / 1080.0)`, with a comment explaining that
+## window/stretch/mode was "canvas_items" over a 1920x1080 LOGICAL canvas measured back
+## as 1895x1066. Both halves of that stopped being true: `project.godot` now declares a
+## 480x270 viewport with stretch mode "viewport" and integer scaling (the T5 square
+## migration and the 480x270 UI rescale), and the readback comes back at exactly 480x270.
+## The constant did not follow, so every sample was taken at 480/1920 = 0.25 of its
+## intended position — a point meant to sit 56 px left of the core was read 342 px away
+## from it, off the board entirely and nowhere near any light.
+##
+## That one stale constant is why docs/KNOWN_BROKEN.md recorded a "Defect 2 — real
+## regression in rendering: the lamp adds nothing to the rendered image at all", quoting
+## `blocked point (272.0, 137.0) off=0.0967 on=0.0967 (delta +0.0000)`. Those coordinates
+## give it away: y=137 is this 480x270 board's own core row, not a 1920x1080 one, so that
+## measurement was already taken after the rescale and read pixels at (68, 34) and
+## (160, 34) — the top edge of the screen, outside the field. Re-measured with the ratio
+## derived instead of assumed, the core lamp contributes +0.15 luma at r=10 and stays
+## above this test's own 0.003 threshold out to r~100. The lamp was never broken; the
+## ruler was.
 func _sample(img: Image, world_pos: Vector2) -> float:
 	var sz := img.get_size()
-	var scale := Vector2(sz.x / 1920.0, sz.y / 1080.0)
+	var canvas := get_viewport().get_visible_rect().size
+	var scale := Vector2(sz.x / canvas.x, sz.y / canvas.y)
 	var p := world_pos * scale
 	var x: int = clampi(int(p.x), 0, sz.x - 1)
 	var y: int = clampi(int(p.y), 0, sz.y - 1)
@@ -85,60 +100,90 @@ func _run() -> void:
 
 	var core_pos: Vector2 = game.objective_pos
 	var r: float = Game.CORE_ROUTINE_RADIUS
+	var g = Data.GRID
+	var tile := float(g.tile)
+	# Shrunk by a tile on every side, deliberately. A sample landing on the outermost pixel
+	# column reads a border pixel where the field art ends, and the whole measurement below
+	# is a luma difference of ~0.018 -- small enough that an edge artefact would swamp it.
+	# The unshrunk rect first picked (479.7, 187.8) on a 480-wide board: passing, but one
+	# pixel from the edge and passing for no reason anyone could rely on.
+	var board := Rect2(
+		Vector2(float(g.origin_x), float(g.origin_y)),
+		Vector2(float(g.cols) * tile, float(g.rows) * tile)).grow(-tile)
 
-	# Search level.high_ground for a wall cell close enough to the core that a point just
-	# past its far side is still within the core's own lamp radius, confirm has_line_of_
-	# sight calls that point blocked, then scan for a point at the SAME radius the same
-	# check calls clear.
+	# WHY THIS TEST NOW PLANTS ITS OWN WALL INSTEAD OF HUNTING FOR ONE.
+	#
+	# The original search walked level.high_ground for a wall cell in the ring
+	# (24 px, 0.80 * r] around the core and sampled a point just past its far side. That
+	# worked while CORE_ROUTINE_RADIUS was 330: the ring reached out to 264 px and level
+	# 1's wall mass sat inside it. P8b halved every light radius to fit the real 480x224
+	# board (330 -> 165), which pulled the ring in to (24, 132] -- and on the shipped level
+	# the NEAREST wall cell is 128 px from the core, with every other one past 132.
+	# Measured: of 27 wall cells, 24 fell outside the ring and the remaining 3 were
+	# rejected because the point "just past" them landed inside the same wall mass. Zero
+	# candidates, which is the `blocked=(inf, inf) r=0` this fixture had been failing with.
+	#
+	# Widening the ring does not fix it, and it is worth writing down why so nobody tries:
+	# the core lamp's contribution, re-measured along five angles with the sampler above
+	# fixed, is +0.1190 at r=10, +0.0183 at r=55, +0.0078 at r=85, +0.0026 at r=100 and
+	# indistinguishable from zero from r=115 outward -- 1/255 is 0.0039, so past ~r=100 the
+	# signal is under the 8-bit floor of the readback itself. Every wall on this level is
+	# at r>=128, i.e. in the dead zone. A ring wide enough to include one would only ever
+	# produce a "clear point gained no brightness" failure that says nothing about
+	# occlusion -- exactly the false failure this file's own comments already warn about
+	# twice ("once picked a point near 90% of r under that pre-fix curve and failed for a
+	# similar reason -- neither failure meant shadows were broken").
+	#
+	# So the geometry is now BUILT rather than found. That also removes a dependency this
+	# test never declared and nobody could see: it silently required the shipped level to
+	# carry a wall in a particular annulus around its objective, and level authoring broke
+	# it from a distance. What the test ASSERTS is unchanged -- the three checks at the
+	# bottom of this function are the same three, on the same thresholds.
+	var sample_r: float = clampf(r * 0.34, tile * 2.5, r * 0.5)
+
+	var wall_cell := Vector2i(-9999, -9999)
 	var blocked_point := Vector2.INF
 	var clear_point := Vector2.INF
-	var sample_r := 0.0
-	for cell: Vector2i in game.high_ground.keys():
-		if cell == game.objective_cell:
+	for deg in range(0, 360, 5):
+		var dir := Vector2.RIGHT.rotated(deg_to_rad(float(deg)))
+		var candidate := core_pos + dir * sample_r
+		if not board.has_point(candidate):
 			continue
-		var wc: Vector2 = game.cell_center(cell)
-		var d := wc.distance_to(core_pos)
-		# The comparison this test makes (clear point brighter than blocked point, same
-		# radius from the same light) only needs both points to sit where the light's
-		# falloff is not ALREADY zero for reasons that have nothing to do with occlusion —
-		# it does not need the flat, no-falloff zone specifically. That zone is now small
-		# for the core (Game.SHADOW_CURVE_WIDE.x = 0.17 of r, since the 2026-08-18 playtest
-		# fix made the core/Anchor curve more gradual — SHADOW_CURVE_TIGHT (0.55) is the
-		# tower lamp's curve only, no longer the core's), so pinning the search to inside
-		# it made level 1 too sparse to find a candidate at all. 0.80 stays comfortably
-		# under SHADOW_CURVE_WIDE.y (0.90, where the curve goes hard to zero) while giving
-		# the search a much wider ring to find real geometry in. A first pass at this test
-		# used 0.55 (the core's pre-fix curve) and, separately, once picked a point near
-		# 90% of r under that pre-fix curve and failed for a similar reason — neither
-		# failure meant shadows were broken.
-		if d < 24.0 or d > r * 0.80:
-			continue
-		var dir := (wc - core_pos).normalized()
-		var candidate := wc + dir * 24.0   # a bit past the far side of the wall cell
 		if game.high_ground.has(game.world_to_cell(candidate)):
-			continue   # still inside a thick wall mass — try a different cell
-		if game.has_line_of_sight(core_pos, candidate):
-			continue   # not actually occluded (e.g. grazed a 1-cell-deep wall)
-		var r_try := core_pos.distance_to(candidate)
-		if r_try > r:
 			continue
+		# The wall goes 1.5 tiles short of the sample, so the sample sits just past its far
+		# face -- the same "a bit past the far side of the wall cell" the search-based
+		# version used, now expressed in tiles instead of a 24 px literal that happened to
+		# be 1.5 tiles only while a tile was 16 px.
+		var cell := game.world_to_cell(core_pos + dir * (sample_r - tile * 1.5))
+		if cell == game.objective_cell or game.high_ground.has(cell):
+			continue
+		if not board.has_point(game.cell_center(cell)):
+			continue
+		# A clear point at the SAME radius, at least 60 degrees away so the wall about to be
+		# planted cannot shadow it too, and ON THE BOARD -- the old scan checked neither, and
+		# would happily return a point off the right-hand edge that _sample() then clamped
+		# back to the border pixel, silently reading a different radius than it reported.
 		var found_clear := Vector2.INF
-		for deg in range(0, 360, 5):
-			var a := deg_to_rad(float(deg))
-			var cp := core_pos + Vector2.RIGHT.rotated(a) * r_try
-			if game.has_line_of_sight(core_pos, cp):
-				found_clear = cp
-				break
-		# Keep the CLOSEST-to-core candidate found, not the first: closer means more of
-		# the light's falloff still remains (stronger signal), which matters more now
-		# that the search ring is wide (0.80 * r) and its far edge sits close to
-		# SHADOW_CURVE_WIDE.y (0.90), where the curve is nearly zero regardless of
-		# occlusion. Do not break early — keep scanning every candidate cell so a closer
-		# one later in iteration order still wins.
-		if found_clear != Vector2.INF and (blocked_point == Vector2.INF or r_try < sample_r):
-			blocked_point = candidate
-			clear_point = found_clear
-			sample_r = r_try
+		for deg2 in range(0, 360, 5):
+			var sep: int = absi(((deg2 - deg + 180) % 360) - 180)
+			if sep < 60:
+				continue
+			var cp := core_pos + Vector2.RIGHT.rotated(deg_to_rad(float(deg2))) * sample_r
+			if not board.has_point(cp):
+				continue
+			if game.high_ground.has(game.world_to_cell(cp)):
+				continue
+			if not game.has_line_of_sight(core_pos, cp):
+				continue
+			found_clear = cp
+			break
+		if found_clear == Vector2.INF:
+			continue
+		wall_cell = cell
+		blocked_point = candidate
+		clear_point = found_clear
+		break
 
 	_check("found a blocked+clear sample pair at the same radius from the core",
 		blocked_point != Vector2.INF and clear_point != Vector2.INF,
@@ -147,6 +192,34 @@ func _run() -> void:
 		completed = true
 		print("\n%d FAIL(S)" % fails if fails > 0 else "\nALL PASS")
 		get_tree().quit(1 if fails > 0 else 0)
+		return
+
+	# Plant the occluder. Same order _set_sunk() uses when Tolerance re-solidifies a sunk
+	# block -- the game's own "a cell just became a wall" recipe -- plus the occluder rebuild
+	# _set_sunk() does NOT do (noted in PROGRESS.md; sinking walls and cast shadows drifting
+	# apart is a real game-side question, not this test's to answer).
+	game.high_ground[wall_cell] = true
+	if not game.level.high_ground.has(wall_cell):
+		game.level.high_ground.append(wall_cell)
+	if game.astar.is_in_bounds(wall_cell.x, wall_cell.y):
+		game.astar.set_point_solid(wall_cell, true)
+	game._build_platforms()
+	game._rebuild_walls()
+	game._build_shadow_occluders()
+	await get_tree().process_frame
+
+	# Preconditions, not the thing under test: if the planted cell does not read as
+	# occluding to the game's OWN raycast, every brightness number below is meaningless and
+	# would otherwise fail the real checks with a misleading story.
+	_check("the planted wall cell occludes the blocked point",
+		not game.has_line_of_sight(core_pos, blocked_point),
+		"wall_cell=%s blocked=%s" % [wall_cell, blocked_point])
+	_check("the clear point is still clear after planting the wall",
+		game.has_line_of_sight(core_pos, clear_point), "clear=%s" % clear_point)
+	if fails > 0:
+		completed = true
+		print("\n%d FAIL(S)" % fails)
+		get_tree().quit(1)
 		return
 
 	# The core's own always-on lamp (built unconditionally in _build_shadow_light_layer)

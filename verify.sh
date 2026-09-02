@@ -44,13 +44,6 @@ KNOWN_BROKEN_TESTS=(
   # Arc width has no effect on lighting at all (15 deg -> 120 deg lights the same 36
   # cells) and rotation moves the lit set asymmetrically. Real. First red: 26814f9.
   _test_fog_bandwidth
-  # Needs a display to run at all (REQUIRES_DISPLAY_TESTS below) -- kept here too so a
-  # display-mode run of this pre-existing, unrelated bug still doesn't gate an unrelated
-  # task's verify.sh. Re-run with a display 2026-09-02: fails EARLIER than the last
-  # documented symptom (can't find a sample pair at all, not a zero-delta reading) --
-  # CORE_ROUTINE_RADIUS shrank 330->165 since the zero-delta finding, independently of
-  # this bug, and starved the test's own search. See docs/KNOWN_BROKEN.md, not this line.
-  _test_shadow_occlusion
   # assets/towers/head_zen_pulsar_frame_1..8.png are gone; head_zen_pulsar.png survives.
   # A genuinely missing file, not an expectation. First red: 0465a23.
   _test_zen_pulsar
@@ -63,6 +56,11 @@ KNOWN_BROKEN_TESTS=(
 # --headless, for real. This only gates whether a test can be ATTEMPTED; whether its
 # result then counts against the gate once it runs is still KNOWN_BROKEN_TESTS/
 # FLAKY_TESTS' job, same as any other fixture -- the two lists compose.
+# _test_shadow_occlusion stays here after being FIXED and removed from KNOWN_BROKEN_TESTS
+# (2026-09-02): needing a real renderer is a permanent property of what it measures (it
+# reads back GPU-rendered pixels to prove a LightOccluder2D really blocks a Light2D), not
+# a defect that got fixed. The two lists are independent -- this one says "can this be
+# attempted", the one above says "does its result gate the build".
 REQUIRES_DISPLAY_TESTS=(
   _test_shadow_occlusion
 )

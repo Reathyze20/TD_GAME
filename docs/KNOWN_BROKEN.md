@@ -93,86 +93,119 @@ That file is gone. What survives is `assets/towers/head_zen_pulsar.png` (plus it
   upgrade tiers correctly fall back to the base sprite key — so the line under test works;
   only the file it names is gone.
 
-## `_test_shadow_occlusion` — two defects stacked, neither one a texture
+## `_test_shadow_occlusion` — FIXED 2026-09-02 (was: "two defects stacked, neither one a texture")
 
-This is the entry P0e singled out, and the "missing texture" reading was wrong twice over.
+**Both defects are gone, and the second one was never real.** The fixture is green,
+removed from `KNOWN_BROKEN_TESTS`, and stays in `REQUIRES_DISPLAY_TESTS` — needing a real
+renderer is a permanent property of what it measures, not a defect. Below: what each
+defect turned out to be, kept in full because the second one is a lesson about this
+inventory's own method.
 
-**Defect 1 — it cannot run headless, and verify.sh runs it headless.**
+### Defect 1 — "it cannot run headless, and verify.sh runs it headless"
 
+Correctly diagnosed, and already resolved before this fix, by `dcfd43e`'s
+`REQUIRES_DISPLAY_TESTS` / `SKIP-NO-DISPLAY` category: the fixture is no longer attempted
+under `--headless` (where `RendererDummy` has no pixels to read back) and runs for real,
+without `--headless`, when `$DISPLAY` or `VERIFY_WITH_DISPLAY=1` is set. Nothing more was
+needed here.
+
+### Defect 2 — "with a real renderer it still fails, and that failure is real" — WRONG
+
+This entry recorded a **real regression in rendering**: *"toggling `shadow_enabled`
+changes the picture by exactly zero at both sample points... The lamp adds nothing to the
+rendered image at all."* That conclusion does not survive re-measurement. The lamp works.
+
+The whole thing was one stale constant in the test's own sampler:
+
+```gdscript
+var scale := Vector2(sz.x / 1920.0, sz.y / 1080.0)   # _test_shadow_occlusion.gd:_sample()
 ```
-ERROR: Parameter "t" is null.
-   at: texture_2d_get (./servers/rendering/dummy/storage/texture_storage.h:110)
-SCRIPT ERROR: Cannot call method 'get_size' on a null value.
-   at: _sample (res://scripts/_test_shadow_occlusion.gd:67)
-```
 
-The null is not a texture asset. It is `get_viewport().get_texture().get_image()` at
-`_run()` line 157 returning null, because `--headless` installs the **dummy renderer**
-(`RendererDummy`, per the error's own path) and there are no rendered pixels to read back.
-The test's own header says so in as many words: *"Needs a real renderer (--main-scene, NOT
---headless: shadows are computed on the GPU and this reads pixels back from the
-viewport)"*, and its documented invocation carries no `--headless` flag. `verify.sh` runs
-every fixture with `--headless`.
+`project.godot` declares a **480x270** viewport with `stretch/mode="viewport"` and integer
+scaling — it has since the T5 square migration and the 480x270 UI rescale — and
+`get_viewport().get_texture().get_image()` comes back at exactly 480x270. World
+coordinates are already canvas coordinates, so the correct ratio is 1.0; the hardcoded one
+is 480/1920 = **0.25**. Every sample was read at a quarter of its intended position.
 
-- **Class:** harness mismatch — not any of P0e's three.
-- **First red:** `5d72b07` (T0, the commit that added `verify.sh` and with it the
-  `--headless` invocation, at what is line 79 in that version). The test predates it
-  (`e3df867`) and was written to be run by hand.
-
-**Defect 2 — with a real renderer it still fails, and that failure is real.**
+The evidence was in this entry the whole time and got read past. Its own quoted failure is
 
 ```
 blocked point (272.0, 137.0): off=0.0967 on=0.0967 (delta +0.0000)
 clear   point (640.0, 137.0): off=0.7281 on=0.7281 (delta +0.0000)
-FAIL clear point gained more brightness from the light than the blocked point did
-FAIL clear point gained brightness off->on at all delta=0.0000
 ```
 
-Run without `--headless` the readback works — those are real base-art luminances — but
-toggling `shadow_enabled` changes the picture by **exactly zero** at both sample points,
-including the clear one sitting at r=184 well inside the core lamp's r=330. The lamp adds
-nothing to the rendered image at all.
+`y=137` is **this 480x270 board's core row** (`objective_cell (28, 7)` -> world
+`(456, 137)`). On a 1920x1080 canvas the core would sit near y=548. So that measurement
+was already taken after the rescale, and at scale 0.25 it read pixels at (68, 34) and
+(160, 34) — the top edge of the window, off the playfield, where of course nothing changes
+when a lamp 100+ px away toggles. The reading was honest; what it was pointed at was not.
 
-`game.gd`'s own comment (around line 2036) explains what the effect depends on: *"Light2D's
-default blend mode is ADD, and nothing in this project uses CanvasModulate, so the base art
-already renders at full authored brightness with zero lights present — adding a Light2D does
-not darken anything, it only ADDS a warm pool"*. So the whole feature rests on that ADD pass
-landing on the field art, and measurably it does not.
+**Re-measured with the ratio derived from the live viewport instead of assumed** (five
+angles, `shadow_enabled` off vs on, core lamp `r=165`):
 
-- **Class:** real regression in rendering.
-- **First red (this symptom):** `26814f9` (T5). At `04b6fc5`, T5's parent, the test fails
-  *earlier* and differently — it cannot even find a sample pair (`blocked=(inf, inf) r=0`),
-  the out-of-bounds-level mask described at the top. **No green commit was found**: every
-  reachable earlier commit is masked by that older defect, so "it worked before T5" is
-  plausible but unproven.
-- **Suspect, unproven:** `_build_square_terrain()` (`game.gd:661`, described in its own
-  comment as a T5 first-pass placeholder) drawing over or outside the lights' reach. Worth
-  checking before anything else, but nobody has.
+| radius | 10 | 25 | 40 | 55 | 70 | 85 | 100 | 115 | 130+ |
+|---|---|---|---|---|---|---|---|---|---|
+| luma delta | +0.1190 | +0.0275 | +0.0248 | +0.0183 | +0.0131 | +0.0078 | +0.0026 | 0.0000 | 0.0000 |
 
-**Verify.sh gating, added after this entry was written:** `verify.sh` now reports
-`SKIP-NO-DISPLAY` for this fixture instead of attempting it headless (`REQUIRES_DISPLAY_TESTS`)
-and only actually runs it — without `--headless` — when `$DISPLAY` or `VERIFY_WITH_DISPLAY=1`
-is set. That changes *whether the harness runs it*, not the finding above: Defect 2 was
-already measured with a real renderer and is a confirmed regression, not an open question.
+The lamp contributes 0.119 luma at r=10 and stays above the fixture's own 0.003 threshold
+out to about r=100. (1/255 = 0.0039, so past ~r=100 the signal is under the 8-bit floor of
+the readback itself — "zero" there means "unmeasurable this way", not "absent".) The
+suspect this entry named — `_build_square_terrain()` drawing over the lights — is
+**cleared**, and nobody needs to check it.
 
-**Re-run with a real display (2026-09-02), and Defect 2 could not be re-observed — it now
-fails EARLIER again, the way it did before T5:**
+### What actually still needed fixing, and it was the search, not the renderer
+
+With the sampler corrected the fixture failed at its FIRST check instead:
+`blocked=(inf, inf) r=0`. That part of this entry's 2026-09-02 note was right — the cause
+is `CORE_ROUTINE_RADIUS` shrinking 330 -> 165 at P8b — and here is the measurement behind
+it. The old search wanted a wall cell in the ring (24 px, `0.80 * r`], i.e. **(24, 132]**.
+On the shipped level, of 27 wall cells:
+
+- **24** are further than 132 px from the core (nearest wall of all: **128 px**),
+- **3** are inside the ring but rejected because the point "just past" them lands inside
+  the same wall mass,
+- **0** candidates survive.
+
+Widening the ring cannot fix this, and the table above says why: every wall on this level
+is at r>=128, and past ~r=100 the lamp contributes nothing measurable. A wider ring buys
+only "clear point gained no brightness" failures that say nothing about occlusion — the
+exact false failure the fixture's own comments already warned about twice.
+
+**The fix:** the test now PLANTS its own occluder (one cell, 1.5 tiles short of a sample
+radius derived from the live `CORE_ROUTINE_RADIUS`) using the game's own "a cell just
+became a wall" recipe from `_set_sunk()`, then measures. That also removes an undeclared
+dependency nobody could see — the fixture silently required the shipped level to carry a
+wall in a particular annulus around its objective, so level authoring could break it from
+a distance, which is exactly what happened. **All three original assertions and their
+thresholds are unchanged**; two preconditions were added (the planted wall really occludes;
+the clear point really is still clear), and a fault-injection run with the occluder rebuild
+commented out fails 2 of 3 as it should, so the pass is not vacuous.
+
+Measured result, bit-identical across three consecutive runs:
 
 ```
-FAIL found a blocked+clear sample pair at the same radius from the core
-  blocked=(inf, inf) clear=(inf, inf) r=0 (core lamp r=165)
+blocked point (460.8894, 192.8865): off=0.1020 on=0.1020 (delta +0.0000)
+clear   point (410.0456, 169.1776): off=0.1020 on=0.1203 (delta +0.0183)
+ALL PASS
 ```
 
-This is the same symptom the top of this entry attributes to `04b6fc5` (T5's parent) — the
-search that finds a blocked/clear sample pair comes up empty before any brightness delta is
-even measured. The test's own search radius is `Game.CORE_ROUTINE_RADIUS`, printed above as
-**165** — but Defect 2's numbers were measured against a core lamp of **r=330** (see
-`_test_fog_bandwidth`'s entry below and this file's own §2 reference elsewhere). Something
-shrank `CORE_ROUTINE_RADIUS` from 330 to 165 sometime after `26814f9`, independently of this
-bug, and that shrink appears to have starved the test's own geometry search back down into
-the older failure mode — before the zero-delta rendering question can even be asked again.
-**Not investigated further** (out of scope for the task that found this); Defect 2's
-rendering claim is neither confirmed nor refuted by this run, only unreachable under it.
+### The method lesson, since this file already has a section on one
+
+This inventory's §"Two things this inventory corrected" opens by saying three entries were
+misfiled because someone *"read a failure line without checking what the named thing
+actually was."* Defect 2 is the same mistake one level up: a **measurement** was trusted
+without checking what the measuring instrument was pointed at. `(272.0, 137.0)` was printed
+in the entry, and `137` was already enough to notice the canvas had moved. The class
+"real regression in rendering" was assigned to a number that a stale constant produced.
+
+### Side finding, not fixed here (out of scope, worth someone's attention)
+
+`Game._set_sunk()` — the sinking-wall mechanic — rebuilds platforms, walls, path previews
+and the flow field when a cell turns solid or hollow, but does **not** call
+`_build_shadow_occluders()`. So a wall that sinks or re-solidifies at runtime changes
+collision and pathing while its cast shadow keeps the old shape. Found while reusing that
+function's recipe; not touched, since it is a game-side question and this task's brief was
+the fixture.
 
 ## `_test_fog_bandwidth` — real regression, arc width does nothing
 
@@ -293,7 +326,7 @@ with the status system it was meant to be testing.
 |---|---|---|---|
 | `_test_deep_reading` | data/test contract | `0465a23` | `0465a23` |
 | `_test_zen_pulsar` | missing file | `0465a23` | `0465a23` |
-| `_test_shadow_occlusion` | harness mismatch + render regression | `5d72b07` (headless) | `26814f9` (zero delta) |
+| `_test_shadow_occlusion` | harness mismatch + **stale sampler constant, NOT a render regression** — **fixed** 2026-09-02 | `5d72b07` (headless) | `26814f9` (zero delta, since disproven) |
 | `_test_fog_bandwidth` | logic regression | ≤ `5d72b07` | `26814f9` |
 | `_test_suppression` | logic regression — **fixed** 2026-08-30 (P4) | ≤ `5d72b07` | `26814f9` |
 | `_test_phase3` | test-design defect — **fixed** 2026-08-30 | n/a (race) | n/a |

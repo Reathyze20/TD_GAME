@@ -791,10 +791,25 @@ P8b, blokováno na uživateli). `./verify.sh` tally v `PROGRESS.md`.
 ## _test_shadow_occlusion — oprava testu
 Model: sonnet
 Needs-me: no
-Status: todo
+Status: done
 
 Selhává, protože CORE_ROOTLINE_RADIUS se od napsání testu zmenšil. Regrese
 v testu, ne v systému. Oprav referenční hodnoty, vyřaď z known-broken.
+
+**Hotovo 2026-09-02.** Diagnóza v zadání seděla, ale byla to až druhá ze dvou
+vad. První: `_sample()` škáloval readback konstantou `sz / 1920x1080`, zatímco
+`project.godot` má 480×270 — každý vzorek se četl na čtvrtině zamýšlené pozice.
+To zároveň **vyvrací** záznam „Defect 2" v `docs/KNOWN_BROKEN.md` („the lamp
+adds nothing to the rendered image at all"): přeměřeno správným poměrem dává
+jádrová lampa +0,1190 luma na r=10 a je nad prahem testu do r≈100. Druhá vada
+je ta z pravého zadání: P8b zmenšil `CORE_ROUTINE_RADIUS` 330 → 165, mezikruží
+hledání se stáhlo na (24, 132] a nejbližší zeď levelu je na 128 px — 0 kandidátů.
+Rozšířit mezikruží nepomůže (za r≈100 lampa neměří nic), takže si test occluder
+**staví sám**. Všechny tři původní assertions i prahy beze změny, přibyly dvě
+preconditions; injektovaná chyba dokazuje, že PASS není prázdný. Odebráno
+z `KNOWN_BROKEN_TESTS`, zůstává v `REQUIRES_DISPLAY_TESTS` (skutečný renderer
+je trvalá potřeba, ne vada). `./verify.sh` s displejem: **41 pass, 0 fail,
+3 known-broken, 0 no-display**. Detail v `PROGRESS.md` a `docs/KNOWN_BROKEN.md`.
 
 ## P10 — brainfog jako herní pravidlo
 Model: sonnet

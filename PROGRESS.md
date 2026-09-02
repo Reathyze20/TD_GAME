@@ -3606,3 +3606,78 @@ commitem.
   `.tres` ani `.tscn`), takže tally platí beze změny.
 - Soubory: `PATHFINDING.MD` (obnovená fronta, přesun z `docs/refactor/`),
   `BLOCKED.md`, tento zápis.
+
+## 2026-09-02 — `_test_shadow_occlusion` opraven: příčinou byla zastaralá konstanta v měřidle, ne render
+
+- **Úkol z fronty:** „Selhává, protože CORE_ROOTLINE_RADIUS se od napsání testu zmenšil.
+  Regrese v testu, ne v systému. Oprav referenční hodnoty, vyřaď z known-broken."
+  Diagnóza v zadání byla správná — ale byla to jen **druhá** ze dvou vad, a ta první
+  byla zajímavější.
+- **Vada 1 — měřidlo ukazovalo na špatné místo.** `_sample()` škáloval readback
+  konstantou `Vector2(sz.x / 1920.0, sz.y / 1080.0)`. `project.godot` ale deklaruje
+  **480×270** viewport se `stretch/mode="viewport"` (od T5 a přeškálování UI) a
+  `get_viewport().get_texture().get_image()` vrací přesně 480×270. Světové souřadnice
+  UŽ JSOU souřadnice plátna, takže správný poměr je 1.0; zadrátovaný byl 480/1920 =
+  **0,25**. Každý vzorek se četl na čtvrtině zamýšlené pozice.
+- **Tohle vyvrací záznam „Defect 2" v `docs/KNOWN_BROKEN.md`**, který tvrdil *„real
+  regression in rendering — the lamp adds nothing to the rendered image at all"*. Důkaz
+  byl v tom záznamu celou dobu a přečetl se přes něj: jeho vlastní citovaný výstup je
+  `blocked point (272.0, 137.0) ... delta +0.0000`, a `y=137` je **řádek jádra téhle
+  480×270 desky** (`objective_cell (28, 7)` → `(456, 137)`). Na plátně 1920×1080 by
+  jádro leželo u y≈548. To měření tedy vzniklo už po přeškálování a při poměru 0,25
+  četlo pixely na (68, 34) a (160, 34) — horní okraj okna, mimo hrací pole. Měření bylo
+  poctivé, jen mířilo jinam.
+- **Přeměřeno s poměrem odvozeným z živého viewportu** (pět úhlů, `shadow_enabled`
+  off vs. on, jádrová lampa r=165): delta jasu **+0,1190** na r=10, +0,0275 (25),
+  +0,0248 (40), +0,0183 (55), +0,0131 (70), +0,0078 (85), +0,0026 (100), **0,0000 od
+  r=115 dál**. Lampa funguje; nad prahem testu (0,003) je do zhruba r=100. (1/255 =
+  0,0039, takže „nula" za r≈100 znamená „tímhle způsobem neměřitelné", ne „chybí".)
+  Podezřelý, kterého ten záznam jmenoval — `_build_square_terrain()` kreslící přes
+  světla — je tím **očištěný**.
+- **Vada 2 — hledání geometrie, přesně jak zadání říkalo.** Po opravě měřidla test padal
+  hned na prvním checku (`blocked=(inf, inf) r=0`). Původní hledání chtělo buňku zdi
+  v mezikruží (24 px, `0.80 * r`], tedy **(24, 132]**. P8b zmenšil všechny poloměry
+  světel na skutečnou desku 480×224 (330 → 165) a tím to mezikruží stáhl. Změřeno na
+  shipnutém levelu: z 27 buněk zdi je **24** dál než 132 px (nejbližší zeď vůbec:
+  **128 px**), **3** jsou uvnitř, ale bod „těsně za nimi" padne do téže masy zdi →
+  **0 kandidátů**.
+- **Rozšířit mezikruží by to neopravilo** a je to zapsané přímo v testu, aby to nikdo
+  nezkoušel: každá zeď na tomhle levelu je na r≥128 a za r≈100 lampa neměří nic. Širší
+  prstenec by kupoval jen selhání „clear point gained no brightness", které o okluzi
+  neříká nic — přesně ten falešný pád, před kterým komentáře v tom souboru varují už
+  dvakrát.
+- **Oprava:** test si teď occluder **sám postaví** (jedna buňka, 1,5 dlaždice před
+  vzorkovacím poloměrem odvozeným z živého `CORE_ROUTINE_RADIUS`) receptem, který na
+  „buňka se právě stala zdí" používá sama hra (`_set_sunk()`), a pak měří. Tím zároveň
+  mizí nepřiznaná závislost, kterou nikdo neviděl: fixture tiše vyžadovala, aby shipnutý
+  level měl zeď v konkrétním mezikruží kolem cíle, takže ji autorování levelů mohlo
+  rozbít na dálku — což se přesně stalo.
+- **Co se NEZMĚNILO: všechny tři původní assertions ani jejich prahy.** Přibyly dvě
+  *preconditions* (postavená zeď skutečně stíní; clear bod je po jejím postavení pořád
+  čistý) — kontroly navíc, ne slevené. Spadá to pod výslovné svolení v zadání úkolu
+  („Regrese v testu... Oprav referenční hodnoty"), ne pod obecné pravidlo
+  „neupravuj `_test_*`".
+- **Že to není prázdný PASS, je doloženo injektovanou chybou:** s odkomentovaným
+  `game._build_shadow_occluders()` blocked bod zesvětlá úplně stejně jako clear
+  (+0,0183 vs. +0,0183) a test padá na 2 ze 3 checků. S occluderem:
+  `blocked delta +0.0000`, `clear delta +0.0183`, **bitově identické ve třech bězích
+  za sebou**.
+- **`verify.sh`:** `_test_shadow_occlusion` odebrán z `KNOWN_BROKEN_TESTS`. **Zůstává
+  v `REQUIRES_DISPLAY_TESTS`** — potřeba skutečného rendereru je trvalá vlastnost toho,
+  co měří (čte zpátky GPU pixely, aby dokázal, že `LightOccluder2D` opravdu zastíní
+  `Light2D`), ne vada, která se opravila. Ty dva seznamy jsou nezávislé a skládají se.
+- **Vedlejší nález, NEOPRAVENO (mimo rozsah, ale někdo by se na to měl podívat):**
+  `Game._set_sunk()` při zesolidnění/propadnutí buňky přepočítá platformy, zdi, náhledy
+  cest i flow field, ale **nevolá `_build_shadow_occluders()`**. Propadající se zeď tedy
+  mění kolize a pathing, zatímco její vržený stín drží starý tvar. Zapsáno do
+  `docs/KNOWN_BROKEN.md`, nesahal jsem na to — je to otázka do hry, zadání bylo o fixture.
+- Dočasný diagnostický harness `scripts/_diag_shadow_geom.gd`(`.uid`) /
+  `scenes/_diag_shadow_geom.tscn` po použití **smazán** (`rm` sandbox odmítl stejně jako
+  u `dcfd43e`/`3e6a87e`, prošlo přes `powershell Remove-Item`) — tentokrát tedy po sobě
+  nezůstává nic netrackovaného.
+- **`./verify.sh` s displejem (`VERIFY_WITH_DISPLAY=1`): PASS — 41 pass, 0 fail, 0 skip,
+  3 known-broken, 0 flaky, 0 no-display.** Proti baseline před úkolem (40 pass,
+  1 no-display) je to přesně ten jeden test navíc, který se teď skutečně spouští
+  a prochází.
+- Soubory: `scripts/_test_shadow_occlusion.gd`, `verify.sh`, `docs/KNOWN_BROKEN.md`,
+  `PATHFINDING.MD` (Status), tento zápis.
