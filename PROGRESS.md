@@ -4133,3 +4133,81 @@ s `HEAD`.
   Tolerance nemá jinou cenu než násobič výplaty. To je **P11**, zapsáno tam.
 - `data/levels/level_98.tres` i `scripts/level_simulator.gd` jsou bajtově shodné s `HEAD`
   (ověřeno `git diff --stat` — prázdný).
+
+## 2026-09-02 — M5 hotovo: strategie rozhoduje na sim ticku. Zavírá i otevřené Q1
+
+`Q1b` byl v `BLOCKED.md` otevřený od 30. 8. s poznámkou *„oprava NESPADÁ pod výjimku
+v CLAUDE.md — potřebuje tvoje rozhodnutí."* Rozhodnutí padlo plnou autorizací, tak je to
+opravené.
+
+### Vada
+
+`LevelSimulator` tikal `SimStrategy` **jednou za vykreslený snímek**, zatímco
+`game.gd _physics_process()` odpálí `_current_speed()` sim ticků uvnitř každého z nich —
+1 při 1×, 4 při 4×. Scriptovaný hráč tedy při 4× pozoroval a jednal na **čtyřikrát hrubší
+mřížce simulovaného času**. To není ovládání rychlosti, to je obtížnost. `sim_strategy.gd`
+přitom ve vlastní hlavičce slibuje *„ticked once per simulated frame"* — implementace
+tedy odporovala vlastní dokumentaci.
+
+### Oprava: `Game.sim_observer`
+
+Volitelný `Callable`, volaný na **úplném konci `_sim_tick()`**, hned za
+`_check_wave_progress()`. Nastaví ho jedině `LevelSimulator` a před uvolněním `Game` ho
+zase vynuluje; v každé skutečné hře je prázdný. Driver už `_step()` sám nevolá, jen
+posouvá reálné snímky a hlídá konec.
+
+**Na konci funkce schválně:** strategie tak čte stav, který po sobě nechal **dokončený**
+tick — přesně to, co viděla, když se volala po vykresleném snímku, protože všechno, co
+ovlivňuje výsledek, už v `_sim_tick()` žije (`Game._process()` je čistá prezentace:
+kamera, glitch, horde renderer, hover, shake).
+
+### Proč to není v driveru — pokus, který selhal, a je zapsaný
+
+Předchozí pokus (2. 9., v rámci M4) četl `game._sim_tick_count` a volal `_step()`
+tolikrát, kolik ticků uběhlo. **Zhoršilo to to** — rozešel se i `passive`, který byl
+předtím bit-identický. Důvod: čtyři `_step()` za sebou uvnitř jednoho snímku pozorují
+**týž simulovaný okamžik**, simulace mezi nimi neběží. Rozhodovací bod musí být uvnitř
+tick smyčky, ne vedle ní.
+
+### Výsledek: zavírá to víc, než M5 žádalo
+
+`_test_timecontrol` (`--fixed-fps 60`):
+
+| | před | po |
+|---|---|---|
+| `passive` 1× vs 4× | bit-identické | bit-identické |
+| `quick-hit spam` 1× vs 4× | bit-identické *(jen proto, že Quick Hit byl vypnutý — M4 to odhalil)* | **bit-identické** |
+| `cheap-even` same-speed | bit-identické | bit-identické |
+| **`cheap-even` 1× vs 4×** | **30 killů / 507 dopamine vs 39 / 543** | **identické** (7 focus / 499 dopamine / 28 killů na obou) |
+
+Ten poslední řádek je `## Q1 — cross-speed combat divergence (open, 2026-08-30)`
+z `BLOCKED.md`. **Zavřený.** Byla to jediná strategie, která staví a bojuje, a jediná,
+u které test rozchod ani neasertoval — jen tiskl jako `(info)`.
+
+### A čísla při 1× se nehnula ani o bit
+
+To byla podmínka, kterou si M5 sám kladl: `docs/BALANCE.md` se generuje celé na 1×
+a všechna dosavadní měření (M1, M2, M3) musí zůstat srovnatelná. Ověřeno diffem celé
+výsledkové tabulky (2 levely × 6 strategií × 3 seedy = 36 běhů) před a po opravě:
+
+```
+diff <(grep outcomes .dev/balance_before_m5.md) <(grep outcomes docs/BALANCE.md)
+   (prázdný)
+```
+
+Dává to smysl: při 1× je jeden sim tick na snímek, takže se změnilo jen *kde uvnitř
+snímku* se rozhoduje — a to, co je mezi starým a novým místem (`Game._process()`),
+nemá na výsledek vliv.
+
+### Co to odblokovává
+
+**M4.** Zapnout `quick_hit` na `level_98` shazovalo `_test_timecontrol` právě přes tuhle
+vadu (1× vs 4× se lišila **jen `tolerance`**, 19,873 vs 20,257). Ta příčina je pryč.
+
+### Ověření
+
+- `./verify.sh` (s displejem): **41 pass, 0 fail, 0 skip, 3 known-broken, 0 flaky,
+  0 no-display.**
+- `docs/BALANCE.md` přegenerované; výsledková tabulka bajtově shodná s předchozí verzí.
+- Soubory: `scripts/game.gd`, `scripts/level_simulator.gd`, `docs/BALANCE.md`,
+  `BLOCKED.md`, `PATHFINDING.MD` (Status), tento zápis.

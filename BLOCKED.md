@@ -227,7 +227,17 @@ habit stat was changed, per the task's "NEMĚŇ ŽÁDNÁ ČÍSLA".
 `./verify.sh`: PASS — 39 pass, 0 fail, 0 skip, 3 known-broken (pre-existing,
 `docs/KNOWN_BROKEN.md`), 1 no-display — unaffected by the new strategy file.
 
-## Q1 — cross-speed combat divergence (open, 2026-08-30)
+## Q1 — cross-speed combat divergence — **VYŘEŠENO 2026-09-02 (M5)**
+
+**Zavřeno.** Příčina byla `Q1b` níž — rozhodovací kadence driveru — a je opravená:
+`Game.sim_observer`, volaný na konci `_sim_tick()`, tiká `SimStrategy` jednou za **sim
+tick** místo jednou za vykreslený snímek. `_test_timecontrol` teď hlásí `cheap-even`
+1× vs 4× jako **identické** (7 focus / 499 dopamine / 28 killů na obou) tam, kde dřív
+stálo 30 killů / 507 dopamine proti 39 / 543. Čísla při 1× se nezměnila ani o bit
+(ověřeno diffem celé výsledkové tabulky `docs/BALANCE.md`, 36 běhů). Původní text
+zůstává níž jako záznam.
+
+### Původní záznam (2026-08-30)
 
 Q1 (docs/refactor/PATHFINDING.MD) shipped and its own "Hotovo když" bar is met for
 the two zero-combat SimStrategies (`_test_timecontrol`'s passive and quick-hit-spam
@@ -1231,7 +1241,26 @@ has no PixelLab tool at all — see above) and the actual go-ahead to generate,
 which the plan's own gate still requires before Phase 0's three pieces are
 ordered.
 
-## Q1b (_test_timecontrol root cause) — ZMĚŘENO 2026-08-30: příčina je (a), rozhodovací kadence driveru. Oprava NESPADÁ pod výjimku v CLAUDE.md — potřebuje tvoje rozhodnutí.
+## Q1b (_test_timecontrol root cause) — **VYŘEŠENO 2026-09-02 (M5)**, diagnóza z 30. 8. byla správná
+
+**Zavřeno.** Diagnóza níž („příčina je (a), rozhodovací kadence driveru") seděla do
+puntíku a čekala jen na rozhodnutí, které padlo plnou autorizací. Oprava **není**
+v driveru: `Game.sim_observer` je volitelný `Callable` volaný na úplném konci
+`_sim_tick()`, nastavuje ho jedině `LevelSimulator` a před uvolněním `Game` ho vynuluje.
+
+**Co se u toho ještě naměřilo a co ten záznam nemohl vědět:** zjevná oprava na straně
+driveru — číst `_sim_tick_count` a udělat tolik `_step()`, kolik ticků uběhlo —
+**situaci ZHORŠÍ**. Rozejde se i `passive`, který byl předtím bit-identický
+(dopamine 158 vs 159), protože čtyři kroky uvnitř jednoho snímku pozorují týž
+simulovaný okamžik; simulace mezi nimi neběží. Rozhodovací bod musel dovnitř tick
+smyčky, ne vedle ní.
+
+Obava zapsaná níž („změna kadence **změní čísla v `docs/BALANCE.md`**") se
+**nepotvrdila**: sweep jede celý na 1×, kde je jeden tick na snímek, takže se změnilo
+jen místo uvnitř snímku — a mezi starým a novým místem leží `Game._process()`, který je
+čistá prezentace. Výsledková tabulka (36 běhů) je před a po opravě bajtově shodná.
+
+### Původní záznam (2026-08-30)
 
 Odpověď na zadanou otázku (a) vs (b): **(a)** — a přesně v tom smyslu, jak to
 zadání formuluje, *„čeká na snímky místo na čas"*. Není to (b): fixní tick v

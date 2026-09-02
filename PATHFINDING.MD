@@ -756,7 +756,7 @@ Až M5 projde, tenhle úkol je jedna řádka v `.tres` a jeden sweep.
 ## M5 — Q1b: strategie musí rozhodovat na sim ticku, ne na vykresleném snímku
 Model: opus
 Needs-me: no
-Status: todo
+Status: done
 
 `LevelSimulator` tiká `SimStrategy` jednou za **vykreslený snímek**, zatímco
 `game.gd _physics_process()` odpálí `_current_speed()` sim ticků uvnitř každého z nich.
@@ -782,6 +782,20 @@ se **nesmí změnit nic** — `docs/BALANCE.md` se generuje celé na 1× a všec
 Hotovo: `_test_timecontrol` je zelený i se **zapnutým** `quick_hit` na `level_98`
 (`passive` i `quick-hit spam` bit-identické 1× vs 4×), `_test_level_simulator` zelený,
 a sweep na 1× dá tatáž čísla jako před opravou.
+
+**Hotovo 2026-09-02.** Řešení je `Game.sim_observer` — volitelný `Callable` volaný na
+úplném konci `_sim_tick()`, hned za `_check_wave_progress()`. Nastaví ho jedině
+`LevelSimulator` a před uvolněním `Game` ho vynuluje; ve skutečné hře je prázdný.
+
+Vyšlo to **líp, než zadání žádalo**: bit-identické 1× vs 4× je teď i `cheap-even`, tedy
+jediná strategie, která staví a bojuje — 7 focus / 499 dopamine / 28 killů na obou
+rychlostech tam, kde dřív stálo 30 killů / 507 dopamine proti 39 / 543. Tím je zavřené
+i `## Q1 — cross-speed combat divergence` v `BLOCKED.md`, otevřené od 30. 8.
+
+A čísla při 1× se **nehnula ani o bit** — celá výsledková tabulka `docs/BALANCE.md`
+(2 levely × 6 strategií × 3 seedy = 36 běhů) je před a po opravě bajtově shodná, takže
+všechna měření z M1/M2/M3 zůstávají srovnatelná. Obava zapsaná v Q1b, že změna kadence
+čísla rozhýbe, se nepotvrdila: sweep běží celý na 1×, kde je jeden tick na snímek.
 
 ## P8b — fog_bandwidth před P9
 Model: opus

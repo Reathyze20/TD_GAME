@@ -3701,6 +3701,32 @@ const FIXED_TICK_DT := 1.0 / 60.0
 ## the remainder — 1 tick/call at 1×, up to 4 at 4×, roughly one every 4 calls at 0.25×.
 var _tick_budget := 0.0
 
+## Optional once-per-sim-tick callback for a SCRIPTED driver, and nothing else — null in
+## every real play session (only LevelSimulator ever assigns it, and it clears it again
+## before freeing the Game).
+##
+## WHY IT LIVES HERE AND NOT IN THE DRIVER (Q1b, BLOCKED.md; M5, PATHFINDING.MD).
+## LevelSimulator used to tick its SimStrategy once per RENDERED frame, while
+## _physics_process() below fires _current_speed() sim ticks inside each of those — 1 at
+## 1x, 4 at 4x. A scripted player therefore observed and acted on a 4x COARSER grid of
+## simulated time at 4x speed, which makes the speed control a difficulty setting: Q1b
+## measured the first action of a run landing on tick 2 at 1x and tick 6 at 4x, and the
+## Dopamine curves separating from the second build phase onward.
+##
+## The obvious driver-side repair does NOT work and was measured: draining the elapsed
+## tick count and calling the strategy that many times per frame makes it worse, because
+## all those calls observe the SAME simulated instant — the simulation does not advance
+## between them. The decision point has to be inside the tick loop, which is why this is
+## here.
+##
+## Called at the very END of _sim_tick(), after _check_wave_progress(), so a strategy sees
+## exactly the state a completed tick left behind — the same thing it saw when it was
+## called after a rendered frame, since everything outcome-affecting already lives in this
+## function (_process() below is presentation only). That is what keeps 1x byte-identical
+## before and after this change, and docs/BALANCE.md — generated entirely at 1x —
+## comparable across it.
+var sim_observer := Callable()
+
 ## How many fixed sim ticks this level has run, total — the authoritative "elapsed
 ## simulated time" clock (tick_count * FIXED_TICK_DT). Speed-independent by
 ## construction: reaching a given amount of simulated time always takes the same number
@@ -3825,6 +3851,11 @@ func _sim_tick(delta: float) -> void:
 			u._process(delta)
 
 	_check_wave_progress()
+
+	# The scripted driver's one decision point per tick — see sim_observer's own comment.
+	# Last in the function on purpose: a strategy reads the state a FINISHED tick left.
+	if sim_observer.is_valid():
+		sim_observer.call()
 
 func _update_aiming_process() -> void:
 	if not is_aiming or aiming_habit == null or not is_instance_valid(aiming_habit):

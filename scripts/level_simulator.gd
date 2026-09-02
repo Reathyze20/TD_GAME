@@ -88,10 +88,13 @@ func run(level_id: int, run_seed: int, strategy: SimStrategy,
 	if speed_index >= 0:
 		game.set_speed_index(speed_index)
 
+	# The strategy is driven by Game itself, once per SIM TICK, instead of once per
+	# rendered frame here (Q1b, BLOCKED.md; M5). This loop now only advances real frames
+	# and watches for the end — see Game.sim_observer for the whole reasoning.
+	game.sim_observer = _step
 	while not _done and _frame < max_frames:
 		await get_tree().process_frame
 		_frame += 1
-		_step()
 
 	if not _done:
 		result = _snapshot(false, true, _frame)
@@ -101,6 +104,9 @@ func run(level_id: int, run_seed: int, strategy: SimStrategy,
 	# _on_game_over, against a `game` this run already freed below, the moment ANY
 	# later game instance emits game_over on the same shared SignalBus.
 	SignalBus.game_over.disconnect(_on_game_over)
+	# Same reason as the disconnect above: a stale Callable into a freed LevelSimulator
+	# would fire on the next tick of a Game this run no longer owns.
+	game.sim_observer = Callable()
 	game.queue_free()
 	return result
 
