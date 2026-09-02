@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/_shot_unitscale.gd" id="1_2rm17"]
+
+[node name="ShotUnitscale" type="Node" unique_id=254292300]
+script = ExtResource("1_2rm17")

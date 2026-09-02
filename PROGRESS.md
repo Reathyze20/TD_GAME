@@ -3355,6 +3355,88 @@ necommitnutá — jejich commit ji popíše sám.
   from the earlier interrupted pass — verified, not re-done); this entry's own
   commit covers the harnesses, screenshots, and y-sort verification.
 
+## 2026-09-02 — A0 pokračování: druhá sonda na kotvu — zjednodušení siluety (§6b, NEROZHODNUTO)
+
+Explicitní autorizace v interaktivním sezení (ne autonomní run-loop, kde
+CLAUDE.md generování zakazuje) k útraně kreditů PixelLabu na jednu sondu.
+Jiná osa než §6a (30. 8. 2026): §6a zplošťovala celou postavu a ztratila
+identitu tvora (žádná zelená, žádný zeleninový motiv). Tahle sonda nechává
+dithering/stínování/texturu (přesně to, co §6a smazala) a mění jen počet
+prvků, které lámou siluetu.
+
+**Diagnóza sporu, který se tu testuje pryč:** mechanický pipeline
+(`gen_art_prompts.py`) lepí za KAŽDÝ prompt doslova §7 (suffix) i §7b
+(design constraints). U 64px zbrojné postavy to vyrábí spor: forma žádá
+„riveted armour", §7 ve stejném volání říká „no mechanical parts, no panels
+or screws" — zbroj se poptává a zároveň zakazuje jako mechanická. Zákaz
+ditheringu se navíc v assemblovaném popisu objevuje DVAKRÁT (§7b's řádek
+„detail" i §7 samo). Proto tenhle popis **NEpoužívá `bible["suffix"]` ani
+§7b's řádek „detail" doslova** — schválně, to jsou ty dva zdroje sporu.
+Zbytek §7b (oči/obličej, končetiny, tón, postoj, perspektiva) a standardní
+rámování zůstaly, protože si nekonfliktují s ničím výše.
+
+**Popis psaný kladně, s bany jen pro kameru/rámování** — s dvěma vědomými
+výjimkami převzatými ze zadání doslova (`no rivets, straps, buckles, or
+small trim anywhere`, `no eyes and no face anywhere on the head`), protože
+to je nejspolehlivější způsob, jak konkrétní prvky opravdu potlačit, ne
+přehlédnutí vlastní kontroly na spor. Před odesláním provedena kontrola na
+vnitřní spor (dvě klauze, co si odporují) — žádný nenalezen; plný text je
+v `STYLE_BIBLE.md` §6b i v `tools/anchor_simplify_candidates.py`'s
+`DESCRIPTION`.
+
+**Nový `tools/anchor_simplify_candidates.py`** (parametry čte přes
+`gen_art_prompts.load_bible()`/`load_schema()`/`adapt_to_schema()`,
+nekopíruje logiku podruhé — stejný vzor jako `anchor_flat_candidates.py`).
+`get_balance` před: **4820**. Jedno volání `create_character`, `mode=pro`,
+`size=64`, `view="low top-down"`, `outline="single color black outline"`,
+**záměrně bez `style_character_id`** (kandidát na NOVOU/upravenou kotvu, ne
+variace staré — s odkazem na starou by šlo o protichůdné zadání).
+`negative_description` (`bible["negative"]` doslova) v `params` byl, ale
+`adapt_to_schema` ho zahodil — živé schéma (`tools/pixellab_schema.json`)
+ho na `create_character` nemá (A0b), stejně jako u zbytku rejstříku; nic
+se tím neztratilo, negativa nese slovně samotný popis.
+
+`get_balance` po: **4820 — beze změny**, ačkoli job doběhl (`completed`,
+`state_name: Idle`, 8 kandidátů staženo). Nesedí to na §6a (4880 → 4860,
+čistých −20 za `pro`). Zapsáno jako naměřený fakt: mezi §6a a touhle sondou
+přeskočil účet na `subscription: active (Tier 3: Pixel Architect)` s
+poznámkou „generations_total is this cycle's allowance (prorated on a
+mid-cycle upgrade)" — možné vysvětlení je změna účtovacího modelu, ne že by
+generace byla zadarmo omylem. Nepotvrzeno, nedomýšleno dál.
+
+8 kandidátů staženo do `assets/raw/anchor_simplify/` (`cand_00`–`cand_07`),
+žádná paleta (nevybíralo se). **`assets/raw/broccoli_knight/` ověřeno
+nedotčené** — `git status` před i po ukazuje jen dvě netracked položky
+(`idle/`, `simplified_silhouette/`), které tam existovaly už před touhle
+sondou a nesouvisí s ní; `cand_00`–`cand_07` a `cand_00_pal48` beze změny.
+
+**Zjištění, ne verdikt — mechanické, ne estetické:** na rozdíl od §6a si
+všech 8 kandidátů drží identitu tvora (zelená, floretová hlava, zbroj,
+štít jsou na první pohled rozpoznatelné jako brokolicový rytíř). Kontaktní
+list (barevný řádek + siluetový řádek, `cand_03` vlevo jako živá kotva)
+ukazuje siluety s méně drobnými výstupky než cand_03, blíž zadaným „třem
+silným tvarům" (hlava/tělo/štít-a-zbraň). Nezaznamenáno jako důkaz, že
+tenhle přístup je lepší — jen že se prompt na kontaktním listu chová v
+souladu s tím, co žádal.
+
+Kontaktní list: `.dev/screenshots/anchor_simplify_candidates.png`
+(`tools/anchor_simplify_candidates.py sheet`). **Nevybíráno, nehodnoceno**,
+jak zadání žádalo. Zapsáno do nové `STYLE_BIBLE.md` §6b, hned za §6a;
+`gen:anchors` (§6) zůstává beze změny.
+
+**Co zůstává otevřené:** jestli tenhle směr (detail zůstává, siluetových
+prvků ubývá) sedí líp než §6a's úplné zplošťování, a jestli se má zkusit
+jako revize `fa8294b1-…` (SE `style_character_id`) místo jako kandidát na
+úplně novou kotvu.
+
+- Soubory: `docs/art/STYLE_BIBLE.md` (§6b), `tools/anchor_simplify_candidates.py`
+  (nový), `assets/raw/anchor_simplify/*.png` (8, nové),
+  `.dev/screenshots/anchor_simplify_candidates.png` (nový), tento zápis.
+  `assets/raw/broccoli_knight/` beze změny.
+- verify.sh: nespouštěno — tenhle úkol je čistě art sonda bez dopadu na kód
+  nebo data, žádný `_test_*` s ní nesouvisí.
+- Commit: (zapsat po commitu).
+
 ## 2026-09-02 — verify.sh: SKIP-NO-DISPLAY kategorie, orphan-scene kontrola, fixed-fps sanity
 
 Tři úpravy zadané jako jeden úkol, ale s opravou vlastního zadání dřív, než jsem

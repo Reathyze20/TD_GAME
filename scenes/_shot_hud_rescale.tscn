@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/_shot_hud_rescale.gd" id="1_twtcg"]
+
+[node name="ShotHudRescale" type="Node" unique_id=10636781]
+script = ExtResource("1_twtcg")

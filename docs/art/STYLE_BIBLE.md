@@ -348,6 +348,104 @@ sám o sobě míň závisí na barvě k rozpoznání. `gen:anchors` (§6) zůst�
 beze změny, dokud se nerozhodne — `fa8294b1-…` je pořád jediná platná kotva
 projektu.
 
+## 6b. Druhá sonda: zjednodušení siluety (2. 9. 2026, NEROZHODNUTO)
+
+**Jiná osa než §6a, schválně.** §6a odstranila detail (`flat shading, minimal
+dithering, ..., no texture noise`) a zjistila, že se s ním ztrácí i identita
+tvora — bez kotvy nezůstala zelená ani zeleninový motiv, výsledkem byla
+„plošší obecná postava", ne „plošší brokolicový rytíř". Tahle sonda jde
+opačným směrem: **dithering, tři stínovací tóny a materiálová textura zůstávají
+v promptu** (přesně to, co §6a smazala) a mění se jen počet prvků, které lámou
+siluetu — méně nýtů/přezek/drobného lemu, tělo čtené jako tři silné tvary
+(hlava, zbraň, štít) místo mnoha malých.
+
+**Proč zrovna tahle proměnná.** Mechanický pipeline (`gen_art_prompts.py`) lepí
+za KAŽDÝ prompt doslova §7 (suffix) i §7b (design constraints), včetně postav.
+U bohatě zbrojené 64px postavy to vyrábí spor, který cand_03 (živá kotva) přežil
+jen proto, že ho model neposlechl doslova: forma žádá „riveted armour", §7 ve
+stejném volání říká „organic neural tissue, ..., no mechanical parts, no panels
+or screws" — zbroj se poptává a zároveň zakazuje jako „mechanická". Zákaz
+ditheringu se navíc v assemblovaném popisu objevuje DVAKRÁT (§7b's řádek
+„detail" i §7 samo), což na detailní postavě zplošťuje kresbu.
+
+**Co se proto v promptu vědomě NEpoužilo doslova:** `bible["suffix"]` (§7) ani
+§7b's řádek „detail" (`gen:design_constraints`) — to jsou přesně ty dva zdroje
+sporu. Zbytek §7b (oči/obličej, končetiny, tón, postoj, perspektiva) a
+standardní rámování/zákaz textu zůstaly v duchu původního textu, protože si
+nekonfliktují s ničím výše. Uživatel žádal popis psaný kladně, s bany jen pro
+kameru/rámování — tahle věta z toho má dvě vědomé výjimky (`no rivets, straps,
+buckles, or small trim anywhere` a `no eyes and no face anywhere on the head`),
+obě převzaté doslova ze zadání jako nejspolehlivější způsob, jak konkrétní
+prvky opravdu potlačit, ne jako přehlédnutí kontrolou na spor.
+
+Plný odeslaný popis (`tools/anchor_simplify_candidates.py`, `DESCRIPTION`):
+
+```text
+a broccoli knight defender, florets first, a wall that soaks hits and pins
+whole clumps in place; large continuous armour plates cover the body, with
+no rivets, straps, buckles, or small trim anywhere; the silhouette is broken
+by exactly three strong shapes and nothing else: a rounded floret-crowned
+head, a single held weapon, and a broad shield; standing on two legs, holding
+its weapon and shield in visible arms; no eyes and no face anywhere on the
+head; reads warm, calm and inviting, like the other habits and defenders;
+stands planted and grounded, anchored to the ground, not floating or
+hovering; gritty pixel dithering and three shading tones give the armour
+weight and volume, the shadow tone hue-shifted at least 20 degrees toward
+cool; visible material texture across the armour and floret surfaces; 1px
+outline in a darker shade of the same hue, never black; colours taken only
+from the supplied reference palette image; camera is a low top-down view
+straight at the subject, front-facing, zero isometric tilt, no camera pitch;
+centered, full object visible, margin on all sides; no text, no numbers, no
+UI, no logo, no frame, no baked drop shadow
+```
+
+Parametry: `mode="pro"`, `size=64`, `view="low top-down"`,
+`outline="single color black outline"`, `name="anchor_simplify_probe"`.
+**Záměrně bez `style_character_id`** — stejný důvod jako §6a: cíl je kandidát
+na NOVOU/upravenou kotvu, ne variace staré, takže odkaz na starou by žádal
+napodobit její detail a zároveň ho zjednodušit, protichůdně.
+
+`negative_description` (`bible["negative"]` doslova) se do `params` dal, ale
+`adapt_to_schema` ho stejně jako u zbytku rejstříku zahodil — živé schéma
+(`tools/pixellab_schema.json`) ho na `create_character` nemá (A0b). Nic se tím
+neztratilo, protože negativa už nese slovně samotný popis.
+
+**`get_balance`: 4820 před, 4820 po — beze změny, i když job doběhl a stáhl
+8 kandidátů.** To NENÍ konzistentní s §6a (4880 → 4860, čistých −20) a je to
+zapsáno jako naměřený fakt, ne domyšlené na −20: mezi §6a (30. 8. 2026) a
+touhle sondou (2. 9. 2026) přeskočil `subscription` na „Tier 3: Pixel
+Architect" s `generations_total` poznámkou „prorated on a mid-cycle upgrade" —
+možné vysvětlení je změna účtovacího modelu na tomhle tieru, ne že by se
+generace stala zadarmo omylem. Nepotvrzeno, nedomýšleno dál.
+
+8 kandidátů staženo do `assets/raw/anchor_simplify/` (`cand_00`–`cand_07`),
+žádná paleta (nevybíralo se). **`assets/raw/broccoli_knight/` zůstalo
+nedotčené** — `cand_03.png` (zdroj živé kotvy) i zbytek složky beze změny,
+ověřeno `git status` před i po (jediné netracked položky v ní,
+`idle/` a `simplified_silhouette/`, existovaly už před touhle sondou a
+nesouvisí s ní).
+
+**Zjištění, ne verdikt — mechanické, ne estetické:** na rozdíl od §6a si
+všech 8 kandidátů drží identitu tvora — zelená paleta, floretová hlava, zbroj
+a štít jsou na první pohled rozpoznatelné jako brokolicový rytíř, ne obecná
+lidská postava. Kontaktní list (barevný řádek i silueta) ukazuje siluety
+s menším počtem drobných výstupků než živá kotva cand_03 (jejíž silueta má
+zubatý obrys od pláště a hole) — u většiny kandidátů se obrys čte jako
+hlava/tělo/štít-a-zbraň, blíž zadaným „třem silným tvarům" než cand_03.
+Nezaznamenáno jako důkaz, že tenhle přístup je lepší — jen že se prompt na
+kontaktním listu chová v souladu s tím, co žádal.
+
+Kontaktní list: `.dev/screenshots/anchor_simplify_candidates.png`
+(`tools/anchor_simplify_candidates.py sheet`) — barevný řádek a siluetový
+řádek vedle sebe, `cand_03` vlevo jako živá kotva pro srovnání.
+**Nevybíráno, nehodnoceno** — čeká na uživatele.
+
+**Co zůstává otevřené:** stejná otázka jako §6a — jestli tenhle směr (detail
+zůstává, siluetových prvků ubývá) sedí líp než §6a's úplné zplošťování, a
+jestli se má zkusit jako revize `fa8294b1-…` (SE `style_character_id`, jako
+skutečná varianta živé kotvy) místo jako kandidát na úplně novou. `gen:anchors`
+(§6) zůstává beze změny, dokud se nerozhodne.
+
 ## 7. Povinný suffix
 
 Jde do **`description` každého promptu**, doslova, na konci, oddělený `; `. Testuje se

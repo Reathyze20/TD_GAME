@@ -1,0 +1,5492 @@
+{
+ "scripts_gd": [
+  {
+   "path": "addons/td_anim_lab/dock.gd",
+   "size_lines": 864,
+   "uid": "uid://di2bumulhbfll",
+   "class_name": null,
+   "path_refs": [
+    [
+     "addons/td_anim_lab/plugin.gd",
+     1
+    ],
+    [
+     "tools/anim_autofix.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "addons/td_anim_lab/plugin.gd",
+   "size_lines": 23,
+   "uid": "uid://b8y1d5y7mn367",
+   "class_name": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "addons/td_level_designer/dock.gd",
+   "size_lines": 410,
+   "uid": "uid://cv4r2l1eryula",
+   "class_name": null,
+   "path_refs": [
+    [
+     "addons/td_level_designer/plugin.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "addons/td_level_designer/plugin.gd",
+   "size_lines": 243,
+   "uid": "uid://dw45vysfvx464",
+   "class_name": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scenes/pilot_isometric/iso_pilot.gd",
+   "size_lines": 358,
+   "uid": "uid://cq0hri1oh5xc1",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/pilot_isometric/IsoPilot.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/_balance_sweep.gd",
+   "size_lines": 109,
+   "uid": "uid://c3ustf22cvg0h",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_balance_sweep.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/_perf_horde.gd",
+   "size_lines": 108,
+   "uid": "uid://301un56rsb2u",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_perf_horde.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/_perf_probe.gd",
+   "size_lines": 130,
+   "uid": "uid://dab2dkjrpvgb1",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_perf_probe.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/_perf_shadows.gd",
+   "size_lines": 279,
+   "uid": "uid://d3w7bht64hc1m",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_perf_shadows.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/_play_campaign.gd",
+   "size_lines": 65,
+   "uid": "uid://ubxpl4cga57n",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_play_campaign.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_play_campaign.tscn"
+  },
+  {
+   "path": "scripts/_play_iso.gd",
+   "size_lines": 60,
+   "uid": "uid://be3rx3outhvtb",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_play_iso.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_play_iso.tscn"
+  },
+  {
+   "path": "scripts/_play_trod.gd",
+   "size_lines": 42,
+   "uid": "uid://bdkmc0f0ora61",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_play_trod.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_play_trod.tscn"
+  },
+  {
+   "path": "scripts/_probe_align.gd",
+   "size_lines": 28,
+   "uid": "uid://jtkh3q8vfibo",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_probe_align.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/_shot_aim.gd",
+   "size_lines": 63,
+   "uid": "uid://cgv6v7mdfirkk",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_shot_aim.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_shot_aim.tscn"
+  },
+  {
+   "path": "scripts/_shot_anchor_flat.gd",
+   "size_lines": 192,
+   "uid": "uid://dberac6o4fw2",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_shot_anchor_flat.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_shot_anchor_flat.tscn"
+  },
+  {
+   "path": "scripts/_shot_contact_sheet.gd",
+   "size_lines": 313,
+   "uid": "uid://chgai81cdhkcg",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_shot_contact_sheet.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_shot_contact_sheet.tscn"
+  },
+  {
+   "path": "scripts/_shot_crowd.gd",
+   "size_lines": 66,
+   "uid": "uid://u0gyhsux42n3",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_shot_crowd.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_shot_crowd.tscn"
+  },
+  {
+   "path": "scripts/_shot_fire.gd",
+   "size_lines": 96,
+   "uid": "uid://b054q43vgnn4x",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_shot_fire.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_shot_fire.tscn"
+  },
+  {
+   "path": "scripts/_shot_flat.gd",
+   "size_lines": 271,
+   "uid": "uid://voca1u715meb",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_shot_flat.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_shot_flat.tscn"
+  },
+  {
+   "path": "scripts/_shot_fog.gd",
+   "size_lines": 94,
+   "uid": "uid://c7fl64xrvene6",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_shot_fog.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_shot_fog.tscn"
+  },
+  {
+   "path": "scripts/_shot_iso_board.gd",
+   "size_lines": 63,
+   "uid": "uid://bgmlq8swimt18",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_shot_iso_board.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_shot_iso_board.tscn"
+  },
+  {
+   "path": "scripts/_shot_p9_fog_variants.gd",
+   "size_lines": 136,
+   "uid": "uid://bwy52cbb7vvvv",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_shot_p9_fog_variants.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_shot_p9_fog_variants.tscn"
+  },
+  {
+   "path": "scripts/_shot_palette_swap.gd",
+   "size_lines": 132,
+   "uid": "uid://dt6q6pjbjk6vj",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_shot_palette_swap.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_shot_palette_swap.tscn"
+  },
+  {
+   "path": "scripts/_shot_phase0.gd",
+   "size_lines": 255,
+   "uid": "uid://d0vjqurkjciee",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_shot_phase0.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_shot_phase0.tscn"
+  },
+  {
+   "path": "scripts/_shot_phase0_candidates.gd",
+   "size_lines": 253,
+   "uid": "uid://bvcrdmitdg6bl",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_shot_phase0_candidates.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_shot_phase0_candidates.tscn"
+  },
+  {
+   "path": "scripts/_shot_readability.gd",
+   "size_lines": 132,
+   "uid": "uid://nmwa8d250tut",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_shot_readability.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_shot_readability.tscn"
+  },
+  {
+   "path": "scripts/_shot_shadows.gd",
+   "size_lines": 158,
+   "uid": "uid://doi2ubsvplv2k",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_shot_shadows.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_shot_shadows.tscn"
+  },
+  {
+   "path": "scripts/_shot_splat.gd",
+   "size_lines": 43,
+   "uid": "uid://buhpxdursd30n",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_shot_splat.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_shot_splat.tscn"
+  },
+  {
+   "path": "scripts/_shot_telegraph.gd",
+   "size_lines": 139,
+   "uid": "uid://y7sgbclba20d",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_shot_telegraph.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_shot_telegraph.tscn"
+  },
+  {
+   "path": "scripts/_shot_topdown_mockup.gd",
+   "size_lines": 89,
+   "uid": "uid://b1nrmx5mfodqt",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_shot_topdown_mockup.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_shot_topdown_mockup.tscn"
+  },
+  {
+   "path": "scripts/_shot_trod.gd",
+   "size_lines": 74,
+   "uid": "uid://cgehmk5h0unr1",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_shot_trod.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_shot_trod.tscn"
+  },
+  {
+   "path": "scripts/_shot_verify.gd",
+   "size_lines": 158,
+   "uid": "uid://cck6ru8c4afsi",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_shot_verify.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_shot_verify.tscn"
+  },
+  {
+   "path": "scripts/_test_antiblock.gd",
+   "size_lines": 281,
+   "uid": "uid://dkc7ro4wvk1gi",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_antiblock.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_antiblock.tscn"
+  },
+  {
+   "path": "scripts/_test_art_prompts.gd",
+   "size_lines": 347,
+   "uid": "uid://b00x34ljlhyb4",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_art_prompts.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_art_prompts.tscn"
+  },
+  {
+   "path": "scripts/_test_ascii_sidecar.gd",
+   "size_lines": 225,
+   "uid": "uid://bs2eoj6qbfw85",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_ascii_sidecar.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_ascii_sidecar.tscn"
+  },
+  {
+   "path": "scripts/_test_attention.gd",
+   "size_lines": 418,
+   "uid": "uid://cmcupk77g0d",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_attention.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_attention.tscn"
+  },
+  {
+   "path": "scripts/_test_deep_reading.gd",
+   "size_lines": 202,
+   "uid": "uid://bko7rbdpnlc34",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_deep_reading.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_deep_reading.tscn"
+  },
+  {
+   "path": "scripts/_test_economy_characterization.gd",
+   "size_lines": 345,
+   "uid": "uid://c48bi1w2ibft8",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_economy_characterization.tscn",
+     1
+    ],
+    [
+     "tools/make_test_scene.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_economy_characterization.tscn"
+  },
+  {
+   "path": "scripts/_test_effort.gd",
+   "size_lines": 185,
+   "uid": "uid://sf7sxaeir6jq",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_effort.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_effort.tscn"
+  },
+  {
+   "path": "scripts/_test_flowfield.gd",
+   "size_lines": 165,
+   "uid": "uid://b8yr7w7d2x6e5",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_flowfield.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_flowfield.tscn"
+  },
+  {
+   "path": "scripts/_test_fog_bandwidth.gd",
+   "size_lines": 306,
+   "uid": "uid://dhwg4s4w7yi5",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_fog_bandwidth.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_fog_bandwidth.tscn"
+  },
+  {
+   "path": "scripts/_test_horde_renderer.gd",
+   "size_lines": 206,
+   "uid": "uid://bjqxhfvdh1x7m",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_horde_renderer.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_horde_renderer.tscn"
+  },
+  {
+   "path": "scripts/_test_level_simulator.gd",
+   "size_lines": 85,
+   "uid": "uid://5qqh4u4aju6",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_level_simulator.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_level_simulator.tscn"
+  },
+  {
+   "path": "scripts/_test_levels.gd",
+   "size_lines": 218,
+   "uid": "uid://bh05dry2dmvpb",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_levels.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_levels.tscn"
+  },
+  {
+   "path": "scripts/_test_los.gd",
+   "size_lines": 134,
+   "uid": "uid://bnxlja5i6fphy",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_los.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_los.tscn"
+  },
+  {
+   "path": "scripts/_test_mapeditor.gd",
+   "size_lines": 238,
+   "uid": "uid://cvd06768otmly",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_mapeditor.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_mapeditor.tscn"
+  },
+  {
+   "path": "scripts/_test_maze_validity.gd",
+   "size_lines": 99,
+   "uid": "uid://cc1upjji41qnn",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_maze_validity.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_maze_validity.tscn"
+  },
+  {
+   "path": "scripts/_test_multispawn.gd",
+   "size_lines": 281,
+   "uid": "uid://fyaoxruhmuqy",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_multispawn.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_multispawn.tscn"
+  },
+  {
+   "path": "scripts/_test_nutrition_guild.gd",
+   "size_lines": 325,
+   "uid": "uid://banch70d8g6xl",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_nutrition_guild.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_nutrition_guild.tscn"
+  },
+  {
+   "path": "scripts/_test_path_metrics.gd",
+   "size_lines": 155,
+   "uid": "uid://bvyjig3us40jb",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_path_metrics.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_path_metrics.tscn"
+  },
+  {
+   "path": "scripts/_test_phase2.gd",
+   "size_lines": 152,
+   "uid": "uid://dldo04p0ry7fl",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_phase2.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_phase2.tscn"
+  },
+  {
+   "path": "scripts/_test_phase3.gd",
+   "size_lines": 209,
+   "uid": "uid://c5l224t1h83b5",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_phase3.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_phase3.tscn"
+  },
+  {
+   "path": "scripts/_test_phase4.gd",
+   "size_lines": 180,
+   "uid": "uid://cyw6u1xnxppq1",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_phase4.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_phase4.tscn"
+  },
+  {
+   "path": "scripts/_test_phase6.gd",
+   "size_lines": 79,
+   "uid": "uid://dpvebs4trr5r1",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_phase6.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_phase6.tscn"
+  },
+  {
+   "path": "scripts/_test_phase7.gd",
+   "size_lines": 320,
+   "uid": "uid://ba87gmio5fe50",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_phase7.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_phase7.tscn"
+  },
+  {
+   "path": "scripts/_test_save_round_trip.gd",
+   "size_lines": 223,
+   "uid": "uid://dgt2o1rgmxqk4",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_save_round_trip.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_save_round_trip.tscn"
+  },
+  {
+   "path": "scripts/_test_segments.gd",
+   "size_lines": 709,
+   "uid": "uid://dt6revk7wa3h5",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_segments.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_segments.tscn"
+  },
+  {
+   "path": "scripts/_test_shadow_occlusion.gd",
+   "size_lines": 198,
+   "uid": "uid://7wtsajb8vk6g",
+   "class_name": null,
+   "path_refs": [
+    [
+     "docs/KNOWN_BROKEN.md",
+     1
+    ],
+    [
+     "scenes/_test_shadow_occlusion.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_shadow_occlusion.tscn"
+  },
+  {
+   "path": "scripts/_test_sink.gd",
+   "size_lines": 182,
+   "uid": "uid://bh0so3i0m78rl",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_sink.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_sink.tscn"
+  },
+  {
+   "path": "scripts/_test_square_projection.gd",
+   "size_lines": 111,
+   "uid": "uid://l35he0t7seb1",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_square_projection.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_square_projection.tscn"
+  },
+  {
+   "path": "scripts/_test_streak.gd",
+   "size_lines": 173,
+   "uid": "uid://fd0b4l3l3uud",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_streak.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_streak.tscn"
+  },
+  {
+   "path": "scripts/_test_suppression.gd",
+   "size_lines": 278,
+   "uid": "uid://cbv076dqyl1pq",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_suppression.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_suppression.tscn"
+  },
+  {
+   "path": "scripts/_test_taxonomy.gd",
+   "size_lines": 340,
+   "uid": "uid://2td48oc3qn10",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_taxonomy.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_taxonomy.tscn"
+  },
+  {
+   "path": "scripts/_test_telegraph.gd",
+   "size_lines": 307,
+   "uid": "uid://kny0of6mt5cc",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_telegraph.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_telegraph.tscn"
+  },
+  {
+   "path": "scripts/_test_timecontrol.gd",
+   "size_lines": 149,
+   "uid": "uid://cr26haucq2ysn",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_timecontrol.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_timecontrol.tscn"
+  },
+  {
+   "path": "scripts/_test_trod.gd",
+   "size_lines": 114,
+   "uid": "uid://djutn2hwiowp4",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_trod.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_trod.tscn"
+  },
+  {
+   "path": "scripts/_test_zen_pulsar.gd",
+   "size_lines": 317,
+   "uid": "uid://dvfyhnh60vycu",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/_test_zen_pulsar.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": true,
+   "has_paired_test_scene": true,
+   "paired_scene": "scenes/_test_zen_pulsar.tscn"
+  },
+  {
+   "path": "scripts/ad_overlay.gd",
+   "size_lines": 228,
+   "uid": "uid://ovo3c0605kg3",
+   "class_name": "AdOverlay",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "PROGRESS.md",
+    "docs/art/STYLE_BIBLE.md",
+    "scripts/_test_attention.gd",
+    "scripts/education.gd",
+    "scripts/game.gd",
+    "tools/gen_art_prompts.py"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/animation_test.gd",
+   "size_lines": 218,
+   "uid": "uid://cks6fdrh6kjpo",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/AnimationTest.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/anti_block_validator.gd",
+   "size_lines": 47,
+   "uid": "uid://cibnvhcftwg0h",
+   "class_name": "AntiBlockValidator",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "BLOCKED.md",
+    "PROGRESS.md",
+    "docs/refactor/PATHFINDING.MD",
+    "scripts/_test_antiblock.gd",
+    "scripts/_test_multispawn.gd",
+    "scripts/_test_segments.gd",
+    "scripts/resources/spawn_point_data.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/barracks.gd",
+   "size_lines": 204,
+   "uid": "uid://1rr22n4s5pl5",
+   "class_name": "Barracks",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "BLOCKED.md",
+    "docs/ART_PIPELINE.md",
+    "docs/DEBT.md",
+    "docs/REFACTOR_PLAN.md",
+    "docs/core/00_overview.md",
+    "docs/game_design.md",
+    "scripts/_shot_shadows.gd",
+    "scripts/_test_fog_bandwidth.gd",
+    "scripts/_test_nutrition_guild.gd",
+    "scripts/_test_phase4.gd",
+    "scripts/base_habit.gd",
+    "scripts/boss.gd",
+    "scripts/build_spot.gd",
+    "scripts/defender_unit.gd",
+    "scripts/game.gd",
+    "scripts/resources/intervention_data.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/base_habit.gd",
+   "size_lines": 97,
+   "uid": "uid://b2heevwnom5eb",
+   "class_name": "BaseHabit",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "docs/REFACTOR_PLAN.md",
+    "docs/core/00_overview.md",
+    "scripts/_test_phase4.gd",
+    "scripts/barracks.gd",
+    "scripts/build_spot.gd",
+    "scripts/enemy.gd",
+    "scripts/level_simulator.gd",
+    "scripts/tower.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/boss.gd",
+   "size_lines": 99,
+   "uid": "uid://b6ba3cr32rfwc",
+   "class_name": "Boss",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "docs/ART_PIPELINE.md",
+    "docs/design/dopamine_mechanics.md",
+    "scripts/animation_test.gd",
+    "scripts/components/distraction_animator.gd",
+    "scripts/game.gd",
+    "scripts/resources/level_data.gd",
+    "tools/art_provenance.py",
+    "tools/gen_ui.py",
+    "tools/palette_morph.py",
+    "tools/prompt_assist.py",
+    "tools/raster_x2.py"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/build_spot.gd",
+   "size_lines": 99,
+   "uid": "uid://brg2e8bpfgkqy",
+   "class_name": "BuildSpot",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "docs/DEBT.md",
+    "docs/core/01_rendering_and_depth.md",
+    "docs/core/06_barracks_and_soldier_mechanics.md",
+    "docs/core/07_building_system_and_grid.md",
+    "scripts/_perf_shadows.gd",
+    "scripts/_shot_fire.gd",
+    "scripts/_shot_flat.gd",
+    "scripts/_shot_fog.gd",
+    "scripts/_shot_p9_fog_variants.gd",
+    "scripts/_shot_readability.gd",
+    "scripts/_shot_shadows.gd",
+    "scripts/_test_fog_bandwidth.gd",
+    "scripts/_test_nutrition_guild.gd",
+    "scripts/_test_phase2.gd",
+    "scripts/_test_phase4.gd",
+    "scripts/_test_phase7.gd",
+    "scripts/_test_sink.gd",
+    "scripts/_test_suppression.gd",
+    "scripts/_test_taxonomy.gd",
+    "scripts/base_habit.gd",
+    "scripts/enemy.gd",
+    "scripts/game.gd",
+    "scripts/level_simulator.gd",
+    "scripts/test_slice_runner.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/components/arc_profile.gd",
+   "size_lines": 150,
+   "uid": "uid://b8axama186ntq",
+   "class_name": "ArcProfile",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "BLOCKED.md",
+    "CLAUDE.md",
+    "PROGRESS.md",
+    "docs/core/05_tower_system_and_targeting.md",
+    "docs/core/16_isometric_slice.md",
+    "docs/design/dopamine_mechanics.md",
+    "docs/refactor/SYSTEMS.MD",
+    "scripts/_test_effort.gd",
+    "scripts/_test_fog_bandwidth.gd",
+    "scripts/_test_suppression.gd",
+    "scripts/enemy.gd",
+    "scripts/game.gd",
+    "scripts/mirror.gd",
+    "scripts/projectile.gd",
+    "scripts/resources/habit_data.gd",
+    "scripts/tower.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/components/distraction_animator.gd",
+   "size_lines": 953,
+   "uid": "uid://1qwbctavcq3d",
+   "class_name": "DistractionAnimator",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "BLOCKED.md",
+    "CLAUDE.md",
+    "PROGRESS.md",
+    "addons/td_anim_lab/dock.gd",
+    "docs/PERF.md",
+    "docs/refactor/PATHFINDING.MD",
+    "docs/refactor/SYSTEMS.MD",
+    "scripts/_test_horde_renderer.gd",
+    "scripts/boss.gd",
+    "scripts/components/horde_atlas.gd",
+    "scripts/components/horde_renderer.gd",
+    "scripts/defender_unit.gd",
+    "scripts/enemy.gd",
+    "scripts/game.gd",
+    "scripts/resources/anim_tuning.gd",
+    "shaders/horde_atlas.gdshader",
+    "tools/board_preview.py",
+    "tools/install_pixellab.py"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/components/horde_atlas.gd",
+   "size_lines": 138,
+   "uid": "uid://cghm33mfjv0ml",
+   "class_name": "HordeAtlas",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "PROGRESS.md",
+    "docs/refactor/PATHFINDING.MD",
+    "scripts/_test_horde_renderer.gd",
+    "scripts/components/distraction_animator.gd",
+    "scripts/components/horde_renderer.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/components/horde_renderer.gd",
+   "size_lines": 282,
+   "uid": "uid://c34v0eb22wch6",
+   "class_name": "HordeRenderer",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "PROGRESS.md",
+    "docs/PERF.md",
+    "docs/refactor/PATHFINDING.MD",
+    "scripts/_test_horde_renderer.gd",
+    "scripts/components/distraction_animator.gd",
+    "scripts/components/horde_atlas.gd",
+    "scripts/game.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/components/status_manager.gd",
+   "size_lines": 260,
+   "uid": "uid://dq6lnnkbwfbu8",
+   "class_name": "StatusManager",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "BLOCKED.md",
+    "CLAUDE.md",
+    "docs/REFACTOR_PLAN.md",
+    "docs/core/00_overview.md",
+    "docs/core/04_enemy_system_and_pathfinding.md",
+    "docs/core/05_tower_system_and_targeting.md",
+    "docs/core/12_player_abilities.md",
+    "docs/refactor/SYSTEMS.MD",
+    "scripts/_test_phase3.gd",
+    "scripts/_test_zen_pulsar.gd",
+    "scripts/defender_unit.gd",
+    "scripts/enemy.gd",
+    "scripts/resources/distraction_data.gd",
+    "scripts/resources/habit_data.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/data.gd",
+   "size_lines": 461,
+   "uid": "uid://dvxywrfh5ncxp",
+   "class_name": null,
+   "path_refs": [
+    [
+     "project.godot",
+     1
+    ],
+    [
+     "tools/build_terrain_tileset.gd",
+     1
+    ],
+    [
+     "tools/map_editor.gd",
+     1
+    ],
+    [
+     "tools/stylized_renderer.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/decor_layer.gd",
+   "size_lines": 179,
+   "uid": "uid://chit562i7n4lf",
+   "class_name": "DecorLayer",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "docs/MIGRATION_AUDIT.md",
+    "scripts/game.gd",
+    "scripts/resources/level_data.gd",
+    "tools/board_preview.py",
+    "tools/map_editor.gd",
+    "tools/stylized_renderer.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/defender_unit.gd",
+   "size_lines": 666,
+   "uid": "uid://nc1yq0iwekkm",
+   "class_name": "DefenderUnit",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "BLOCKED.md",
+    "PROGRESS.md",
+    "docs/DEBT.md",
+    "docs/core/06_barracks_and_soldier_mechanics.md",
+    "docs/refactor/PATHFINDING.MD",
+    "scripts/_test_horde_renderer.gd",
+    "scripts/_test_nutrition_guild.gd",
+    "scripts/barracks.gd",
+    "scripts/components/distraction_animator.gd",
+    "scripts/components/horde_renderer.gd",
+    "scripts/enemy.gd",
+    "scripts/game.gd",
+    "scripts/resources/defender_data.gd",
+    "tools/defender_anim_fix.py",
+    "tools/defender_reinstall.py"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/education.gd",
+   "size_lines": 168,
+   "uid": "uid://tgpwontw76p0",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/Education.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/enemy.gd",
+   "size_lines": 799,
+   "uid": "uid://cwk3i0nsjkwcr",
+   "class_name": "Distraction",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    ".dev/screenshots/p9_notes.md",
+    "BLOCKED.md",
+    "PROGRESS.md",
+    "docs/ART_PIPELINE.md",
+    "docs/DEBT.md",
+    "docs/KNOWN_BROKEN.md",
+    "docs/PERF.md",
+    "docs/REFACTOR_PLAN.md",
+    "docs/art_style.md",
+    "docs/core/00_overview.md",
+    "docs/core/01_rendering_and_depth.md",
+    "docs/core/02_data_driven_resources.md",
+    "docs/core/04_enemy_system_and_pathfinding.md",
+    "docs/core/05_tower_system_and_targeting.md",
+    "docs/core/06_barracks_and_soldier_mechanics.md",
+    "docs/core/08_wave_manager.md",
+    "docs/core/10_modifier_and_card_system.md",
+    "docs/core/12_player_abilities.md",
+    "docs/core/15_cast_shadows.md",
+    "docs/design/dopamine_mechanics.md",
+    "docs/game_design.md",
+    "docs/refactor/PATHFINDING.MD",
+    "scripts/_perf_shadows.gd",
+    "scripts/_test_fog_bandwidth.gd",
+    "scripts/_test_horde_renderer.gd",
+    "scripts/_test_nutrition_guild.gd",
+    "scripts/_test_phase3.gd",
+    "scripts/_test_suppression.gd",
+    "scripts/_test_telegraph.gd",
+    "scripts/_test_timecontrol.gd",
+    "scripts/animation_test.gd",
+    "scripts/base_habit.gd",
+    "scripts/boss.gd",
+    "scripts/components/arc_profile.gd",
+    "scripts/components/distraction_animator.gd",
+    "scripts/components/horde_renderer.gd",
+    "scripts/components/status_manager.gd",
+    "scripts/data.gd",
+    "scripts/defender_unit.gd",
+    "scripts/game.gd",
+    "scripts/game_state.gd",
+    "scripts/test_slice_runner.gd",
+    "scripts/tower.gd",
+    "shaders/brain_fog_preview.gdshader"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/floating_text.gd",
+   "size_lines": 43,
+   "uid": "uid://nqqkhtmcuga",
+   "class_name": "FloatingText",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/flow_field.gd",
+   "size_lines": 111,
+   "uid": "uid://cusnfs6jjufxg",
+   "class_name": "FlowField",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "BLOCKED.md",
+    "PROGRESS.md",
+    "docs/PERF.md",
+    "docs/refactor/PATHFINDING.MD",
+    "scripts/_test_antiblock.gd",
+    "scripts/_test_flowfield.gd",
+    "scripts/_test_multispawn.gd",
+    "scripts/_test_segments.gd",
+    "scripts/animation_test.gd",
+    "scripts/anti_block_validator.gd",
+    "scripts/game.gd",
+    "scripts/resources/spawn_point_data.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/game.gd",
+   "size_lines": 7122,
+   "uid": "uid://dts84kw67balk",
+   "class_name": "Game",
+   "path_refs": [
+    [
+     "scenes/Game.tscn",
+     1
+    ],
+    [
+     "tools/map_editor.gd",
+     1
+    ],
+    [
+     "tools/stylized_renderer.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [
+    "BLOCKED.md",
+    "CLAUDE.md",
+    "PROGRESS.md",
+    "README.md",
+    "addons/godot_ai/client_configurator.gd",
+    "addons/godot_ai/debugger/mcp_debugger_plugin.gd",
+    "addons/godot_ai/handlers/editor_handler.gd",
+    "addons/godot_ai/handlers/project_handler.gd",
+    "addons/godot_ai/runtime/game_helper.gd",
+    "addons/godot_ai/runtime/game_logger.gd",
+    "addons/godot_ai/vision_routing.gd",
+    "docs/ART_PIPELINE.md",
+    "docs/DEBT.md",
+    "docs/KNOWN_BROKEN.md",
+    "docs/MIGRATION_AUDIT.md",
+    "docs/PERF.md",
+    "docs/PIXELLAB.md",
+    "docs/REFACTOR_PLAN.md",
+    "docs/core/00_overview.md",
+    "docs/core/01_rendering_and_depth.md",
+    "docs/core/03_global_state_and_signals.md",
+    "docs/core/04_enemy_system_and_pathfinding.md",
+    "docs/core/05_tower_system_and_targeting.md",
+    "docs/core/07_building_system_and_grid.md",
+    "docs/core/12_player_abilities.md",
+    "docs/core/13_hud_and_ui.md",
+    "docs/core/14_brain_fog_and_bandwidth.md",
+    "docs/core/15_cast_shadows.md",
+    "docs/core/16_isometric_slice.md",
+    "docs/design/dopamine_mechanics.md",
+    "docs/game_design.md",
+    "docs/refactor/PATHFINDING.MD",
+    "scenes/Game.tscn",
+    "scenes/pilot_isometric/iso_pilot.gd",
+    "scripts/_perf_horde.gd",
+    "scripts/_perf_probe.gd",
+    "scripts/_perf_shadows.gd",
+    "scripts/_play_campaign.gd",
+    "scripts/_play_iso.gd",
+    "scripts/_play_trod.gd",
+    "scripts/_probe_align.gd",
+    "scripts/_shot_aim.gd",
+    "scripts/_shot_anchor_flat.gd",
+    "scripts/_shot_contact_sheet.gd",
+    "scripts/_shot_crowd.gd",
+    "scripts/_shot_fire.gd",
+    "scripts/_shot_flat.gd",
+    "scripts/_shot_fog.gd",
+    "scripts/_shot_iso_board.gd",
+    "scripts/_shot_p9_fog_variants.gd",
+    "scripts/_shot_phase0.gd",
+    "scripts/_shot_phase0_candidates.gd",
+    "scripts/_shot_readability.gd",
+    "scripts/_shot_shadows.gd",
+    "scripts/_shot_telegraph.gd",
+    "scripts/_shot_trod.gd",
+    "scripts/_shot_verify.gd",
+    "scripts/_test_deep_reading.gd",
+    "scripts/_test_economy_characterization.gd",
+    "scripts/_test_effort.gd",
+    "scripts/_test_fog_bandwidth.gd",
+    "scripts/_test_horde_renderer.gd",
+    "scripts/_test_levels.gd",
+    "scripts/_test_los.gd",
+    "scripts/_test_maze_validity.gd",
+    "scripts/_test_multispawn.gd",
+    "scripts/_test_nutrition_guild.gd",
+    "scripts/_test_path_metrics.gd",
+    "scripts/_test_phase2.gd",
+    "scripts/_test_phase3.gd",
+    "scripts/_test_phase4.gd",
+    "scripts/_test_phase6.gd",
+    "scripts/_test_phase7.gd",
+    "scripts/_test_segments.gd",
+    "scripts/_test_shadow_occlusion.gd",
+    "scripts/_test_sink.gd",
+    "scripts/_test_square_projection.gd",
+    "scripts/_test_streak.gd",
+    "scripts/_test_suppression.gd",
+    "scripts/_test_taxonomy.gd",
+    "scripts/_test_telegraph.gd",
+    "scripts/_test_timecontrol.gd",
+    "scripts/_test_trod.gd",
+    "scripts/_test_zen_pulsar.gd",
+    "scripts/animation_test.gd",
+    "scripts/barracks.gd",
+    "scripts/base_habit.gd",
+    "scripts/build_spot.gd",
+    "scripts/components/horde_atlas.gd",
+    "scripts/components/horde_renderer.gd",
+    "scripts/data.gd",
+    "scripts/defender_unit.gd",
+    "scripts/education.gd",
+    "scripts/enemy.gd",
+    "scripts/game_over.gd",
+    "scripts/game_state.gd",
+    "scripts/grid_projection.gd",
+    "scripts/level_select.gd",
+    "scripts/level_simulator.gd",
+    "scripts/level_validator.gd",
+    "scripts/map_composer.gd",
+    "scripts/menu.gd",
+    "scripts/path_metrics.gd",
+    "scripts/projectile.gd",
+    "scripts/resources/card_burst_data.gd",
+    "scripts/resources/card_data.gd",
+    "scripts/resources/habit_data.gd",
+    "scripts/resources/intervention_data.gd",
+    "scripts/resources/level_data.gd",
+    "scripts/resources/spawn_point_data.gd",
+    "scripts/run_log.gd",
+    "scripts/sfx.gd",
+    "scripts/signal_bus.gd",
+    "scripts/sim_strategy_quick_hit_spam.gd",
+    "scripts/test_slice_runner.gd",
+    "scripts/tower.gd",
+    "shaders/brain_fog.gdshader",
+    "tools/board_preview.py",
+    "tools/build_wall_face.py",
+    "tools/map_editor.gd",
+    "tools/shot_game.gd",
+    "tools/stylized_renderer.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/game_over.gd",
+   "size_lines": 99,
+   "uid": "uid://b2rx5k0w272kg",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/GameOver.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/game_state.gd",
+   "size_lines": 643,
+   "uid": "uid://cfw04dcwd27oa",
+   "class_name": null,
+   "path_refs": [
+    [
+     "project.godot",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/grid_projection.gd",
+   "size_lines": 216,
+   "uid": "uid://bpansa43txj77",
+   "class_name": "GridProjection",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "BLOCKED.md",
+    "PROGRESS.md",
+    "docs/MIGRATION_AUDIT.md",
+    "docs/refactor/MIGRATION.MD",
+    "docs/refactor/SYSTEMS.MD",
+    "scripts/_shot_topdown_mockup.gd",
+    "scripts/_test_mapeditor.gd",
+    "scripts/_test_path_metrics.gd",
+    "scripts/_test_square_projection.gd",
+    "scripts/components/distraction_animator.gd",
+    "scripts/components/horde_renderer.gd",
+    "scripts/data.gd",
+    "scripts/defender_unit.gd",
+    "scripts/enemy.gd",
+    "scripts/game.gd",
+    "scripts/impact_fx.gd",
+    "scripts/path_metrics.gd",
+    "scripts/projectile.gd",
+    "scripts/tower.gd",
+    "scripts/ui.gd",
+    "tools/map_editor.gd",
+    "tools/stylized_renderer.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/hints.gd",
+   "size_lines": 170,
+   "uid": "uid://bcty1te2nf4o6",
+   "class_name": "HintLayer",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "scripts/game.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/impact_fx.gd",
+   "size_lines": 117,
+   "uid": "uid://bhmq5y11o3jc5",
+   "class_name": "ImpactFX",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "scripts/_shot_fire.gd",
+    "scripts/_shot_splat.gd",
+    "scripts/_test_phase6.gd",
+    "scripts/game.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/level_select.gd",
+   "size_lines": 109,
+   "uid": "uid://bewq1osqw67se",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/LevelSelect.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/level_simulator.gd",
+   "size_lines": 203,
+   "uid": "uid://pkkvykth3nwo",
+   "class_name": "LevelSimulator",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "BLOCKED.md",
+    "PROGRESS.md",
+    "docs/BALANCE.md",
+    "docs/refactor/PATHFINDING.MD",
+    "scripts/_balance_sweep.gd",
+    "scripts/_shot_readability.gd",
+    "scripts/_test_level_simulator.gd",
+    "scripts/_test_multispawn.gd",
+    "scripts/_test_segments.gd",
+    "scripts/_test_timecontrol.gd",
+    "scripts/game.gd",
+    "scripts/sim_strategy.gd",
+    "scripts/sim_strategy_cheap_even.gd",
+    "scripts/sim_strategy_passive.gd",
+    "scripts/sim_strategy_quick_hit_spam.gd",
+    "verify.sh"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/level_validator.gd",
+   "size_lines": 59,
+   "uid": "uid://do6ogp8ppv7g7",
+   "class_name": "LevelValidator",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "PROGRESS.md",
+    "scripts/_test_maze_validity.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/map_composer.gd",
+   "size_lines": 385,
+   "uid": "uid://y3fcb6tdw0vf",
+   "class_name": "MapComposer",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "PROGRESS.md",
+    "docs/refactor/PATHFINDING.MD",
+    "scripts/_test_segments.gd",
+    "scripts/game.gd",
+    "scripts/resources/level_data.gd",
+    "scripts/resources/map_segment_data.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/menu.gd",
+   "size_lines": 263,
+   "uid": "uid://cilu8wvbq5hs7",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/Menu.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/meta_progression.gd",
+   "size_lines": 258,
+   "uid": "uid://dj0loqc2pu0fl",
+   "class_name": null,
+   "path_refs": [
+    [
+     "project.godot",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/mirror.gd",
+   "size_lines": 281,
+   "uid": "uid://bephi3vb3x2vg",
+   "class_name": null,
+   "path_refs": [
+    [
+     "project.godot",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/modifier_manager.gd",
+   "size_lines": 71,
+   "uid": "uid://ccmjaj23044fg",
+   "class_name": null,
+   "path_refs": [
+    [
+     "project.godot",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/music.gd",
+   "size_lines": 182,
+   "uid": "uid://d0lnlj13et0lr",
+   "class_name": null,
+   "path_refs": [
+    [
+     "project.godot",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/object_pool.gd",
+   "size_lines": 69,
+   "uid": "uid://bsl7vopn6kl22",
+   "class_name": "ObjectPool",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "docs/DEBT.md",
+    "docs/PERF.md",
+    "docs/REFACTOR_PLAN.md",
+    "scripts/game.gd",
+    "scripts/projectile.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/path_metrics.gd",
+   "size_lines": 127,
+   "uid": "uid://bgn8i44ckjtns",
+   "class_name": "PathMetrics",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "BLOCKED.md",
+    "PROGRESS.md",
+    "scripts/_test_path_metrics.gd",
+    "scripts/flow_field.gd",
+    "scripts/level_validator.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/pause_menu.gd",
+   "size_lines": 89,
+   "uid": "uid://mgn5wbv04qni",
+   "class_name": "PauseMenu",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "docs/core/09_hud_and_ui.md",
+    "docs/core/13_hud_and_ui.md",
+    "scripts/game.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/pixel_draw.gd",
+   "size_lines": 77,
+   "uid": "uid://cni1m4n2oyhrs",
+   "class_name": "PixelDraw",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "PROGRESS.md",
+    "docs/ART_PIPELINE.md",
+    "docs/core/16_isometric_slice.md",
+    "docs/design/dopamine_mechanics.md",
+    "scripts/barracks.gd",
+    "scripts/components/distraction_animator.gd",
+    "scripts/defender_unit.gd",
+    "scripts/enemy.gd",
+    "scripts/game.gd",
+    "scripts/tower.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/projectile.gd",
+   "size_lines": 321,
+   "uid": "uid://cvxr6cg0c0ers",
+   "class_name": "Projectile",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "BLOCKED.md",
+    "PROGRESS.md",
+    "docs/REFACTOR_PLAN.md",
+    "docs/core/05_tower_system_and_targeting.md",
+    "docs/core/14_brain_fog_and_bandwidth.md",
+    "docs/refactor/PATHFINDING.MD",
+    "scripts/_test_phase6.gd",
+    "scripts/_test_timecontrol.gd",
+    "scripts/components/arc_profile.gd",
+    "scripts/game.gd",
+    "scripts/impact_fx.gd",
+    "scripts/tower.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/receipt.gd",
+   "size_lines": 227,
+   "uid": "uid://cay3doqugox0v",
+   "class_name": "Receipt",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "docs/design/dopamine_mechanics.md",
+    "scripts/_test_attention.gd",
+    "scripts/_test_effort.gd",
+    "scripts/_test_streak.gd",
+    "scripts/education.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/resources/ad_data.gd",
+   "size_lines": 75,
+   "uid": "uid://b18nsdtqw44kg",
+   "class_name": "AdData",
+   "path_refs": [
+    [
+     "data/ads/brain_blast.tres",
+     1
+    ],
+    [
+     "data/ads/brain_defense.tres",
+     1
+    ],
+    [
+     "data/ads/dopamine_clicker.tres",
+     1
+    ],
+    [
+     "data/ads/free_dopamine.tres",
+     1
+    ],
+    [
+     "data/ads/go_outside.tres",
+     1
+    ],
+    [
+     "data/ads/jackpot_real.tres",
+     1
+    ],
+    [
+     "data/ads/monk_mode.tres",
+     1
+    ],
+    [
+     "data/ads/pull_the_pin.tres",
+     1
+    ],
+    [
+     "data/ads/reward_video.tres",
+     1
+    ],
+    [
+     "data/ads/scrollr.tres",
+     1
+    ],
+    [
+     "data/levels/level_1.tres",
+     1
+    ],
+    [
+     "data/levels/level_98.tres",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [
+    "CLAUDE.md",
+    "data/ads/brain_blast.tres",
+    "data/ads/brain_defense.tres",
+    "data/ads/dopamine_clicker.tres",
+    "data/ads/free_dopamine.tres",
+    "data/ads/go_outside.tres",
+    "data/ads/jackpot_real.tres",
+    "data/ads/monk_mode.tres",
+    "data/ads/pull_the_pin.tres",
+    "data/ads/reward_video.tres",
+    "data/ads/scrollr.tres",
+    "scripts/_test_attention.gd",
+    "scripts/ad_overlay.gd",
+    "scripts/education.gd",
+    "scripts/game.gd",
+    "scripts/resources/level_data.gd",
+    "tools/build_placeholder_level.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/resources/anim_tuning.gd",
+   "size_lines": 138,
+   "uid": "uid://bn3iaspl1eh3o",
+   "class_name": "AnimTuning",
+   "path_refs": [
+    [
+     "data/anim_tuning.tres",
+     1
+    ]
+   ],
+   "uid_refs": [
+    [
+     "data/anim_tuning.tres",
+     1
+    ]
+   ],
+   "class_refs": [
+    "CLAUDE.md",
+    "PROGRESS.md",
+    "addons/td_anim_lab/dock.gd",
+    "data/anim_tuning.tres",
+    "scripts/components/distraction_animator.gd",
+    "scripts/components/horde_atlas.gd",
+    "scripts/components/horde_renderer.gd",
+    "tools/anim_autofix.gd",
+    "tools/board_preview.py",
+    "tools/defender_anim_fix.py"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/resources/card_burst_data.gd",
+   "size_lines": 44,
+   "uid": "uid://dtco2dvuftlgq",
+   "class_name": "CardBurstData",
+   "path_refs": [
+    [
+     "data/cards/call_in_the_cavalry.tres",
+     1
+    ],
+    [
+     "data/cards/clean_slate.tres",
+     1
+    ],
+    [
+     "data/cards/pattern_interrupt.tres",
+     1
+    ],
+    [
+     "data/cards/second_wind.tres",
+     1
+    ],
+    [
+     "data/cards/steady_payout.tres",
+     1
+    ],
+    [
+     "data/cards/windfall.tres",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [
+    "CLAUDE.md",
+    "scripts/game.gd",
+    "scripts/resources/card_data.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/resources/card_data.gd",
+   "size_lines": 37,
+   "uid": "uid://b1q37k4kc2cwd",
+   "class_name": "CardData",
+   "path_refs": [
+    [
+     "data/cards/all_nighter.tres",
+     1
+    ],
+    [
+     "data/cards/always_on.tres",
+     1
+    ],
+    [
+     "data/cards/awareness_training.tres",
+     1
+    ],
+    [
+     "data/cards/bigger_screen.tres",
+     1
+    ],
+    [
+     "data/cards/borrowed_focus.tres",
+     1
+    ],
+    [
+     "data/cards/breath_focus.tres",
+     1
+    ],
+    [
+     "data/cards/call_in_the_cavalry.tres",
+     1
+    ],
+    [
+     "data/cards/clean_slate.tres",
+     1
+    ],
+    [
+     "data/cards/cold_shower.tres",
+     1
+    ],
+    [
+     "data/cards/deep_work.tres",
+     1
+    ],
+    [
+     "data/cards/digital_detox.tres",
+     1
+    ],
+    [
+     "data/cards/journaling.tres",
+     1
+    ],
+    [
+     "data/cards/notification_audit.tres",
+     1
+    ],
+    [
+     "data/cards/pattern_interrupt.tres",
+     1
+    ],
+    [
+     "data/cards/phone_in_drawer.tres",
+     1
+    ],
+    [
+     "data/cards/quick_fix.tres",
+     1
+    ],
+    [
+     "data/cards/reward_schedule.tres",
+     1
+    ],
+    [
+     "data/cards/runners_high.tres",
+     1
+    ],
+    [
+     "data/cards/second_wind.tres",
+     1
+    ],
+    [
+     "data/cards/sleep_hygiene.tres",
+     1
+    ],
+    [
+     "data/cards/steady_payout.tres",
+     1
+    ],
+    [
+     "data/cards/time_blocking.tres",
+     1
+    ],
+    [
+     "data/cards/windfall.tres",
+     1
+    ],
+    [
+     "data/growth/deep_sleep.tres",
+     1
+    ],
+    [
+     "data/growth/sharp_eye.tres",
+     1
+    ],
+    [
+     "data/growth/starter_dopamine.tres",
+     1
+    ],
+    [
+     "data/growth/strength_training.tres",
+     1
+    ],
+    [
+     "data/growth/wide_awareness.tres",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [
+    "CLAUDE.md",
+    "PROGRESS.md",
+    "data/cards/all_nighter.tres",
+    "data/cards/always_on.tres",
+    "data/cards/awareness_training.tres",
+    "data/cards/bigger_screen.tres",
+    "data/cards/borrowed_focus.tres",
+    "data/cards/breath_focus.tres",
+    "data/cards/call_in_the_cavalry.tres",
+    "data/cards/clean_slate.tres",
+    "data/cards/cold_shower.tres",
+    "data/cards/deep_work.tres",
+    "data/cards/digital_detox.tres",
+    "data/cards/journaling.tres",
+    "data/cards/notification_audit.tres",
+    "data/cards/pattern_interrupt.tres",
+    "data/cards/phone_in_drawer.tres",
+    "data/cards/quick_fix.tres",
+    "data/cards/reward_schedule.tres",
+    "data/cards/runners_high.tres",
+    "data/cards/second_wind.tres",
+    "data/cards/sleep_hygiene.tres",
+    "data/cards/steady_payout.tres",
+    "data/cards/time_blocking.tres",
+    "data/cards/windfall.tres",
+    "docs/REFACTOR_PLAN.md",
+    "docs/core/10_modifier_and_card_system.md",
+    "docs/core/13_hud_and_ui.md",
+    "scripts/_test_economy_characterization.gd",
+    "scripts/data.gd",
+    "scripts/game.gd",
+    "scripts/level_simulator.gd",
+    "scripts/modifier_manager.gd",
+    "scripts/resources/card_burst_data.gd",
+    "scripts/resources/card_effect_data.gd",
+    "scripts/resources/growth_node_data.gd",
+    "scripts/sim_strategy.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/resources/card_effect_data.gd",
+   "size_lines": 9,
+   "uid": "uid://e0k6tny7uskv",
+   "class_name": "CardEffectData",
+   "path_refs": [
+    [
+     "data/cards/all_nighter.tres",
+     1
+    ],
+    [
+     "data/cards/always_on.tres",
+     1
+    ],
+    [
+     "data/cards/awareness_training.tres",
+     1
+    ],
+    [
+     "data/cards/bigger_screen.tres",
+     1
+    ],
+    [
+     "data/cards/borrowed_focus.tres",
+     1
+    ],
+    [
+     "data/cards/breath_focus.tres",
+     1
+    ],
+    [
+     "data/cards/clean_slate.tres",
+     1
+    ],
+    [
+     "data/cards/cold_shower.tres",
+     1
+    ],
+    [
+     "data/cards/deep_work.tres",
+     1
+    ],
+    [
+     "data/cards/digital_detox.tres",
+     1
+    ],
+    [
+     "data/cards/journaling.tres",
+     1
+    ],
+    [
+     "data/cards/notification_audit.tres",
+     1
+    ],
+    [
+     "data/cards/phone_in_drawer.tres",
+     1
+    ],
+    [
+     "data/cards/quick_fix.tres",
+     1
+    ],
+    [
+     "data/cards/reward_schedule.tres",
+     1
+    ],
+    [
+     "data/cards/runners_high.tres",
+     1
+    ],
+    [
+     "data/cards/sleep_hygiene.tres",
+     1
+    ],
+    [
+     "data/cards/time_blocking.tres",
+     1
+    ],
+    [
+     "data/growth/deep_sleep.tres",
+     1
+    ],
+    [
+     "data/growth/sharp_eye.tres",
+     1
+    ],
+    [
+     "data/growth/starter_dopamine.tres",
+     1
+    ],
+    [
+     "data/growth/strength_training.tres",
+     1
+    ],
+    [
+     "data/growth/wide_awareness.tres",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [
+    "CLAUDE.md",
+    "docs/REFACTOR_PLAN.md",
+    "scripts/_test_economy_characterization.gd",
+    "scripts/game.gd",
+    "scripts/modifier_manager.gd",
+    "scripts/resources/card_data.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/resources/defender_data.gd",
+   "size_lines": 64,
+   "uid": "uid://b7nbb7qjei1hl",
+   "class_name": "DefenderData",
+   "path_refs": [
+    [
+     "data/defenders/avocado_monk.tres",
+     1
+    ],
+    [
+     "data/defenders/broccoli_knight.tres",
+     1
+    ],
+    [
+     "data/defenders/chilli_berserker.tres",
+     1
+    ],
+    [
+     "data/defenders/garlic_mage.tres",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [
+    "CLAUDE.md",
+    "PROGRESS.md",
+    "data/defenders/avocado_monk.tres",
+    "data/defenders/broccoli_knight.tres",
+    "data/defenders/chilli_berserker.tres",
+    "data/defenders/garlic_mage.tres",
+    "docs/core/06_barracks_and_soldier_mechanics.md",
+    "docs/refactor/PATHFINDING.MD",
+    "scripts/barracks.gd",
+    "scripts/data.gd",
+    "scripts/defender_unit.gd",
+    "scripts/resources/habit_data.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/resources/distraction_data.gd",
+   "size_lines": 152,
+   "uid": "uid://bmn4nqrqpioiy",
+   "class_name": "DistractionData",
+   "path_refs": [
+    [
+     "data/distractions/adult_content.tres",
+     1
+    ],
+    [
+     "data/distractions/autoplay.tres",
+     1
+    ],
+    [
+     "data/distractions/clickbait.tres",
+     1
+    ],
+    [
+     "data/distractions/comparison.tres",
+     1
+    ],
+    [
+     "data/distractions/doomscroll.tres",
+     1
+    ],
+    [
+     "data/distractions/energy_drink.tres",
+     1
+    ],
+    [
+     "data/distractions/fomo.tres",
+     1
+    ],
+    [
+     "data/distractions/group_chat.tres",
+     1
+    ],
+    [
+     "data/distractions/jackpot.tres",
+     1
+    ],
+    [
+     "data/distractions/just_one_more.tres",
+     1
+    ],
+    [
+     "data/distractions/notification.tres",
+     1
+    ],
+    [
+     "data/distractions/phantom_buzz.tres",
+     1
+    ],
+    [
+     "data/distractions/social_media_binge.tres",
+     1
+    ],
+    [
+     "tools/gen_ui.py",
+     1
+    ]
+   ],
+   "uid_refs": [
+    [
+     "data/distractions/doomscroll.tres",
+     1
+    ],
+    [
+     "data/distractions/energy_drink.tres",
+     1
+    ],
+    [
+     "data/distractions/social_media_binge.tres",
+     1
+    ]
+   ],
+   "class_refs": [
+    "BLOCKED.md",
+    "CLAUDE.md",
+    "PROGRESS.md",
+    "addons/td_anim_lab/dock.gd",
+    "data/distractions/adult_content.tres",
+    "data/distractions/autoplay.tres",
+    "data/distractions/clickbait.tres",
+    "data/distractions/comparison.tres",
+    "data/distractions/doomscroll.tres",
+    "data/distractions/energy_drink.tres",
+    "data/distractions/fomo.tres",
+    "data/distractions/group_chat.tres",
+    "data/distractions/jackpot.tres",
+    "data/distractions/just_one_more.tres",
+    "data/distractions/notification.tres",
+    "data/distractions/phantom_buzz.tres",
+    "data/distractions/social_media_binge.tres",
+    "docs/ART_PIPELINE.md",
+    "docs/MIGRATION_AUDIT.md",
+    "docs/REFACTOR_PLAN.md",
+    "docs/art/STYLE_BIBLE.md",
+    "docs/core/00_overview.md",
+    "docs/core/02_data_driven_resources.md",
+    "docs/core/04_enemy_system_and_pathfinding.md",
+    "docs/core/06_barracks_and_soldier_mechanics.md",
+    "docs/core/08_wave_manager.md",
+    "docs/design/dopamine_mechanics.md",
+    "docs/game_design.md",
+    "scripts/_test_economy_characterization.gd",
+    "scripts/_test_taxonomy.gd",
+    "scripts/_test_telegraph.gd",
+    "scripts/components/status_manager.gd",
+    "scripts/data.gd",
+    "scripts/enemy.gd",
+    "scripts/game.gd",
+    "scripts/hints.gd",
+    "scripts/resources/anim_tuning.gd",
+    "scripts/resources/defender_data.gd",
+    "scripts/resources/level_data.gd",
+    "scripts/resources/spawn_batch_data.gd",
+    "scripts/resources/wave_curve_entry_data.gd",
+    "tools/gen_ui.py"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/resources/growth_node_data.gd",
+   "size_lines": 57,
+   "uid": "uid://ci40jnb7vou6q",
+   "class_name": "GrowthNodeData",
+   "path_refs": [
+    [
+     "data/growth/breakthrough.tres",
+     1
+    ],
+    [
+     "data/growth/clear_sight.tres",
+     1
+    ],
+    [
+     "data/growth/deep_sleep.tres",
+     1
+    ],
+    [
+     "data/growth/iron_will.tres",
+     1
+    ],
+    [
+     "data/growth/neuroplasticity.tres",
+     1
+    ],
+    [
+     "data/growth/reflection.tres",
+     1
+    ],
+    [
+     "data/growth/room_to_grow.tres",
+     1
+    ],
+    [
+     "data/growth/second_thoughts.tres",
+     1
+    ],
+    [
+     "data/growth/sharp_eye.tres",
+     1
+    ],
+    [
+     "data/growth/starter_dopamine.tres",
+     1
+    ],
+    [
+     "data/growth/strength_training.tres",
+     1
+    ],
+    [
+     "data/growth/support_network.tres",
+     1
+    ],
+    [
+     "data/growth/wide_awareness.tres",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [
+    "CLAUDE.md",
+    "data/growth/breakthrough.tres",
+    "data/growth/clear_sight.tres",
+    "data/growth/deep_sleep.tres",
+    "data/growth/iron_will.tres",
+    "data/growth/neuroplasticity.tres",
+    "data/growth/reflection.tres",
+    "data/growth/room_to_grow.tres",
+    "data/growth/second_thoughts.tres",
+    "data/growth/sharp_eye.tres",
+    "data/growth/starter_dopamine.tres",
+    "data/growth/strength_training.tres",
+    "data/growth/support_network.tres",
+    "data/growth/wide_awareness.tres",
+    "docs/REFACTOR_PLAN.md",
+    "scripts/data.gd",
+    "scripts/menu.gd",
+    "scripts/meta_progression.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/resources/habit_data.gd",
+   "size_lines": 127,
+   "uid": "uid://cuhmuychue7au",
+   "class_name": "HabitData",
+   "path_refs": [
+    [
+     "data/habits/accountability.tres",
+     1
+    ],
+    [
+     "data/habits/accountability_2.tres",
+     1
+    ],
+    [
+     "data/habits/anchor.tres",
+     1
+    ],
+    [
+     "data/habits/exercise.tres",
+     1
+    ],
+    [
+     "data/habits/exercise_2.tres",
+     1
+    ],
+    [
+     "data/habits/focus_pillar.tres",
+     1
+    ],
+    [
+     "data/habits/focus_timer.tres",
+     1
+    ],
+    [
+     "data/habits/focus_timer_2.tres",
+     1
+    ],
+    [
+     "data/habits/mindfulness.tres",
+     1
+    ],
+    [
+     "data/habits/mindfulness_2.tres",
+     1
+    ],
+    [
+     "data/habits/real_hobby.tres",
+     1
+    ],
+    [
+     "data/habits/real_hobby_2.tres",
+     1
+    ],
+    [
+     "data/habits/zen_pulsar.tres",
+     1
+    ],
+    [
+     "data/habits/zen_pulsar_2a.tres",
+     1
+    ],
+    [
+     "data/habits/zen_pulsar_2b.tres",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [
+    "CLAUDE.md",
+    "PROGRESS.md",
+    "data/habits/accountability.tres",
+    "data/habits/accountability_2.tres",
+    "data/habits/anchor.tres",
+    "data/habits/exercise.tres",
+    "data/habits/exercise_2.tres",
+    "data/habits/focus_pillar.tres",
+    "data/habits/focus_timer.tres",
+    "data/habits/focus_timer_2.tres",
+    "data/habits/mindfulness.tres",
+    "data/habits/mindfulness_2.tres",
+    "data/habits/real_hobby.tres",
+    "data/habits/real_hobby_2.tres",
+    "data/habits/zen_pulsar.tres",
+    "data/habits/zen_pulsar_2a.tres",
+    "data/habits/zen_pulsar_2b.tres",
+    "docs/KNOWN_BROKEN.md",
+    "docs/MIGRATION_AUDIT.md",
+    "docs/PIXELLAB.md",
+    "docs/REFACTOR_PLAN.md",
+    "docs/art/style_bible_measured.md",
+    "docs/core/00_overview.md",
+    "docs/core/02_data_driven_resources.md",
+    "docs/core/03_global_state_and_signals.md",
+    "docs/core/05_tower_system_and_targeting.md",
+    "docs/core/07_building_system_and_grid.md",
+    "docs/core/10_modifier_and_card_system.md",
+    "docs/core/14_brain_fog_and_bandwidth.md",
+    "docs/refactor/PATHFINDING.MD",
+    "scripts/base_habit.gd",
+    "scripts/components/arc_profile.gd",
+    "scripts/data.gd",
+    "scripts/game.gd",
+    "scripts/projectile.gd",
+    "scripts/resources/card_effect_data.gd",
+    "scripts/resources/defender_data.gd",
+    "scripts/tower.gd",
+    "tools/roster.py"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/resources/insight_card_data.gd",
+   "size_lines": 17,
+   "uid": "uid://8ew51gblijuc",
+   "class_name": "InsightCardData",
+   "path_refs": [
+    [
+     "data/insight_cards/level_1.tres",
+     1
+    ],
+    [
+     "data/insight_cards/level_2.tres",
+     1
+    ],
+    [
+     "data/insight_cards/level_98.tres",
+     1
+    ],
+    [
+     "data/insight_cards/level_99.tres",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [
+    "CLAUDE.md",
+    "data/insight_cards/level_1.tres",
+    "data/insight_cards/level_2.tres",
+    "data/insight_cards/level_98.tres",
+    "data/insight_cards/level_99.tres",
+    "docs/REFACTOR_PLAN.md",
+    "docs/core/08_wave_manager.md",
+    "scripts/_test_levels.gd",
+    "scripts/data.gd",
+    "scripts/education.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/resources/intervention_data.gd",
+   "size_lines": 50,
+   "uid": "uid://dwxg7jjy7a14b",
+   "class_name": "InterventionData",
+   "path_refs": [
+    [
+     "data/interventions/airplane_mode.tres",
+     1
+    ],
+    [
+     "data/interventions/call_a_friend.tres",
+     1
+    ],
+    [
+     "data/interventions/deep_breath.tres",
+     1
+    ],
+    [
+     "data/interventions/moment_of_clarity.tres",
+     1
+    ],
+    [
+     "data/interventions/screen_break.tres",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [
+    "CLAUDE.md",
+    "data/interventions/airplane_mode.tres",
+    "data/interventions/call_a_friend.tres",
+    "data/interventions/deep_breath.tres",
+    "data/interventions/moment_of_clarity.tres",
+    "data/interventions/screen_break.tres",
+    "docs/REFACTOR_PLAN.md",
+    "docs/core/12_player_abilities.md",
+    "docs/core/14_brain_fog_and_bandwidth.md",
+    "scripts/data.gd",
+    "scripts/game.gd",
+    "scripts/resources/card_burst_data.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/resources/level_data.gd",
+   "size_lines": 207,
+   "uid": "uid://vku5r0rw7b3u",
+   "class_name": "LevelData",
+   "path_refs": [
+    [
+     "data/levels/level_1.tres",
+     1
+    ],
+    [
+     "data/levels/level_98.tres",
+     1
+    ],
+    [
+     "tools/_fixtures/level_uid_fixture.tres",
+     1
+    ],
+    [
+     "tools/build_level_iso.py",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [
+    "BLOCKED.md",
+    "CLAUDE.md",
+    "PROGRESS.md",
+    "addons/td_level_designer/dock.gd",
+    "data/levels/level_1.tres",
+    "data/levels/level_98.tres",
+    "docs/MIGRATION_AUDIT.md",
+    "docs/REFACTOR_PLAN.md",
+    "docs/core/16_isometric_slice.md",
+    "docs/design/dopamine_mechanics.md",
+    "docs/game_design.md",
+    "docs/refactor/PATHFINDING.MD",
+    "scripts/_shot_telegraph.gd",
+    "scripts/_shot_topdown_mockup.gd",
+    "scripts/_test_antiblock.gd",
+    "scripts/_test_ascii_sidecar.gd",
+    "scripts/_test_flowfield.gd",
+    "scripts/_test_levels.gd",
+    "scripts/_test_mapeditor.gd",
+    "scripts/_test_maze_validity.gd",
+    "scripts/_test_multispawn.gd",
+    "scripts/_test_segments.gd",
+    "scripts/_test_telegraph.gd",
+    "scripts/anti_block_validator.gd",
+    "scripts/data.gd",
+    "scripts/education.gd",
+    "scripts/flow_field.gd",
+    "scripts/game.gd",
+    "scripts/game_state.gd",
+    "scripts/level_select.gd",
+    "scripts/level_validator.gd",
+    "scripts/map_composer.gd",
+    "scripts/meta_progression.gd",
+    "scripts/path_metrics.gd",
+    "scripts/resources/map_segment_data.gd",
+    "scripts/resources/spawn_point_data.gd",
+    "scripts/resources/trod_data.gd",
+    "scripts/victory.gd",
+    "tools/_fixtures/level_uid_fixture.tres",
+    "tools/board_preview.py",
+    "tools/build_level_iso.py",
+    "tools/build_placeholder_level.gd",
+    "tools/level_to_ascii.py",
+    "tools/map_editor.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/resources/map_segment_data.gd",
+   "size_lines": 75,
+   "uid": "uid://cb0ko8qptu1je",
+   "class_name": "MapSegmentData",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "BLOCKED.md",
+    "PROGRESS.md",
+    "docs/refactor/PATHFINDING.MD",
+    "scripts/_test_segments.gd",
+    "scripts/game.gd",
+    "scripts/map_composer.gd",
+    "scripts/meta_progression.gd",
+    "scripts/resources/level_data.gd",
+    "scripts/resources/spawn_point_data.gd",
+    "scripts/save_game.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/resources/spawn_batch_data.gd",
+   "size_lines": 10,
+   "uid": "uid://cfmq1gsvvsl8w",
+   "class_name": "SpawnBatchData",
+   "path_refs": [
+    [
+     "tools/_fixtures/level_uid_fixture.tres",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [
+    "BLOCKED.md",
+    "CLAUDE.md",
+    "PROGRESS.md",
+    "docs/REFACTOR_PLAN.md",
+    "docs/core/02_data_driven_resources.md",
+    "docs/core/08_wave_manager.md",
+    "docs/refactor/SYSTEMS.MD",
+    "scripts/data.gd",
+    "scripts/game.gd",
+    "scripts/resources/wave_curve_entry_data.gd",
+    "scripts/resources/wave_data.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/resources/spawn_point_data.gd",
+   "size_lines": 55,
+   "uid": "uid://d1fcauwdtqh83",
+   "class_name": "SpawnPointData",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "PROGRESS.md",
+    "docs/refactor/PATHFINDING.MD",
+    "scripts/_shot_telegraph.gd",
+    "scripts/_test_multispawn.gd",
+    "scripts/_test_segments.gd",
+    "scripts/_test_telegraph.gd",
+    "scripts/anti_block_validator.gd",
+    "scripts/game.gd",
+    "scripts/map_composer.gd",
+    "scripts/resources/level_data.gd",
+    "scripts/resources/map_segment_data.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/resources/trod_data.gd",
+   "size_lines": 39,
+   "uid": "uid://bx1asfbohrc16",
+   "class_name": "TrodData",
+   "path_refs": [
+    [
+     "data/levels/level_1.tres",
+     1
+    ],
+    [
+     "data/levels/level_98.tres",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [
+    "BLOCKED.md",
+    "CLAUDE.md",
+    "docs/MIGRATION_AUDIT.md",
+    "docs/core/17_living_map.md",
+    "docs/design/fae_theme.md",
+    "docs/game_design.md",
+    "scripts/_test_levels.gd",
+    "scripts/_test_segments.gd",
+    "scripts/_test_trod.gd",
+    "scripts/game.gd",
+    "scripts/map_composer.gd",
+    "scripts/resources/level_data.gd",
+    "tools/build_placeholder_level.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/resources/wave_curve_entry_data.gd",
+   "size_lines": 27,
+   "uid": "uid://l111d375ktc",
+   "class_name": "WaveCurveEntryData",
+   "path_refs": [
+    [
+     "data/levels/level_1.tres",
+     1
+    ],
+    [
+     "data/levels/level_98.tres",
+     1
+    ],
+    [
+     "tools/build_level_iso.py",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [
+    "BLOCKED.md",
+    "CLAUDE.md",
+    "PROGRESS.md",
+    "docs/REFACTOR_PLAN.md",
+    "docs/core/08_wave_manager.md",
+    "docs/design/dopamine_mechanics.md",
+    "docs/game_design.md",
+    "docs/refactor/SYSTEMS.MD",
+    "scripts/_shot_telegraph.gd",
+    "scripts/_test_telegraph.gd",
+    "scripts/data.gd",
+    "scripts/game.gd",
+    "scripts/resources/level_data.gd",
+    "scripts/resources/spawn_batch_data.gd",
+    "tools/build_placeholder_level.gd",
+    "tools/map_editor.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/resources/wave_data.gd",
+   "size_lines": 5,
+   "uid": "uid://dcxe3bp40t1yk",
+   "class_name": "WaveData",
+   "path_refs": [
+    [
+     "tools/_fixtures/level_uid_fixture.tres",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [
+    "CLAUDE.md",
+    "docs/REFACTOR_PLAN.md",
+    "docs/core/00_overview.md",
+    "docs/core/02_data_driven_resources.md",
+    "docs/core/08_wave_manager.md",
+    "docs/game_design.md",
+    "scripts/data.gd",
+    "scripts/game.gd",
+    "scripts/resources/level_data.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/run_log.gd",
+   "size_lines": 106,
+   "uid": "uid://dcnsot05wb2ci",
+   "class_name": "RunLog",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "scripts/_play_campaign.gd",
+    "scripts/game.gd",
+    "scripts/mirror.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/save_game.gd",
+   "size_lines": 117,
+   "uid": "uid://cfopb5ql0ws05",
+   "class_name": "SaveGame",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "PROGRESS.md",
+    "docs/core/00_overview.md",
+    "docs/core/11_meta_progression_and_save.md",
+    "docs/game_design.md",
+    "docs/refactor/PATHFINDING.MD",
+    "scripts/_test_economy_characterization.gd",
+    "scripts/_test_save_round_trip.gd",
+    "scripts/meta_progression.gd",
+    "scripts/resources/map_segment_data.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/settings_panel.gd",
+   "size_lines": 116,
+   "uid": "uid://bu8gsu1wkne04",
+   "class_name": "SettingsPanel",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "scripts/menu.gd",
+    "scripts/pause_menu.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/sfx.gd",
+   "size_lines": 352,
+   "uid": "uid://dailsjmi7cl3v",
+   "class_name": null,
+   "path_refs": [
+    [
+     "project.godot",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/signal_bus.gd",
+   "size_lines": 38,
+   "uid": "uid://lx0mykk08gd2",
+   "class_name": null,
+   "path_refs": [
+    [
+     "project.godot",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/sim_strategy.gd",
+   "size_lines": 24,
+   "uid": "uid://cmas886nm5cdi",
+   "class_name": "SimStrategy",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "PROGRESS.md",
+    "scripts/_balance_sweep.gd",
+    "scripts/_test_level_simulator.gd",
+    "scripts/_test_timecontrol.gd",
+    "scripts/game.gd",
+    "scripts/level_simulator.gd",
+    "scripts/sim_strategy_cheap_even.gd",
+    "scripts/sim_strategy_passive.gd",
+    "scripts/sim_strategy_quick_hit_spam.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/sim_strategy_cheap_even.gd",
+   "size_lines": 23,
+   "uid": "uid://cg3kr78n15y1s",
+   "class_name": "SimStrategyCheapEven",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "BLOCKED.md",
+    "PROGRESS.md",
+    "scripts/_balance_sweep.gd",
+    "scripts/_shot_readability.gd",
+    "scripts/_test_timecontrol.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/sim_strategy_passive.gd",
+   "size_lines": 11,
+   "uid": "uid://bp5tltlflnxiq",
+   "class_name": "SimStrategyPassive",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "PROGRESS.md",
+    "docs/refactor/PATHFINDING.MD",
+    "scripts/_balance_sweep.gd",
+    "scripts/_test_level_simulator.gd",
+    "scripts/_test_multispawn.gd",
+    "scripts/_test_segments.gd",
+    "scripts/_test_timecontrol.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/sim_strategy_quick_hit_spam.gd",
+   "size_lines": 17,
+   "uid": "uid://cop4gd73lmuaw",
+   "class_name": "SimStrategyQuickHitSpam",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "PROGRESS.md",
+    "scripts/_balance_sweep.gd",
+    "scripts/_test_level_simulator.gd",
+    "scripts/_test_timecontrol.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/test_slice_runner.gd",
+   "size_lines": 111,
+   "uid": "uid://dqjj334m7leiy",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/test_slice.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/tower.gd",
+   "size_lines": 1040,
+   "uid": "uid://cuvj22ve8815l",
+   "class_name": "Habit",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "BLOCKED.md",
+    "PROGRESS.md",
+    "docs/DEBT.md",
+    "docs/REFACTOR_PLAN.md",
+    "docs/art/STYLE_BIBLE.md",
+    "docs/art/iso_bible.md",
+    "docs/art_style.md",
+    "docs/core/00_overview.md",
+    "docs/core/01_rendering_and_depth.md",
+    "docs/core/02_data_driven_resources.md",
+    "docs/core/05_tower_system_and_targeting.md",
+    "docs/core/07_building_system_and_grid.md",
+    "docs/core/10_modifier_and_card_system.md",
+    "docs/core/13_hud_and_ui.md",
+    "docs/core/14_brain_fog_and_bandwidth.md",
+    "docs/game_design.md",
+    "docs/refactor/PATHFINDING.MD",
+    "scripts/_perf_shadows.gd",
+    "scripts/_shot_flat.gd",
+    "scripts/_shot_fog.gd",
+    "scripts/_shot_p9_fog_variants.gd",
+    "scripts/_shot_shadows.gd",
+    "scripts/_test_deep_reading.gd",
+    "scripts/_test_effort.gd",
+    "scripts/_test_fog_bandwidth.gd",
+    "scripts/_test_phase4.gd",
+    "scripts/_test_phase7.gd",
+    "scripts/_test_shadow_occlusion.gd",
+    "scripts/_test_sink.gd",
+    "scripts/_test_suppression.gd",
+    "scripts/_test_zen_pulsar.gd",
+    "scripts/base_habit.gd",
+    "scripts/build_spot.gd",
+    "scripts/components/arc_profile.gd",
+    "scripts/data.gd",
+    "scripts/enemy.gd",
+    "scripts/game.gd",
+    "scripts/game_state.gd",
+    "scripts/hints.gd",
+    "scripts/level_simulator.gd",
+    "scripts/projectile.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/ui.gd",
+   "size_lines": 202,
+   "uid": "uid://bk88gy6nmqfic",
+   "class_name": "UI",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "BLOCKED.md",
+    "PROGRESS.md",
+    "addons/godot_ai/client_configurator.gd",
+    "addons/godot_ai/clients/antigravity.gd",
+    "addons/godot_ai/clients/cherry_studio.gd",
+    "addons/godot_ai/clients/trae.gd",
+    "addons/godot_ai/custom_tools/mcp_tool_registry.gd",
+    "addons/godot_ai/debugger/mcp_debugger_plugin.gd",
+    "addons/godot_ai/dock_panels/log_viewer.gd",
+    "addons/godot_ai/dock_panels/port_picker_panel.gd",
+    "addons/godot_ai/handlers/editor_handler.gd",
+    "addons/godot_ai/handlers/ui_handler.gd",
+    "addons/godot_ai/mcp_dock.gd",
+    "addons/godot_ai/plugin.gd",
+    "addons/godot_ai/tool_catalog.gd",
+    "addons/godot_ai/update_reload_runner.gd",
+    "addons/godot_ai/utils/mcp_server_state.gd",
+    "addons/godot_ai/utils/resource_io.gd",
+    "addons/godot_ai/utils/server_lifecycle.gd",
+    "addons/godot_ai/utils/settings.gd",
+    "addons/godot_ai/utils/surfaced_error_tracker.gd",
+    "addons/godot_ai/utils/update_manager.gd",
+    "addons/godot_ai/vision_routing.gd",
+    "addons/td_anim_lab/dock.gd",
+    "addons/td_level_designer/dock.gd",
+    "assets/src/concepts/README.md",
+    "docs/ART_PIPELINE.md",
+    "docs/ART_PROMPTS.md",
+    "docs/art/GENERATION_PLAN.md",
+    "docs/art/STYLE_BIBLE.md",
+    "docs/art/pixellab_parita.md",
+    "docs/art/plan_vlastni_nastroj.md",
+    "docs/art/retrodiffusion.md",
+    "docs/art/studio_ui.md",
+    "docs/art/ukoly_vlastni_nastroj.md",
+    "docs/art_style.md",
+    "docs/core/00_overview.md",
+    "docs/core/01_rendering_and_depth.md",
+    "docs/core/03_global_state_and_signals.md",
+    "docs/core/07_building_system_and_grid.md",
+    "docs/core/08_wave_manager.md",
+    "docs/core/09_hud_and_ui.md",
+    "docs/core/11_meta_progression_and_save.md",
+    "docs/core/13_hud_and_ui.md",
+    "docs/design/dopamine_mechanics.md",
+    "docs/design/map_ideation_prompt.md",
+    "docs/game_design.md",
+    "project.godot",
+    "scripts/_shot_fog.gd",
+    "scripts/_shot_verify.gd",
+    "scripts/_test_antiblock.gd",
+    "scripts/ad_overlay.gd",
+    "scripts/base_habit.gd",
+    "scripts/components/horde_renderer.gd",
+    "scripts/data.gd",
+    "scripts/education.gd",
+    "scripts/game.gd",
+    "scripts/game_over.gd",
+    "scripts/game_state.gd",
+    "scripts/hints.gd",
+    "scripts/level_select.gd",
+    "scripts/level_simulator.gd",
+    "scripts/map_composer.gd",
+    "scripts/menu.gd",
+    "scripts/pause_menu.gd",
+    "scripts/receipt.gd",
+    "scripts/resources/ad_data.gd",
+    "scripts/settings_panel.gd",
+    "scripts/sfx.gd",
+    "scripts/ui_meter.gd",
+    "scripts/victory.gd",
+    "tools/gen.py",
+    "tools/gen_ref.py",
+    "tools/gen_ui.py",
+    "tools/map_editor.gd",
+    "tools/phase0_batch.py",
+    "tools/retrodiffusion.py"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/ui_meter.gd",
+   "size_lines": 136,
+   "uid": "uid://3kr1ea7cj67p",
+   "class_name": "UIMeter",
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [
+    "scripts/game.gd",
+    "scripts/resources/level_data.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "scripts/victory.gd",
+   "size_lines": 78,
+   "uid": "uid://t812oo6q705f",
+   "class_name": null,
+   "path_refs": [
+    [
+     "scenes/Victory.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "tools/anim_autofix.gd",
+   "size_lines": 90,
+   "uid": "uid://d2eeq3ohisx1c",
+   "class_name": null,
+   "path_refs": [
+    [
+     "tools/anim_autofix.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "tools/build_placeholder_level.gd",
+   "size_lines": 144,
+   "uid": "uid://de7ekbes0ebkf",
+   "class_name": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "tools/build_terrain_tileset.gd",
+   "size_lines": 157,
+   "uid": "uid://cua8ufldle17k",
+   "class_name": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "tools/make_test_scene.gd",
+   "size_lines": 47,
+   "uid": "uid://dij7cr6bmf836",
+   "class_name": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "tools/map_editor.gd",
+   "size_lines": 2049,
+   "uid": "uid://bjnuc3s6pf1th",
+   "class_name": "MapEditor",
+   "path_refs": [
+    [
+     "scenes/MapEditor.tscn",
+     1
+    ],
+    [
+     "scripts/_test_mapeditor.gd",
+     1
+    ]
+   ],
+   "uid_refs": [
+    [
+     "scenes/MapEditor.tscn",
+     1
+    ]
+   ],
+   "class_refs": [
+    "BLOCKED.md",
+    "CLAUDE.md",
+    "PROGRESS.md",
+    "README.md",
+    "addons/td_anim_lab/plugin.gd",
+    "addons/td_level_designer/dock.gd",
+    "addons/td_level_designer/plugin.gd",
+    "docs/ART_INKSCAPE.md",
+    "docs/ART_PROMPTS.md",
+    "docs/DEBT.md",
+    "docs/EDITOR_GUIDE.md",
+    "docs/KNOWN_BROKEN.md",
+    "docs/MAP_STAVEBNICE.md",
+    "docs/game_design.md",
+    "docs/refactor/PATHFINDING.MD",
+    "scenes/MapEditor.tscn",
+    "scripts/_test_mapeditor.gd",
+    "scripts/game.gd",
+    "scripts/resources/level_data.gd",
+    "scripts/resources/map_segment_data.gd",
+    "scripts/resources/trod_data.gd",
+    "tools/build_placeholder_level.gd",
+    "tools/level_to_ascii.py"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "tools/retile_levels.gd",
+   "size_lines": 84,
+   "uid": "uid://n5cqxmu1t1v0",
+   "class_name": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "tools/scale_pixel_atlas.gd",
+   "size_lines": 58,
+   "uid": "uid://dj5ysak1i8bm8",
+   "class_name": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "tools/shot_game.gd",
+   "size_lines": 59,
+   "uid": "uid://dit5okcvxk5h6",
+   "class_name": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "tools/shot_iso_pilot.gd",
+   "size_lines": 43,
+   "uid": "uid://b5dc8ssb88klx",
+   "class_name": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "tools/shot_iso_slice.gd",
+   "size_lines": 37,
+   "uid": "uid://dh3cmupxntt2y",
+   "class_name": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "class_refs": [],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  },
+  {
+   "path": "tools/stylized_renderer.gd",
+   "size_lines": 528,
+   "uid": "uid://ylb60mc2o3d8",
+   "class_name": "StylizedMapRenderer",
+   "path_refs": [
+    [
+     "addons/td_level_designer/plugin.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "class_refs": [
+    "addons/td_level_designer/plugin.gd"
+   ],
+   "is_entrypoint_name": false,
+   "has_paired_test_scene": false
+  }
+ ],
+ "scenes_tscn": [
+  {
+   "path": "scenes/AnimationTest.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": false
+  },
+  {
+   "path": "scenes/Education.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/_shot_verify.gd",
+     1
+    ],
+    [
+     "scripts/_test_levels.gd",
+     1
+    ],
+    [
+     "scripts/game.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": false
+  },
+  {
+   "path": "scenes/Game.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "docs/DEBT.md",
+     1
+    ],
+    [
+     "scripts/_perf_horde.gd",
+     1
+    ],
+    [
+     "scripts/_perf_probe.gd",
+     1
+    ],
+    [
+     "scripts/_perf_shadows.gd",
+     1
+    ],
+    [
+     "scripts/_play_campaign.gd",
+     1
+    ],
+    [
+     "scripts/_play_iso.gd",
+     1
+    ],
+    [
+     "scripts/_play_trod.gd",
+     1
+    ],
+    [
+     "scripts/_probe_align.gd",
+     1
+    ],
+    [
+     "scripts/_shot_aim.gd",
+     1
+    ],
+    [
+     "scripts/_shot_crowd.gd",
+     1
+    ],
+    [
+     "scripts/_shot_fire.gd",
+     1
+    ],
+    [
+     "scripts/_shot_flat.gd",
+     1
+    ],
+    [
+     "scripts/_shot_fog.gd",
+     1
+    ],
+    [
+     "scripts/_shot_iso_board.gd",
+     1
+    ],
+    [
+     "scripts/_shot_p9_fog_variants.gd",
+     1
+    ],
+    [
+     "scripts/_shot_readability.gd",
+     1
+    ],
+    [
+     "scripts/_shot_shadows.gd",
+     1
+    ],
+    [
+     "scripts/_shot_telegraph.gd",
+     1
+    ],
+    [
+     "scripts/_shot_trod.gd",
+     1
+    ],
+    [
+     "scripts/_shot_verify.gd",
+     1
+    ],
+    [
+     "scripts/_test_deep_reading.gd",
+     1
+    ],
+    [
+     "scripts/_test_economy_characterization.gd",
+     1
+    ],
+    [
+     "scripts/_test_effort.gd",
+     1
+    ],
+    [
+     "scripts/_test_fog_bandwidth.gd",
+     1
+    ],
+    [
+     "scripts/_test_horde_renderer.gd",
+     1
+    ],
+    [
+     "scripts/_test_levels.gd",
+     1
+    ],
+    [
+     "scripts/_test_los.gd",
+     1
+    ],
+    [
+     "scripts/_test_multispawn.gd",
+     2
+    ],
+    [
+     "scripts/_test_nutrition_guild.gd",
+     1
+    ],
+    [
+     "scripts/_test_phase2.gd",
+     1
+    ],
+    [
+     "scripts/_test_phase3.gd",
+     1
+    ],
+    [
+     "scripts/_test_phase4.gd",
+     1
+    ],
+    [
+     "scripts/_test_phase6.gd",
+     1
+    ],
+    [
+     "scripts/_test_phase7.gd",
+     1
+    ],
+    [
+     "scripts/_test_segments.gd",
+     1
+    ],
+    [
+     "scripts/_test_shadow_occlusion.gd",
+     1
+    ],
+    [
+     "scripts/_test_sink.gd",
+     1
+    ],
+    [
+     "scripts/_test_streak.gd",
+     1
+    ],
+    [
+     "scripts/_test_suppression.gd",
+     1
+    ],
+    [
+     "scripts/_test_taxonomy.gd",
+     1
+    ],
+    [
+     "scripts/_test_telegraph.gd",
+     1
+    ],
+    [
+     "scripts/_test_trod.gd",
+     1
+    ],
+    [
+     "scripts/_test_zen_pulsar.gd",
+     1
+    ],
+    [
+     "scripts/education.gd",
+     1
+    ],
+    [
+     "scripts/game.gd",
+     1
+    ],
+    [
+     "scripts/game_over.gd",
+     1
+    ],
+    [
+     "scripts/level_select.gd",
+     1
+    ],
+    [
+     "scripts/level_simulator.gd",
+     1
+    ],
+    [
+     "scripts/test_slice_runner.gd",
+     1
+    ],
+    [
+     "tools/map_editor.gd",
+     1
+    ],
+    [
+     "tools/shot_game.gd",
+     2
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": false
+  },
+  {
+   "path": "scenes/GameOver.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/game.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": false
+  },
+  {
+   "path": "scenes/LevelSelect.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/menu.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": false
+  },
+  {
+   "path": "scenes/MapEditor.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "addons/td_level_designer/dock.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": false
+  },
+  {
+   "path": "scenes/Menu.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "project.godot",
+     1
+    ],
+    [
+     "scripts/game.gd",
+     1
+    ],
+    [
+     "scripts/game_over.gd",
+     1
+    ],
+    [
+     "scripts/level_select.gd",
+     1
+    ],
+    [
+     "scripts/victory.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": true,
+   "is_entrypoint_name": false
+  },
+  {
+   "path": "scenes/Victory.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/education.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": false
+  },
+  {
+   "path": "scenes/_balance_sweep.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/_balance_sweep.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": false
+  },
+  {
+   "path": "scenes/_perf_horde.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/_perf_horde.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": false
+  },
+  {
+   "path": "scenes/_perf_probe.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/_perf_probe.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": false
+  },
+  {
+   "path": "scenes/_perf_shadows.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/_perf_shadows.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": false
+  },
+  {
+   "path": "scenes/_play_campaign.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/_play_campaign.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_play_iso.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/_play_iso.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_play_trod.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/_play_trod.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_probe_align.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": false
+  },
+  {
+   "path": "scenes/_shot_aim.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_shot_anchor_flat.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/_shot_anchor_flat.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_shot_contact_sheet.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/_shot_contact_sheet.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_shot_crowd.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/_shot_crowd.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_shot_fire.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/_shot_fire.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_shot_flat.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/_shot_flat.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_shot_fog.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/_shot_fog.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_shot_iso_board.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/_shot_iso_board.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_shot_p9_fog_variants.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/_shot_p9_fog_variants.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_shot_palette_swap.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "BLOCKED.md",
+     1
+    ],
+    [
+     "scripts/_shot_palette_swap.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_shot_phase0.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/_shot_phase0.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_shot_phase0_candidates.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/_shot_phase0_candidates.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_shot_readability.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/_shot_readability.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_shot_shadows.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/_shot_shadows.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_shot_splat.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/_shot_splat.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_shot_telegraph.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/_shot_telegraph.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_shot_topdown_mockup.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/_shot_topdown_mockup.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_shot_trod.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_shot_verify.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/_shot_verify.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_antiblock.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_art_prompts.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_ascii_sidecar.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_attention.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_deep_reading.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_economy_characterization.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "tools/make_test_scene.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_effort.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_flowfield.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_fog_bandwidth.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_horde_renderer.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_level_simulator.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_levels.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_los.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_mapeditor.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/_test_mapeditor.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_maze_validity.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_multispawn.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_nutrition_guild.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_path_metrics.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_phase2.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_phase3.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_phase4.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_phase6.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_phase7.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_save_round_trip.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_segments.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_shadow_occlusion.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/_test_shadow_occlusion.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_sink.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_square_projection.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_streak.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_suppression.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_taxonomy.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_telegraph.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_timecontrol.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_trod.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/_test_zen_pulsar.tscn",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": true
+  },
+  {
+   "path": "scenes/pilot_isometric/IsoPilot.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "tools/shot_iso_pilot.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": false
+  },
+  {
+   "path": "scenes/test_slice.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "tools/shot_iso_slice.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": false
+  },
+  {
+   "path": "tools/anim_autofix.tscn",
+   "uid": null,
+   "path_refs": [
+    [
+     "tools/anim_autofix.gd",
+     2
+    ]
+   ],
+   "uid_refs": [],
+   "is_main_scene": false,
+   "is_entrypoint_name": false
+  }
+ ],
+ "resources_tres": [
+  {
+   "path": "data/ads/brain_blast.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": false
+  },
+  {
+   "path": "data/ads/brain_defense.tres",
+   "uid": null,
+   "path_refs": [
+    [
+     "data/levels/level_98.tres",
+     1
+    ],
+    [
+     "tools/build_placeholder_level.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": false
+  },
+  {
+   "path": "data/ads/dopamine_clicker.tres",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/_test_attention.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": false
+  },
+  {
+   "path": "data/ads/free_dopamine.tres",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/_test_attention.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": false
+  },
+  {
+   "path": "data/ads/go_outside.tres",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/_test_attention.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": false
+  },
+  {
+   "path": "data/ads/jackpot_real.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": false
+  },
+  {
+   "path": "data/ads/monk_mode.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": false
+  },
+  {
+   "path": "data/ads/pull_the_pin.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": false
+  },
+  {
+   "path": "data/ads/reward_video.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": false
+  },
+  {
+   "path": "data/ads/scrollr.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": false
+  },
+  {
+   "path": "data/anim_tuning.tres",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/resources/anim_tuning.gd",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": false
+  },
+  {
+   "path": "data/cards/all_nighter.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/cards/always_on.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/cards/awareness_training.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/cards/bigger_screen.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/cards/borrowed_focus.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/cards/breath_focus.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/cards/call_in_the_cavalry.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/cards/clean_slate.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/cards/cold_shower.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/cards/deep_work.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/cards/digital_detox.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/cards/journaling.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/cards/notification_audit.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/cards/pattern_interrupt.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/cards/phone_in_drawer.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/cards/quick_fix.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/cards/reward_schedule.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/cards/runners_high.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/cards/second_wind.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/cards/sleep_hygiene.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/cards/steady_payout.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/cards/time_blocking.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/cards/windfall.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/defenders/avocado_monk.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/defenders/broccoli_knight.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/defenders/chilli_berserker.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/defenders/garlic_mage.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/distractions/adult_content.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/distractions/autoplay.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/distractions/clickbait.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/distractions/comparison.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/distractions/doomscroll.tres",
+   "uid": null,
+   "path_refs": [
+    [
+     "data/levels/level_1.tres",
+     1
+    ],
+    [
+     "data/levels/level_98.tres",
+     1
+    ],
+    [
+     "tools/_fixtures/level_uid_fixture.tres",
+     1
+    ],
+    [
+     "tools/build_placeholder_level.gd",
+     2
+    ],
+    [
+     "tools/test_roster.py",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/distractions/energy_drink.tres",
+   "uid": null,
+   "path_refs": [
+    [
+     "tools/build_level_iso.py",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/distractions/fomo.tres",
+   "uid": null,
+   "path_refs": [
+    [
+     "tools/test_roster.py",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/distractions/group_chat.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/distractions/jackpot.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/distractions/just_one_more.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/distractions/notification.tres",
+   "uid": null,
+   "path_refs": [
+    [
+     "data/distractions/social_media_binge.tres",
+     1
+    ],
+    [
+     "data/levels/level_98.tres",
+     1
+    ],
+    [
+     "tools/_fixtures/level_uid_fixture.tres",
+     1
+    ],
+    [
+     "tools/build_level_iso.py",
+     1
+    ],
+    [
+     "tools/build_placeholder_level.gd",
+     1
+    ],
+    [
+     "tools/test_roster.py",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/distractions/phantom_buzz.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/distractions/social_media_binge.tres",
+   "uid": null,
+   "path_refs": [
+    [
+     "tools/_fixtures/level_uid_fixture.tres",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/growth/breakthrough.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/growth/clear_sight.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/growth/deep_sleep.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/growth/iron_will.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/growth/neuroplasticity.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/growth/reflection.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/growth/room_to_grow.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/growth/second_thoughts.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/growth/sharp_eye.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/growth/starter_dopamine.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/growth/strength_training.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/growth/support_network.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/growth/wide_awareness.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/habits/accountability.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/habits/accountability_2.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/habits/anchor.tres",
+   "uid": null,
+   "path_refs": [
+    [
+     "tools/test_roster.py",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/habits/exercise.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/habits/exercise_2.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/habits/focus_pillar.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/habits/focus_timer.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/habits/focus_timer_2.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/habits/mindfulness.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/habits/mindfulness_2.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/habits/real_hobby.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/habits/real_hobby_2.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/habits/zen_pulsar.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/habits/zen_pulsar_2a.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/habits/zen_pulsar_2b.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/insight_cards/level_1.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/insight_cards/level_2.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/insight_cards/level_98.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/insight_cards/level_99.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/interventions/airplane_mode.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/interventions/call_a_friend.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/interventions/deep_breath.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/interventions/moment_of_clarity.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/interventions/screen_break.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/levels/level_1.tres",
+   "uid": null,
+   "path_refs": [
+    [
+     "scenes/MapEditor.tscn",
+     1
+    ]
+   ],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/levels/level_98.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": true
+  },
+  {
+   "path": "data/terrain/high_ground_tileset.tres",
+   "uid": null,
+   "path_refs": [
+    [
+     "scripts/game.gd",
+     1
+    ],
+    [
+     "scripts/resources/level_data.gd",
+     1
+    ],
+    [
+     "tools/build_terrain_tileset.gd",
+     2
+    ]
+   ],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": false
+  },
+  {
+   "path": "tools/_fixtures/level_uid_fixture.tres",
+   "uid": null,
+   "path_refs": [],
+   "uid_refs": [],
+   "dynamic_loaded_by_data_gd": false
+  }
+ ],
+ "orphan_uid_sidecars": []
+}
