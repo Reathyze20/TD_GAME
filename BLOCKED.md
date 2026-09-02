@@ -3,7 +3,21 @@
 Design decisions found ambiguous or contradictory during autonomous runs.
 Not fixed by guessing — recorded here with options, then moved past.
 
-## Zapnutá mlha rozbije determinismus — screen shake teče do herní mřížky viditelnosti (2026-09-02)
+## Zapnutá mlha rozbije determinismus — **VYŘEŠENO 2026-09-02 (F1), mlha je zapnutá**
+
+**Zavřeno, a oprava je jinde, než tenhle záznam čekal.** Nemuselo se sahat na
+`_lit_cells`, `tower.gd` ani `projectile.gd`. Nedeterminismus nebyl v tom, že mlha čte
+shake — byl v tom, že **shake sám byl nedeterministický**: `_shake_rng` se nikdy neseedoval
+(„vlastní stream" se pletlo s „bez seedu") a jeho tlumení běželo v `_process()` na reálné
+delta. Teď se seeduje z `GameState.run_seed` a tlumí se v `_sim_tick()`. Zůstává oddělenou
+sekvencí, takže hře nekrade losy, ale je reprodukovatelný — a je to zlepšení determinismu
+celé hry, ne jen mlhy.
+
+`_test_timecontrol` je zelený se zapnutou mlhou, včetně té přísné same-seed same-speed
+kontroly, která tenhle záznam otevřela. `level_98` má `fog = true` a `verify.sh` je
+zelený. Původní rozbor zůstává níž.
+
+### Původní záznam (2026-09-02)
 
 **Tohle blokuje zapnutí mlhy, ne tvůj vkus.** Původní brána u P10 byla vizuální („až uvidím
 mlhu v pohybu"). Zkusil jsem `fog = true` na `level_98` a narazil na něco jiného
@@ -53,7 +67,18 @@ Zapsáno jako úkol **F1** ve frontě.
 Hitu jsou vyladěné a naměřené (viz `PROGRESS.md`). Chybí jediné: aby zapnutí mlhy nerozbilo
 determinismus.
 
-## Mlha je vypnutá na obou levelech, takže P10 i P11 jsou ve hře mrtvé (2026-09-02)
+## Mlha vypnutá na obou levelech — **ČÁSTEČNĚ VYŘEŠENO 2026-09-02: `level_98` ji má zapnutou**
+
+`level_98` (druhý level) má `fog = true`. P10 (`explored`), P11 (Tolerance zužuje dohled)
+a P12 (minimapa) tedy **poprvé něco dělají**. `level_1` ji má dál vypnutou schválně —
+první level učí základy a nemá učit dvě věci naráz.
+
+Zbývá z toho jediné, a je to na tebe: **podívat se, jestli to tak má vypadat.** Snímek je
+`.dev/screenshots/p_fog_live.png` (tmavá deska, tůň světla u jádra, osvětlený kužel
+postaveného habitu, minimapa ukazující jen prozkoumaný kus). Když ne, je to jeden bool
+zpátky. Původní záznam níž.
+
+### Původní záznam (2026-09-02)
 
 **Jeden bool, dva hotové systémy.** `data/levels/level_1.tres` i `level_98.tres` mají
 `fog = false`. `Game._update_fog()` se při vypnuté mlze vrací hned na začátku, takže:

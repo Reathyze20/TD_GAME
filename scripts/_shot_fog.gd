@@ -26,6 +26,23 @@ func _arg(name: String, fallback: String) -> String:
 
 func _run() -> void:
 	var out := _arg("--out", "build/fog.png")
+	# PICK A LEVEL THAT SHIPS FOG, BEFORE Game is built. This harness's header promises a
+	# photo "SE ZAPNUTOU mlhou" but never selected a level for it -- it took whatever
+	# GameState happened to point at, which is level 1, and level 1 ships `fog = false`
+	# (M3). So it was quietly photographing a FOGLESS board while being read as the fog
+	# reference shot: worse than no picture, because it answers "does the fog look right?"
+	# with a picture of no fog. Third instance of the inherited-subject bug, after
+	# _test_fog_bandwidth (P8b) and _test_effort.
+	#
+	# And it has to be the LEVEL, not `game.fog_enabled = true` after the fact: Game only
+	# builds the fog's SubViewport/shader layer in _ready(), and _build_fog_layer() returns
+	# immediately when fog is off. Flipping the flag later gives you the gameplay grid
+	# (_lit_cells, is_pos_visible) with no visual at all -- fine for the _test_fog* fixtures,
+	# which measure exactly that grid, and useless for a screenshot.
+	for i in range(Data.get_level_count()):
+		if Data.get_level(i).fog:
+			GameState.current_level_index = i
+			break
 	var game: Game = load("res://scenes/Game.tscn").instantiate()
 	add_child(game)
 	await get_tree().process_frame
@@ -40,15 +57,18 @@ func _run() -> void:
 	var uhly := [0.0, PI * 0.5, PI, PI * 1.5, PI * 0.25]
 	var siroko := [30.0, 60.0, 90.0, 120.0, 45.0]
 
-	# Místa co NEJDÁL od jádra, ale ještě v Routine. U jádra by je jeho vlastní světlo
-	# (330 px) přesvítilo a na snímku by z výsečí nebylo nic vidět.
+	# Místa co NEJDÁL od jádra, ale kde SE OPRAVDU DÁ STAVĚT. U jádra by je jeho vlastní
+	# světlo přesvítilo a na snímku by z výsečí nebylo nic vidět.
+	#
+	# Brána je `game._can_build()`, tedy TÁŽ funkce, kterou používá klik hráče — ne
+	# `is_position_in_routine()` jako dřív. Ten proxy o `routine_gates_enabled` neví, takže
+	# na levelu, který Routine bránu vypíná (level 98), odmítl KAŽDÉ místo a harness
+	# vyfotil desku s nula návyky: samotné světlo jádra a ani jeden kužel — přesně to, co
+	# má snímek ukazovat, chybělo.
 	var kandidati: Array = []
 	for cell: Vector2i in game.build_spots:
 		var bs = game.build_spots[cell]
-		# _routine_sources je cache, kterou _update_routine_reach() drží čerstvou.
-		if bs.state != BuildSpot.State.EMPTY \
-				or not game.is_position_in_routine(game.cell_center(cell),
-					game._routine_sources):
+		if bs.state != BuildSpot.State.EMPTY or not game._can_build(cell):
 			continue
 		kandidati.append(cell)
 	kandidati.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:

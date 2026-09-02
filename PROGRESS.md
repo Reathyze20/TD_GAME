@@ -4789,3 +4789,78 @@ Zapnutá mlha shodila dvě, které o mlze nejsou — a obě měly stejnou vadu j
 - Soubory: `scripts/game.gd` (tři konstanty), `scripts/_test_economy_characterization.gd`,
   `scripts/_test_effort.gd`, `docs/BALANCE.md`, `BLOCKED.md`, `PATHFINDING.MD` (úkol F1),
   tento zápis.
+
+## 2026-09-02 — F1 hotovo: mlha je ZAPNUTÁ. Oprava byla jinde, než úkol čekal
+
+### Nedeterminismus nebyl v mlze, byl v shake
+
+Úkol jsem si sám napsal jako „převeď `_lit_cells` do netřeseného prostoru a obrať volací
+místa v `tower.gd`/`projectile.gd`" — bojově kritický kód, proto jsem to odkládal.
+**Nebylo to potřeba.** Vada byla o patro níž:
+
+- **`_shake_rng` se nikdy neseedoval.** Komentář u něj správně říká, že to není sdílený
+  stream (aby shake nekradl losy, na kterých stojí hra) — jenže „oddělený" se pletlo
+  s „bez seedu". Neseedovaný generátor dělá každý běh jiný. Teď se seeduje
+  z `GameState.run_seed`, který sám pochází ze seedovaného streamu: pořád oddělená
+  sekvence, ale reprodukovatelná.
+- **Tlumení shake běželo v `_process()` na reálné delta.** Přesunuto do `_sim_tick()`.
+  Vypadá to pořád plynule (60 ticků/s), při pauze to teď stojí — což je správně — a při
+  4× to běží 4× rychleji, konzistentně se vším ostatním simulovaným.
+
+Dokud shake jen hýbal obrazem, nevadilo to. `_update_fog()` ale staví herní mřížku
+z `objective_pos + position`, takže **jakmile mlha začala gatovat střelbu, tekl neseedovaný
+RNG a reálný čas přímo do boje.** `_test_timecontrol` to chytil na té nejpřísnější
+kontrole: stejný seed, stejná rychlost, dva běhy → 19 killů/203 dopamine proti 22/215.
+
+Po opravě je ta kontrola zelená **se zapnutou mlhou**.
+
+### Takže `level_98` má `fog = true` a tři hotové systémy poprvé něco dělají
+
+P10 (`explored`), P11 (Tolerance zužuje dohled, Quick Hit prosvětluje) a P12 (minimapa)
+byly do teď postavené, otestované 42 kontrolami a ve hře mrtvé. Teď ne.
+
+Balance se zapnutou mlhou a vyladěnými konstantami (tři seedy):
+
+| strategie | zbylý Focus z 25 |
+|---|---|
+| nic nestavět | **LOSS / LOSS / LOSS** |
+| jen mačkat Quick Hit | **LOSS / LOSS / LOSS** |
+| levné věže, nemířit | WIN 1 / 2 / 4 |
+| levné věže + spam Quick Hitu | WIN 3 / 7 / 6 |
+| **counter-pick + mířit** | **WIN 19 / 17 / 19** |
+
+Čte se to přesně tak, jak má: nedělat nic prohraje, samotné tlačítko prohraje, lajdácká
+hra proklouzne o vlásek, tlačítko lajdácké hře trochu pomůže — a **kdo věže natáčí, vyhraje
+třikrát pohodlněji**. Levný zkrat sedí mezi špatnou a dobrou hrou. Tolerance u spamujících
+běhů vyleze na 42–45, tedy dohled zúžený o čtvrtinu.
+
+### Cestou třetí výskyt téže vady, tentokrát v snímkovacím harnessu
+
+`_shot_fog` má v hlavičce „Vyfotí hru SE ZAPNUTOU mlhou" a **mlhu nikdy nezapínal ani
+nevybíral level, který ji má** — bral, na co zrovna ukazoval `GameState`, tedy level 1,
+který ji po M3 nemá. Fotil tedy desku **bez mlhy** a byl přitom čten jako referenční snímek
+mlhy. To je horší než žádný obrázek: na otázku „vypadá mlha dobře?" odpovídal obrázkem bez
+mlhy. Teď si level s mlhou vybere sám.
+
+**A při té opravě vyšlo najevo, že `fog_enabled = true` po `_ready()` nestačí:**
+`_build_fog_layer()` se při vypnuté mlze hned vrací, takže pozdní přepnutí dá herní mřížku
+(`_lit_cells`, `is_pos_visible`) **bez jakéhokoli vizuálu**. Pro `_test_fog*` fixtures to
+nevadí — ty měří přesně tu mřížku — pro snímek je to k ničemu. Zapsáno do harnessu.
+
+Druhá oprava tamtéž: filtr stavebních míst používal `is_position_in_routine()` jako proxy,
+který o `routine_gates_enabled` neví, takže na levelu 98 (Routine brána vypnutá) odmítl
+**každé** místo a harness vyfotil desku s nula návyky — bez jediného kuželu, tedy přesně
+bez toho, co má snímek ukazovat. Teď se ptá `game._can_build()`, tedy touž funkcí jako klik
+hráče.
+
+Výsledek: `.dev/screenshots/p_fog_live.png` — tmavá deska, tůň světla u jádra, osvětlený
+kužel postaveného habitu, minimapa ukazující jen prozkoumaný kus.
+
+### Ověření
+
+- `./verify.sh` (s displejem): **46 pass, 0 fail, 0 skip, 2 known-broken, 0 flaky,
+  0 no-display** — se zapnutou mlhou.
+- `_test_timecontrol` zelený včetně same-seed same-speed kontroly, která tohle otevřela.
+- Soubory: `scripts/game.gd` (seed shake + přesun tlumení), `data/levels/level_98.tres`
+  (`fog = true`), `scripts/_shot_fog.gd`, `docs/BALANCE.md`, `BLOCKED.md`,
+  `PATHFINDING.MD`, `.dev/screenshots/p_fog_live.png`, tento zápis.

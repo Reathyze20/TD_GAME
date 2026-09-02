@@ -50,21 +50,21 @@ non-chip habit `start_dopamine` affords, against how many spots there are to fil
 | First Light (id 98) | build nothing | 20260829 | LOSS | 0 | 25 | 0.0 | 158 | 0 | 3 |
 | First Light (id 98) | build nothing | 20260902 | LOSS | 0 | 25 | 0.0 | 158 | 0 | 3 |
 | First Light (id 98) | build nothing | 20260903 | LOSS | 0 | 25 | 0.0 | 158 | 0 | 3 |
-| First Light (id 98) | build cheap towers evenly | 20260829 | WIN | 9 | 25 | 0.0 | 247 | 30 | 4 |
-| First Light (id 98) | build cheap towers evenly | 20260902 | WIN | 3 | 25 | 0.0 | 223 | 24 | 4 |
+| First Light (id 98) | build cheap towers evenly | 20260829 | WIN | 1 | 25 | 0.0 | 215 | 22 | 4 |
+| First Light (id 98) | build cheap towers evenly | 20260902 | WIN | 2 | 25 | 0.0 | 219 | 23 | 4 |
 | First Light (id 98) | build cheap towers evenly | 20260903 | WIN | 4 | 25 | 0.0 | 227 | 25 | 4 |
 | First Light (id 98) | spam Quick Hit | 20260829 | LOSS | 0 | 25 | 34.8 | 242 | 0 | 3 |
 | First Light (id 98) | spam Quick Hit | 20260902 | LOSS | 0 | 25 | 35.9 | 242 | 0 | 3 |
 | First Light (id 98) | spam Quick Hit | 20260903 | LOSS | 0 | 25 | 35.8 | 242 | 0 | 3 |
-| First Light (id 98) | habits + emergency Quick Hit | 20260829 | WIN | 9 | 25 | 0.0 | 247 | 30 | 4 |
-| First Light (id 98) | habits + emergency Quick Hit | 20260902 | WIN | 3 | 25 | 7.0 | 238 | 24 | 4 |
-| First Light (id 98) | habits + emergency Quick Hit | 20260903 | WIN | 4 | 25 | 10.5 | 242 | 25 | 4 |
-| First Light (id 98) | counter-pick + aim | 20260829 | WIN | 17 | 25 | 0.0 | 266 | 37 | 4 |
-| First Light (id 98) | counter-pick + aim | 20260902 | WIN | 19 | 25 | 0.0 | 272 | 38 | 4 |
+| First Light (id 98) | habits + emergency Quick Hit | 20260829 | WIN | 2 | 25 | 10.0 | 249 | 23 | 4 |
+| First Light (id 98) | habits + emergency Quick Hit | 20260902 | WIN | 3 | 25 | 22.6 | 253 | 24 | 4 |
+| First Light (id 98) | habits + emergency Quick Hit | 20260903 | WIN | 4 | 25 | 8.1 | 242 | 25 | 4 |
+| First Light (id 98) | counter-pick + aim | 20260829 | WIN | 19 | 25 | 0.0 | 274 | 38 | 4 |
+| First Light (id 98) | counter-pick + aim | 20260902 | WIN | 17 | 25 | 0.0 | 264 | 37 | 4 |
 | First Light (id 98) | counter-pick + aim | 20260903 | WIN | 19 | 25 | 0.0 | 274 | 38 | 4 |
-| First Light (id 98) | cheap towers + Quick Hit spam | 20260829 | WIN | 7 | 25 | 46.1 | 347 | 28 | 4 |
-| First Light (id 98) | cheap towers + Quick Hit spam | 20260902 | WIN | 8 | 25 | 42.9 | 351 | 29 | 4 |
-| First Light (id 98) | cheap towers + Quick Hit spam | 20260903 | WIN | 11 | 25 | 49.7 | 363 | 32 | 4 |
+| First Light (id 98) | cheap towers + Quick Hit spam | 20260829 | WIN | 3 | 25 | 42.6 | 331 | 24 | 4 |
+| First Light (id 98) | cheap towers + Quick Hit spam | 20260902 | WIN | 7 | 25 | 45.2 | 347 | 28 | 4 |
+| First Light (id 98) | cheap towers + Quick Hit spam | 20260903 | WIN | 6 | 25 | 43.3 | 343 | 27 | 4 |
 
 ## 2. Per-wave breakdown
 
@@ -133,11 +133,11 @@ ends the run. A `final` row is the snapshot taken after the run resolved.
 
 | wave | kills | kills Δ | focus | focus Δ | dopamine | tolerance |
 |---|---|---|---|---|---|---|
-| 0 | 1 | +1 | 22 | -3 | 43 | 0.0 |
-| 1 | 7 | +6 | 22 | +0 | 67 | 0.0 |
-| 2 | 14 | +7 | 20 | -2 | 125 | 0.0 |
-| 3 | 22 | +8 | 15 | -5 | 186 | 0.0 |
-| final | 30 | +8 | 9 | -6 | 247 | 0.0 |
+| 0 | 0 | +0 | 21 | -4 | 39 | 0.0 |
+| 1 | 5 | +5 | 20 | -1 | 59 | 0.0 |
+| 2 | 10 | +5 | 16 | -4 | 109 | 0.0 |
+| 3 | 14 | +4 | 7 | -9 | 154 | 0.0 |
+| final | 22 | +8 | 1 | -6 | 215 | 0.0 |
 
 ### First Light (id 98) — spam Quick Hit → **LOSS**
 
@@ -152,11 +152,11 @@ ends the run. A `final` row is the snapshot taken after the run resolved.
 
 | wave | kills | kills Δ | focus | focus Δ | dopamine | tolerance |
 |---|---|---|---|---|---|---|
-| 0 | 1 | +1 | 22 | -3 | 43 | 0.0 |
-| 1 | 7 | +6 | 22 | +0 | 67 | 0.0 |
-| 2 | 14 | +7 | 20 | -2 | 125 | 0.0 |
-| 3 | 22 | +8 | 15 | -5 | 186 | 0.0 |
-| final | 30 | +8 | 9 | -6 | 247 | 0.0 |
+| 0 | 0 | +0 | 21 | -4 | 39 | 0.0 |
+| 1 | 5 | +5 | 20 | -1 | 59 | 0.0 |
+| 2 | 10 | +5 | 16 | -4 | 109 | 0.0 |
+| 3 | 14 | +4 | 7 | -9 | 154 | 0.0 |
+| final | 23 | +9 | 2 | -5 | 249 | 10.0 |
 
 ### First Light (id 98) — counter-pick + aim → **WIN**
 
@@ -166,17 +166,17 @@ ends the run. A `final` row is the snapshot taken after the run resolved.
 | 1 | 10 | +6 | 25 | +0 | 64 | 0.0 |
 | 2 | 18 | +8 | 25 | +0 | 132 | 0.0 |
 | 3 | 27 | +9 | 21 | -4 | 197 | 0.0 |
-| final | 37 | +10 | 17 | -4 | 266 | 0.0 |
+| final | 38 | +11 | 19 | -2 | 274 | 0.0 |
 
 ### First Light (id 98) — cheap towers + Quick Hit spam → **WIN**
 
 | wave | kills | kills Δ | focus | focus Δ | dopamine | tolerance |
 |---|---|---|---|---|---|---|
-| 0 | 0 | +0 | 21 | -4 | 69 | 20.8 |
-| 1 | 6 | +6 | 21 | +0 | 107 | 19.9 |
+| 0 | 0 | +0 | 21 | -4 | 69 | 20.7 |
+| 1 | 6 | +6 | 21 | +0 | 107 | 18.0 |
 | 2 | 13 | +7 | 19 | -2 | 179 | 20.0 |
-| 3 | 22 | +9 | 15 | -4 | 270 | 32.7 |
-| final | 28 | +6 | 7 | -8 | 347 | 46.1 |
+| 3 | 21 | +8 | 14 | -5 | 266 | 30.0 |
+| final | 24 | +3 | 3 | -11 | 331 | 42.6 |
 
 ## 3. Damage matrix — habit × distraction (static)
 
@@ -280,8 +280,8 @@ below is exactly the set of spots the first build can use.
 | First Ping (id 1) | false | false | (19, 7) | 144 px | yes |
 | First Ping (id 1) | false | false | (10, 10) | 292 px | **no** |
 | **First Ping total** | | | **3 spots** | | **1 in Routine** |
-| First Light (id 98) | false | false | (10, 10) | 292 px | **no** |
-| First Light (id 98) | false | false | (16, 10) | 198 px | **no** |
+| First Light (id 98) | false | true | (10, 10) | 292 px | **no** |
+| First Light (id 98) | false | true | (16, 10) | 198 px | **no** |
 | **First Light total** | | | **2 spots** | | **0 in Routine** |
 
 ## 5. Wave composition vs the Focus budget (static)

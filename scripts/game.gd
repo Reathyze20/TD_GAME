@@ -266,6 +266,16 @@ func _ready() -> void:
 	# GameState snapshots it — and on the duplicate, never on Data's shared resource.
 	MetaProgression.apply_level_perks(level)
 	GameState.reset_for_level(level)
+	# SEEDED, THOUGH STILL ITS OWN STREAM (F1). Keeping screen shake off the shared global
+	# stream is deliberate — it must not consume draws that gameplay depends on — but
+	# "separate" was being confused with "unseeded", and an unseeded generator makes every
+	# run different. That was invisible while shake only moved the picture. It stopped
+	# being invisible the moment Brain Fog started gating fire: `_update_fog()` builds the
+	# visibility grid from `objective_pos + position`, and `position` IS the shake, so an
+	# unseeded RNG flowed straight into which cells a habit may shoot at.
+	# `GameState.run_seed` is itself drawn from the seeded stream by reset_for_level()
+	# above, so this stays reproducible per run while remaining a separate sequence.
+	_shake_rng.seed = GameState.run_seed
 	ModifierManager.reset()         # clear any leftover cards from a previous run
 	MetaProgression.apply_growth_modifiers()  # apply permanent Growth Tree unlocked modifiers
 	_apply_intervention_perks()
@@ -3739,14 +3749,6 @@ func _process(delta: float) -> void:
 	queue_redraw()
 	_update_hover()
 
-	# Screen Shake decay — _shake_rng, not the shared global stream; see its own comment.
-	if _shake_amount > 0.05:
-		_shake_amount = lerpf(_shake_amount, 0.0, 12.0 * delta)
-		position = Vector2(_shake_rng.randf_range(-_shake_amount, _shake_amount),
-			_shake_rng.randf_range(-_shake_amount, _shake_amount))
-	else:
-		_shake_amount = 0.0
-		position = Vector2.ZERO
 
 ## Matches the project's default physics_ticks_per_second (60) and, not by coincidence,
 ## `--fixed-fps 60` — the flag every determinism harness in this project launches with
@@ -3911,6 +3913,22 @@ func _sim_tick(delta: float) -> void:
 			u._process(delta)
 
 	_check_wave_progress()
+
+	# SCREEN SHAKE DECAYS ON THE SIM CLOCK, NOT ON RENDERED FRAMES (F1). It used to live in
+	# _process() on real delta, which is fine for something purely cosmetic — and shake was
+	# purely cosmetic right up until Brain Fog began gating fire on `_lit_cells`, which
+	# _update_fog() builds from `objective_pos + position`. A real-time clock feeding the
+	# visibility grid means two runs of the same seed disagree about what a habit could
+	# see; _test_timecontrol caught exactly that (19 kills vs 22 on one seed, same speed).
+	# On the fixed tick the same sequence of steps runs whatever the frame rate, so the
+	# shake is reproducible — and it still reads as smooth, because ticks are 60/s.
+	if _shake_amount > 0.05:
+		_shake_amount = lerpf(_shake_amount, 0.0, 12.0 * delta)
+		position = Vector2(_shake_rng.randf_range(-_shake_amount, _shake_amount),
+			_shake_rng.randf_range(-_shake_amount, _shake_amount))
+	else:
+		_shake_amount = 0.0
+		position = Vector2.ZERO
 
 	# The scripted driver's one decision point per tick — see sim_observer's own comment.
 	# Last in the function on purpose: a strategy reads the state a FINISHED tick left.

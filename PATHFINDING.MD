@@ -1262,7 +1262,7 @@ rukopis, ale capsule, jejíž světlo a paleta nesedí na screenshoty.
 ## F1 — mlha nesmí číst screen shake (blokuje zapnutí mlhy)
 Model: opus
 Needs-me: no
-Status: todo
+Status: done
 
 `Game._update_fog()` staví herní mřížku viditelnosti z `objective_pos + position`, a
 `position` je offset **screen shake** — losovaný z `_shake_rng`, který se **nikdy
@@ -1283,6 +1283,23 @@ problém už jednou vyřešil (Q1) a jeho komentář popisuje přesně tuhle pas
 Hotovo: `_test_timecontrol` je zelený se **zapnutou** mlhou na `level_98` (same-seed
 same-speed bit-identické i pro `cheap-even`), `_test_fog`/`_test_fog_modifiers`/
 `_test_minimap` zelené, a sweep se zapnutou mlhou dá reprodukovatelná čísla.
+
+**Hotovo 2026-09-02, a menším řezem, než tenhle úkol čekal.** Nemusel jsem převádět
+`_lit_cells` do netřeseného prostoru ani obracet volací místa v `tower.gd`/`projectile.gd`.
+Nedeterminismus nebyl v tom, že mlha čte shake — byl v tom, že **shake sám byl
+nedeterministický**:
+
+- `_shake_rng` se **nikdy neseedoval**. „Vlastní stream" se pletlo s „bez seedu". Teď se
+  seeduje z `GameState.run_seed`, který sám pochází ze seedovaného streamu — takže zůstává
+  oddělenou sekvencí (nekrade losy hře), ale je reprodukovatelný.
+- Tlumení shake běželo v `_process()` na **reálné delta**. Přesunuto do `_sim_tick()`, tedy
+  na pevné hodiny. Vypadá to pořád plynule (60 ticků/s) a při pauze to teď stojí, což je
+  správně.
+
+Obojí je zlepšení determinismu **celé hry**, ne jen mlhy.
+
+**A `level_98` má `fog = true`.** Gate je zelený, sweep reprodukovatelný, snímek
+v `.dev/screenshots/p_fog_live.png`.
 
 ## M9 — vyčistit known-broken dluh
 Model: opus
