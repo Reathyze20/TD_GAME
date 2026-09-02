@@ -1,35 +1,45 @@
 extends Node
-## S3 (docs/refactor/SYSTEMS.MD): sweeps every level in Data through S2's
-## LevelSimulator under three baseline strategies and writes docs/BALANCE.md as a
-## level x strategy x result table. "Nedelej zavery, jen data" — reports only, no
-## judgment calls about whether any of this is good or bad balance.
+## S3 (docs/refactor/SYSTEMS.MD) + M1 (PATHFINDING.MD): sweeps every level in Data through
+## S2's LevelSimulator under the four baseline strategies and writes docs/BALANCE.md.
 ##
-## Manual, not part of verify.sh's gate — like _perf_horde.gd -> docs/PERF.md, this
-## plays every level to completion three times each, and per-run wall-clock cost has
-## been observed (S2's PROGRESS.md entry) to vary a lot with machine load, so a full
-## sweep can take a long time. Run by hand:
+## S3's brief was "Nedelej zavery, jen data" and the outcome table below still honours it.
+## M1 asks a sharper question -- "the prototype is not winnable, find out WHY" -- which the
+## outcome table alone provably cannot answer: "died at wave 2 with 0 kills" is consistent
+## with three unrelated repairs (nothing can kill / too much leaks at once / the money runs
+## out) and picking between them by eye is exactly the guessing CLAUDE.md forbids. So this
+## now emits four more sections, all of them measurements:
+##
+##   0. the verdict: usable build spots, chip-only pairings, leak-vs-pool arithmetic
+##   2. per-WAVE rows (kills and Focus per wave, via SimRecorder) -- WHICH wave kills a run
+##   3. the damage matrix (every habit x every distraction) -- CAN a habit kill it at all
+##   4. build spots vs the Routine radius -- can the player build ANYWHERE useful
+##   5. wave composition vs the Focus budget -- is the level arithmetically survivable
+##
+## Sections 3-5 are static: they read data/ and Game's constants and compute, with no
+## simulation at all, so they stay true even for a level no strategy can finish.
+##
+## Manual, not part of verify.sh's gate -- like _perf_horde.gd -> docs/PERF.md, this plays
+## every level to completion four times each. Run by hand:
 ##   godot --headless --path . --fixed-fps 60 --main-scene res://scenes/_balance_sweep.tscn
 
 const SEED := 20260829
-## Below S2's own 36000-frame default: bounding worst-case sweep wall-clock time
-## matters more here than giving a single stalled run the absolute maximum benefit of
-## the doubt — a strategy that cannot resolve a level within 3 simulated minutes is
-## itself a reportable data point ("timed_out"), not a run worth waiting out fully.
-## Confirmed via a real run: levels 1 and 2 both carry a pre-existing, already-tracked
-## defect (scripts/_test_levels.gd's own KNOWN_BROKEN dict — the objective cell sits
-## outside the level's own 24x24 grid, docs/core/16) that makes the objective
-## unreachable to AStarGrid2D regardless of what any strategy builds, so every
-## strategy on those two levels genuinely CANNOT resolve and would otherwise burn the
-## full budget three times over for no new information.
+## Below S2's own 36000-frame default: bounding worst-case sweep wall-clock time matters
+## more here than giving a single stalled run the absolute maximum benefit of the doubt --
+## a strategy that cannot resolve a level within 3 simulated minutes is itself a reportable
+## data point ("timed_out"), not a run worth waiting out fully.
 const MAX_FRAMES := 10800
 
 var completed := false
 
-## (display label, concrete SimStrategy subclass) — the three named in S3's own spec.
+## (display label, concrete SimStrategy subclass). The fourth entry did not exist when S3
+## was written -- it arrived with Q2, which needed a strategy that mixes building with
+## Quick Hit rather than testing either alone.
 const STRATEGIES := [
 	["build nothing", "SimStrategyPassive"],
 	["build cheap towers evenly", "SimStrategyCheapEven"],
 	["spam Quick Hit", "SimStrategyQuickHitSpam"],
+	["habits + emergency Quick Hit", "SimStrategyHabitsEmergencyQuickHit"],
+	["counter-pick + aim", "SimStrategyCounterPick"],
 ]
 
 func _make_strategy(class_id: String) -> SimStrategy:
@@ -40,6 +50,10 @@ func _make_strategy(class_id: String) -> SimStrategy:
 			return SimStrategyCheapEven.new()
 		"SimStrategyQuickHitSpam":
 			return SimStrategyQuickHitSpam.new()
+		"SimStrategyHabitsEmergencyQuickHit":
+			return SimStrategyHabitsEmergencyQuickHit.new()
+		"SimStrategyCounterPick":
+			return SimStrategyCounterPick.new()
 	return null
 
 func _outcome_label(r: Dictionary) -> String:
@@ -49,7 +63,7 @@ func _outcome_label(r: Dictionary) -> String:
 
 func _ready() -> void:
 	var wd := Timer.new()
-	wd.wait_time = 1800.0
+	wd.wait_time = 3600.0
 	wd.one_shot = true
 	add_child(wd)
 	wd.timeout.connect(func():
@@ -59,38 +73,46 @@ func _ready() -> void:
 	wd.start()
 	call_deferred("_run")
 
+
 func _run() -> void:
 	var rows: Array[String] = []
-	rows.append("# Balance sweep — S2 x S3 (docs/refactor/SYSTEMS.MD)")
+	rows.append("# Balance sweep — S2 × S3 outcomes, M1 diagnosis")
 	rows.append("")
-	rows.append("Generated by scripts/_balance_sweep.gd via S2's LevelSimulator. Every cell is the")
-	rows.append("SAME seed (%d), so a column-to-column comparison at a fixed level is fair; do NOT" % SEED)
-	rows.append("compare seeds against each other since none are varied here. Data only, no")
-	rows.append("conclusions drawn — per S3's own \"Nedelej zavery, jen data.\"")
+	rows.append("Generated by `scripts/_balance_sweep.gd` via S2's `LevelSimulator`. Every simulated")
+	rows.append("cell uses the SAME seed (%d), so a column-to-column comparison at a fixed level" % SEED)
+	rows.append("is fair; do NOT compare seeds against each other, since none are varied here.")
 	rows.append("")
-	rows.append("`wave` is the wave index reached (0-based) at the time the run ended, win, loss,")
-	rows.append("or TIMEOUT (the run did not resolve within %d simulated frames / %.0f simulated" %
-		[MAX_FRAMES, MAX_FRAMES / 60.0])
-	rows.append("seconds — itself a reportable result, not a harness failure).")
+	rows.append("`wave` is the wave index reached at the time the run ended — win, loss, or TIMEOUT")
+	rows.append("(the run did not resolve within %d simulated frames / %.0f simulated seconds," % [MAX_FRAMES, MAX_FRAMES / 60.0])
+	rows.append("itself a reportable result, not a harness failure).")
 	rows.append("")
-	rows.append("Levels 1 and 2 show TIMEOUT under every strategy for the same reason, unrelated")
-	rows.append("to any strategy's decisions: both carry a pre-existing, already-tracked defect")
-	rows.append("(scripts/_test_levels.gd's own `KNOWN_BROKEN` dict — the objective cell sits")
-	rows.append("outside the level's own 24x24 grid, see docs/core/16) that makes the objective")
-	rows.append("unreachable to pathfinding regardless of what gets built.")
+	rows.append("**Sections 3–5 are static** — computed from `data/` and `Game`'s constants with no")
+	rows.append("simulation — so they stay meaningful for a level no strategy can finish.")
+	rows += _where_it_breaks()
+
+	rows.append("## 1. Outcome per level × strategy")
 	rows.append("")
 	rows.append("| level | strategy | result | focus | max_focus | tolerance | dopamine | kills | wave |")
 	rows.append("|---|---|---|---|---|---|---|---|---|")
+
+	var per_wave: Array[String] = []
+	per_wave.append("## 2. Per-wave breakdown")
+	per_wave.append("")
+	per_wave.append("One row per wave entered. `kills Δ` and `focus Δ` are that wave's own change, not")
+	per_wave.append("the running total — the wave where `focus Δ` goes sharply negative is the wave that")
+	per_wave.append("ends the run. A `final` row is the snapshot taken after the run resolved.")
+	per_wave.append("")
 
 	for i in range(Data.get_level_count()):
 		var lv := Data.get_level(i)
 		for entry in STRATEGIES:
 			var label: String = entry[0]
-			var strategy := _make_strategy(entry[1])
+			var recorder := SimRecorder.new(_make_strategy(entry[1]))
 			print("-- level %d (%s) / %s --" % [lv.id, lv.display_name, label])
 			var sim := LevelSimulator.new()
 			add_child(sim)
-			var r: Dictionary = await sim.run(lv.id, SEED, strategy, MAX_FRAMES)
+			var r: Dictionary = await sim.run(lv.id, SEED, recorder, MAX_FRAMES)
+			recorder.finish(sim)
 			sim.queue_free()
 			await get_tree().process_frame
 			print("   %s" % r)
@@ -99,6 +121,23 @@ func _run() -> void:
 				r.get("focus", -1), r.get("max_focus", -1), r.get("tolerance", -1.0),
 				r.get("dopamine", -1), r.get("kills", -1), r.get("wave", -1)])
 
+			per_wave.append("### %s (id %d) — %s → **%s**" % [lv.display_name, lv.id, label, _outcome_label(r)])
+			per_wave.append("")
+			per_wave.append("| wave | kills | kills Δ | focus | focus Δ | dopamine | tolerance |")
+			per_wave.append("|---|---|---|---|---|---|---|")
+			for w: Dictionary in recorder.waves:
+				per_wave.append("| %s | %d | %+d | %d | %+d | %d | %.1f |" % [
+					("final" if w["final"] else str(w["wave"])),
+					w["kills"], w["kills_delta"], w["focus"], w["focus_delta"],
+					w["dopamine"], w["tolerance"]])
+			per_wave.append("")
+
+	rows.append("")
+	rows += per_wave
+	rows += _damage_matrix()
+	rows += _build_spot_reach()
+	rows += _wave_budget()
+
 	var f := FileAccess.open("res://docs/BALANCE.md", FileAccess.WRITE)
 	f.store_string("\n".join(rows) + "\n")
 	f.close()
@@ -106,3 +145,219 @@ func _run() -> void:
 	completed = true
 	print("\nwrote docs/BALANCE.md")
 	get_tree().quit(0)
+
+
+## Section 3. Every attack habit against every distraction, using enemy.gd's OWN formula
+## (take_damage: `maxi(1, willpower - compulsion)`, likewise for awareness). The floor of 1
+## is the point of the table: a habit whose damage is fully absorbed does not do nothing,
+## it does chip damage, which reads as "the tower works, it is just slow" in play and is
+## very hard to tell apart from bad balance without the number in front of you.
+func _damage_matrix() -> Array[String]:
+	var out: Array[String] = []
+	out.append("## 3. Damage matrix — habit × distraction (static)")
+	out.append("")
+	out.append("Per-shot damage uses `enemy.gd take_damage()`'s own formula, floor of 1 included.")
+	out.append("**chip** marks a pairing where the resistance fully absorbs the habit's damage and")
+	out.append("only that floor lands — the habit still kills, just at the slowest rate the game")
+	out.append("allows, regardless of its own stat line. DOT (`boredom`) bypasses both resistances")
+	out.append("and is listed separately, since it does not go through this formula at all.")
+	out.append("")
+	out.append("| habit | dmg/shot | cooldown | dps | vs distraction | hp | resist | shots | seconds |")
+	out.append("|---|---|---|---|---|---|---|---|---|")
+
+	var distraction_ids: Array = []
+	for id: StringName in Data._distractions.keys():
+		distraction_ids.append(id)
+	distraction_ids.sort()
+
+	for habit_id: StringName in Data.HABIT_ORDER:
+		var h: HabitData = Data.get_habit(habit_id)
+		if h == null or h.is_blocker or (h.willpower_damage <= 0 and h.awareness_damage <= 0 and h.boredom <= 0.0):
+			continue
+		for did in distraction_ids:
+			var d: DistractionData = Data.get_distraction(did)
+			if d == null:
+				continue
+			var wp: int = maxi(1, h.willpower_damage - d.compulsion) if h.willpower_damage > 0 else 0
+			var aw: int = maxi(1, h.awareness_damage - d.rationalization) if h.awareness_damage > 0 else 0
+			var per_shot: int = wp + aw
+			var chip := (h.willpower_damage > 0 and h.willpower_damage <= d.compulsion) \
+				or (h.awareness_damage > 0 and h.awareness_damage <= d.rationalization)
+			var cd: float = maxf(h.fire_cooldown, 0.0001)
+			var dps: float = float(per_shot) / cd
+			var shots: int = int(ceil(float(d.max_health) / float(maxi(per_shot, 1))))
+			var secs: float = float(shots) * cd
+			var dot := ""
+			if h.boredom > 0.0:
+				dot = " +%.0f DOT/s" % h.boredom
+			out.append("| %s%s | %d%s | %.2f s | %.1f | %s | %d | %d/%d | %d | %.2f s |" % [
+				h.id, dot, per_shot, (" **chip**" if chip else ""), cd, dps,
+				d.id, d.max_health, d.compulsion, d.rationalization, shots, secs])
+	out.append("")
+	return out
+
+
+## Section 4. Whether the player can build anywhere that matters. `in_routine` gates a
+## habit's FIRING, not just its placement (game.gd ~3884, and the long comment there about
+## six consumers), so a level whose build spots all sit outside the Routine has towers that
+## cannot be built — or, with the gate off, towers that stand and never shoot.
+func _build_spot_reach() -> Array[String]:
+	var out: Array[String] = []
+	out.append("## 4. Build spots vs the Routine radius (static)")
+	out.append("")
+	out.append("`Game.CORE_ROUTINE_RADIUS = %.0f px`, tile = %d px, board = %d×%d cells." % [
+		Game.CORE_ROUTINE_RADIUS, int(Data.GRID.tile),
+		int(Data.GRID.cols), int(Data.GRID.rows)])
+	out.append("A spot outside the core's Routine is only buildable if an **Anchor** chains Routine")
+	out.append("out to it, and no level ships with one pre-built — so on a fresh board, `in Routine`")
+	out.append("below is exactly the set of spots the first build can use.")
+	out.append("")
+	out.append("| level | routine_gates | fog | build spot (block) | dist to core | in Routine |")
+	out.append("|---|---|---|---|---|---|")
+	for i in range(Data.get_level_count()):
+		var lv := Data.get_level(i)
+		var core: Vector2 = Data.cell_center(lv.objective)
+		var blocks := {}
+		for c: Vector2i in lv.high_ground:
+			if c == lv.objective:
+				continue
+			blocks[Data.build_block(c)] = true
+		var keys: Array = blocks.keys()
+		keys.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+			return a.y < b.y if a.y != b.y else a.x < b.x)
+		var lit := 0
+		for b: Vector2i in keys:
+			var dist: float = Data.cell_center(b).distance_to(core)
+			var inside: bool = dist <= Game.CORE_ROUTINE_RADIUS
+			if inside:
+				lit += 1
+			out.append("| %s (id %d) | %s | %s | %s | %.0f px | %s |" % [
+				lv.display_name, lv.id, str(lv.routine_gates), str(lv.fog),
+				str(b), dist, ("yes" if inside else "**no**")])
+		out.append("| **%s total** | | | **%d spots** | | **%d in Routine** |" % [
+			lv.display_name, keys.size(), lit])
+	out.append("")
+	return out
+
+
+## Section 5. Is the level survivable as arithmetic, before any question of skill: if every
+## distraction of every wave leaked, how much Focus would that cost against the level's own
+## pool? A level whose FIRST wave can already empty the pool is not hard, it is misconfigured.
+func _wave_budget() -> Array[String]:
+	var out: Array[String] = []
+	out.append("## 5. Wave composition vs the Focus budget (static)")
+	out.append("")
+	out.append("`leak cost` is the Focus lost if EVERY distraction in that wave reaches the core —")
+	out.append("the worst case, and the ceiling the player is defending against. `% of pool` is that")
+	out.append("against the level's whole `LevelData.focus`. Anything at or over 100% means one")
+	out.append("un-defended wave ends the run on its own.")
+	out.append("")
+	out.append("| level | focus pool | wave | composition | leak cost | % of pool |")
+	out.append("|---|---|---|---|---|---|")
+	for i in range(Data.get_level_count()):
+		var lv := Data.get_level(i)
+		var waves := Data.build_waves(lv)
+		for w in range(waves.size()):
+			var parts: Array[String] = []
+			var cost := 0
+			for b: SpawnBatchData in waves[w].groups:
+				if b.distraction == null:
+					continue
+				parts.append("%d× %s" % [b.count, b.distraction.id])
+				cost += b.count * b.distraction.focus_damage
+			var pct: float = 100.0 * float(cost) / float(maxi(lv.focus, 1))
+			out.append("| %s (id %d) | %d | %d | %s | %d | %.0f%% |" % [
+				lv.display_name, lv.id, lv.focus, w + 1,
+				", ".join(parts), cost, pct])
+	out.append("")
+	return out
+
+
+## Section 0. The verdict M1 was asked for, computed rather than concluded by eye. Every
+## column is arithmetic over data/ and Game's constants; none of it depends on a strategy
+## playing well, which is the point — a level can be diagnosed here even when every
+## simulated run loses for reasons that have nothing to do with the level.
+##
+## The four questions it answers, in the order a run actually hits them:
+##   1. Can the player build anywhere at all on wave 1? (`in_routine` gates FIRING, not
+##      just placement — game.gd ~3884 — so a spot outside the Routine is not a worse
+##      spot, it is not a spot.)
+##   2. Is there a habit that does more than chip damage to this level's tankiest
+##      distraction, and can the opening budget buy one per usable spot?
+##   3. How much Focus does the level throw at the player if nothing is defended?
+##   4. How much of that must therefore be stopped for the run to survive?
+func _where_it_breaks() -> Array[String]:
+	var out: Array[String] = []
+	out.append("## 0. Where the run breaks (static verdict)")
+	out.append("")
+	out.append("Arithmetic only — no simulation, no strategy. `must prevent` is the Focus damage the")
+	out.append("player has to stop for the run to end above zero: `total leak − (pool − 1)`. `usable")
+	out.append("spots` counts build blocks a fresh board actually allows: with `routine_gates` on")
+	out.append("that is the blocks inside `CORE_ROUTINE_RADIUS`, since `in_routine` gates a habit's")
+	out.append("FIRING and not merely its placement. `opening buy` is how many of the cheapest")
+	out.append("non-chip habit `start_dopamine` affords, against how many spots there are to fill.")
+	out.append("")
+	out.append("| level | pool | total leak | must prevent | usable spots | tankiest | cheapest non-chip | opening buy |")
+	out.append("|---|---|---|---|---|---|---|---|")
+
+	for i in range(Data.get_level_count()):
+		var lv := Data.get_level(i)
+		var waves := Data.build_waves(lv)
+
+		var total_leak := 0
+		var tank: DistractionData = null
+		for w in waves:
+			for b: SpawnBatchData in w.groups:
+				if b.distraction == null:
+					continue
+				total_leak += b.count * b.distraction.focus_damage
+				if tank == null or b.distraction.max_health > tank.max_health:
+					tank = b.distraction
+		var must_prevent: int = maxi(0, total_leak - (lv.focus - 1))
+
+		var blocks := {}
+		for c: Vector2i in lv.high_ground:
+			if c == lv.objective:
+				continue
+			blocks[Data.build_block(c)] = true
+		var core: Vector2 = Data.cell_center(lv.objective)
+		var usable := 0
+		for b: Vector2i in blocks.keys():
+			if not lv.routine_gates or Data.cell_center(b).distance_to(core) <= Game.CORE_ROUTINE_RADIUS:
+				usable += 1
+
+		var best_id := "—"
+		var best_cost := 0
+		if tank != null:
+			var ordered: Array = []
+			for hid: StringName in Data.HABIT_ORDER:
+				var hd: HabitData = Data.get_habit(hid)
+				if hd == null or hd.is_blocker:
+					continue
+				if hd.willpower_damage <= 0 and hd.awareness_damage <= 0:
+					continue
+				ordered.append(hd)
+			ordered.sort_custom(func(a: HabitData, b: HabitData) -> bool:
+				return a.build_cost < b.build_cost)
+			for hd: HabitData in ordered:
+				var wp_chip: bool = hd.willpower_damage > 0 and hd.willpower_damage <= tank.compulsion
+				var aw_chip: bool = hd.awareness_damage > 0 and hd.awareness_damage <= tank.rationalization
+				var only_wp: bool = hd.awareness_damage <= 0
+				var only_aw: bool = hd.willpower_damage <= 0
+				var chip: bool = (wp_chip if only_wp else (aw_chip if only_aw else (wp_chip and aw_chip)))
+				if not chip:
+					best_id = String(hd.id)
+					best_cost = hd.build_cost
+					break
+
+		var buy: int = (lv.start_dopamine / best_cost) if best_cost > 0 else 0
+		out.append("| %s (id %d) | %d | %d | **%d** | **%d** of %d | %s (%d hp, %d/%d) | %s (%d) | %d for %d spots |" % [
+			lv.display_name, lv.id, lv.focus, total_leak, must_prevent,
+			usable, blocks.size(),
+			(String(tank.id) if tank != null else "—"),
+			(tank.max_health if tank != null else 0),
+			(tank.compulsion if tank != null else 0),
+			(tank.rationalization if tank != null else 0),
+			best_id, best_cost, buy, usable])
+	out.append("")
+	return out

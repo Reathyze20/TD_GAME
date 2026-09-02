@@ -3721,3 +3721,111 @@ commitem.
   ani `.tscn`). Poslední naměřený stav: **41 pass, 0 fail, 3 known-broken, 0 no-display**
   (s displejem, `a43f678`).
 - Soubory: `PATHFINDING.MD`, tento zápis.
+
+## 2026-09-02 — M1 hotovo: proč hru nejde vyhrát. Pět příčin, všechny změřené
+
+Zadání bylo výslovně „měř, neopravuj". Nic v `data/` ani žádná konstanta v `game.gd` se
+nezměnila; celý úkol je nástroj + dokument.
+
+### Co vzniklo
+
+- **`scripts/sim_recorder.gd`** (`SimRecorder`) — obal nad libovolnou `SimStrategy`, který
+  při hraní zaznamenává **snímek po vlnách** (kills, Focus, dopamine, Tolerance a jejich
+  deltu). Obal, ne hák uvnitř `LevelSimulator`, schválně: S2 stojí na tom, že strategie je
+  jediný zdroj rozhodnutí, a `_test_timecontrol` přes něj dokazuje bitovou identitu 1× a 4×.
+  Měřicí kód na téhle cestě nemá co dělat; obal je z definice inertní.
+- **`scripts/sim_strategy_counter_pick.gd`** (`SimStrategyCounterPick`) — pátá, trvalá
+  baseline „hraje rozumně": kupuje nejdražší habit, na který má, a **míří** ho na spawn.
+  Proč vznikla, viz příčinu 4 níž.
+- **`scripts/_balance_sweep.gd`** rozšířen o čtyři nové sekce; `docs/BALANCE.md` je celé
+  přegenerované a má teď §0 verdikt, §1 výsledky, §2 rozpad po vlnách, §3 matici poškození,
+  §4 build spoty proti Routine, §5 vlny proti Focus rozpočtu. **§0 a §3–5 jsou statické** —
+  počítají se z `data/` a konstant, bez jediné simulace — takže platí i pro level, který
+  nikdo nedohraje.
+
+### Příčina 1 — obě úrovně jsou aritmeticky nepřátelské, ne „těsné"
+
+| level | Focus pool | leak, když se nic neubrání | musí se zabránit |
+|---|---|---|---|
+| `level_1` | 30 | **42** (140 % poolu) | 13 |
+| `level_98` | 25 | **78** (312 % poolu) | **54** |
+
+Na `level_98` musí hráč zastavit **69 % celé hordy** (54 ze 78 bodů poškození, 67 kusů
+napříč pěti vlnami), aby vůbec doběhl nad nulu.
+
+### Příčina 2 — na desce skoro není kam stavět
+
+`CORE_ROUTINE_RADIUS = 165 px` na desce 480×224 px, zatímco stavební bloky leží
+**144–292 px** od jádra. A `in_routine` negatuje jen umístění, ale **střelbu**
+(`game.gd` ~3884 a jeho vlastní komentář o šesti konzumentech).
+
+- `level_1` má **3 bloky, použitelný 1** — protože `routine_gates` v jeho `.tres` **není
+  nastavené** a default je `true`.
+- `level_98` má **2 bloky** na celé desce 30×14. Dvě věže proti 67 kusům.
+
+### Příčina 3 — nejlevnější habit je proti hlavnímu tankovi jen „chip"
+
+`focus_timer` dává 3 Willpower, `doomscroll` má `compulsion = 4`. `enemy.gd take_damage()`
+má podlahu `maxi(1, …)`, takže rána **není nulová, je 1** — a to je horší než nula, protože
+věž vypadá, že funguje. Změřeno v §3:
+
+| | dmg/rána | ran na zabití | sekund souvislé palby |
+|---|---|---|---|
+| `focus_timer` → `doomscroll` (40 hp) | **1 (chip)** | 40 | **4,00 s** |
+| `exercise` → `doomscroll` | 30 | 2 | 2,20 s |
+
+`exercise` má v popisu doslova „Built for tanky distractions like Doomscroll" — je to
+zamýšlený protilék a **žádná z původních čtyř baseline strategií ho nikdy nepostaví.**
+
+### Příčina 4 — nic nemíří, a výchozí směr je přesně opačný
+
+`HabitData.facing_angle` startuje na 0 rad = **na VÝCHOD**, a každý level v projektu
+spawnuje na **ZÁPADNÍM** okraji a jde k jádru na východě. Nezamířená věž tedy stráví celý
+příchod hordy kuželem odvráceným od ní a zabírá až to, co ji minulo.
+
+**Tohle je zároveň důvod, proč původní sweep nesměl být přečten jako „hra je
+nevyhratelná".** Čtyři baseline strategie sdílely dvě slepá místa (stavěly jen
+`focus_timer`, nikdy nemířily), takže „všechny prohrály" bylo stejně dobře slučitelné
+s „žádná nezahrála to zjevné". Proto vznikla `SimStrategyCounterPick`. Rozdíl, který
+udělaly ty dvě rozhodnutí samy o sobě:
+
+| level | cheap_even | counter-pick + aim |
+|---|---|---|
+| `level_1` | **0 killů** | **5 killů** |
+| `level_98` | 38 killů, vlna 4 | 40 killů, vlna 4 |
+
+Nula na `level_1` **nebyla vada enginu** — byl to artefakt špatné baseline. Zůstává ale
+prohra: 5 killů proti potřebným ~7, s jedním jediným použitelným stavebním místem.
+
+### Příčina 5 — `level_1` neběží ve své konfiguraci, ale v defaultní
+
+`data/levels/level_1.tres` nenastavuje `focus`, `fog`, `shadows`, `routine_gates` ani
+`quick_hit`. Bere tedy defaulty `LevelData`: **`fog = true`, `shadows = true`,
+`routine_gates = true`**. `level_98` všechny tři vypíná explicitně. Nejrestriktivnější
+konfigurace v projektu tedy běží na levelu jménem „Placeholder — square grid smoke test",
+a to omylem, ne záměrem.
+
+### Co z toho plyne pro M2 (zapsáno, ne provedeno)
+
+Kritérium „Hotovo" u M2, jak jsem ho psal ráno, znělo `victory=true` pro **`cheap_even`**.
+Po M1 to **měním** a píšu proč: `cheap_even` nikdy nemíří a nikdy nekupuje protilék, takže
+level vyladěný tak, aby vyhrál i on, by musel jít vyhrát s věžemi otočenými špatným směrem.
+Nové kritérium: **vyhraje `counter-pick + aim`, prohraje `passive`** — „kdo udělá dvě
+zjevná rozhodnutí, vyhraje; kdo nedělá nic, prohraje" — a `cheap_even` mezi nimi tvoří
+gradient dovednosti. To je vlastnost, kterou dobrý level má mít.
+
+Druhá věc pro M2/M3: `_test_levels` má kontrolu „neco se da postavit hned na zacatku"
+s prahem `reachable > 0`. `level_1` s jediným místem jí projde. Práh je slabý; zmíněno
+sem, neměněno v M1.
+
+### Ověření
+
+- `./verify.sh` (s displejem): **41 pass, 0 fail, 0 skip, 3 known-broken, 0 flaky,
+  0 no-display** — beze změny proti stavu po `a43f678`. Nové skripty jsou `sim_*`, ne
+  `_test_*`, takže do gate nepřibyla ani neubyla žádná fixture.
+- Sweep sám hlásí na konci `3 ObjectDB instances were leaked at exit`. Je to manuální
+  nástroj mimo gate a na výstup to nemá vliv; zaznamenáno, protože to v logu je, ne
+  protože by to něco blokovalo.
+- Soubory: `scripts/sim_recorder.gd`(`.uid`), `scripts/sim_strategy_counter_pick.gd`(`.uid`),
+  `scripts/_balance_sweep.gd`, `docs/BALANCE.md` (přegenerované), `PATHFINDING.MD` (Status),
+  tento zápis.

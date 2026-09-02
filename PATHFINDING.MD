@@ -604,7 +604,7 @@ Detaily a čísla v `PROGRESS.md`.
 ## M1 — proč hru nejde vyhrát (DIAGNÓZA, měřením, ne dojmem)
 Model: opus
 Needs-me: no
-Status: todo
+Status: done
 
 Q2 (`BLOCKED.md`) doložil: **24 z 24 běhů prohra** — obě existující úrovně, všechny
 čtyři strategie, tři seedy, `victory=false` pokaždé. `docs/core/00_overview.md` říká
@@ -626,6 +626,28 @@ vlny), aby se dalo vidět, která vlna run zabije.
 Hotovo: `docs/BALANCE.md` má tabulku „kde se run láme" a **jmenuje příčinu**, ne dojem.
 Žádná změna balance v tomhle úkolu — M1 měří, M2 opravuje.
 
+**Hotovo 2026-09-02. Pět příčin, všechny změřené** (plné znění v `PROGRESS.md`,
+čísla v `docs/BALANCE.md` §0–§5):
+
+1. **Aritmetika je nepřátelská, ne těsná.** `level_1`: pool 30, leak 42 (140 %).
+   `level_98`: pool 25, leak **78 (312 %)** — hráč musí zastavit **69 % hordy**.
+2. **Skoro není kam stavět.** `CORE_ROUTINE_RADIUS = 165 px`, stavební bloky leží
+   144–292 px od jádra, a `in_routine` gatuje **střelbu**, ne jen umístění.
+   `level_1` má 3 bloky / **1 použitelný**; `level_98` má na celé desce **2**.
+3. **Nejlevnější habit je proti hlavnímu tankovi jen „chip".** `focus_timer` 3 Willpower
+   vs. `doomscroll` `compulsion = 4` → podlaha 1 dmg, **40 ran = 4,0 s** na jeden kus.
+   `exercise` to samé zvládne 2 ranami — a **žádná z původních baseline ho nestaví**.
+4. **Nic nemíří, a default směr je opačný.** `facing_angle` startuje na 0 rad = na VÝCHOD,
+   všechny levely spawnují na ZÁPADĚ. Nová baseline `counter-pick + aim` (jen tahle dvě
+   rozhodnutí) zvedla `level_1` z **0 na 5 killů** — takže „všechny strategie prohrály"
+   se NESMĚLO číst jako „hra je nevyhratelná".
+5. **`level_1` běží v defaultní konfiguraci, ne ve své.** Nenastavuje `fog`, `shadows`
+   ani `routine_gates`, takže bere defaulty `true`/`true`/`true` — nejrestriktivnější
+   nastavení v projektu, omylem.
+
+Nové nástroje, obojí trvalé: `scripts/sim_recorder.gd` (rozpad po vlnách) a
+`scripts/sim_strategy_counter_pick.gd` (baseline „hraje rozumně").
+
 ## M2 — level 98 „First Light" musí jít vyhrát
 Model: opus
 Needs-me: no
@@ -634,9 +656,16 @@ Status: todo
 Nejmenší datová změna podle M1, po které je `level_98` vyhratelný — a **pořád
 prohratelný**. Level, který se vyhraje sám, neučí nic; pilíř je „fun first".
 
-Hotovo: sweep dokazuje `victory=true` pro `cheap_even` a `victory=false` pro `passive`
-na všech třech seedech; `_test_levels` a `_test_maze_validity` zelené; čísla před/po
+Hotovo: sweep dokazuje **`victory=true` pro `counter-pick + aim`** a `victory=false`
+pro `passive`; `_test_levels` a `_test_maze_validity` zelené; čísla před/po
 v `docs/BALANCE.md` i s tím, které pole v `data/` se hnulo a proč.
+
+**Kritérium změněno po M1, a tady je proč.** Ráno tu stálo „`victory=true` pro
+`cheap_even`". M1 změřilo, že `cheap_even` nikdy nemíří a nikdy nekoupí protilék —
+level vyladěný tak, aby vyhrál i on, by musel jít vyhrát s věžemi otočenými pryč od
+hordy. Nová laťka je „kdo udělá dvě zjevná rozhodnutí, vyhraje; kdo nedělá nic,
+prohraje", a `cheap_even` mezi tím tvoří gradient dovednosti — vlastnost, kterou má
+dobrý level mít.
 
 ## M3 — `level_1` přestane být placeholder
 Model: opus
