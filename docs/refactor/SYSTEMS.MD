@@ -40,8 +40,19 @@ Hotovo když: scéna existuje, screenshot ukazuje tři barevné varianty.
 
 ## S5 — Datová vrstva pro hordy
 Model: sonnet
-Needs-me: yes
-Status: blocked
+Needs-me: no
+Status: obsolete
+
+**PŘEKONÁNO 2026-09-02 (srovnáno se skutečností).** Zadání níž stojí na tom, že „pozice =
+vzdálenost podél cesty" — a to **přestalo platit**. `PATHFINDING.MD` P4 to říká ve vlastní
+hlavičce: *„POZOR — zadání bylo opraveno. Starší znění (S5 v SYSTEMS.md) mluvilo o pozici
+jako o vzdálenosti podél cesty. To platilo jen pro jednu cestu a s flow fieldem už
+neplatí."* P4 (`9d47688`) místo toho postavil pozici jako `Vector2` na mřížce a zaměřování
+jako rozsahový dotaz nad **prostorovým hashem** (`Game._distraction_hash`), což je ta část
+S5, která smysl dávala — a bench je v `docs/PERF.md` §„Tower targeting spatial hash (P4)".
+
+Zbytek S5 (přepsat `Distraction` z uzlů na pole struktur) nikdo nepotřebuje: P5 vyřešil
+výkon vykreslování bez toho, viz S6.
 BLOCKED.md:427 — nezapočato. Zásah do celé simulační smyčky nepřátel (enemy.gd,
 StatusManager, ArcProfile, GridProjection targeting) a jedna reálná otázka:
 má procedurální vektorová kresba DistractionAnimatoru (CLAUDE.md komponenta)
@@ -52,8 +63,19 @@ Hotovo když: S1 testy zelené, bench z T11 zopakovaný a zapsaný do PERF.md.
 
 ## S6 — Vykreslování hordy přes MultiMeshInstance2D
 Model: sonnet
-Needs-me: yes
-Status: blocked
+Needs-me: no
+Status: done
+
+**HOTOVO 2026-09-02 (srovnáno se skutečností) — shipnulo to `PATHFINDING.MD` P5**, commit
+`bd39167`, jako `scripts/components/horde_renderer.gd` + `scripts/components/horde_atlas.gd`,
+s fixture `_test_horde_renderer` a benchem v `docs/PERF.md` §„Horde performance, MultiMesh
+batching (P5)".
+
+**Rozpor, na kterém tenhle úkol stál, se vyřešil, ne obešel.** Poznámka níž správně říká,
+že `MultiMeshInstance2D` neumí per-instanci `_draw()`, na čem stojí `DistractionAnimator`.
+P5 to vyřešil `HordeAtlas` — procedurální kresba se pořád dělá, jen se **předpeče do
+atlasu** a MultiMesh z něj bere instance. `DistractionAnimator` tedy zůstal, jak ho
+`CLAUDE.md` popisuje.
 BLOCKED.md:427 (stejný záznam jako S5 — jsou to dvě strany jednoho úkolu).
 MultiMeshInstance2D neumí per-instanci `_draw()`, což je přesně to, na čem stojí
 DistractionAnimator; rozpor nevyřešitelný bez tvého rozhodnutí. Čeká na S5.

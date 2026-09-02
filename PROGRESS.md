@@ -4661,3 +4661,48 @@ i s tím, co je vyloučené, aby další běh nezačínal od nuly.
   0 no-display.**
 - Soubory: `scripts/_test_deep_reading.gd`, `scripts/_test_zen_pulsar.gd`, `verify.sh`,
   `docs/KNOWN_BROKEN.md`, `PATHFINDING.MD` (Status), tento zápis.
+
+## 2026-09-02 — úklid: sedm commitnutých jednorázových harnessů pryč, a gate proti dalším
+
+Fronta `PATHFINDING.MD` byla prázdná, tak jsem se podíval, co v repu zbylo.
+
+### Sedm `_diag_*` harnessů, 21 souborů, všechny trackované
+
+`_diag_arc_mask`, `_diag_p8b`, `_diag_q1b`, `_diag_q2`, `_diag_map_editor_fix`,
+`_diag_pausemenu_live`, `_diag_ysort_check`. **Šest ze sedmi má ve vlastní hlavičce
+„DELETE after use" nebo „Smaž po použití"**, a každá otázka, kvůli které vznikly, je
+zavřená: arc_mask a p8b vyřešil P8b, q1b vyřešil M5, q2 skončilo 2. 9., zbylé tři ty
+opravy, které kontrolovaly. Nic v `scripts/`, `scenes/`, `tools/` ani `verify.sh` je
+nereferencuje (ověřeno grepem) a git si je pamatuje, kdyby se do nich chtěl někdo podívat.
+
+### Proč přežily — a proto k tomu přibyl gate
+
+`PROGRESS.md` má **třikrát** tutéž poznámku: „`rm` sandbox odmítl, zůstává netrackované,
+chce ruční smazání". Pokaždé se pravidlo zopakovalo místo vynucení. A orphan kontroly ve
+`verify.sh` se dívaly jen na `_test_*`, takže `_diag_*` pro build neexistoval.
+
+Nová kontrola padá, když je **jakýkoli** `scripts/_diag_*` nebo `scenes/_diag_*`
+**trackovaný**. Mít ho v pracovní kopii, dokud ho používáš, je dál v pořádku — commitnout
+ho znamená, že přežil svůj účel. **Na prvním běhu našla všech sedm**, což je jediný
+skutečný důkaz, že by je byla zachytila.
+
+### A při té příležitosti: dvě zastaralé položky v `SYSTEMS.MD`
+
+Obě vedené `Status: blocked` a obě mezitím vyřízené jinou frontou — stejná třída driftu
+jako zkrácená `PATHFINDING.MD`:
+
+- **S6** („vykreslování hordy přes MultiMeshInstance2D") → **`done`**. Shipnul to P5
+  (`bd39167`) jako `HordeRenderer` + `HordeAtlas`. Rozpor, na kterém S6 stál —
+  `MultiMeshInstance2D` neumí per-instanci `_draw()`, na čem stojí `DistractionAnimator` —
+  se **vyřešil, ne obešel**: kresba se předpeče do atlasu a MultiMesh z něj bere instance,
+  takže `DistractionAnimator` zůstal.
+- **S5** („pozice = vzdálenost podél cesty") → **`obsolete`**. P4 to výslovně přepsal:
+  *„To platilo jen pro jednu cestu a s flow fieldem už neplatí."* Užitečná půlka (zaměřování
+  jako rozsahový dotaz) existuje jako `Game._distraction_hash`.
+
+### Ověření
+
+- `./verify.sh` (s displejem): **46 pass, 0 fail, 0 skip, 2 known-broken, 0 flaky,
+  0 no-display.**
+- Soubory: smazáno 21 (`scripts/_diag_*.gd` + `.uid`, `scenes/_diag_*.tscn`),
+  `verify.sh` (nová kontrola), `docs/refactor/SYSTEMS.MD`, tento zápis.
