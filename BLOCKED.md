@@ -1341,6 +1341,23 @@ vyberu sám", takže jsem je jen vygeneroval a ověřil, ne posoudil.
 `tools/next_task.py docs/refactor/PATHFINDING.MD` teď hlásí P10 jako další v
 pořadí. Nezačínám ho a nehádám odpověď — čekám na tvé zahrání P9 a potvrzení.
 
+**Dodatek 2026-09-02.** Po obnovení fronty (viz „Zkrácená fronta" nahoře) a po
+opravě `_test_shadow_occlusion` hlásí `tools/next_task.py PATHFINDING.MD` znovu
+**P10** — a tím fronta pro autonomní běh končí. Zbytek za P10 na tobě visí taky:
+**P11** a **P12** sice mají `Needs-me: no`, ale obojí je věcně na P10 závislé
+(P11 sám začíná „do P10 stavíš dobrý tower defense", P12 „nutná, jakmile je P10
+zapnuté"); **P8b** je `blocked` na tvém rozhodnutí o přeškálování balance /
+přeautorování `level_1` / svolení otočit facing ve fixture; **Q3** má
+`Needs-me: yes`. Ze tří zbylých known-broken fixtures potřebují tvoje slovo
+i `_test_deep_reading` (oprava = změna assertion, `docs/KNOWN_BROKEN.md` to
+u ní sám říká) a `_test_zen_pulsar` (chybí soubory
+`assets/towers/head_zen_pulsar_frame_1..8.png` — art, negeneruju).
+`_test_fog_bandwidth` je předmětem P8b.
+
+**Nejkratší cesta, jak běh zase rozjet:** zahrát si P9 (čtyři varianty mlhy
+v `.dev/screenshots/p9_fog_*.png`) a napsat u P10 jednu větu — ano/ne. Tím
+padnou tři úkoly najednou (P10, P11, P12).
+
 ## C1 (audit mrtvého kódu → docs/CLEANUP_AUDIT.md) — ŠPATNÝ MODEL, navíc `Needs-me: yes`
 
 Nezačato. Ani jeden řádek nezměněn, `docs/CLEANUP_AUDIT.md` nevznikl. Dvě
