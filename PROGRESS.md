@@ -3354,3 +3354,102 @@ necommitnutá — jejich commit ji popíše sám.
 - Commits: code fix `c0adf369aff4012d79120e959e8e2ef30d38bd8f` (pre-existing,
   from the earlier interrupted pass — verified, not re-done); this entry's own
   commit covers the harnesses, screenshots, and y-sort verification.
+
+## 2026-09-02 — verify.sh: SKIP-NO-DISPLAY kategorie, orphan-scene kontrola, fixed-fps sanity
+
+Tři úpravy zadané jako jeden úkol, ale s opravou vlastního zadání dřív, než jsem
+cokoli změnil — `docs/KNOWN_BROKEN.md` už na obě jmenované fixtures mělo přesnější
+odpověď, než jaká byla v zadání předpokládaná, a řídil jsem se jí.
+
+**1. `REQUIRES_DISPLAY_TESTS` (nová kategorie, `verify.sh`).** Fixtures, které čtou
+`get_viewport().get_texture().get_image()` — pod `--headless` (dummy renderer) to je
+`null`, takže `_test_shadow_occlusion` pod headless nepadá smysluplně, jen crashuje.
+Nově se hlásí `SKIP-NO-DISPLAY` a vůbec se nespouští, dokud není nastavené `$DISPLAY`
+nebo `VERIFY_WITH_DISPLAY=1` — pak běží BEZ `--headless`, doopravdy.
+
+Odchylka od zadání: **`_test_fog_bandwidth` do téhle kategorie NEpatří** —
+`_update_fog()`/`_mark_lit()` (`game.gd:1949-2031`) nikde nesahají na `get_viewport()`
+ani na žádnou texturu, je to čistá CPU geometrie (skalární součin proti `cos_half`).
+Displej by na jeho výsledek nemohl mít vliv, takže "spustit s displejem, ať se zjistí
+pravda" by u něj nezjistilo nic nového — už je to změřené, headless, teď. Ponechán
+v `KNOWN_BROKEN_TESTS` beze změny (viz bod 4 níž, kde se opravdu doexaminoval).
+
+Odchylka od zadání číslo dvě: **`_test_shadow_occlusion` zůstal i v
+`KNOWN_BROKEN_TESTS`**, ne jen v nové kategorii — jinak by běh s displejem nechal
+předem známou, nesouvisející, dosud neopravenou regresi shodit bránu i nesouvisejícím
+úkolům (přesně proti duchu komentáře na začátku `verify.sh` o pre-existing debtu).
+Obě kategorie se skládají: `REQUIRES_DISPLAY_TESTS` řídí, JESTLI se fixture vůbec
+zkusí, `KNOWN_BROKEN_TESTS` řídí, jestli se její výsledek počítá do brány.
+
+**2. Orphan test scenes — opačný směr.** `scenes/_test_*.tscn` bez odpovídajícího
+`scripts/<name>.gd` doteď proběhla jako prázdná scéna a potichu "prošla" (`exit 0`
+okamžitě) — falešný PASS nerozeznatelný od skutečného pokrytí v souhrnu. Teď FAIL se
+seznamem, symetricky k existující orphan-scripts kontrole.
+
+**3. `FIXED_FPS_TESTS` sanity — jen varování, nikdy fail.** Jméno bez odpovídající
+scény je legitimní (pre-staged pro budoucí úkol), ale překlep by se ztratil beze
+zmínky. `WARN`, nepočítá se do žádného čítače.
+
+**4. Proč `_test_fog_bandwidth` nedostal display run — dokázáno, ne jen tvrzeno.**
+Zadání předpokládalo, že spuštění s displejem zjistí, jestli je arc mrtvý parametr.
+Nemohlo by — celý řetěz je CPU-only (viz bod 1). Místo toho: throwaway
+`scripts/_diag_arc_mask.gd`/`scenes/_diag_arc_mask.tscn` (smazat po použití — sandbox
+`rm` odmítnut, zůstává netrackované, jako `_diag_ysort_check.*` dřív). Postavil
+`focus_timer` na první volné in-Routine místo, přepínal `ArcProfile.ARC_MIN`/`ARC_MAX`
+a počítal rozdíl v `game._lit_cells`.
+
+S `facing_angle = 0.0` (přesně jak to dělá `_test_fog_bandwidth.gd`): 18 buněk při
+15°, 18 buněk při 120°, rozdíl **0** — reprodukuje nahlášenou vadu přesně.
+S `facing_angle = PI` (od jádra pryč): 21 buněk při 15°, 33 při 120°, rozdíl **12**.
+
+Příčina: `_building_sight_lights()` (`game.gd:1914-1944`) dává každé postavené věži
+vždy kruh `TOWER_LAMP_RADIUS=28px` bez ohledu na arc, a jádro samo vždy nasvítí
+`CORE_ROUTINE_RADIUS=165px` kruh kolem sebe (`game.gd:1972`), NEZÁVISLE na věžích, dřív
+než se cokoli od věže vůbec zpracuje. Věž smí stát jen uvnitř toho stejného 165px
+kruhu (brána Routine). Na tomhle levelu a tomhle build-spotu `facing_angle=0.0` míří
+přesně na jádro (`312,137` → `456,137` — úhel 0°) — takže celý dosah klínu (144 do
+jádra + 180 dosah = 324, tedy 159px za okraj jádrova kruhu, ale ve SMĚRU jádra) leží
+uvnitř oblasti, kterou jádro už samo nasvítilo. `_mark_lit`'s vlastní early-exit
+(`game.gd:2016`, `if _lit_cells.has(cell): continue`) tak klín přeskočí úplně, na obou
+šířkách stejně. Není to rozbitá matematika klínu — je to zvolený `facing_angle`, který
+na tomhle levelu kolizně míří na jedinou věc, co je stejně vždycky nasvícená.
+
+**NEOPRAVENO, záměrně.** `_test_fog_bandwidth.gd` jsem needitoval —
+CLAUDE.md ("Když test selže, oprav kód. NIKDY neupravuj `_test_*` skript... bez mého
+souhlasu") a úzká výjimka pro flaky testy se nehodí ani formou (změna by nebyla o
+časování/čekání), ani seznamem (test je v `KNOWN_BROKEN_TESTS`, ne `FLAKY_TESTS`).
+Nález zapsán, rozhodnutí o opravě (zvolit jiný `facing_angle`, nebo přestavět test
+kolem jinam umístěného habitu) je uživatelovo.
+
+**`docs/KNOWN_BROKEN.md` — `_test_shadow_occlusion` znovu ověřen s displejem, nález
+je JINÝ, než co tam stálo.** Spuštěno bez `--headless`: nespadlo na "zero delta"
+(Defekt 2 z existujícího zápisu), spadlo dřív — `blocked=(inf,inf) clear=(inf,inf) r=0`,
+tedy stejný symptom, jaký entry sama připisuje předchůdci T5 (`04b6fc5`). Test hledá
+vzorek v poloměru `Game.CORE_ROUTINE_RADIUS`, teď **165** — ale Defekt 2 byl měřen proti
+jádru s poloměrem **330**. Něco `CORE_ROUTINE_RADIUS` zmenšilo z 330 na 165 po `26814f9`,
+nezávisle na téhle vadě, a to vyhladovělo testovo vlastní hledání zpátky do starší
+poruchy dřív, než se otázka "zero delta" vůbec znovu položí. Nedozkoumáno dál (mimo
+rozsah tohoto úkolu) — zapsáno do KNOWN_BROKEN.md jako nový, datovaný nález vedle
+původního, nesmazáno nic z původního záznamu.
+
+**Vedlejší pozorování, nedořešeno:** jeden běh `verify.sh` (před tímhle úkolem hotovým)
+ukázal `_test_effort` FAIL na "auto-aim se opravdu otáčí za nepřítelem" (0.00 rad) —
+nesouvisí s arc/mlhou, netýká se tohoto úkolu. Další běh o pár minut později byl čistý
+(39 pass, 0 fail) beze změny na mé straně — pravděpodobně vedlejší efekt souběžné práce
+jinde v tomhle sdíleném working tree (viz níž), ne něco, co jsem zkoumal nebo opravil.
+
+**Souběžná práce v tomhle working tree, nedotčena:** `docs/art/STYLE_BIBLE.md`,
+`docs/ROSTER.md` (jen CRLF, žádný obsahový rozdíl), `tools/anchor_simplify_candidates.py`,
+`assets/raw/anchor_simplify/`, a několik `_shot_hud_rescale*`/`_shot_isoleftover*`/
+`_shot_unitscale*`/`_diag_map_editor_fix*`/`_diag_pausemenu_live*` souborů patří jiným
+souběžným úkolům v tomhle stejném adresáři (ne samostatný worktree — sdílený). Žádný
+z nich není součástí tohoto commitu; `git add` cílil jen na `verify.sh`,
+`docs/KNOWN_BROKEN.md` a tenhle zápis, ověřeno `git status`/`git diff --cached` před
+commitem.
+
+- **`./verify.sh`: PASS — 39 pass, 0 fail, 0 skip, 3 known-broken, 0 flaky, 1 no-display**
+  (`_test_shadow_occlusion`, headless mode).
+- Soubory: `verify.sh`, `docs/KNOWN_BROKEN.md`, tento zápis.
+  `scripts/_diag_arc_mask.gd`(`.uid`)/`scenes/_diag_arc_mask.tscn` zůstávají
+  netrackované (sandbox odmítl `rm`) — nejsou v commitu, harmless, chtějí ruční smazání.
+- Commit: (zapsat po commitu).

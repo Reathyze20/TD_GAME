@@ -44,15 +44,39 @@ KNOWN_BROKEN_TESTS=(
   # Arc width has no effect on lighting at all (15 deg -> 120 deg lights the same 36
   # cells) and rotation moves the lit set asymmetrically. Real. First red: 26814f9.
   _test_fog_bandwidth
-  # NOT a missing texture. Two stacked defects: get_viewport().get_texture().get_image()
-  # is null under --headless (dummy renderer, and the test's own header says it must not
-  # be run headless), and WITH a renderer toggling shadow_enabled changes the picture by
-  # exactly 0.0000. First red: 5d72b07 headless / 26814f9 zero-delta.
+  # Needs a display to run at all (REQUIRES_DISPLAY_TESTS below) -- kept here too so a
+  # display-mode run of this pre-existing, unrelated bug still doesn't gate an unrelated
+  # task's verify.sh. Re-run with a display 2026-09-02: fails EARLIER than the last
+  # documented symptom (can't find a sample pair at all, not a zero-delta reading) --
+  # CORE_ROUTINE_RADIUS shrank 330->165 since the zero-delta finding, independently of
+  # this bug, and starved the test's own search. See docs/KNOWN_BROKEN.md, not this line.
   _test_shadow_occlusion
   # assets/towers/head_zen_pulsar_frame_1..8.png are gone; head_zen_pulsar.png survives.
   # A genuinely missing file, not an expectation. First red: 0465a23.
   _test_zen_pulsar
 )
+
+# Fixtures that read back rendered pixels (get_viewport().get_texture().get_image()).
+# --headless installs the dummy renderer, which has no pixels to read back, so these
+# don't fail so much as crash on a null texture -- SKIPPED (not KNOWN-BROKEN, not run at
+# all) unless $DISPLAY or VERIFY_WITH_DISPLAY=1 is set, in which case they run WITHOUT
+# --headless, for real. This only gates whether a test can be ATTEMPTED; whether its
+# result then counts against the gate once it runs is still KNOWN_BROKEN_TESTS/
+# FLAKY_TESTS' job, same as any other fixture -- the two lists compose.
+REQUIRES_DISPLAY_TESTS=(
+  _test_shadow_occlusion
+)
+_is_requires_display() {
+  local candidate="$1"
+  local entry
+  for entry in "${REQUIRES_DISPLAY_TESTS[@]}"; do
+    [ "$entry" = "$candidate" ] && return 0
+  done
+  return 1
+}
+_has_display() {
+  [ -n "${DISPLAY:-}" ] || [ "${VERIFY_WITH_DISPLAY:-}" = "1" ]
+}
 
 # Tests that are neither reliably green nor reliably red go here. A separate list,
 # because the known-broken rules above would be wrong in BOTH directions for them: a
@@ -102,6 +126,7 @@ fail=0
 skip=0
 known=0
 flaky=0
+nodisplay=0
 failed_names=()
 
 _is_known_broken() {
@@ -154,6 +179,48 @@ else
   pass=$((pass + 1))
 fi
 
+echo "== orphan test scenes =="
+# The opposite direction of the check above. The main loop below iterates SCENES, not
+# scripts -- a scenes/_test_*.tscn whose scripts/<name>.gd does not exist still gets
+# picked up, runs as an empty scene with no assertions, and exits 0 immediately. That is
+# a silent false PASS: it inflates the pass count and looks identical to real coverage
+# in the summary, which is worse than the orphan-script case above (that one at least
+# never runs at all).
+orphan_scenes=()
+for scene in scenes/_test_*.tscn; do
+  base=$(basename "$scene" .tscn)
+  case "$base" in
+    _test_legacy_*) continue ;;  # deliberately parked, see the dead-clause note below
+  esac
+  if [ ! -f "scripts/$base.gd" ]; then
+    orphan_scenes+=("$scene")
+  fi
+done
+if [ ${#orphan_scenes[@]} -ne 0 ]; then
+  echo "FAIL orphan test scenes (${#orphan_scenes[@]}) - each needs scripts/<name>.gd, or delete the scene:"
+  for o in "${orphan_scenes[@]}"; do
+    echo "  - $o"
+  done
+  fail=$((fail + 1))
+  failed_names+=("orphan test scenes")
+else
+  echo "PASS orphan test scenes"
+  pass=$((pass + 1))
+fi
+
+echo "== fixed-fps roster sanity =="
+# A name in FIXED_FPS_TESTS with no matching scene is not necessarily wrong --
+# _test_multispawn and _test_segments are pre-staged for P6/P8 and that is fine, the
+# list is allowed to lead the scene it names. But a typo here would silently mean the
+# real fixture (once it exists) never gets --fixed-fps and either hangs or gives up its
+# determinism guarantee without a word about why -- so this warns, and only warns; it
+# must never fail, since a pre-staged entry is an expected, permanent state, not debt.
+for fixed_fps_name in "${FIXED_FPS_TESTS[@]}"; do
+  if [ ! -f "scenes/$fixed_fps_name.tscn" ]; then
+    echo "WARN FIXED_FPS_TESTS lists '$fixed_fps_name' but scenes/$fixed_fps_name.tscn does not exist yet -- pre-staged, or a typo?"
+  fi
+done
+
 for scene in scenes/_test_*.tscn; do
   name=$(basename "$scene" .tscn)
   # DEAD CLAUSE ON PURPOSE (P0d, 2026-08-30). Nothing in scenes/ is named
@@ -171,6 +238,12 @@ for scene in scenes/_test_*.tscn; do
       ;;
   esac
 
+  if _is_requires_display "$name" && ! _has_display; then
+    echo "SKIP-NO-DISPLAY $name — needs a real renderer (GPU pixel readback via --headless's dummy renderer returns null); set DISPLAY or VERIFY_WITH_DISPLAY=1 to run it"
+    nodisplay=$((nodisplay + 1))
+    continue
+  fi
+
   log="$LOG_DIR/$name.log"
   echo "== $name =="
   extra_args=()
@@ -179,7 +252,13 @@ for scene in scenes/_test_*.tscn; do
     extra_args=(--fixed-fps 60)
     test_timeout=520
   fi
-  timeout "$test_timeout" "$GODOT" --headless --path . --main-scene "res://$scene" \
+  # _is_requires_display implies _has_display here (the no-display case already
+  # `continue`d above), so this is the one and only place --headless is dropped.
+  godot_args=(--path . --main-scene "res://$scene")
+  if ! _is_requires_display "$name"; then
+    godot_args=(--headless "${godot_args[@]}")
+  fi
+  timeout "$test_timeout" "$GODOT" "${godot_args[@]}" \
     "${extra_args[@]}" >"$log" 2>&1
   status=$?
 
@@ -363,7 +442,7 @@ fi
 
 echo
 echo "== summary =="
-echo "pass: $pass  fail: $fail  skip: $skip  known-broken: $known  flaky: $flaky"
+echo "pass: $pass  fail: $fail  skip: $skip  known-broken: $known  flaky: $flaky  no-display: $nodisplay"
 if [ "$fail" -ne 0 ]; then
   echo "failed:"
   for n in "${failed_names[@]}"; do

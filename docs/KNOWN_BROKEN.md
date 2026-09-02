@@ -149,6 +149,31 @@ landing on the field art, and measurably it does not.
   comment as a T5 first-pass placeholder) drawing over or outside the lights' reach. Worth
   checking before anything else, but nobody has.
 
+**Verify.sh gating, added after this entry was written:** `verify.sh` now reports
+`SKIP-NO-DISPLAY` for this fixture instead of attempting it headless (`REQUIRES_DISPLAY_TESTS`)
+and only actually runs it — without `--headless` — when `$DISPLAY` or `VERIFY_WITH_DISPLAY=1`
+is set. That changes *whether the harness runs it*, not the finding above: Defect 2 was
+already measured with a real renderer and is a confirmed regression, not an open question.
+
+**Re-run with a real display (2026-09-02), and Defect 2 could not be re-observed — it now
+fails EARLIER again, the way it did before T5:**
+
+```
+FAIL found a blocked+clear sample pair at the same radius from the core
+  blocked=(inf, inf) clear=(inf, inf) r=0 (core lamp r=165)
+```
+
+This is the same symptom the top of this entry attributes to `04b6fc5` (T5's parent) — the
+search that finds a blocked/clear sample pair comes up empty before any brightness delta is
+even measured. The test's own search radius is `Game.CORE_ROUTINE_RADIUS`, printed above as
+**165** — but Defect 2's numbers were measured against a core lamp of **r=330** (see
+`_test_fog_bandwidth`'s entry below and this file's own §2 reference elsewhere). Something
+shrank `CORE_ROUTINE_RADIUS` from 330 to 165 sometime after `26814f9`, independently of this
+bug, and that shrink appears to have starved the test's own geometry search back down into
+the older failure mode — before the zero-delta rendering question can even be asked again.
+**Not investigated further** (out of scope for the task that found this); Defect 2's
+rendering claim is neither confirmed nor refuted by this run, only unreachable under it.
+
 ## `_test_fog_bandwidth` — real regression, arc width does nothing
 
 ```
