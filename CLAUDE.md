@@ -59,6 +59,29 @@ upozorni mě místo hádání.
   29. 8. 2026 u `STYLE_BIBLE.md` vs. `style_bible.md` — vyřešeno přejmenováním na
   `style_bible_measured.md`.
 
+## Konstantu neopisuj — odvoď ji
+- **Nikdy neopisuj konstantu, která má jediný zdroj pravdy jinde** (velikost lišty,
+  velikost plátna, práh z bible, počet řad mřížky). Odvoď ji z toho zdroje, **i
+  v jednorázovém harnessu**. „Je to jen dočasné" u čísla, které popisuje geometrii,
+  znamená „bude to lhát, až se zdroj změní".
+- Není to teorie, je to **čtyřikrát opakovaný vzorec** v tomhle repu — pokaždé opsaná
+  hodnota, pokaždé se rozešla s pravdou a nikdo si toho nevšiml, protože opsané číslo
+  nikde nehlásí, že je staré:
+  1. `_test_fog_bandwidth` dědil předmět zkoušky místo aby si ho nastavil (P8b).
+  2. `_test_effort` totéž, jen z druhé strany — zdědil mlhu z levelu.
+  3. `_shot_fog` sliboval v hlavičce snímek se zapnutou mlhou a fotil desku bez ní.
+  4. `_shot_hud_rescale` měl opsané `BOTTOM_H := 24` s poznámkou, že u jednorázového
+     harnessu duplikace nevadí. Vadila: jeho jediná práce je fotit geometrii lišt,
+     takže po změně `_HUD_BOTTOM_H` na 29 by fotil „tady je build panel" 5 px nad
+     build panelem (2026-09-02, H1).
+- Stejná třída jako opsané literály v `_test_economy_characterization` (`18.0`/`2.0`
+  místo `Game.QUICK_HIT_SPIKE`/`QUICK_HIT_FLOOR_GAIN`) — test pak padá na zastaralou
+  kopii a tvrdí to o hře.
+- **Když jde o geometrii, změř to, neodhaduj.** Na to je
+  `scenes/_shot_scale_audit.tscn`: vypíše v px a dlaždicích desku, jádro, velikost
+  jednotek a každý prvek HUD, který opouští plátno 480×270 nebo leze na jiný panel.
+  Argument „vypadá to moc velké" nejde ověřit, předat ani hlídat proti regresi.
+
 ## Scény
 - Needituj .tscn ručně, neměň uid= ani ext_resource ID.
 - Nové scény programově: PackedScene.pack() + ResourceSaver.save() v tools/.
