@@ -15,9 +15,145 @@ whatever change surfaces it, never to sweep something under the rug.
 
 **Status values:** `waiting on style anchor resolution` (root-caused, no fix without an
 art decision from the user — not actionable by an agent per CLAUDE.md's "Autonomní běh"
-rules: this touches visual judgment) — no other status is in use yet, but a future entry
-could carry `fixed, pending removal` while the fix and this file's cleanup are still two
-separate commits.
+rules: this touches visual judgment); `legacy — superseded by směr A` (the asset or the
+decision behind it is abandoned, the files stay on disk, and the replacement is gated
+behind STYLE_BIBLE.md §12f) — a future entry could also carry `fixed, pending removal`
+while the fix and this file's cleanup are still two separate commits.
+
+**Two kinds of entry live here, and the difference matters to the parser.** The original
+kind is a per-entity colour mismatch whose heading IS an entity id (`## doomscroll`) —
+`check_art_colors.py` reads those headings as its allowlist, so adding one really does
+stop that id from failing the build. The second kind, added 2026-09-02, records an
+abandoned *direction* rather than one entity's colour; those headings are deliberately
+**not** entity ids (`## legacy-figural-direction`), so they document the decision without
+silently widening the colour allowlist. Keep that split: never name a direction-level
+entry after a real id unless you actually intend to stop gating that id.
+
+---
+
+# Legacy directions (not colour mismatches)
+
+Added 2026-09-02 when the user chose **směr A — abstract organic phenomena**
+(`STYLE_BIBLE.md` §12). Everything in this part of the file is abandoned work kept on
+disk on purpose. **Nothing here is to be deleted** — unpicked candidates are cheaper in
+the repo than regenerated ones (CLAUDE.md), and the measurements taken from them are
+still the evidence behind §12's thresholds.
+
+## legacy-figural-direction
+
+- **Type:** direction (style anchor + defender family)
+- **Gated ids:** none — this entry adds nothing to the colour allowlist, by design.
+  The field is deliberately NOT spelled `Affected ids`, because `check_art_colors.py`
+  splits that line on whitespace and would swallow this sentence into its allowlist.
+- **Files (KEEP, do not delete):** `assets/raw/broccoli_knight/` (incl. the selected
+  `cand_03.png`), `data/defenders/broccoli_knight.tres`, `avocado_monk.tres`,
+  `chilli_berserker.tres`, `garlic_mage.tres`, `tools/anchor_flat_candidates.py`,
+  `tools/anchor_simplify_candidates.py`
+- **What was abandoned:** the figural style as the project's visual language, and with it
+  the Broccoli Knight style anchor `fa8294b1-…` — a detailed, armoured, limbed 64px
+  character that was the single anchor for defenders, distractions and the boss
+  (`STYLE_BIBLE.md` §6).
+- **Why:** směr A makes distractions *phenomena, not creatures* — amorphous, faceless,
+  limbless. A figural anchor is the wrong reference for that by construction, not merely
+  too detailed. The horde argument is the load-bearing one: hundreds of units on a
+  480×270 board need silhouette and colour to do the work, and faces smear into noise at
+  that density.
+- **Not yet done, and deliberately so:** the anchor row in `STYLE_BIBLE.md` §6
+  `gen:anchors` is still marked valid. Flipping it to `plati_pro = nic` without a
+  replacement id breaks `tools/gen_art_prompts.py` (a form referencing a missing family
+  is a hard exit) and `scripts/_test_art_prompts.gd` (which asserts both "every character
+  prompt carries its family's anchor" and "no retired anchor appears anywhere in the
+  plan") at the same time. The retirement lands with the approved master — §12c and §12f.
+- **Undecided, needs the user:** what the four Nutrition Guild defenders become. Směr A
+  drops the figural style they are built from, but the brief only ordered a master
+  distraction and a master habit, so their replacement direction was never stated. Their
+  limb exception is therefore still live in §7b's literal prompt block.
+- **Status:** legacy — superseded by směr A
+
+## legacy-anchor-flat-probe
+
+- **Type:** probe (abandoned experiment)
+- **Gated ids:** none
+- **Files (KEEP):** `assets/raw/anchor_flat/cand_00.png`–`cand_07.png`,
+  `tools/anchor_flat_candidates.py`, `scripts/_shot_anchor_flat.gd`,
+  `.dev/screenshots/anchor_flat_candidates.png`
+- **What it was:** 20 generations spent 2026-08-30 asking whether a *flatter* Broccoli
+  Knight could become the new anchor (`STYLE_BIBLE.md` §6a). Ran without
+  `style_character_id` on purpose.
+- **Why abandoned:** the question it asked no longer exists. Směr A retires the knight
+  itself, so "flatter knight or not" has nothing to decide. Closed as `UZAVŘENO`, not
+  answered.
+- **What survives and is still worth reading:** its actual finding — with the anchor
+  removed, the candidates lost *colour and theme*, not just detail density (no green, no
+  vegetable motif, eight generic human figures). That is a live constraint on how the
+  směr A master gets generated: dropping the anchor drops more than fidelity.
+- **Status:** legacy — superseded by směr A
+
+## legacy-anchor-simplify-probe
+
+- **Type:** probe (abandoned experiment)
+- **Gated ids:** none
+- **Files (KEEP):** `assets/raw/anchor_simplify/cand_00.png`–`cand_07.png`,
+  `tools/anchor_simplify_candidates.py`,
+  `.dev/screenshots/anchor_simplify_candidates.png`
+- **What it was:** the second probe, run 2026-09-02 (`STYLE_BIBLE.md` §6b) — keep the
+  dithering and shading, cut the number of silhouette-breaking elements down to three
+  strong shapes. `get_balance` read 4820 before and after, unexplained, logged as
+  measured rather than assumed.
+- **Why abandoned:** same day it ran, superseded by the směr A decision for the same
+  reason as the flat probe — it was tuning a creature that is now leaving.
+- **What survives:** the mechanism it exposed. `gen_art_prompts.py` appends §7 and §7b
+  verbatim to every prompt, so a form that argues with them ships a self-contradictory
+  order ("riveted armour" + "no mechanical parts"). §7b now carries an explicit list of
+  the contradictions směr A opened, because of this probe.
+- **Status:** legacy — superseded by směr A
+
+## legacy-color-role-swap
+
+- **Type:** direction (roster-wide colour assignment)
+- **Gated ids:** none — the per-entity colour gate keeps working normally on all of them
+- **Files:** every `data/habits/*.tres` and `data/distractions/*.tres` `color` field,
+  plus the fifteen habit and thirteen distraction `form` rows in `STYLE_BIBLE.md` §8
+- **What changed:** směr A **swapped which family owns which half of the palette**.
+  Until 2026-09-01 habits held the warm half (amber, gold, orange, teal) and distractions
+  the cold, poisonous half (magenta, violet, acid green, icy azure). From §12 it is the
+  other way round: distractions are warm, saturated, "dopamine" bait; habits are cool,
+  quiet and controlled. The reasoning is in `STYLE_BIBLE.md` §2, point 0 — a lure that
+  looks repellent is the wrong drawing for a game about why people get pulled in.
+- **What is now stale because of it:** the `color` field of every habit and distraction
+  `.tres`, and §8's form descriptions, which still name the old side's hues and still
+  describe habits as organic "glial cells" rather than geometry.
+- **Why it is not fixed in the same commit:** phase 1 (the rest of the roster) is gated
+  behind the user approving the two masters (§12f). Rewriting thirty colour fields and
+  thirty form descriptions *before* the master exists would be authoring the roster from
+  a desk against art nobody has seen yet — exactly what §12f orders not to do.
+- **Effect on the colour checker today: none.** `check_art_colors.py` compares shipped
+  PNG hue against the `.tres` colour and against §8's colour words. Neither of those two
+  inputs was touched by the směr A commit, so the tool's verdict is unchanged
+  (measured before and after: `PASSED — 0 FAIL, 8 KNOWN`).
+- **Status:** legacy — superseded by směr A
+
+## legacy-distraction-sprite-size
+
+- **Type:** measurement drift (bible vs disk)
+- **Gated ids:** none
+- **Files:** `assets/distractions/*_frame_1.png`, `STYLE_BIBLE.md` §5 `gen:sizes`
+- **What was measured 2026-09-02:** shipped distraction sprites are **48×48** on disk and
+  `social_media_binge` is **96×96**. `STYLE_BIBLE.md` §5 declares `distraction`
+  `art_px = 32` (ordered at 64, halved exactly once) and `distraction_boss` 64. Neither
+  number matches what is installed.
+- **Hypothesis:** junk-food-era art that predates the current size table, same provenance
+  class as the `doomscroll`/`group_chat` colour entries above — not a consequence of
+  směr A, only surfaced by measuring for it.
+- **Why it matters to směr A:** §5b parks the 64→32 downsample question for horde
+  distractions until "a simpler anchor exists". Směr A is that anchor, so the question
+  reopens on the master — and it must be answered against a real measurement, not
+  against a table that currently disagrees with the disk by 16 px.
+- **Status:** legacy — superseded by směr A
+
+---
+
+# Colour mismatches (per-entity, allowlisted by `check_art_colors.py`)
 
 ---
 

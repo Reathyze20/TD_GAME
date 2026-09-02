@@ -22,7 +22,17 @@
 
 ## 0. Věta, ze které všechno plyne
 
-> **Soustředění je tkáň. Distrakce je patogen. Návyk je buňka, která tkáň brání.**
+> **Soustředění je tkáň. Distrakce je jev, který se tou tkání valí. Návyk je řád,
+> který do ní hráč vloží.**
+
+**Revize 2. 9. 2026 (rozhodl uživatel, směr A — viz §12).** Do téhle věty do dneška
+patřilo *„Distrakce je patogen. Návyk je buňka, která tkáň brání."* Obě poloviny byly
+imunologické, a to je přesně ta vada, kterou směr A odstraňuje: habity i distrakce
+kreslila **táž organická látka** a lišily se jen tím, jak je ta látka zubatá. Rozdíl,
+který má hráč přečíst na první pohled, tak stál na jediné ose (hladký obrys vs. roztřepený)
+a druhá osa — barva — mu ho v mlze a pod Tolerancí vzala (§2a). Směr A ten jediný registr
+**rozděluje na dva**: distrakce zůstávají organické a beztvaré, habity přecházejí na
+geometrii. Tkáň jako podklad se nemění; mění se to, co po ní jde, a to, co na ní hráč staví.
 
 Předchozí kolo mělo „soustředění je tma a ticho, distrakce světlo a hluk, návyk je něco,
 co si nad tím postavíš“ — a *postavíš* z toho udělalo architekturu (keramická terasa,
@@ -30,7 +40,17 @@ zdivo). Top-down deska nemá výšku, kterou by architektura mohla ukázat, tak�
 tady nemá co nést. Nahrazuje ji **imunologie**: nic se nestaví, všechno je živé.
 Návyk není stroj přišroubovaný na tkáň, je to tkáň, která přerostla.
 
+> **Poslední věta předchozího odstavce už neplatí pro habity** (směr A, 2. 9. 2026).
+> Zůstává tu jako záznam, proč se sem imunologie vůbec dostala — ta úvaha platí dál pro
+> **tkáň a distrakce**. Návyk už ale není „tkáň, která přerostla": je to jediná
+> geometrická věc na desce, a právě tím se pozná, že ho tam dal hráč (§12).
+
 ## 1. Vizuální jazyk — organická neurální tkáň
+
+**Rozsah po směru A (2. 9. 2026): tahle sekce platí pro TERÉN a DISTRAKCE, ne pro habity.**
+Habity mají od směru A vlastní, záměrně protichůdný jazyk (§12) — geometrii. Není to
+výjimka, kterou by šlo přehlédnout: je to ta osa, na které hráč pozná svoje věci od cizích,
+takže se pravidla níž na habity **nesmí** vztáhnout „pro konzistenci“.
 
 **ANO:** křivky, vlákna, membrány, výběžky, měkké uzly, věci, které vyrostly.
 **NE:** hrany, součástky, panely, šrouby, ozubená kola, obrazovky, kabely, mechanika.
@@ -63,14 +83,26 @@ na nepříteli konečně vidět.
 | cesta | myelinizovaný axon — souvislá vodivá dráha | světlá, teplá | 120–160 | teplá jantarová 20–50° | ano |
 | zdi | dendritické trny — hustý porost výběžků | matné, odbarvené | 380–450 | kostěná, sytost do 0.30 | ne |
 | Focus | soma s výběžky — jediné klidné světlo na desce | teplá zlatobílá | 500+ | teplá 30–60° | ano |
-| Habits | gliové buňky — kulaté, teplé, obalující | tělo tmavé, akcent svítí | tělo ~300, akcent 300+ | podle color v .tres | ano |
-| Distractions | patogeny — ostré, jedovaté, cizí | syté, jasné | 200+ | podle color v .tres | ne |
+| Habits | geometrické jádro — hranatá nebo kruhová základna, ostrá hrana, symetrie | chladný, tichý, akcent svítí | tělo ~300, akcent 300+ | studená polovina (ocel, teal, ledová modř) | ano |
+| Distractions | amorfní jev — beztvarý organický shluk s nepravidelným okrajem | teplý, sytý, lákavý | 200+ | teplá „dopaminová“ (magenta, oranžová, jantarová) | ne |
 | Dopamine | synaptický váček — kapka nabitá k prasknutí | teplá jantarová | 300+ | teplá 30–50° | ano |
 
 <!-- /gen:vocabulary -->
 
-Dvě věci na téhle tabulce nejsou vkus:
+Tři věci na téhle tabulce nejsou vkus:
 
+0. **Teplo a chlad si 2. 9. 2026 vyměnily strany a je to záměr, ne překlep** (rozhodl
+   uživatel, směr A). Do té doby měly habity teplou polovinu palety a distrakce studenou
+   a jedovatou — logika byla biologická (zdravá buňka vs. jed). Směr A přepíná logiku
+   z biologie na **téma hry**: distrakce nejsou jed, jsou to *návnady*, a návnada, která
+   vypadá odpudivě, nemá co dělat ve hře o tom, proč se člověk nechá strhnout. Proto
+   dostávají teplou sytou „dopaminovou“ zónu (magenta, oranžová, jantarová) — lákají.
+   Habity naopak nesou klid a kontrolu, tedy studenou tichou zónu. **Barva tím zůstává
+   druhou vrstvou, ne první** (§2a) — mění se jen to, která strana kterou zónu drží.
+   Důsledek, který tahle změna NEUDĚLALA sama od sebe: `color` v existujících
+   `data/habits/*.tres` a `data/distractions/*.tres` je pořád podle starého rozdělení
+   a přepíše se až při autorování fáze 1 nad schválenými mastery (§12) — zapsáno jako
+   viditelný dluh v `docs/art/ART_DEBT.md`, ne opraveno potichu.
 1. **Distractions nezáří.** Patogen je vidět kontrastem a barvou, ne světlem — kdyby
    zářil, deska by při vlně byla samá záře a hráč by přestal vidět, co postavil. To je
    přesně opačná chyba než ta, kterou izo deska udělala s akcenty (§3).
@@ -87,12 +119,13 @@ samotné, a musí přežít i to nejhorší, co s ní hra udělá.
 
 <!-- gen:silhouette -->
 
-| | Habits (gliové buňky) | Distractions (patogeny) |
+| | Habits (geometrie) | Distractions (amorfní jevy) |
 |---|---|---|
-| obrys siluety | kulatý, uzavřený, souvislý | ostrý, zubatý, roztřepený |
-| směr tvarů | dovnitř, obalující, sedící | ven, bodající, valící se vpřed |
-| zóna palety | teplá polovina (jantar, zlatá, oranžová, teal) | studená a jedovatá (magenta, violet, kyselá zelená, ledová azurová) |
-| silueta v černé | poznat kruh nebo hrozen kruhů | poznat hrot, trn nebo cíp |
+| obrys siluety | rovné hrany a čisté oblouky, uzavřený, ostře řezaný | nepravidelný, rozpadající se, žádné dvě hrany stejné |
+| směr tvarů | symetrie kolem svislé osy, stojící, zakotvené | ven a vpřed, valící se, těžiště nahoře |
+| zóna palety | studená a tichá (ocel, teal, ledová modř) | teplá a sytá „dopaminová“ (magenta, oranžová, jantarová) |
+| silueta v černé | poznat mnohoúhelník nebo čistý kruh | poznat beztvarou kaňku s roztřepeným okrajem |
+| měřitelně | kompaktnost <= 1.60 (§12) | kompaktnost >= 2.40 (§12) |
 
 <!-- /gen:silhouette -->
 
@@ -113,9 +146,11 @@ samotné, a musí přežít i to nejhorší, co s ní hra udělá.
 Takže: **v brainfogu je silueta jediná spolehlivě čitelná informace.** Barevná zóna palety
 je druhá vrstva, která pomůže, když světlo je — ne první, na které se staví.
 
-Praktický důsledek pro prompt: tvarová slova („round", „closed", „nested" vs. „barbed",
-„jagged", „hooked") nesou víc než barevná a mají v popisu stát dřív. Barva se pojmenovává
-slovem a zbytek dodělá `color_image_url` (§7).
+Praktický důsledek pro prompt: tvarová slova nesou víc než barevná a mají v popisu stát
+dřív. Po směru A se ta dvojice slovníků rozešla ještě víc — habity „geometric", „flat
+faces", „hard edges", „symmetrical" proti distrakcím „amorphous", „irregular",
+„dissolving edge", „no two edges alike". Barva se pojmenovává slovem a na přesnou paletu
+se dotahuje až po generování přes `reduce_colors` (§7a) — v promptu žádný hex.
 
 ## 3. Pravidlo záře
 
@@ -269,6 +304,11 @@ je to vědomě neroztažené rozhodnutí.
 
 ## 6. Style anchor — jeden na celý projekt
 
+> ⚠ **Kotva `general` je od 2. 9. 2026 opuštěná (směr A, §12), ale v tabulce níž
+> zůstává platná.** Není to nedopatření: odepsat ji bez náhradního id shodí generátor
+> i `_test_art_prompts.gd` naráz — proč přesně, a co se musí stát dřív, je v §12c.
+> Nová volání pro směr A se řídí §12, ne tímhle odstavcem.
+
 Zkopírováno doslova z `CLAUDE.md`. **Necituj je zpaměti, ber je odsud nebo z CLAUDE.md.**
 `style_character_id` bere **jen `mode="pro"`**.
 
@@ -306,7 +346,15 @@ podle měření z 21. 8. 2026 (`iso_bible.md` §5) **přebírá i rozměr, nejen
 jeden kus pořádně a všechno ostatní zřeť podle něj. Osm věží ze společné kotvy vypadá jako
 rodina, osm samostatných volání ne.
 
-## 6a. Sonda na plošší kotvu (30. 8. 2026, NEROZHODNUTO)
+## 6a. Sonda na plošší kotvu (30. 8. 2026, UZAVŘENO směrem A)
+
+> **Uzavřeno 2. 9. 2026, §12.** Otázka téhle sondy zněla „má plošší styl šanci jako NOVÁ
+> kotva pro brokolicového rytíře". Směr A ji ruší v zadání, ne v odpovědi: figurální
+> postava se neopouští proto, že by byla moc detailní, ale proto, že to má být **jev,
+> ne bytost**. Kandidáti v `assets/raw/anchor_flat/` zůstávají na disku jako legacy
+> (`ART_DEBT.md`), nemažou se. Měření níž platí dál a je i po uzavření užitečné —
+> zjištění „bez `style_character_id` se ztrácí i barva a téma, ne jen hustota kresby"
+> je přesně to, s čím musí počítat generování masteru ve směru A (§12f).
 
 Uživatel: současná kotva (`fa8294b1-…`, Broccoli Knight) je výrazně detailnější
 než `prop_focus_core`/`focus_timer` (fáze 0) a na jednom boardu podle
@@ -348,7 +396,16 @@ sám o sobě míň závisí na barvě k rozpoznání. `gen:anchors` (§6) zůst�
 beze změny, dokud se nerozhodne — `fa8294b1-…` je pořád jediná platná kotva
 projektu.
 
-## 6b. Druhá sonda: zjednodušení siluety (2. 9. 2026, NEROZHODNUTO)
+## 6b. Druhá sonda: zjednodušení siluety (2. 9. 2026, UZAVŘENO směrem A)
+
+> **Uzavřeno 2. 9. 2026, §12** — týž den, co sonda proběhla, a týmž rozhodnutím jako §6a.
+> Sonda hledala, kolik siluetových prvků smí brokolicový rytíř ztratit; směr A tu otázku
+> nezodpovídá, protože rytíř sám odchází. Kandidáti v `assets/raw/anchor_simplify/`
+> zůstávají na disku jako legacy (`ART_DEBT.md`). **Jedno zjištění z ní ale přechází do
+> §12 jako pravidlo:** mechanický pipeline lepí za KAŽDÝ prompt §7 i §7b doslova, takže
+> forma, která si s nimi odporuje, vyrobí protichůdné zadání. Proto §7b nese od dneška
+> vlastní seznam rozporů, které směr A otevřel, místo aby se na ně přišlo až na
+> kontaktním listu.
 
 **Jiná osa než §6a, schválně.** §6a odstranila detail (`flat shading, minimal
 dithering, ..., no texture noise`) a zjistila, že se s ním ztrácí i identita
@@ -454,10 +511,23 @@ přesná shoda — nepřepisuj ho v generátoru, přepiš ho tady.
 <!-- gen:suffix -->
 
 ```suffix
-organic neural tissue, curved fibrous forms, no mechanical parts, no panels or screws, not a literal brain or organ; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; centered, full object visible, margin on all sides; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
+1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; not a literal brain or organ, no anatomical diagram, no medical illustration; centered, full object visible, margin on all sides; no text, no numbers, no UI, no logo, no frame, no baked drop shadow
 ```
 
 <!-- /gen:suffix -->
+
+**Úvodní klauzule o organické tkáni odsud 2. 9. 2026 ODEŠLA (směr A).** Suffix začínal
+slovy *„organic neural tissue, curved fibrous forms, no mechanical parts, no panels or
+screws"* — a od chvíle, kdy jsou habity geometrické (§12), by to byl **přímý spor
+v každém habitím promptu**: „geometric, flat faces, hard cut edges" a „curved fibrous
+forms, no mechanical parts" v jedné větě. Nešlo o vkus, ale o zařazení: §7b sama
+deklaruje dělbu práce *„§7 řeší JAK se to kreslí, §7b řeší CO se smí objevit v obsahu"*,
+a organická tkáň je obsah, ne technika. Klauzule se proto přesunula do §7b, kde je
+**vázaná na rodinu** — distrakce ji nesou dál (a s nimi i zákaz mechanických dílů),
+habity ne. Zákaz doslovného mozku zůstal tady, protože platí pro všechno.
+
+Přesně tenhle druh sporu naměřila §6b u `broccoli_knight` („riveted armour" proti
+„no mechanical parts"); tady se odstranil u zdroje, ne obcházel v jednotlivém promptu.
 
 **`centered, full object visible, margin on all sides` přidáno 30. 8. 2026.**
 `prop_focus_core`'s `cand_02` v Phase 0 kontaktním listu přetékal přes okraj
@@ -523,14 +593,31 @@ obojí jde do promptu doslova, ne odkazem — jinak to generátor při první p�
 
 | otázka | pravidlo | výjimka |
 |---|---|---|
-| oči a obličej | žádná entita nemá oči ani obličej | **jediná výjimka: `clickbait`** — jedno velké holé oko s trnitým lemem (§8), a nic jiného obličejového k němu (žádné obočí, žádná ústa) |
-| končetiny | žádná entita nemá ruce ani nohy | **jediná výjimka: čtyři obránci Nutrition Guild** (`broccoli_knight`, `avocado_monk`, `chilli_berserker`, `garlic_mage`) — drží zbraň nebo nástroj (kopí, pěsti, nůž, hůl), a to bez rukou nejde. Distrakce sdílejí s obránci tutéž kotvu (§6), ale končetiny NEDĚDÍ — jsou to spory/cysty/výtrusy, ne postavy, viz §2a |
-| tón | habits a defenders vřelé a klidné; distractions studené a hrozivé; terén, props a focus core neutrální a tiché | žádná — to je přímo §1 a §2a, tahle tabulka to jen shrnuje pro prompt |
+| oči a obličej | žádná entita nemá oči ani obličej, žádné obočí, žádná ústa | **žádná** — výjimka pro `clickbait` (jedno velké holé oko) padla se směrem A 2. 9. 2026; `clickbait`ův popis v §8 ji ale pořád nese, viz dluh pod tabulkou |
+| tvar | habits jsou geometrické (rovné plochy, čisté oblouky, hranatá nebo kruhová základna, symetrie kolem svislé osy, ostře řezaná hrana); distractions jsou amorfní organické shluky s nepravidelným rozpadajícím se okrajem a bez kusu geometrie | žádná — tohle je hlavní rozlišovací osa směru A (§12) a nesmí se změkčovat „pro konzistenci desky“ |
+| končetiny | žádná entita nemá ruce ani nohy | **jediná výjimka: čtyři obránci Nutrition Guild** (`broccoli_knight`, `avocado_monk`, `chilli_berserker`, `garlic_mage`) — drží zbraň nebo nástroj (kopí, pěsti, nůž, hůl), a to bez rukou nejde. ⚠ Směr A opouští figurální styl, takže tahle výjimka je na spadnutí — **nechal jsem ji v platnosti schválně** a čeká na rozhodnutí, viz dluh pod tabulkou |
+| tón | habits chladné, tiché a kontrolované; distractions teplé, syté a lákavé; terén, props a focus core neutrální a tiché | žádná — **pozor, oproti stavu do 1. 9. 2026 je to prohozené**, důvod je v §2 bodu 0 |
 | detail | ploché barvy, žádný dithering, žádná textura, žádný gradient | shoduje se s §7 — schválně zdvojeno, protože tahle sekce jde do promptu jinam a dřív |
 | postoj | postavené věci (habits, defenders, props, focus core) sedí zakotvené a nehybné; cokoli, co se hýbe (distractions), zůstává nízko a v kontaktu s povrchem, nikdy ve vzduchu | ⚠ **v rozporu s dnešním textem `phantom_buzz`** (§8: „hovers“, „no legs“) — schválně to tady neopravuji sám, viz poznámka pod tabulkou |
 | perspektiva | low top-down, čelní pohled, nulový izometrický náklon, žádný náklon kamery | žádná |
 
 <!-- /gen:design_constraints_table -->
+
+**Dluh, který směrem A vznikl a NENÍ tímhle commitem opravený (2. 9. 2026).** Tabulka
+výš a doslovný blok níž se změnily; **popisy jednotlivých entit v §8 ne.** Fáze 1 (zbytek
+rejstříku) je podle §10 stejně zamčená za schválením masterů, takže se z těch popisů
+zatím negeneruje — přepíšou se při autorování fáze 1 nad schválenými mastery, ne teď
+od stolu. Do té doby si tyhle tři rozpory drží §8 dál a jsou vědomé, ne přehlédnuté:
+
+1. **`clickbait` má v §8 „one huge lidless eye"**, zatímco pravidlo očí už výjimku nemá.
+2. **Patnáct habitů má v §8 „glial cell / glial body / glial bulb"** — organický popis
+   proti geometrickému pravidlu tvaru.
+3. **Barvy v §8 i v `data/**/*.tres` drží staré rozdělení** (habity teplé, distrakce
+   studené), opačné než §2 a než blok níž.
+
+Všechny tři jsou zapsané v `docs/art/ART_DEBT.md`. Kdyby se z §8 generovalo dřív, než se
+přepíše, prompt by si **sám sobě odporoval** — přesně ta vada, kterou §6b naměřila
+u `broccoli_knight` (forma žádá „riveted armour", suffix zakazuje mechaniku).
 
 **Proč zrovna tahle sekce, a ne spolehnutí na `view` parametr (§9):** `create_1_direction_object`
 (nástroj pro `prop`, `focus_core`, `habit`) má jiný enum `view` než `create_character` a
@@ -554,7 +641,7 @@ Doslovný text, co jde do každého promptu (parsuje `tools/gen_art_prompts.py`,
 <!-- gen:design_constraints -->
 
 ```design_constraints
-no eyes and no face anywhere, except the clickbait family of distractions, which keeps one huge lidless eye and nothing else facial, no brows, no mouth; no arms and no legs anywhere, except the four Nutrition Guild defenders, who hold a weapon or tool and therefore have hands; habits and defenders read warm, calm and inviting; every distraction, including the boss, reads cold and threatening; terrain, props and the focus core read neutral and quiet; flat colour fields only, no dithering, no texture noise, no gradient banding; built and rooted things sit still and anchored to the tissue, anything that moves stays low and in contact with the surface, nothing floats or hovers clear of the ground; camera is a low top-down view straight at the subject, front-facing, zero isometric tilt, no camera pitch
+no eyes and no face anywhere, no brows and no mouth on any entity; no arms and no legs anywhere, except the four Nutrition Guild defenders, who hold a weapon or tool and therefore have hands; every habit is geometric, built from flat faces and clean arcs on a square or circular base, symmetrical about its vertical axis, with hard cut edges, and reads cool, quiet and controlled; every distraction, including the boss, is an amorphous organic mass of curved fibrous matter with an irregular dissolving edge, no two edges alike, no geometry anywhere in it and no mechanical parts, panels or screws, and reads warm, saturated and enticing; terrain, props and the focus core read neutral and quiet; flat colour fields only, no dithering, no texture noise, no gradient banding; built and rooted things sit still and anchored to the tissue, anything that moves stays low and in contact with the surface, nothing floats or hovers clear of the ground; camera is a low top-down view straight at the subject, front-facing, zero isometric tilt, no camera pitch
 ```
 
 <!-- /gen:design_constraints -->
@@ -804,3 +891,205 @@ brány (dotyk podkladu, jas proti zdi) platí na všechny tři kusy stejně.
 Co se přebírá beze změny: plochý terén bez textury (§2b), „generátor dodává materiál, kód
 dodává geometrii“ (§5), zákaz linky po dlaždici, a pravidlo, že se rastr **měří ze
 souboru, ne čte z parametru** (§4).
+
+## 12. Design constraints — směr A (abstraktní organické jevy)
+
+*Rozhodl uživatel 2. 9. 2026. Tahle sekce je NORMA. Když si s ní cokoli jinde v bibli
+odporuje, platí ona a to druhé je dluh — ne naopak.*
+
+**Co se rozhodlo:** deska přechází na **směr A — abstraktní organické jevy**. Figurální
+styl a kotva `broccoli_knight` se opouštějí (§12c). Distrakce nejsou bytosti, jsou to
+**jevy**: beztvaré organické shluky bez obličeje a bez končetin. Habity jsou proti nim
+**geometrie**: jediná pravidelná, ostře řezaná věc na desce.
+
+**Proč zrovna tenhle rozdíl nese informaci.** Rozlišení habit/distraction musí přežít tři
+věci, které hru dělají hrou, a barva ani jedné z nich neodolá (podrobně §2a): Brain Fog
+zakrývá skoro celou desku, Tolerance přes `shaders/flatten.gdshader` vysává barvu právě
+tehdy, když je hráč v úzkých, a sprite je na obrazovce malý a jede. Zůstává **tvar**.
+Do dneška ale byly obě rodiny kreslené týmž organickým materiálem a lišily se jen mírou
+roztřepení — tedy jednou osou, a ještě spojitou. Směr A z toho dělá **kategoriální rozdíl**:
+organické vs. geometrické. To je rozdíl, který přežije i černou siluetu na 32 px.
+
+### 12a. Zamčené render-osy
+
+Platí na VŠECHNY entity, bez výjimky. Osy jsou zamčené na hodnoty, ne na doporučení —
+právě proto, že styl se rozjíždí tam, kde se každé volání rozhoduje znovu (§6b).
+
+| osa | hodnota | kde se to už vynucuje |
+|---|---|---|
+| základní rozlišení | 480×270, celočíselné škálování 4× na 1920×1080 | `project.godot` (`viewport_width/height`, `stretch/scale_mode="integer"`) — **ověřeno, žádný rozpor** |
+| perspektiva | low top-down, čelní, nulový izo náklon | §7b (doslovný blok), §9 (`view` u postav) |
+| paleta | `docs/art/palette_48.png`, vynuceno AŽ PO generování přes `reduce_colors` | §7a |
+| velikost | podle `kind` v §5 (habit 64, distraction 32 z objednaných 64) | §5 — **s jednou výhradou, viz §12b** |
+| stínování | ploché plochy, tři tóny, stín posunutý ≥ 20° do chladna | §7 (suffix) |
+| dithering | žádný | §7 (suffix) i §7b |
+| obrys | 1px, tmavší odstín téže barvy, nikdy černý | §7 (suffix) — **rozpor s §9, viz §12b** |
+
+### 12b. Rozpory se zbytkem bible, které jsem NEOPRAVIL
+
+Zadání znělo ověřit kolizi a rozpor nahlásit, ne ho rozhodnout. Tyhle tři jsem našel:
+
+1. **Obrys: bible si odporuje sama, a už před směrem A.** §7 (suffix, jde do každého
+   promptu) říká *„1px outline in a darker shade of the same hue, **never black**"*.
+   §9 (`gen:tools`, `pevne_parametry`) posílá u všech tří druhů postav
+   `outline=single color black outline`. Research ke směru A navrhuje ještě třetí
+   hodnotu — `selective outline` — s odůvodněním, že černý obrys sní siluetu drobných
+   tvarů v hordě. **Nezměnil jsem nic**: `pevne_parametry` řídí reálné volání, takže
+   změna je změna generování, ne dokumentace. Rozhodnout je potřeba jednou pro všechny tři.
+2. **Velikost distrakce: bible říká 32, na disku je 48.** §5 má u `distraction`
+   `art_px = 32` (objednávka 64, půlí se přesně jednou). Naměřeno 2. 9. 2026 na
+   shipnutých souborech: `assets/distractions/*_frame_1.png` jsou **48×48**
+   a `social_media_binge` je **96×96** (§5 čeká 64). Ani jedno nesedí na tabulku.
+   Je to legacy art z junk-food éry, ne důsledek směru A — ale znamená to, že §5's
+   tabulka dnes nepopisuje disk.
+3. **Půlení 64→32 u hordových distrakcí zůstává neověřené.** §5b to samo podmiňuje:
+   *„U hordových distrakcí se stejný test provede znovu, až bude existovat jednodušší
+   kotva."* Směr A tu jednodušší kotvu právě objednává (§12c), takže ta podmínka je
+   splněná — test se má provést na masteru, ne odhadnout dopředu.
+
+### 12c. Kotva: proč se ještě NEODEPSALA v `gen:anchors`
+
+Kotva `fa8294b1-…` (Broccoli Knight) je směrem A **opuštěná** — je to figurální,
+detailní postava, tedy přesně to, od čeho se odchází. V tabulce §6 ale zatím zůstává
+jako platná, a je to vynucené, ne z nedbalosti:
+
+- `gen:forms` váže všechny obránce i všechny distrakce na rodinu `general`, a
+  `tools/gen_art_prompts.py` (`load_bible`) **spadne**, když forma odkazuje na rodinu,
+  která v `gen:anchors` není.
+- `scripts/_test_art_prompts.gd` kontroluje dvě věci naráz: (1) každý prompt pro postavu
+  má neprázdné `style_character_id` své rodiny, (2) žádná kotva označená `plati_pro = nic`
+  se v celém plánu neobjeví. Přepnout `fa8294b1-…` na `nic` bez náhradního id tedy shodí
+  obě kontroly zároveň.
+
+**Odepíše se v okamžiku, kdy schválený master ze směru A dostane vlastní
+`style_character_id`** — jedna změna řádku v `gen:anchors` plus přepnutí `family`
+u forem. Do té doby je opuštění zaznamenané v `docs/art/ART_DEBT.md` a tady, ne
+v tabulce, kterou čte generátor.
+
+### 12d. Failure modes — měřitelné brány
+
+Tři z šesti testů z researche jdou zautomatizovat na souborech a jsou zapsané níž jako
+brány. Vymáhá je `tools/check_style_failure_modes.py` (ve `verify.sh`); prahy čte odsud,
+nedrží si vlastní kopii — stejná stavba jako `tools/check_terrain_contrast.py` vůči §4.
+
+**Prahy jsou měřené, ne vymyšlené.** Změřeno 2. 9. 2026 na shipnutém rejstříku
+(8 habitů, 10 distrakcí). Kompaktnost = `obvod² / (4π · plocha)` na alfa masce;
+kruh = 1.00, roztřepený tvar roste. Dnešní stav: habity 1.08–2.50 (medián 1.61),
+distrakce 1.24–3.64 (medián 2.15) — **rozsahy se překrývají, dnešní rejstřík by
+siluetovým testem NEPROŠEL.** To není chyba prahu, to je přesně ta vada, kvůli které
+se mění směr. Prahy jsou proto postavené na tom, co už na disku prokazatelně jde:
+nejkulatější habity dnes dávají 1.08–1.18, nejrozpadlejší distrakce 2.54–3.64.
+
+<!-- gen:failure_modes -->
+
+| brána | metrika | prah | odkud práh |
+|---|---|---|---|
+| silueta, habit | kompaktnost alfa masky | <= 1.60 | naměřeno: `head_mindfulness` 1.08, `head_accountability` 1.17, `head_zen_pulsar` 1.18 už dnes projdou |
+| silueta, distraction | kompaktnost alfa masky | >= 2.40 | naměřeno: `energy_drink` 3.64, `group_chat` 3.20, `autoplay` 2.54 už dnes projdou |
+| silueta, odstup rodin | min(distraction) - max(habit) | >= 0.80 | odstup mezi oběma branami výš; bez něj by obě mohly doputovat k sobě a test by prošel na dotek |
+| styl, barvy habitu | počet unikátních RGB v neprůhledných pixelech | <= 8 | research „max 5-6 barev" + 1px obrys a jeho stín (§7); dnešní rozptyl 9-45 je přesně ten „pět stylů" problém |
+| styl, barvy distrakce | počet unikátních RGB v neprůhledných pixelech | <= 6 | research „max 3-4 barvy na jednotku, žádné vnitřní detaily" + obrys |
+| styl, soudržnost rodiny | max - min počtu barev uvnitř rodiny | <= 4 | shipnuté distrakce drží 22-24 (rozptyl 2), takže těsná rodina je prokazatelně dosažitelná |
+| horda, hustota | podíl plochy pole 480x270 pokrytý neprůhlednými pixely jednotek; z něj se dopočítá N (strop 200, dno 8) | = 0.15 | odvozeno: podíl neslepených jednotek u náhodně rozmístěných disků je zhruba exp(-4 * hustota), takže 0.30 stropí i dokonalý kruh na ~0.30 a nikdy neprojde branou platnosti; 0.15 dává ~0.55 a nechává bráně hlavu — ověřeno měřením, viz §12g |
+| horda, platnost kontroly | separable_share kontrolního plného disku téže plochy | >= 0.50 | pojistka proti tiché nule: když neuspěje ani ideální tvar, pole je přesycené a výsledek se hlásí jako INCONCLUSIVE, nikdy jako pass |
+| horda, čitelnost | podíl jednotek, které zůstanou samostatnou komponentou, dělený týmž podílem u kontrolního disku | >= 0.70 | poměr, ne absolutní číslo: kontrola říká, kolik jich při téhle hustotě může zůstat čitelných v nejlepším případě |
+| horda, kontrast vůči tkáni | \|soucet RGB jednotky - soucet RGB tkáně\| | >= 60 | tentýž práh, jakým §4 dělí cestu od tkáně — deska nemá dvě různé definice „dost velkého rozdílu" |
+
+<!-- /gen:failure_modes -->
+
+**Jak se na barevný rozpočet vůbec dá dosáhnout — protože samotné generování ho nesplní.**
+Dnešní pipeline snapuje výsledek na `palette_48` (`reduce_colors(palette_image_url=…)`,
+GENERATION_PLAN bod 2), což je strop 48 barev, ne rozpočet 6. Shipnuté distrakce proto
+mají 22–24 unikátních RGB a **žádná by branou neprošla**. Cesta existuje a je v živém
+schématu: `reduce_colors` má vedle `palette_image_url` i **`num_colors`** a `dithering`.
+Druhé, přísnější kolo (nebo tentýž krok lokálně v PIL, zadarmo a deterministicky) vybere
+podmnožinu už nasnapované palety, takže se z ní nedá vypadnout. **Zatím se to nikde
+nedělá** — je to známá cesta, ne hotový krok, a rozhodne se o ní na prvním masteru:
+jestli projde rovnou, tenhle odstavec je zbytečný, a jestli ne, tohle je to, co se
+doplní. Neladit práh proto, že ho dnešní pipeline netrefí.
+
+**Na co se brány vztahují a na co ne.** Gatuje se jen to, co je deklarované v tabulce
+`gen:direction_a` níž. Zbytek rejstříku je legacy
+(§12b, `ART_DEBT.md`), měří se a vypisuje, ale nezčervená build — jinak by `verify.sh`
+zůstal červený od tohohle commitu až do dokončení fáze 1 a přestal by hlídat cokoli
+jiného. Je to stejná úmluva jako `KNOWN_BROKEN_TESTS` ve `verify.sh` a allowlist
+v `ART_DEBT.md`: viditelné, datované, a určené ke smrštění na nulu.
+
+**Tři testy z researche se zautomatizovat nedají a zůstávají na uživateli:** squint test,
+fog test (obojí je soud o dojmu z obrazovky) a drift test přes 8 směrů a snímky animace
+(vyžaduje porovnání siluety napříč snímky, které dnes u směru A nemá co porovnávat).
+
+### 12g. Proč hordový test NEBĚŽÍ na 200 jednotkách
+
+*Naměřeno 2. 9. 2026, při stavbě `tools/check_style_failure_modes.py`.*
+
+Research i zadání říkaly „200 jednotek". Na TÉHLE desce to nejde a je to aritmetika, ne
+názor: pole je 480×270 = **129 600 px**, jedna distrakce má neprůhlednou plochu zhruba
+660–1540 px, takže 200 kopií je **132 000–308 000 px** — 102 až 238 % celé obrazovky.
+Změřeno na všech 42 shipnutých distrakcích: při N=200 vyjde `separable_share` **0.000
+i kontrolnímu plnému disku**, tedy nejlepšímu možnému tvaru. Brána, která dá stejnou
+nulu dokonalému kruhu i nejhorší kaši, neměří kvalitu siluety — měří jen to, že se pole
+přeplnilo. (Kontrola: totéž pole při N=20 dá 0.400/0.400, plné 1920×1080 při N=200 dá
+0.575/0.655 — čísla se vrátí, jakmile hustota klesne pod saturaci.)
+
+Číslo 200 pochází z researche o žánru, kde ho nesou hry s jiným poměrem sprite:deska
+(Bloons, Orc Problem). Tahle hra dnes navíc pouští vlny po **pěti** jednotkách
+(`data/levels/level_1.tres`: `base_count = 5`, `wave_count = 3`), takže 200 souběžných
+distrakcí není ani cíl, ani současný stav.
+
+**Co se místo toho měří:** hustota se drží na **15 % plochy** a **N se z ní dopočítá**
+podle toho, jak velký je testovaný sprite (strop 200, dno 8) — test tak zůstává ve
+stejném, rozlišujícím režimu bez ohledu na velikost. K tomu jistí `horda, platnost
+kontroly`: když neuspěje ani ideální disk, výsledek je `INCONCLUSIVE`, ne pass. Tichá
+nula, která by se dala splést se splněnou branou, je přesně ta vada, kvůli které
+`verify.sh` hlídá i osiřelé scény.
+
+**Proč zrovna 15 %, a ne 30 %, na kterých ta oprava začala.** První pokus po zrušení
+N=200 dal hustotu 0.30 a **pořád nerozlišoval**: 39 ze 42 shipnutých distrakcí skončilo
+`INCONCLUSIVE`, protože ani ideální disk se při té hustotě nedostal přes bránu platnosti
+(naměřeno 0.21–0.56). Není to náhoda ani vlastnost těch spritů — plyne to z rozmístění:
+u náhodně rozházených disků je podíl těch, které se ničeho nedotknou, zhruba
+**exp(-4 · hustota)**. Pro 0.30 to dává ~0.30, tedy strop *pod* branou platnosti 0.50 —
+brána by nemohla projít, ani kdyby byl tvar dokonalý. Pro 0.15 vychází ~0.55, což
+bránu splní a nechá nad ní rezervu na to, co má test vlastně měřit: o kolik je
+skutečný tvar horší než ideální.
+
+Pro 32px distrakci směru A to znamená **N ≈ 39 jednotek** — což je mimochodem řádově
+to, co tahle hra reálně pouští (vlny po pěti, několik dávek naráz), na rozdíl od 200.
+
+**Boss se hordovým testem neměří vůbec.** `Data.build_waves()` mu dává natvrdo
+`count = 1` (`scripts/data.gd:475`) — jedna jednotka za celý level. Test na slepení
+dvou set kopií nemá u něčeho, co nikdy nestojí vedle sebe, co říct; u 96px spritu by
+navíc N spadlo na dno 8 a hustota by vyskočila zpátky k saturaci. Vynechává se proto
+adresně, ne mlčky.
+
+### 12e. Co se gatuje — rejstřík artu směru A
+
+Prázdná tabulka je **správný** výchozí stav, ne chybějící práce: dokud nejsou schválené
+mastery (§12f), žádný soubor směru A neexistuje. `tools/check_style_failure_modes.py`
+v tom případě vypíše měření celého rejstříku jako `LEGACY` a projde — a řekne nahlas,
+že gatuje nula souborů, aby se prázdná brána nedala splést s branou splněnou.
+
+Sloupec `soubor` je cesta od kořene repa. `rodina` je `habit` nebo `distraction` a
+rozhoduje, která dvojice prahů z `gen:failure_modes` se na řádek použije.
+
+<!-- gen:direction_a -->
+
+| id | rodina | soubor |
+|---|---|---|
+
+<!-- /gen:direction_a -->
+
+### 12f. Postup, kterým se sem zapisuje první řádek
+
+*Zadal uživatel 2. 9. 2026, v tomhle pořadí a ne jiném.*
+
+1. Vygenerovat **jeden** master distraction a **jeden** master habit podle §12a–12d.
+   Ne osm, ne celý rejstřík — dva sprity.
+2. Projet je `tools/check_style_failure_modes.py`.
+3. **Předložit uživateli a počkat.** Do schválení se nezapisuje řádek do `gen:direction_a`,
+   nepřepisuje se `gen:anchors` (§12c) a negeneruje se nic dalšího.
+4. Až je uživatel schválí, stanou se style referencí pro fázi 1 — a teprve tehdy se
+   přepisují popisy entit v §8 a barvy v `data/**/*.tres` (dluh z §7b).
+
+`get_balance` před každou dávkou a zůstatek do `PROGRESS.md` (CLAUDE.md).

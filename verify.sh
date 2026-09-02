@@ -440,6 +440,30 @@ else
   pass=$((pass + 1))
 fi
 
+echo "== style failure modes =="
+# STYLE_BIBLE.md §12d: three of direction A's six failure-mode tests (silhouette
+# compactness, "five styles" colour-count cohesion, horde legibility) are measurable on
+# PNGs instead of judged from a screenshot. Gates only files listed in the bible's
+# <!-- gen:direction_a --> table (§12e) -- that table is EMPTY today (no direction-A
+# master exists yet, §12f is still waiting on user approval), so a correct run gates
+# ZERO files and says so explicitly. The whole current roster (every habit head, every
+# distraction frame) predates direction A and would fail these gates by construction --
+# gating it would leave verify.sh red until phase 1 finishes and stop it guarding
+# anything else, so it is measured and printed as LEGACY instead, same convention as
+# KNOWN_BROKEN_TESTS above and the allowlist in docs/art/ART_DEBT.md.
+style_fm_log="$LOG_DIR/style_failure_modes.log"
+PYTHONIOENCODING=utf-8 python tools/check_style_failure_modes.py >"$style_fm_log" 2>&1
+style_fm_status=$?
+if [ "$style_fm_status" -ne 0 ]; then
+  echo "FAIL style failure modes (exit $style_fm_status) — see $style_fm_log"
+  grep "FAIL" "$style_fm_log" | sed 's/^/  /'
+  fail=$((fail + 1))
+  failed_names+=("style failure modes")
+else
+  echo "PASS style failure modes"
+  pass=$((pass + 1))
+fi
+
 echo
 echo "== summary =="
 echo "pass: $pass  fail: $fail  skip: $skip  known-broken: $known  flaky: $flaky  no-display: $nodisplay"
