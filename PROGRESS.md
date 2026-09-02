@@ -3829,3 +3829,57 @@ sem, neměněno v M1.
 - Soubory: `scripts/sim_recorder.gd`(`.uid`), `scripts/sim_strategy_counter_pick.gd`(`.uid`),
   `scripts/_balance_sweep.gd`, `docs/BALANCE.md` (přegenerované), `PATHFINDING.MD` (Status),
   tento zápis.
+
+## 2026-09-02 — `_test_effort` selhal jednou uvnitř verify a příčinu se NEPODAŘILO zjistit
+
+Zapisuju to, i když z toho nic nevzešlo, protože druhé spatření bude díky tomuhle
+levné — a protože jsem si u toho ověřil hypotézu, která zněla přesvědčivě a **byla
+špatná**.
+
+**Co se stalo.** V běhu `verify.sh` po M1 skončilo `pass: 40 fail: 1`, jediný pád
+`_test_effort`, jediná assertion: `FAIL otocil se dolu za ni 0.00 rad` — habit
+s auto-aimem se neotočil za nepřítelem postaveným 60 px pod ním.
+
+**Co to NENÍ.** Není to regrese z M1: M1 přidal `sim_recorder.gd`,
+`sim_strategy_counter_pick.gd` a rozšířil `_balance_sweep.gd` — ani jeden soubor
+nesouvisí s `tower.gd`, auto-aimem ani `_test_effort`. Samostatné spuštění prošlo
+**12× z 12**, a následný celý `verify.sh` prošel taky (**41 pass, 0 fail**).
+
+**Hypotéza, kterou jsem měl, a proč byla špatná.** `_tick_auto_aim()` bere kandidáty
+z `game.query_distractions_near()`, tedy z prostorového hashe zavedeného v P4. Ten se
+přestavuje **jen uvnitř `_sim_tick()`**. Test nepřítele po spawnu **teleportuje**
+(`d.global_position = h.global_position + Vector2(0, 60)`) a hned nato volá
+`_tick_auto_aim()` synchronně, bez jediného snímku mezi tím — takže hash má popsanou
+polohu z doby PŘED teleportem. To vypadalo jako učebnicový race a přesně na ten druh
+vady CLAUDE.md pouští úzkou výjimku.
+
+**Změřeno, ne dohadováno — a hypotéza padla.** Dočasná sonda vytištěná těsně před
+`_tick_auto_aim()`:
+
+```
+PROBE habit_cell=(10, 10) spot=(168.0, 185.0) candidates_before=1
+PROBE candidates_after_rebuild=1
+ok   otocil se dolu za ni 1.57 rad
+```
+
+Kandidát v hashi **je** (1 před i po vynuceném `_rebuild_distraction_hash()`), habit
+padl na spot `(10, 10)` ve všech třech kontrolních bězích, a hrubý filtr podle buňky
+projde, protože spawn zóna `level_98` (`x = 0`) leží uvnitř dosahu dotazu (±13 buněk
+kolem buňky habitu). Přesné testy uvnitř `_tick_auto_aim` navíc čtou **živou**
+`d.position`, ne tu z hashe. Zastaralost hashe tedy tuhle assertion neshodí.
+
+**Co jsem proto NEUDĚLAL.** Neopravil jsem test. Sonda šla pryč, `_test_effort.gd` je
+bajtově shodný s `HEAD` (ověřeno `git status`). Upravit fixture podle vyvrácené teorie
+je přesně to, co pravidlo „když test selže, oprav kód" zakazuje — a `FLAKY_TESTS` jsem
+ho taky nepřidal: `verify.sh` u toho seznamu sám píše, že záznam je „a BUG TO FIX, not
+a permanent exemption", a test, který je 15× z 16 zelený, by tam jen tiše dusil signál
+o skutečné regresi.
+
+**Co zbývá ověřit, až/pokud se to stane znovu** (aby se nezačínalo od nuly):
+zastaralost prostorového hashe je **vyloučená**; `fog` na `level_98` je vypnutá, takže
+`is_pos_visible()` vrací vždy `true` a taky odpadá; pořadí `game.build_spots.keys()`
+vypadalo stabilně (`(10, 10)` pokaždé), ale ověřené je jen na třech bězích, takže
+podezřelé zůstává. Nejbližší nepodezřelejší kandidát je stav sdílený mezi procesy
+uvnitř jednoho `verify.sh` — `user://savegame.tres` se během běhu **opravdu přepisuje**
+(timestamp se mezi testy mění) a `MetaProgression` z něj čte perky, které do dosahu
+a kapacity mluví.
