@@ -1259,6 +1259,31 @@ disclosure vyplnit poctivě za celou hru včetně toho, že in-game sprity přes
 vznikly — a hlídat konzistenci s `palette_48`, protože nejspolehlivější indicie není
 rukopis, ale capsule, jejíž světlo a paleta nesedí na screenshoty.
 
+## F1 — mlha nesmí číst screen shake (blokuje zapnutí mlhy)
+Model: opus
+Needs-me: no
+Status: todo
+
+`Game._update_fog()` staví herní mřížku viditelnosti z `objective_pos + position`, a
+`position` je offset **screen shake** — losovaný z `_shake_rng`, který se **nikdy
+neseeduje z run seedu**, a tlumený v `_process()` na **reálné delta**. S vypnutou mlhou
+to nevadí (`is_pos_visible()` zkratkuje na `true`). Se zapnutou teče neseedovaný RNG
+a reálný čas přímo do boje: `_test_timecontrol` selže na **stejném seedu při stejné
+rychlosti** (19 killů / 203 dopamine proti 22 / 215).
+
+Naměřeno 2026-09-02 pokusem o `fog = true` na `level_98`; ten pokus je vrácený, aby gate
+zůstal zelený. Plný rozbor v `BLOCKED.md`.
+
+**Pozor, není to jednořádkovka.** `_lit_cells` je dnes v třeseném prostoru **záměrně**
+a `tower.gd:292` se tomu přizpůsobuje (`to_global(target_pos)`, s vlastním komentářem).
+Převod mřížky do netřeseného prostoru znamená obrátit i volací místa v `tower.gd`
+a `projectile.gd`. Vzor, jak to má vypadat, existuje: `_update_routine_reach()` tenhle
+problém už jednou vyřešil (Q1) a jeho komentář popisuje přesně tuhle past.
+
+Hotovo: `_test_timecontrol` je zelený se **zapnutou** mlhou na `level_98` (same-seed
+same-speed bit-identické i pro `cheap-even`), `_test_fog`/`_test_fog_modifiers`/
+`_test_minimap` zelené, a sweep se zapnutou mlhou dá reprodukovatelná čísla.
+
 ## M9 — vyčistit known-broken dluh
 Model: opus
 Needs-me: no

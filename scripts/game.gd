@@ -2026,7 +2026,7 @@ func _update_fog(delta: float) -> void:
 ##
 ## Floored at 0.2 so a maxed meter dims the board rather than blinding it — a fog that
 ## closes to nothing is not a lesson, it is a lost run with no way back.
-const SIGHT_TOLERANCE_PENALTY := 0.4
+const SIGHT_TOLERANCE_PENALTY := 0.55
 
 func sight_radius_mult() -> float:
 	var t: float = clampf(GameState.tolerance / 100.0, 0.0, 1.0)
@@ -4797,12 +4797,12 @@ const _TOLERANCE_DECAY_PER_SEC := 4.0
 const QUICK_HIT_BASE := 15
 const QUICK_HIT_COOLDOWN := 6.0
 const QUICK_HIT_SPIKE := 18.0
-const QUICK_HIT_FLOOR_GAIN := 2.0
+const QUICK_HIT_FLOOR_GAIN := 5.0
 ## Seconds of full clarity one Quick Hit buys (P11). Reuses Moment of Clarity's own
 ## fog_reveal_left rather than a second mechanism — a surge of attention is a surge of
 ## attention, whatever paid for it. Short on purpose: the point is that the bright moment
 ## ends and the Tolerance it cost does not.
-const QUICK_HIT_CLARITY := 1.2
+const QUICK_HIT_CLARITY := 0.5
 
 var _quick_hit_cd := 0.0
 var _quick_hit_button: Button = null

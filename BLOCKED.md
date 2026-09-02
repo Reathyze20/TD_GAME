@@ -3,6 +3,56 @@
 Design decisions found ambiguous or contradictory during autonomous runs.
 Not fixed by guessing — recorded here with options, then moved past.
 
+## Zapnutá mlha rozbije determinismus — screen shake teče do herní mřížky viditelnosti (2026-09-02)
+
+**Tohle blokuje zapnutí mlhy, ne tvůj vkus.** Původní brána u P10 byla vizuální („až uvidím
+mlhu v pohybu"). Zkusil jsem `fog = true` na `level_98` a narazil na něco jiného
+a tvrdšího: **se zapnutou mlhou přestane být hra reprodukovatelná.**
+
+`_test_timecontrol` to chytil okamžitě, a ne na cross-speed kontrole — na té přísnější:
+**stejný seed, stejná rychlost, dva běhy**:
+
+```
+FAIL cheap-even: outcome is bit-identical across two runs of the same seed and speed
+  run1 = { victory: false, focus: 0, dopamine: 203, kills: 19 }
+  run2 = { victory: true,  focus: 1, dopamine: 215, kills: 22 }
+```
+
+**Příčina, přečtená ze zdroje, ne odhadnutá.** `Game._update_fog()` staví herní mřížku
+takhle:
+
+```gdscript
+var core_pos := objective_pos + position
+```
+
+`position` je **offset screen shake**. A ten shake:
+
+- se losuje z `_shake_rng` (`game.gd:146`), což je **vlastní `RandomNumberGenerator`, který
+  se nikdy neseeduje z run seedu** — komentář u něj to říká přímo: *„_shake_rng, not the
+  shared global stream";*
+- se tlumí v `_process()` na **reálné delta** vykresleného snímku, ne na sim ticku.
+
+Takže poloha světel — a tím i `_lit_cells`, mřížka kvantovaná po 48px blocích — závisí na
+neseedovaném RNG a na reálném čase. S vypnutou mlhou to nikdy nevadilo, protože
+`is_pos_visible()` zkratkuje na `true` a `_lit_cells` nic negatuje. **Jakmile mlha gatuje
+střelbu, teče ta nedeterminističnost přímo do boje.**
+
+Je to přesně ta třída chyby, před kterou varuje komentář u `_update_routine_reach()`
+(Q1): *„mixing a shake-contaminated global_position into ONE of the two comparison sides
+let screen shake flip in_routine"*. Cesta Routine se podle toho už opravila; cesta mlhy ne.
+
+**Proč jsem to neopravil hned.** Není to jednořádkovka. `_lit_cells` je dnes v *třesené*
+prostoru **záměrně** a `tower.gd:292` se tomu přizpůsobuje (`to_global(target_pos)`, s
+vlastním komentářem, proč). Převést mřížku do netřeseného prostoru znamená obrátit i ta
+volací místa v `tower.gd` a `projectile.gd` — bojově kritický kód, a udělat to narychlo na
+konci dlouhé session by bylo přesně to hazardérství, které tahle session jinak nedělala.
+Zapsáno jako úkol **F1** ve frontě.
+
+**Co je hotové a čeká jen na tohle:** P10 (`explored`), P11 (Tolerance zužuje dohled) a P12
+(minimapa) jsou postavené, otestované 42 kontrolami a ve hře pořád mrtvé. Konstanty Quick
+Hitu jsou vyladěné a naměřené (viz `PROGRESS.md`). Chybí jediné: aby zapnutí mlhy nerozbilo
+determinismus.
+
 ## Mlha je vypnutá na obou levelech, takže P10 i P11 jsou ve hře mrtvé (2026-09-02)
 
 **Jeden bool, dva hotové systémy.** `data/levels/level_1.tres` i `level_98.tres` mají

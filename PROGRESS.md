@@ -4706,3 +4706,86 @@ jako zkrácená `PATHFINDING.MD`:
   0 no-display.**
 - Soubory: smazáno 21 (`scripts/_diag_*.gd` + `.uid`, `scenes/_diag_*.tscn`),
   `verify.sh` (nová kontrola), `docs/refactor/SYSTEMS.MD`, tento zápis.
+
+## 2026-09-02 — ladění hry: Quick Hit vyladěn měřením, mlha narazila na determinismus
+
+Zadání bylo „vyladit tu hru". Vzal jsem to jako „udělej, aby doopravdy hrála", protože
+největší díra byla, že **P10, P11 i P12 jsou hotové a ve hře mrtvé** — `fog = false` na
+obou levelech.
+
+### Co mlha udělala, když jsem ji zapnul
+
+Zapnul jsem `fog = true` na `level_98` (druhý level; první učí základy bez ní) a změřil:
+
+| strategie | před mlhou | s mlhou |
+|---|---|---|
+| `cheap_even` (nemíří) | WIN 9 / 3 / 4 | **LOSS** / 3 / 4 |
+| `counter-pick + aim` | WIN 17 / 19 / 19 | WIN **19 / 17 / 19** |
+
+**Mlha odměňuje míření**, přesně jak má: nezamířená levná hra začne na jednom seedu
+prohrávat, zatímco hra, která věže natáčí, je nedotčená. To je ten mechanismus, o kterém
+`docs/core/14` mluví, poprvé viditelný v číslech.
+
+### Quick Hit: tři iterace, každá měřená
+
+Lekce („levný dopamin si půjčuješ a splácíš Tolerancí") pořád nedorážela — spam vedl
+v každé vlně. Ladil jsem poměr užitku a ceny:
+
+| konstanta | před | po | proč |
+|---|---|---|---|
+| `QUICK_HIT_FLOOR_GAIN` | 2,0 | **5,0** | 12 stisků dávalo floor jen 24 → dohled zúžený o 9 %, cena nikdy nedohnala užitek |
+| `SIGHT_TOLERANCE_PENALTY` | 0,4 | **0,55** | při floor 45 dělá −25 % dohledu místo −18 % |
+| `QUICK_HIT_CLARITY` | 1,2 s | **0,5 s** | 1,2 s dokonalého vidění každých 6 s je **20 % uptime** — při mlze obrovské; teď 8 % |
+
+Výsledek po vlnách: spam pořád vede zpočátku (+6/+7/+9 killů), ale **poslední vlna už mu
+ubírá** (+7 místo +9, Focus −7) a Tolerance vyleze na **44–50**. Konečné pořadí je
+`counter-pick + aim` **19** > `cheap + spam` **8** > `cheap_even` **0–4**.
+
+**Levné tlačítko tedy sedí přesně mezi špatnou a dobrou hrou** — porazí lajdáckou hru
+a prohraje s pořádnou. To je ta lekce, jen řečená jinak, než ji Q2 formulovalo.
+
+### A pak mlha rozbila determinismus. To je ten skutečný nález
+
+`_test_timecontrol` spadl — a ne na cross-speed kontrole, ale na té přísnější: **stejný
+seed, stejná rychlost, dva běhy** daly 19 killů / 203 dopamine proti 22 / 215.
+
+Příčina, přečtená ze zdroje: `_update_fog()` staví herní mřížku z
+`objective_pos + position`, a `position` je offset **screen shake** — losovaný
+z `_shake_rng`, který se **nikdy neseeduje z run seedu** (`game.gd:146`, jeho komentář to
+říká přímo), a tlumený v `_process()` na **reálné delta**. S vypnutou mlhou to nikdy
+nevadilo, protože `is_pos_visible()` zkratkuje na `true`. **Jakmile mlha gatuje střelbu,
+teče neseedovaný RNG a reálný čas přímo do boje.**
+
+Je to táž past, před kterou varuje komentář u `_update_routine_reach()` (Q1). Cesta Routine
+se podle toho opravila; cesta mlhy ne.
+
+**Mlhu jsem proto vrátil na `false`** a založil úkol **F1**. Není to jednořádkovka:
+`_lit_cells` je v třeseném prostoru záměrně a `tower.gd:292` se tomu přizpůsobuje, takže
+převod znamená obrátit i volací místa v `tower.gd` a `projectile.gd` — bojově kritický kód.
+Dělat to narychlo na konci dlouhé session by bylo hazardérství.
+
+### Dvě fixtures se cestou naučily vlastnit svůj předmět
+
+Zapnutá mlha shodila dvě, které o mlze nejsou — a obě měly stejnou vadu jako
+`_test_fog_bandwidth` před P8b, jen z druhé strany:
+
+- **`_test_economy_characterization`** měl v assertion **opsané literály** `18.0` a `2.0`
+  s názvem konstanty v popisku. Ladění `QUICK_HIT_FLOOR_GAIN` ho shodilo hláškou „(2) 5.00"
+  — pravdivé tvrzení o zastaralé kopii, ne o ekonomice. Teď čte
+  `Game.QUICK_HIT_SPIKE`/`QUICK_HIT_FLOOR_GAIN`, takže pořád pinuje **chování** (jeden
+  stisk hne o přesně tu konstantu) a přežije přeladění.
+- **`_test_effort`** dědil mlhu z `level_98`. Auto-aim se otáčí jen za cíli, které projdou
+  `is_pos_visible()`, takže se zapnutou mlhou začal padat na „otocil se dolu za ni" —
+  pravdivé tvrzení o tmě a vůbec žádné o mechanice, kterou měří. Teď si `fog_enabled`
+  vypíná sám.
+
+### Ověření
+
+- `./verify.sh` (s displejem): **46 pass, 0 fail, 0 skip, 2 known-broken, 0 flaky,
+  0 no-display.**
+- `level_98` po vrácení mlhy a s vyladěnými konstantami: `passive` **LOSS ×3**,
+  `counter-pick + aim` **WIN 17/19/19**, `cheap + spam` WIN 7/8/11 s Tolerancí 43–50.
+  Kritérium M2 drží.
+- Soubory: `scripts/game.gd` (tři konstanty), `scripts/_test_economy_characterization.gd`,
+  `scripts/_test_effort.gd`, `docs/BALANCE.md`, `BLOCKED.md`, `PATHFINDING.MD` (úkol F1),
+  tento zápis.

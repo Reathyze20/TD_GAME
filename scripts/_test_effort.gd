@@ -46,6 +46,14 @@ func _run() -> void:
 	GameState.focus = 999999
 	GameState.dopamine = 999999
 	GameState.designer_mode = false
+	# THIS FIXTURE IS ABOUT AIMING ECONOMICS, NOT VISIBILITY, so it pins the fog off rather
+	# than inheriting whatever level 98 currently ships. Auto-aim only turns toward targets
+	# that pass game.is_pos_visible() (tower.gd _tick_auto_aim), so the moment level 98 got
+	# `fog = true` this harness started failing "otocil se dolu za ni" — a true statement
+	# about darkness, and nothing at all about the effort/surrender mechanic under test.
+	# Same rule P8b established from the other side: a fixture must own its subject, and
+	# must not inherit somebody else's from a content file.
+	game.fog_enabled = false
 	Mirror.begin_level(98)
 	await get_tree().process_frame
 

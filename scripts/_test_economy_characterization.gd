@@ -285,10 +285,19 @@ func _run() -> void:
 	_check("do_quick_hit pays exactly what quick_hit_payout() promised",
 		GameState.dopamine - dopamine_before == payout_at_0,
 		str(GameState.dopamine - dopamine_before))
-	_check("do_quick_hit raises Tolerance by exactly QUICK_HIT_SPIKE (18)",
-		is_equal_approx(GameState.tolerance, 18.0), "%.2f" % GameState.tolerance)
-	_check("do_quick_hit permanently raises the FLOOR by QUICK_HIT_FLOOR_GAIN (2)",
-		is_equal_approx(GameState.tolerance_floor, 2.0), "%.2f" % GameState.tolerance_floor)
+	# READ FROM Game, NOT COPIED. These two lines carried literal 18.0 and 2.0 with the
+	# constant's name in the label, which is the shape that turns a characterization test
+	# into a tripwire on the number rather than on the BEHAVIOUR. P11's tuning moved
+	# QUICK_HIT_FLOOR_GAIN 2.0 -> 5.0 and this failed with "(2) 5.00" — a true statement
+	# about a stale copy, not about anything the economy did wrong. What is worth pinning
+	# is that one press moves Tolerance by exactly the spike and the floor by exactly the
+	# floor gain; that claim survives retuning, and a change to the MECHANISM still trips it.
+	_check("do_quick_hit raises Tolerance by exactly QUICK_HIT_SPIKE (%.0f)" % Game.QUICK_HIT_SPIKE,
+		is_equal_approx(GameState.tolerance, Game.QUICK_HIT_SPIKE),
+		"%.2f" % GameState.tolerance)
+	_check("do_quick_hit permanently raises the FLOOR by QUICK_HIT_FLOOR_GAIN (%.0f)" % Game.QUICK_HIT_FLOOR_GAIN,
+		is_equal_approx(GameState.tolerance_floor, Game.QUICK_HIT_FLOOR_GAIN),
+		"%.2f" % GameState.tolerance_floor)
 
 	var dopamine_before_cd: int = GameState.dopamine
 	game.do_quick_hit()
