@@ -3,6 +3,111 @@
 Design decisions found ambiguous or contradictory during autonomous runs.
 Not fixed by guessing — recorded here with options, then moved past.
 
+## Q2 — Quick Hit analysis (S2 simulator, read-only measurement) — 2026-09-02
+
+Read-only per the task's own "NEMĚŇ ŽÁDNÁ ČÍSLA": no value in `data/` or in
+`game.gd`'s shared balance constants was touched. Built to answer it: `scripts/
+sim_strategy_habits_emergency_quick_hit.gd` — a new, permanent `SimStrategy`
+("cheap habits like `SimStrategyCheapEven`, plus Quick Hit only while Focus ≤ 30%
+of `max_focus`" — the fourth baseline the task asked for, alongside the three
+that already existed as S3 baselines) — and a temporary driver, `scripts/
+_diag_q2.gd`/`scenes/_diag_q2.tscn` (S2/`LevelSimulator`, three fixed seeds per
+cell). The temporary driver is **not deleted yet**: `rm` was denied by this
+session's permission mode (same thing `dcfd43e`'s PROGRESS.md entry hit with
+`_diag_arc_mask.*`) — `scripts/_diag_q2.gd`, its `.gd.uid`, and `scenes/
+_diag_q2.tscn` are left untracked, harmless (verify.sh only globs `scenes/
+_test_*.tscn`), and want manual deletion. `sim_strategy_habits_emergency_quick_hit.gd`
+IS meant to stay — it's a reusable baseline, the same category as the other three
+`scripts/sim_strategy_*.gd` files, not a one-off harness.
+
+### The premise doesn't match what's in `data/` — two mismatches, not guessed around
+
+1. **There are two levels, not three.** `data/levels/` holds exactly `level_1.tres`
+   (id=1, `display_name = "Placeholder — square grid smoke test"`) and
+   `level_98.tres` (id=98, `display_name = "First Light"`) — confirmed both via
+   `Data._list_files("res://data/levels/")` (a directory glob) and by listing the
+   directory directly; the `.bak`/`.bak2` files next to them are never loaded.
+   "První tři levely" has no third member. What follows covers the two that exist.
+2. **Quick Hit is switched off on both of them.** `LevelData.quick_hit: bool = false`
+   is the field's default (`scripts/resources/level_data.gd:17`), and neither
+   `.tres` sets it to `true` — grepped `quick_hit = true` across every file in
+   `data/`: zero matches, project-wide. `Game.do_quick_hit()` (`game.gd:4800`)
+   no-ops immediately when `GameState.quick_hit_enabled` is false, and that flag is
+   copied straight from `level.quick_hit` in `GameState.reset_for_level()`. So on
+   every level that exists today, "press Quick Hit" and "do nothing" are the exact
+   same action.
+
+### Measured (3 seeds/cell — 20260902/3/4 — bit-identical within a seed, per S2's own determinism guarantee)
+
+| Level | Strategy | Result | Focus | Tolerance | Dopamine | Kills | Wave reached | Quick Hit uses |
+|---|---|---|---|---|---|---|---|---|
+| 1 "Placeholder" (3 waves, 30 Focus) | passive | died | 0/30 | 0 | 388 | 0 | 2 | 0 |
+| | cheap_even | died | 0/30 | 0 | 358 | 0 | 2 | 0 |
+| | quick_hit_spam | died | 0/30 | 0 | 388 | 0 | 2 | 0 |
+| | habits + emergency QH | died | 0/30 | 0 | 358 | 0 | 2 | 0 |
+| 98 "First Light" (5 waves, 25 Focus) | passive | died | 0/25 | 0 | 389 | 0 | 2 | 0 |
+| | cheap_even | died | 0/25 | 0 | 543–555 | 39–42 | 4 | 0 |
+| | quick_hit_spam | died | 0/25 | 0 | 389 | 0 | 2 | 0 |
+| | habits + emergency QH | died | 0/25 | 0 | 543–555 | 39–42 | 4 | 0 |
+
+All 4×2×3 = 24 runs end in defeat (`victory=false`, Focus hits 0) — no strategy
+wins either level, so there is no winning baseline to measure a "dominant
+strategy" against yet. `quick_hit_spam` is bit-for-bit identical to `passive`,
+and `habits + emergency QH` is bit-for-bit identical to `cheap_even`, on every
+seed and both levels, because Quick Hit uses = 0 throughout (mismatch #2 above —
+not a bug in the 30%-emergency threshold; that gate never gets a chance to
+matter, since `do_quick_hit()` refuses before it would fire).
+
+### Answer: no — spam isn't dominant, it's inert
+
+Spamming Quick Hit is **not** the best of the four strategies in the two real
+levels that exist (there is no third), because it isn't a strategy at all under
+current data — it's a no-op tied with doing nothing:
+
+- **Level 98**: the cheap-habit strategies (with or without the emergency Quick
+  Hit — identical either way) survive to wave 4 instead of wave 2, land 39–42
+  kills instead of 0, and end with 543–555 Dopamine instead of 389. Quick Hit
+  spam loses to them by **2 fewer waves survived, 39–42 fewer kills, and 154–166
+  less Dopamine** — last place, tied with passive.
+- **Level 1**: nothing helps at all here (0 kills for every strategy, dies at
+  wave 2 regardless) — and building is actually a net loss (358 vs 388 Dopamine),
+  since the 30-Dopamine habit spend buys zero kills. Reads like a defect specific
+  to this level (its own name says "Placeholder — square grid smoke test", not
+  real content) rather than a Quick Hit finding — flagged since it's visible in
+  this data, not chased further, out of this task's scope.
+
+### What would have to change in `data/` for Quick Hit to become dominant — not touched, per the task
+
+1. **The gating switch, first and non-negotiable.** `quick_hit` must actually be
+   `true` on a level's `.tres` — today it is `false` on every level in the
+   project, so nothing below matters until this flips for at least one real level.
+2. **Even then, "dominant" competes against a target that isn't fully in `data/`.**
+   Quick Hit's own economics — `QUICK_HIT_BASE = 15`, `QUICK_HIT_COOLDOWN = 6.0`,
+   `QUICK_HIT_SPIKE = 18.0` Tolerance, `QUICK_HIT_FLOOR_GAIN = 2.0`
+   (`game.gd:4695-4698`) — are hardcoded engine-wide constants, not per-level
+   `data/` fields (closer to `ArcProfile`'s shared curves than to `LevelData`).
+   There is no `data/` lever to make a single press pay out more; the only
+   `data/`-side levers are indirect:
+   - Raise `build_cost` on cheap attack habits (e.g. `data/habits/focus_timer.tres`,
+     currently unset → defaults to 30 per `habit_data.gd`) so building is less
+     Dopamine-efficient, making "just press the button" relatively better.
+   - Reduce cheap-habit damage/reach in their `.tres` files so the 39–42
+     kills/level-98 result shrinks, narrowing the gap Quick Hit needs to close.
+   - Tighten `LevelData.wave_curve` so surviving on habits alone gets harder,
+     without also making the level unwinnable outright the way both current
+     levels already are for every strategy tested.
+3. **A more basic gap underneath all three:** since no strategy wins either
+   existing level today, there is no "win the level" bar for Quick Hit to become
+   dominant *at*. Before "is Quick Hit the best way to win" is answerable at all,
+   at least one level needs a wave curve some strategy can actually clear — right
+   now the honest comparison is only "which way of losing wastes less."
+
+None of the above was implemented — no `.tres` field, no `game.gd` constant, no
+habit stat was changed, per the task's "NEMĚŇ ŽÁDNÁ ČÍSLA".
+
+`./verify.sh`: PASS — 39 pass, 0 fail, 0 skip, 3 known-broken (pre-existing,
+`docs/KNOWN_BROKEN.md`), 1 no-display — unaffected by the new strategy file.
+
 ## Q1 — cross-speed combat divergence (open, 2026-08-30)
 
 Q1 (docs/refactor/PATHFINDING.MD) shipped and its own "Hotovo když" bar is met for
