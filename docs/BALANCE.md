@@ -22,28 +22,28 @@ non-chip habit `start_dopamine` affords, against how many spots there are to fil
 
 | level | pool | total leak | must prevent | usable spots | tankiest | cheapest non-chip | opening buy |
 |---|---|---|---|---|---|---|---|
-| Placeholder — square grid smoke test (id 1) | 30 | 42 | **13** | **1** of 3 | doomscroll (40 hp, 4/0) | mindfulness (45) | 6 for 1 spots |
+| First Ping (id 1) | 15 | 21 | **7** | **3** of 3 | notification (5 hp, 0/0) | focus_timer (30) | 10 for 3 spots |
 | First Light (id 98) | 25 | 46 | **22** | **2** of 2 | doomscroll (40 hp, 4/0) | mindfulness (45) | 6 for 2 spots |
 
 ## 1. Outcome per level × strategy
 
 | level | strategy | seed | result | focus | max_focus | tolerance | dopamine | kills | wave |
 |---|---|---|---|---|---|---|---|---|---|
-| Placeholder — square grid smoke test (id 1) | build nothing | 20260829 | LOSS | 0 | 30 | 0.0 | 388 | 0 | 2 |
-| Placeholder — square grid smoke test (id 1) | build nothing | 20260902 | LOSS | 0 | 30 | 0.0 | 388 | 0 | 2 |
-| Placeholder — square grid smoke test (id 1) | build nothing | 20260903 | LOSS | 0 | 30 | 0.0 | 388 | 0 | 2 |
-| Placeholder — square grid smoke test (id 1) | build cheap towers evenly | 20260829 | LOSS | 0 | 30 | 0.0 | 358 | 0 | 2 |
-| Placeholder — square grid smoke test (id 1) | build cheap towers evenly | 20260902 | LOSS | 0 | 30 | 0.0 | 358 | 0 | 2 |
-| Placeholder — square grid smoke test (id 1) | build cheap towers evenly | 20260903 | LOSS | 0 | 30 | 0.0 | 358 | 0 | 2 |
-| Placeholder — square grid smoke test (id 1) | spam Quick Hit | 20260829 | LOSS | 0 | 30 | 0.0 | 388 | 0 | 2 |
-| Placeholder — square grid smoke test (id 1) | spam Quick Hit | 20260902 | LOSS | 0 | 30 | 0.0 | 388 | 0 | 2 |
-| Placeholder — square grid smoke test (id 1) | spam Quick Hit | 20260903 | LOSS | 0 | 30 | 0.0 | 388 | 0 | 2 |
-| Placeholder — square grid smoke test (id 1) | habits + emergency Quick Hit | 20260829 | LOSS | 0 | 30 | 0.0 | 358 | 0 | 2 |
-| Placeholder — square grid smoke test (id 1) | habits + emergency Quick Hit | 20260902 | LOSS | 0 | 30 | 0.0 | 358 | 0 | 2 |
-| Placeholder — square grid smoke test (id 1) | habits + emergency Quick Hit | 20260903 | LOSS | 0 | 30 | 0.0 | 358 | 0 | 2 |
-| Placeholder — square grid smoke test (id 1) | counter-pick + aim | 20260829 | LOSS | 0 | 30 | 0.0 | 358 | 5 | 2 |
-| Placeholder — square grid smoke test (id 1) | counter-pick + aim | 20260902 | WIN | 2 | 30 | 0.0 | 374 | 7 | 2 |
-| Placeholder — square grid smoke test (id 1) | counter-pick + aim | 20260903 | WIN | 4 | 30 | 0.0 | 382 | 8 | 2 |
+| First Ping (id 1) | build nothing | 20260829 | LOSS | 0 | 15 | 0.0 | 388 | 0 | 2 |
+| First Ping (id 1) | build nothing | 20260902 | LOSS | 0 | 15 | 0.0 | 388 | 0 | 2 |
+| First Ping (id 1) | build nothing | 20260903 | LOSS | 0 | 15 | 0.0 | 388 | 0 | 2 |
+| First Ping (id 1) | build cheap towers evenly | 20260829 | WIN | 15 | 15 | 0.0 | 382 | 21 | 2 |
+| First Ping (id 1) | build cheap towers evenly | 20260902 | WIN | 15 | 15 | 0.0 | 382 | 21 | 2 |
+| First Ping (id 1) | build cheap towers evenly | 20260903 | WIN | 15 | 15 | 0.0 | 382 | 21 | 2 |
+| First Ping (id 1) | spam Quick Hit | 20260829 | LOSS | 0 | 15 | 0.0 | 388 | 0 | 2 |
+| First Ping (id 1) | spam Quick Hit | 20260902 | LOSS | 0 | 15 | 0.0 | 388 | 0 | 2 |
+| First Ping (id 1) | spam Quick Hit | 20260903 | LOSS | 0 | 15 | 0.0 | 388 | 0 | 2 |
+| First Ping (id 1) | habits + emergency Quick Hit | 20260829 | WIN | 15 | 15 | 0.0 | 382 | 21 | 2 |
+| First Ping (id 1) | habits + emergency Quick Hit | 20260902 | WIN | 15 | 15 | 0.0 | 382 | 21 | 2 |
+| First Ping (id 1) | habits + emergency Quick Hit | 20260903 | WIN | 15 | 15 | 0.0 | 382 | 21 | 2 |
+| First Ping (id 1) | counter-pick + aim | 20260829 | WIN | 14 | 15 | 0.0 | 258 | 20 | 2 |
+| First Ping (id 1) | counter-pick + aim | 20260902 | WIN | 14 | 15 | 0.0 | 258 | 20 | 2 |
+| First Ping (id 1) | counter-pick + aim | 20260903 | WIN | 13 | 15 | 0.0 | 254 | 19 | 2 |
 | First Light (id 98) | build nothing | 20260829 | LOSS | 0 | 25 | 0.0 | 418 | 0 | 3 |
 | First Light (id 98) | build nothing | 20260902 | LOSS | 0 | 25 | 0.0 | 418 | 0 | 3 |
 | First Light (id 98) | build nothing | 20260903 | LOSS | 0 | 25 | 0.0 | 418 | 0 | 3 |
@@ -66,45 +66,45 @@ One row per wave entered. `kills Δ` and `focus Δ` are that wave's own change, 
 the running total — the wave where `focus Δ` goes sharply negative is the wave that
 ends the run. A `final` row is the snapshot taken after the run resolved.
 
-### Placeholder — square grid smoke test (id 1) — build nothing → **LOSS**
+### First Ping (id 1) — build nothing → **LOSS**
 
 | wave | kills | kills Δ | focus | focus Δ | dopamine | tolerance |
 |---|---|---|---|---|---|---|
-| 0 | 0 | +0 | 20 | -10 | 329 | 0.0 |
-| 1 | 0 | +0 | 6 | -14 | 359 | 0.0 |
-| final | 0 | +0 | 0 | -6 | 388 | 0.0 |
+| 0 | 0 | +0 | 10 | -5 | 329 | 0.0 |
+| 1 | 0 | +0 | 3 | -7 | 359 | 0.0 |
+| final | 0 | +0 | 0 | -3 | 388 | 0.0 |
 
-### Placeholder — square grid smoke test (id 1) — build cheap towers evenly → **LOSS**
-
-| wave | kills | kills Δ | focus | focus Δ | dopamine | tolerance |
-|---|---|---|---|---|---|---|
-| 0 | 0 | +0 | 20 | -10 | 299 | 0.0 |
-| 1 | 0 | +0 | 6 | -14 | 329 | 0.0 |
-| final | 0 | +0 | 0 | -6 | 358 | 0.0 |
-
-### Placeholder — square grid smoke test (id 1) — spam Quick Hit → **LOSS**
+### First Ping (id 1) — build cheap towers evenly → **WIN**
 
 | wave | kills | kills Δ | focus | focus Δ | dopamine | tolerance |
 |---|---|---|---|---|---|---|
-| 0 | 0 | +0 | 20 | -10 | 329 | 0.0 |
-| 1 | 0 | +0 | 6 | -14 | 359 | 0.0 |
-| final | 0 | +0 | 0 | -6 | 388 | 0.0 |
+| 0 | 5 | +5 | 15 | +0 | 259 | 0.0 |
+| 1 | 12 | +7 | 15 | +0 | 317 | 0.0 |
+| final | 21 | +9 | 15 | +0 | 382 | 0.0 |
 
-### Placeholder — square grid smoke test (id 1) — habits + emergency Quick Hit → **LOSS**
-
-| wave | kills | kills Δ | focus | focus Δ | dopamine | tolerance |
-|---|---|---|---|---|---|---|
-| 0 | 0 | +0 | 20 | -10 | 299 | 0.0 |
-| 1 | 0 | +0 | 6 | -14 | 329 | 0.0 |
-| final | 0 | +0 | 0 | -6 | 358 | 0.0 |
-
-### Placeholder — square grid smoke test (id 1) — counter-pick + aim → **LOSS**
+### First Ping (id 1) — spam Quick Hit → **LOSS**
 
 | wave | kills | kills Δ | focus | focus Δ | dopamine | tolerance |
 |---|---|---|---|---|---|---|
-| 0 | 1 | +1 | 22 | -8 | 267 | 0.0 |
-| 1 | 2 | +1 | 10 | -12 | 305 | 0.0 |
-| final | 5 | +3 | 0 | -10 | 358 | 0.0 |
+| 0 | 0 | +0 | 10 | -5 | 329 | 0.0 |
+| 1 | 0 | +0 | 3 | -7 | 359 | 0.0 |
+| final | 0 | +0 | 0 | -3 | 388 | 0.0 |
+
+### First Ping (id 1) — habits + emergency Quick Hit → **WIN**
+
+| wave | kills | kills Δ | focus | focus Δ | dopamine | tolerance |
+|---|---|---|---|---|---|---|
+| 0 | 5 | +5 | 15 | +0 | 259 | 0.0 |
+| 1 | 12 | +7 | 15 | +0 | 317 | 0.0 |
+| final | 21 | +9 | 15 | +0 | 382 | 0.0 |
+
+### First Ping (id 1) — counter-pick + aim → **WIN**
+
+| wave | kills | kills Δ | focus | focus Δ | dopamine | tolerance |
+|---|---|---|---|---|---|---|
+| 0 | 4 | +4 | 14 | -1 | 135 | 0.0 |
+| 1 | 11 | +7 | 14 | +0 | 193 | 0.0 |
+| final | 20 | +9 | 14 | +0 | 258 | 0.0 |
 
 ### First Light (id 98) — build nothing → **LOSS**
 
@@ -252,10 +252,10 @@ below is exactly the set of spots the first build can use.
 
 | level | routine_gates | fog | build spot (block) | dist to core | in Routine |
 |---|---|---|---|---|---|
-| Placeholder — square grid smoke test (id 1) | true | true | (10, 4) | 292 px | **no** |
-| Placeholder — square grid smoke test (id 1) | true | true | (19, 7) | 144 px | yes |
-| Placeholder — square grid smoke test (id 1) | true | true | (10, 10) | 292 px | **no** |
-| **Placeholder — square grid smoke test total** | | | **3 spots** | | **1 in Routine** |
+| First Ping (id 1) | false | false | (10, 4) | 292 px | **no** |
+| First Ping (id 1) | false | false | (19, 7) | 144 px | yes |
+| First Ping (id 1) | false | false | (10, 10) | 292 px | **no** |
+| **First Ping total** | | | **3 spots** | | **1 in Routine** |
 | First Light (id 98) | false | false | (10, 10) | 292 px | **no** |
 | First Light (id 98) | false | false | (16, 10) | 198 px | **no** |
 | **First Light total** | | | **2 spots** | | **0 in Routine** |
@@ -269,9 +269,9 @@ un-defended wave ends the run on its own.
 
 | level | focus pool | wave | composition | leak cost | % of pool |
 |---|---|---|---|---|---|
-| Placeholder — square grid smoke test (id 1) | 30 | 1 | 5× doomscroll | 10 | 33% |
-| Placeholder — square grid smoke test (id 1) | 30 | 2 | 7× doomscroll | 14 | 47% |
-| Placeholder — square grid smoke test (id 1) | 30 | 3 | 9× doomscroll | 18 | 60% |
+| First Ping (id 1) | 15 | 1 | 5× notification | 5 | 33% |
+| First Ping (id 1) | 15 | 2 | 7× notification | 7 | 47% |
+| First Ping (id 1) | 15 | 3 | 9× notification | 9 | 60% |
 | First Light (id 98) | 25 | 1 | 4× notification | 4 | 16% |
 | First Light (id 98) | 25 | 2 | 6× notification | 6 | 24% |
 | First Light (id 98) | 25 | 3 | 7× notification, 1× doomscroll | 9 | 36% |

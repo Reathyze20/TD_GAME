@@ -3949,3 +3949,83 @@ a seedová závislost se ukáže v tabulce nad ním.
 - `docs/BALANCE.md` přegenerované: 30 běhů (2 levely × 5 strategií × 3 seedy).
 - Soubory: `data/levels/level_98.tres`, `scripts/_balance_sweep.gd`, `docs/BALANCE.md`,
   `PATHFINDING.MD` (Status), tento zápis.
+
+## 2026-09-02 — M3 hotovo: `level_1` je „First Ping", skutečný tutoriál místo smoke testu
+
+### Rozhodnutí: varianta (a), přepsat — ne (b), vyřadit. Proč
+
+Zadání nabízelo obojí. Vybral jsem (a) a tady jsou důvody, aby se to dalo přehodnotit:
+
+1. **`docs/core/00_overview.md` říká „start with 2 levels".** Varianta (b) — vyřadit
+   `level_1` a povýšit `level_98` — by nechala kampaň s **jedním** levelem.
+2. **`level_1` má lepší desku než `level_98`.** Tři stavební bloky proti dvěma (M1 §4).
+   Na tutoriál je to ta vhodnější mapa z obou, ne ta horší.
+3. **(b) by si vyžádalo mechanismus vyřazení, který neexistuje.** `Data._load_indexed()`
+   načte z `data/levels/` všechno; „vyřadit bez smazání" by znamenalo buď nové pole
+   v `LevelData`, nebo přesun souboru — obojí invazivnější než editace čísel a boolů,
+   a mazání v `data/` mám sám u sebe zakázané.
+4. **(a) je vratná jedním souborem.** Původní podoba leží v gitu i v
+   `.dev/level_1_before.tres`.
+
+### Co se změnilo v `data/levels/level_1.tres`
+
+| pole | před | po | proč |
+|---|---|---|---|
+| `display_name` | „Placeholder — square grid smoke test" | **„First Ping"** | první level přestal být pojmenovaný jako lešení; `notification` je v overview „the ping that yanks your attention" |
+| distrakce ve `wave_curve` | `doomscroll` | **`notification`** | M1 §3: `focus_timer` proti `doomscroll` je **chip** (1 dmg, 40 ran). První level učil hráče tankem, na kterého startovní věž nestačí — přesně naopak, než overview zamýšlí („`notification` — fast, weak, swarms") |
+| `base_count` / `growth_per_wave` / `spacing` | 5 / *default 2.0* / 0.5 | 5 / 2.0 / **0.9** | řidší proud, aby první level šel číst |
+| `focus` | *nenastaveno* → 30 | **15** | aby byl level PROHRATELNÝ: leak 21 proti poolu 15 |
+| `id` | *nenastaveno* → 1 | **1** | explicitně |
+| `fog` | *nenastaveno* → **`true`** | **`false`** | M1 §5 |
+| `shadows` | *nenastaveno* → **`true`** | **`false`** | M1 §5 |
+| `routine_gates` | *nenastaveno* → **`true`** | **`false`** | M1 §2/§5: tohle samo dělalo 2 ze 3 stavebních míst nepoužitelnými |
+| `quick_hit` | *nenastaveno* → `false` | `false` explicitně | overview: Quick Hit se zavádí až na levelu 2 |
+| `streak` | *nenastaveno* → `false` | **`true`** | `LevelData`ův vlastní komentář: „Introduced on the first level and left on afterwards" |
+
+**Pět z těch řádků je „nenastaveno → explicitně".** To je jádro M1 §5: level nedědil
+konfiguraci záměrně, ale nedopatřením, a bral tři nejrestriktivnější defaulty v projektu.
+Teď nemá `level_1` jediné pole, které by o něm rozhodovalo mlčky.
+
+Geometrie (`high_ground`, `objective`, `spawn_zones`) se **nedotkla** — CLAUDE.md ji
+posílá přes MapEditor a M3 na ni nesahalo. `docs/levels/1.md` přegenerovaný přes
+`tools/level_to_ascii.py` (side-car nese `display_name` v nadpisu, takže se musel
+obnovit, jinak by `--check` ve `verify.sh` hlásil drift).
+
+### Výsledek: tvar, jaký má tutoriál mít
+
+| strategie | 20260829 | 20260902 | 20260903 |
+|---|---|---|---|
+| build nothing | LOSS (0/15) | LOSS | LOSS |
+| spam Quick Hit | LOSS (0/15) | LOSS | LOSS |
+| build cheap towers evenly | **WIN, 15/15** | **WIN, 15/15** | **WIN, 15/15** |
+| habits + emergency Quick Hit | **WIN, 15/15** | **WIN, 15/15** | **WIN, 15/15** |
+| counter-pick + aim | **WIN, 14/15** | **WIN, 14/15** | **WIN, 13/15** |
+
+Postav cokoli → projdeš **bez jediné ztráty Focusu**. Nepostav nic → prohraješ. To je
+přesně to, co má první level učit, a nic navíc. Stavebních míst je **3 ze 3** použitelných
+(dřív 1 ze 3).
+
+Vedlejší efekt, který stojí za zmínku: `cheap_even` (15/15) je tu **lepší** než
+`counter-pick` (13–14/15), protože `focus_timer` složí 5hp `notification` dvěma ranami po
+0,1 s, zatímco `exercise` na ni plýtvá 34 poškození jednou ranou za 1,1 s. Tutoriál tedy
+odměňuje tu levnou věž, kterou hráč na začátku má — a je to důsledek dat, ne dolaďování.
+
+A vznikl gradient obtížnosti: **First Ping končí na 15/15, First Light na 7–13 z 25.**
+
+### Co jsem NEudělal a proč
+
+- **Insight kartu `data/insight_cards/level_1.tres` jsem nechal.** Vypadala jako
+  nesoulad (učí „Variable Rewards", zatímco `variable_rewards` je `false`), ale
+  `{drop_rate}` v jejím textu plní `scripts/education.gd:152` z
+  `GameState.INSIGHT_DROP_CHANCE` — tedy z mechaniky, která běží vždy, ne z toho pole.
+  Karta je poctivá i beze změny.
+- **`display_name` levelu 98 („First Light") jsem nepřejmenoval,** i když teď sedí na
+  druhý level trochu divně. Je to text pro hráče a patří k `insight-copy`, ne k balanci.
+
+### Ověření
+
+- `./verify.sh` (s displejem): **41 pass, 0 fail, 0 skip, 3 known-broken, 0 flaky,
+  0 no-display.**
+- `docs/BALANCE.md` přegenerované (30 běhů), `docs/levels/1.md` přegenerovaný.
+- Soubory: `data/levels/level_1.tres`, `docs/levels/1.md`, `docs/BALANCE.md`,
+  `PATHFINDING.MD` (Status), tento zápis.

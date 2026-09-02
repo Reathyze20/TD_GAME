@@ -679,7 +679,7 @@ Sweep zároveň umí tři seedy (`SEEDS`), protože verdikt z jednoho seedu nen�
 ## M3 — `level_1` přestane být placeholder
 Model: opus
 Needs-me: no
-Status: todo
+Status: done
 
 `display_name = "Placeholder — square grid smoke test"`, 0 killů pro každou strategii,
 smrt ve vlně 2 vždy. Design doc chce „start with 2 levels" — dnes je jeden nedodělaný
@@ -695,6 +695,22 @@ Změna čísel (`focus`, `start_dopamine`, `wave_curve`) je běžná datová edi
 
 Hotovo: `data/levels/` obsahuje dva levely, které dávají smysl vedle sebe; sweep má pro
 oba nenulové killy; `_test_levels`, `_test_ascii_sidecar` a side-cary zelené.
+
+**Hotovo 2026-09-02, zvolena varianta (a).** Důvody (plně v `PROGRESS.md`): overview chce
+„start with 2 levels", takže (b) by nechalo kampaň s jedním; `level_1` má **3** stavební
+bloky proti dvěma na `level_98`, takže je to z obou ta LEPŠÍ tutoriálová deska; a (b) by
+si vyžádalo mechanismus vyřazení, který neexistuje.
+
+`level_1` je teď **„First Ping"**: distrakce `doomscroll` → `notification` (M1 §3:
+`focus_timer` proti doomscrollu je chip, takže první level učil hráče tankem, na kterého
+startovní věž nestačí), `focus` 30→**15** aby šel prohrát, a **pět polí přepsaných
+z „nenastaveno" na explicitní** — `fog`/`shadows`/`routine_gates` na `false` (dřív mlčky
+`true`, což samo dělalo 2 ze 3 míst nepoužitelnými), `id`, `quick_hit`, plus `streak` na
+`true` podle vlastního komentáře v `LevelData`. Geometrie beze změny.
+
+Výsledek na třech seedech: `passive` **LOSS ×3**, `cheap_even` **WIN ×3 s 15/15 Focusu**
+(bez jediné ztráty), `counter-pick` WIN ×3 (13–14/15). Použitelná stavební místa **1 → 3
+ze 3**. Vznikl gradient: First Ping končí na 15/15, First Light na 7–13 z 25.
 
 ## M4 — Quick Hit zapnout a doručit jeho lekci
 Model: opus

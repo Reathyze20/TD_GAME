@@ -4,18 +4,26 @@
 [ext_resource type="Script" path="res://scripts/resources/level_data.gd" id="2_gyuma"]
 [ext_resource type="Script" path="res://scripts/resources/trod_data.gd" id="3_3dfqs"]
 [ext_resource type="Script" path="res://scripts/resources/wave_curve_entry_data.gd" id="4_kln2y"]
-[ext_resource type="Resource" path="res://data/distractions/doomscroll.tres" id="5_tntgb"]
+[ext_resource type="Resource" path="res://data/distractions/notification.tres" id="5_tntgb"]
 
 [sub_resource type="Resource" id="Resource_ql8xe"]
 script = ExtResource("4_kln2y")
 distraction = ExtResource("5_tntgb")
 base_count = 5
-spacing = 0.5
+growth_per_wave = 2.0
+spacing = 0.9
 
 [resource]
 script = ExtResource("2_gyuma")
-display_name = "Placeholder — square grid smoke test"
+id = 1
+display_name = "First Ping"
 start_dopamine = 300
+focus = 15
+quick_hit = false
+fog = false
+shadows = false
+routine_gates = false
+streak = true
 objective = Vector2i(28, 7)
 spawn_zones = Array[Rect2i]([Rect2i(0, 5, 1, 4)])
 high_ground = Array[Vector2i]([Vector2i(9, 3), Vector2i(9, 4), Vector2i(9, 5), Vector2i(10, 3), Vector2i(10, 4), Vector2i(10, 5), Vector2i(11, 3), Vector2i(11, 4), Vector2i(11, 5), Vector2i(9, 9), Vector2i(9, 10), Vector2i(9, 11), Vector2i(10, 9), Vector2i(10, 10), Vector2i(10, 11), Vector2i(11, 9), Vector2i(11, 10), Vector2i(11, 11), Vector2i(18, 6), Vector2i(18, 7), Vector2i(18, 8), Vector2i(19, 6), Vector2i(19, 7), Vector2i(19, 8), Vector2i(20, 6), Vector2i(20, 7), Vector2i(20, 8)])
