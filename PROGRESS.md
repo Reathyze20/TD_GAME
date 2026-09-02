@@ -4561,3 +4561,45 @@ jinak barevné, je to pár konstant v `minimap.gd`.
   `scenes/_test_minimap.tscn`, `scripts/game.gd` (`_build_minimap()`),
   `.dev/screenshots/p_hudrescale_*.png` (přegenerované),
   `PATHFINDING.MD` (Status), tento zápis.
+
+## 2026-09-02 — Q3 hotovo: `docs/art/CAPSULE_SPEC.md`. Nic negenerováno
+
+Zadání bylo psaní, ne výroba: „NEGENERUJ přes PixelLab … Art udělám nebo objednám já."
+
+**Rozměry jsem ověřil na Steamworks a bylo to nutné.** První verze měla header capsule
+460×215 — to je **stará** velikost a objednávka podle ní by stála peníze. Platné dnes
+(ověřeno 2026-09-02, odkazy v dokumentu): small **462×174** (Steam z ní odvodí 184×69
+a **120×45**), header **920×430**, main **1232×706**, vertical **748×896**, page
+background 1438×810; library capsule 600×900, library header 920×430, library hero
+**3840×1240 s bezpečnou zónou 860×380 a zákazem textu**, library logo 1280/720
+transparentní PNG; app icon **184×184 JPG**, client icon 256/512 ICO nebo PNG.
+
+**Věcné jádro spec, ne jen tabulka rozměrů:**
+
+- **Navrhovat od nejmenší velikosti nahoru.** Odvozený **120×45** thumbnail je to, co hráč
+  vidí první, a přežije z něj jedna silueta, jeden kontrast a jedno slovo. Dokument dává
+  i hotový test: zmenšit na 120×45 a položit do mřížky dvaceti cizích thumbnailů.
+- **Co má obrázek říct** a dvě pasti, do kterých to spadne samo: „produktivní appka"
+  a „generické pixel TD". Přímo z `docs/core/00_overview.md`, které zakazuje orky a
+  generické „archer/cannon" věže.
+- **Nejsilnější vizuál, který vlastníme, je kužel světla habitu** — je to zároveň
+  mechanika, kterou se hra liší („střílí jen na to, co vidí").
+- **Paleta a pravidlo siluety** ze `STYLE_BIBLE.md` §2a (habity kulaté a teplé, distrakce
+  ostré a studeně jedovaté; rodinu nese silueta, ne barva).
+- **AI slop řešen konkrétně:** negenerovat; vyžádat vrstvené zdroje a WIP snímky, protože
+  to je jediné, co obvinění vyvrátí rychle; Steam disclosure vyplnit poctivě za celou hru
+  **včetně toho, že in-game sprity přes PixelLab vznikly** — být přistižen při
+  vlásečnicovém rozlišování je horší pozice než být rovnou upřímný; a hlídat konzistenci
+  s `palette_48`, protože nejspolehlivější indicie není rukopis, ale capsule, jejíž světlo
+  a paleta nesedí na screenshoty.
+
+Zvlášť vypsáno, co dokument **nerozhoduje**: wordmark (typografický problém, chce vlastní
+brief), výběr mezi dvěma dobrými kompozicemi (to se dělá díváním, ne specifikací) a znění
+titulu na capsule (text pro hráče, `insight-copy`).
+
+Ověřeno i to, že `CAPSULE_SPEC.md` nekoliduje case-insensitivně s ničím v `docs/art/`
+(pravidlo z `CLAUDE.md` po incidentu `STYLE_BIBLE.md` vs `style_bible.md`).
+
+- `./verify.sh` (s displejem): **44 pass, 0 fail, 0 skip, 3 known-broken, 0 flaky,
+  0 no-display** — čistě dokumentační commit, tally beze změny.
+- Soubory: `docs/art/CAPSULE_SPEC.md`, `PATHFINDING.MD` (Status), tento zápis.

@@ -1221,7 +1221,7 @@ Kompletní tabulka a návrh čísel: `BLOCKED.md` → `## Q2`.
 ## Q3 — capsule art specifikace
 Model: sonnet
 Needs-me: no
-Status: todo
+Status: done
 
 **Brána otevřena 2026-09-02 plná autorizací.** Úkol sám říká „NEGENERUJ přes PixelLab
 ... Art udělám nebo objednám já" — je to psaní specifikace, ne výroba artu, takže
@@ -1233,6 +1233,31 @@ existují i tam, kde bylo obvinění falešné.
 
 Připrav specifikaci: rozměry všech Steam capsule formátů, co má obrázek
 komunikovat, jaké prvky ze hry použít. Art udělám nebo objednám já.
+
+**Hotovo 2026-09-02 → `docs/art/CAPSULE_SPEC.md`.** Nic negenerováno.
+
+**Rozměry jsem ověřil na Steamworks, ne vypsal z paměti** — a byla to potřeba: první
+verze měla header capsule 460×215, což je **stará** velikost. Dnes platí **920×430**,
+small **462×174**, main **1232×706**, vertical **748×896**, library capsule 600×900,
+library hero **3840×1240 bez textu** (Steam to zakazuje), library logo transparentní PNG,
+app icon 184×184 JPG. Podle tohohle budeš objednávat, takže tam je i datum ověření
+a odkazy — Steam ta čísla mění.
+
+**Klíčová věcná rada:** navrhovat od **nejmenší** velikosti. Steam si z 462×174 sám
+odvodí **120×45**, a to je to, co hráč při procházení vidí první — přežije z toho jedna
+silueta, jeden barevný kontrast a jedno slovo. Spec proto vede kompozici odtud nahoru
+a dává hotový test (zmenši na 120×45 a polož do mřížky 20 cizích thumbnailů).
+
+**Co má obrázek říct:** hra o únosu **vlastní pozornosti**, a přitom skutečné TD. Dvě
+snadné pasti pojmenované: čte se to jako produktivní appka, nebo jako generické pixel TD.
+Nejsilnější vizuál, který vlastníme, je **kužel světla habitu** — mechanika „střílí jen
+na to, co vidí" je zároveň to, co hru odlišuje.
+
+**AI slop řešen konkrétně, ne prohlášením:** negenerovat, vyžádat si od autora vrstvené
+zdroje a WIP snímky (to je to, co obvinění vyvrátí za hodinu místo za týden), Steam
+disclosure vyplnit poctivě za celou hru včetně toho, že in-game sprity přes PixelLab
+vznikly — a hlídat konzistenci s `palette_48`, protože nejspolehlivější indicie není
+rukopis, ale capsule, jejíž světlo a paleta nesedí na screenshoty.
 
 ## M9 — vyčistit known-broken dluh
 Model: opus
