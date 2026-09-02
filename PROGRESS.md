@@ -3535,3 +3535,27 @@ commitem.
   `scripts/_diag_arc_mask.gd`(`.uid`)/`scenes/_diag_arc_mask.tscn` zůstávají
   netrackované (sandbox odmítl `rm`) — nejsou v commitu, harmless, chtějí ruční smazání.
 - Commit: `dcfd43e`.
+
+## 2026-09-02 — Q2: Quick Hit analýza (read-only měření přes S2 simulátor)
+
+- Read-only úkol ("NEMĚŇ ŽÁDNÁ ČÍSLA") — přehráno 4 strategie (nic nestavět, levné
+  habity rovnoměrně, Quick Hit spam, habity + Quick Hit jen v nouzi ≤30 % max Focus)
+  přes `LevelSimulator` (S2), 3 seedy na buňku. Nová trvalá strategie
+  `scripts/sim_strategy_habits_emergency_quick_hit.gd` (čtvrtá baseline vedle
+  existujících tří `sim_strategy_*.gd`). Dočasný driver
+  `scripts/_diag_q2.gd`/`scenes/_diag_q2.tscn` — smazat po přečtení, `rm` sandbox
+  odmítl (stejná past jako `dcfd43e`), zůstává netrackovaný a neškodný.
+- Zjištění, které úkol sám nečekal: v `data/levels/` existují jen DVA levely
+  (`level_1` id=1 placeholder, `level_98` id=98 "First Light"), ne tři — a
+  `LevelData.quick_hit` je `false` na obou (defaultní hodnota, nikde v `data/`
+  nikdy nastavena na `true`). Quick Hit je tedy dnes ve všech shipnutých levelech
+  vypnutý; "spam Quick Hitu" je proto bit-identický s "nic nedělat" (0 úspěšných
+  použití ve všech 24 bězích). Kompletní tabulka a doporučení, co by v `data/`
+  muselo změnit, aby Quick Hit mohl vůbec něco dělat, zapsáno do `BLOCKED.md`
+  pod `## Q2`.
+- `./verify.sh`: PASS — 39 pass, 0 fail, 0 skip, 3 known-broken (nezměněno oproti
+  baseline), 1 no-display.
+- Soubory: `BLOCKED.md`, tento zápis, `scripts/sim_strategy_habits_emergency_quick_hit.gd`(`.uid`).
+  `scripts/_diag_q2.gd`(`.uid`)/`scenes/_diag_q2.tscn` zůstávají netrackované
+  (sandbox odmítl `rm`) — nejsou v commitu, harmless, chtějí ruční smazání.
+- Commit: `3e6a87e`.
