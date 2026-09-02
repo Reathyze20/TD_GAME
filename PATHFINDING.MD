@@ -1160,7 +1160,7 @@ a je to původní brána P10 (čekají čtyři varianty z P9). Viz `BLOCKED.md`.
 ## P12 — minimapa
 Model: sonnet
 Needs-me: no
-Status: todo
+Status: done
 
 Nutná, jakmile je P10 zapnuté — bez ní hráč nemůže plánovat a fog se změní
 ve frustraci.
@@ -1168,6 +1168,26 @@ ve frustraci.
 Ukazuje `explored` terén, **ne jednotky**.
 
 Hotovo když: test ověří, že minimapa nikdy neukáže víc, než co je v `explored`.
+
+**Hotovo 2026-09-02.** `scripts/minimap.gd` (`class_name Minimap`), zapojená přes
+`Game._build_minimap()`. Obsah je **funkce, ne `_draw()`**: `terrain_cells()` (gatované na
+`is_explored()`) a `live_blips()` (gatované na `is_pos_visible()`) vracejí přesně to, co
+`_draw()` smí namalovat — takže se pravidlo dá assertovat headlessně, bez čtení pixelů,
+a kreslení se od ověřeného nemůže rozejít.
+
+**Terén se pamatuje, živá těla ne.** Zdi zůstanou po prvním spatření; distrakce se ukážou
+jen tam, kde deska svítí právě teď. Mapa sledující těla skrz tmu by vracela přesně tu
+informaci, kvůli které mlha existuje.
+
+`_test_minimap` (13 kontrol, zelené): **0 ze 153** vykreslených buněk je neprozkoumaných,
+a mapa přitom ukazuje jen **153 ze 420** buněk (pravidlo, které nekousne, není pravidlo);
+kužel habitu přidá 153 → **231**, prodej habitu mapu **neubere**; distrakce ve tmě 0 blipů,
+během Moment of Clarity 1, po zavření mlhy zase 0; s vypnutou mlhou **420 ze 420**.
+
+Layout opraven podle snímku, ne od stolu: první verze kotvila na spodní okraj plátna
+a celá mapa skončila uvnitř build lišty. Odsazení se teď počítá z `Game._HUD_BOTTOM_H`.
+**Vzhled neposuzuji** — 2 px na buňku, vlevo dole, barvy z `UI` palety je konzervativní
+první průchod; snímek v `.dev/screenshots/p_hudrescale_gameplay.png`.
 
 ---
 

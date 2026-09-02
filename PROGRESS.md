@@ -4497,3 +4497,67 @@ Držím tu hranici, kterou jsem si u plné autorizace vytyčil. Zapsáno do `BLO
 - Soubory: `scripts/game.gd`, `scripts/modifier_manager.gd`,
   `scripts/_test_fog_modifiers.gd`(`.uid`), `scenes/_test_fog_modifiers.tscn`,
   `BLOCKED.md`, `PATHFINDING.MD` (Status), tento zápis.
+
+## 2026-09-02 — P12 hotovo: minimapa, a její pravidlo je testovatelné bez pixelů
+
+### Návrh: obsah je funkce, ne `_draw()`
+
+`scripts/minimap.gd` (`class_name Minimap extends Control`) má dvě veřejné funkce, které
+vracejí **přesně to, co `_draw()` smí namalovat**:
+
+- `terrain_cells()` — buňky terénu, gatované na `is_explored()`
+- `live_blips()` — pozice živých distrakcí, gatované na `is_pos_visible()`
+
+Proč ne prostě `_draw()`: jeho výstup se nedá assertovat. Test by musel číst pixely, což
+potřebuje skutečný renderer (přesně ta past, kterou má `_test_shadow_occlusion`) a stejně
+by dokázal jen něco o barvách. Takhle `_test_minimap` kontroluje pravidlo přímo
+a headlessně, a `_draw()` se od ověřeného nemůže rozejít, protože jiný zdroj pravdy nemá.
+
+### Terén se pamatuje, živá těla ne — a v tom je pointa
+
+Zdi na mapě zůstanou, jakmile je jednou vidíš (`is_explored`): znát místo je trvalé.
+Distrakce se ukážou **jen tam, kde deska svítí právě teď** (`is_pos_visible`): vědět, kde
+něco *bylo*, není vědět, kde to je. Minimapa, která sleduje těla skrz tmu, by vracela
+přesně tu informaci, kvůli které mlha existuje.
+
+### `_test_minimap` — 13 kontrol, všechny zelené
+
+| kontrola | naměřeno |
+|---|---|
+| žádná vykreslená buňka není neprozkoumaná | **0 ze 153 uniklo** |
+| a pravidlo opravdu něco zadržuje | **153 ze 420** buněk ukázaných |
+| vzdálený neprozkoumaný roh se nekreslí | ok |
+| kužel habitu přidá na mapu novou půdu | 153 → **231** buněk |
+| prodej habitu mapu **neubere** | 231 → 231 |
+| distrakce stojící ve tmě na mapě není | 0 blipů |
+| objeví se během Moment of Clarity | 1 blip |
+| a zmizí, jakmile se mlha zavře | 0 blipů |
+| s vypnutou mlhou je vidět celá deska, ne žádná | **420 ze 420** |
+
+Druhá řádka je tam schválně: pravidlo, které nikdy nekousne, není pravidlo. Bez ní by
+„nic neuniklo" prošlo i mapě, která nekreslí vůbec nic.
+
+Fixture si mlhu **zapíná sama** a widget si **najde v běžícím stromu hry**, ne že by si
+vyrobila vlastní — kontroluje se to, co hra opravdu postavila a zapojila.
+
+### Layout jsem opravil podle snímku, ne od stolu
+
+První verze kotvila na spodní okraj plátna a **celá mapa skončila uvnitř build lišty** —
+vidět na `.dev/screenshots/p_hudrescale_gameplay.png`. Posunuto nad lištu, a odsazení se
+počítá z `Game._HUD_BOTTOM_H`, ne z opsaného čísla, takže posun lišty posune i mapu.
+Nový snímek přiložen (`_shot_hud_rescale`): mapa sedí vlevo dole nad lištou, tři zdi modře,
+jádro zeleně u pravého okraje.
+
+**Vzhled neposuzuji** — velikost (2 px na buňku, 60×28 na plátně 480×270), pozice a barvy
+z `UI` palety jsou konzervativní první průchod. Kdyby to mělo být jinde, větší, nebo
+jinak barevné, je to pár konstant v `minimap.gd`.
+
+### Ověření
+
+- `_test_minimap`: **ALL PASS** (13 kontrol).
+- `./verify.sh` (s displejem): **44 pass, 0 fail, 0 skip, 3 known-broken, 0 flaky,
+  0 no-display.**
+- Soubory: `scripts/minimap.gd`(`.uid`), `scripts/_test_minimap.gd`(`.uid`),
+  `scenes/_test_minimap.tscn`, `scripts/game.gd` (`_build_minimap()`),
+  `.dev/screenshots/p_hudrescale_*.png` (přegenerované),
+  `PATHFINDING.MD` (Status), tento zápis.

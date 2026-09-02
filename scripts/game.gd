@@ -4043,6 +4043,17 @@ func _update_hover() -> void:
 var _hover_tooltip: PanelContainer = null
 var _hover_tooltip_label: Label = null
 
+## The corner map (P12). Built for every level, fog or no fog: with fog off its own
+## is_explored() short-circuit shows the whole board, which is the right answer there —
+## a map that only appears on foggy levels would read as a bug on the others.
+var _minimap: Minimap = null
+
+func _build_minimap() -> void:
+	_minimap = Minimap.new()
+	_minimap.name = "Minimap"
+	_minimap.game = self
+	_hud_root.add_child(_minimap)
+
 func _build_hover_tooltip() -> void:
 	_hover_tooltip = UI.panel(UI.BORDER_HI, 1)
 	_hover_tooltip.visible = false
@@ -6502,6 +6513,7 @@ func _build_hud() -> void:
 	_build_top_bar()
 	_build_bottom_bar()
 	_build_hover_tooltip()
+	_build_minimap()
 
 	# A designer run must LOOK different from a real one, or an F1-funded balance
 	# impression sneaks into memory as a real result. The badge doubles as the cheat
