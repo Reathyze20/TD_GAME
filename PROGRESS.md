@@ -3452,4 +3452,4 @@ commitem.
 - Soubory: `verify.sh`, `docs/KNOWN_BROKEN.md`, tento zápis.
   `scripts/_diag_arc_mask.gd`(`.uid`)/`scenes/_diag_arc_mask.tscn` zůstávají
   netrackované (sandbox odmítl `rm`) — nejsou v commitu, harmless, chtějí ruční smazání.
-- Commit: (zapsat po commitu).
+- Commit: `dcfd43e`.
