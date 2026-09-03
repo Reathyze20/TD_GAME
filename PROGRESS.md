@@ -5055,3 +5055,82 @@ komentářem proč (T7). V tom adresáři leží 20+ commitnutých snímků. Ins
   0 no-display.**
 - Report bran: `.dev/master_failure_modes.txt` (necommitnutý, `/.dev/*` ho ignoruje).
 - Soubory: `tools/master_scale_sheet.py`, `PATHFINDING.MD`, tento zápis.
+
+## 2026-09-03 — ÚKLID: README, `*.import`, mrtvý worktree — a fronta je prázdná
+
+Zadání přišlo jako ROADMAP se třemi kolejemi (A kód, B art, C hratelnost). Než jsem na
+čemkoli začal, srovnal jsem ji s frontou. **Ta roadmapa je zastaralá a je to hlavní nález.**
+
+### `PATHFINDING.MD` je vyčerpaná
+
+`python tools/next_task.py PATHFINDING.MD` končí **exit 1 = „fronta hotová"**. Všech 30
+bloků má `Status: done`, jeden `obsolete`. Každý úkol, který roadmapa vede jako zbývající
+v koleji A (P4, P5, Q1, `_test_shadow_occlusion`, P3) i v koleji C (P6, P7, P8, P9, P10,
+P11, P12, Q2), je ve frontě **hotový** — P3 uzavřený jako `obsolete` („pod 2 ms, zavřít"),
+Q2 hotový (roadmapa u něj sama psala „ověř"). Nic z toho jsem nezačínal znovu.
+
+**Kolize ID, ať se na ni nenarazí podruhé:** kolej B má úkoly M0–M4 (art mastery),
+`PATHFINDING.MD` má M0 *a* M1–M5 (balanc/diagnóza) *a* M9. `next_task.py` bere jako ID
+první token za `## `, takže `M1` z koleje B a `M1` z fronty jsou pro runner **jedno a to
+samé ID**. Kdyby se kolej B zapsala do stejného souboru pod těmi jmény, runner by je
+nerozlišil a `Status: done` u jednoho by uzavřel druhý.
+
+### Jediná otevřená kolej je B a stojí na uživateli
+
+Po M0 (`c02ca78`) je další v řadě **M-SEZENÍ** — `Needs-me: yes`, označené
+NEDELEGOVATELNÉ. M1 se odemyká až po něm, M2–M4 mají `Needs-me: yes` taky. Pravidlo
+„Needs-me: yes = zastav a čekej" jsem dodržel; kolej B jsem se nedotkl.
+
+### Co jsem tedy udělal — ÚKLID, jediná eligible položka
+
+**1. README.** `--quit` jako „headless smoke check" byl v přímém rozporu s CLAUDE.md
+(issue #77508: `--quit` sám o sobě neimportuje). Nahrazeno `--import` a hlavně
+`./verify.sh`, který README nezmiňoval vůbec — včetně toho, proč musí být `$GODOT`
+console build a kde jsou logy. Přibyla sekce **Tests**: že tady `tests/` ani GUT není
+záměrně, že test je pár `scripts/_test_*.gd` + `scenes/_test_*.tscn`, že se spouští
+`--main-scene` a nikdy `--script`, a že `_shot_*`/`_play_*` testy nejsou. V tabulce
+Layout přibyly `verify.sh`, `CLAUDE.md` a `LDtk/`; opraveny dvě **nepravdy**: výčet
+autoloadů byl o dva krátký (chyběly `Music` a `Mirror`) a `addons/` tvrdil jediný addon,
+zatímco jsou tři (`td_anim_lab`, `godot_ai` — popisy vzaté z jejich `plugin.cfg`, ne
+vymyšlené).
+
+**2. `*.import` — položka splněna v opačném směru, než roadmapa navrhovala.** 24 sidecarů
+z `assets/raw/master_*` je **commitnuto**, ne ignorováno. `*.import` do `.gitignore`
+nepatří: v Godotu 4 sidecar nese `uid://` assetu a `.tscn`/`.tres` se na assety odkazují
+právě tím uidem, takže po přestání trackování by si každý čerstvý klon uidy vygeneroval
+znovu a jinak a `ext_resource` odkazy by mířily jinam. V repu je 768 trackovaných
+`.import` a CLAUDE.md má vlastní pravidlo „neměň uid=". Navíc `assets/raw/master_*`
+**není** mrtvý vstup pro Python — `scripts/_shot_scale_audit.gd` a tři další `_shot_*`
+z něj loadují přes `res://`. Důvod je zapsaný jako komentář v `.gitignore`, aby se návrh
+nevrátil.
+
+**3. Mrtvý worktree `agent-a1657264f44c419ac` odstraněn.** Před odstraněním ověřeno, že
+se nic neztrácí: `git rev-list --count main..worktree-agent-…` = **0**, worktree čistý,
+jeho HEAD (`2546864`) je ancestor `main`. Smazán worktree i větev, `git worktree prune`.
+
+**4. `.dev/` do `.gitignore` — NEUDĚLÁNO, záměrně.** Ta polovina už hotová je
+(`/.dev/*`) a druhá by aktivně škodila: hned pod ní stojí `!/.dev/screenshots/`, carve-out
+pro T7, a v tom adresáři leží 20+ commitnutých snímků. Blanket `.dev/` by je odtrackoval.
+Stejná vadná premisa, jakou hlásil už zápis M0.
+
+### Nechal jsem nestagovanou cizí rozdělanou práci (pravidlo „necommituj cizí diff")
+
+`git diff --cached` obsahuje jen to, co jsem měnil. **Nestagované a nechané tak:**
+`tools/check_style_failure_modes.py` (+173 řádků: `--file`, boss skip, N z bible),
+`tools/direction_a_masters.py` (+44), `run.sh` (odebrán `git push`, přidán 3. argument
+MODEL a exit kódy 2/3), nový `loop.sh`, a čtyři obrázky v `.dev/screenshots/`.
+**Pozor u prvního z nich:** `verify.sh:481` ten skript spouští, takže gate „style failure
+modes" dnes běží proti **necommitnuté** verzi — a `--file`, kterým M0 naměřil svou
+tabulku 24 masterů, v `HEAD` **není**, takže ta tabulka se z commitnutého stromu
+nereprodukuje. Commitnutý `tools/master_scale_sheet.py` je ale v pořádku: importuje jen
+`bible_gates`/`compactness`/`load_rgba`/`opaque_mask`/`unique_colors`, a všech pět
+v `HEAD` existuje (ověřeno importem HEAD verze modulu).
+
+### Ověření
+
+- `./verify.sh`: **45 pass, 0 fail, 0 skip, 2 known-broken, 0 flaky, 1 no-display**,
+  exit 0. `docs/ROSTER.md` po regeneraci bez diffu. (`_test_shadow_occlusion` je ten
+  jeden no-display: potřebuje skutečný renderer, běželo bez displeje — v M0 běhu
+  s displejem to bylo 46 pass.)
+- Soubory: `README.md`, `.gitignore`, 24× `assets/raw/master_*/cand_*.png.import`,
+  tento zápis.

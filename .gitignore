@@ -35,3 +35,12 @@ __pycache__/
 
 # PixelLab API token — NIKDY do gitu
 .pixellab_token
+
+# NENÍ ignorováno: *.import — a je to záměr, ne opomenutí.
+# ROADMAP jednou navrhla „*.import do .gitignore". Nedělat to: v Godotu 4 nese sidecar
+# `uid://` daného assetu a `.tscn`/`.tres` se na assety odkazují PRÁVĚ tím uidem. Kdyby
+# se sidecary přestaly trackovat, každý čerstvý klon by si uidy vygeneroval znovu a jinak
+# — a všechny `ext_resource` odkazy by mířily jinam. V repu je 768 trackovaných `.import`
+# a CLAUDE.md k tomu má vlastní pravidlo („neměň uid=").
+# Ignoruje se `.godot/` (výš), tedy vlastní importovaná data. To je ta správná polovina.
+# Šum v `git status` po importu nové dávky se řeší commitem sidecarů, ne ignorováním.
