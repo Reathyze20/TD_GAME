@@ -50,8 +50,9 @@ METODA
    seedem na plose 480x270. **N NENI pevnych 200** (SS12g, doplneno po prvni verzi
    tohohle skriptu): pole 480x270 = 129 600 px je pro dnesni sprity (660-1540 px
    nepruhledne plochy) pri N=200 PRESYCENE -- i dokonaly kruh vyjde 0.000 a brana
-   nerozlisuje nic. N se proto DOPOCITAVA z cilove hustoty 0.30 (`gen:failure_modes`,
-   radek "horda, hustota"): `N = clamp(round(0.30 * 129600 / unit_opaque_area), 8, 200)`,
+   nerozlisuje nic. N se proto DOPOCITAVA z cilove hustoty (`gen:failure_modes`, radek
+   "horda, hustota" -- cislo samo se sem NEOPISUJE, cte se odtud za behu, viz
+   compute_n()): `N = clamp(round(hustota * 129600 / unit_opaque_area), 8, 200)`,
    stejne N pro sprite i pro kontrolni disk (viz nize), aby zustal pomer
    jablka-jablkum. Meri se podil jednotek, ktere v alfa kompozitu preziji jako VLASTNI
    4-souvisla komponenta (plocha 0.5x-2.0x plochy jedne jednotky), deleno N -- a totez
@@ -66,6 +67,11 @@ METODA
    spritu - soucet RGB GROUND| >= 60 -- GROUND se cte z tools/flat_terrain.py, ne
    kopiruje sem (stejny pristup jako check_terrain_contrast.py's flat_colors()).
    Vypocitane N se tiskne u kazdeho radku hordoveho testu -- nikdy neviditelne cislo.
+   **Boss-class sprity (gen:forms's kind == 'distraction_boss', dnes jen
+   `social_media_binge`) se hordovym testem neresi vubec** -- Data.build_waves() jim
+   dava natvrdo `count = 1` (scripts/data.gd:475), takze nikdy nestoji vedle kopie sebe
+   sama; vypisuje se explicitni "SKIP (boss, count=1 per wave)", ne ticha absence,
+   a nepocita se ani jako pass ani jako fail (SS12g).
 
 Vsechny tri testy pouzivaji ALPHA_THRESH=128 (SS1, "alpha mask = alpha >= 128") jako
 jednotnou definici "nepruhledny pixel".
@@ -151,6 +157,17 @@ def skip(label, reason):
     print("  --    %s  %s" % (label, reason))
 
 
+def skip_boss(label):
+    """Boss-class sprity (gen:forms's kind == 'distraction_boss') se hordovym testem
+    nemeri VUBEC -- ani citelnost/N, ani kontrast (SS12g, 'Boss se hordovym testem
+    nemeri vubec'): Data.build_waves() mu dava natvrdo count=1
+    (scripts/data.gd:475), takze nikdy nestoji vedle kopie sebe sama, a pri 96px by
+    dolni hranice N=8 stejne tlacila hustotu zpet k saturaci. Explicitni radek misto
+    ticheho vynechani -- nepocita se ani jako pass, ani jako fail, v zadnem rezimu
+    (gated i legacy, --all i default)."""
+    print("  SKIP  %s  boss, count=1 per wave (scripts/data.gd:475) -- horde test does not apply" % label)
+
+
 # --------------------------------------------------------------- STYLE_BIBLE.md parsing
 
 def _block(text, key):
@@ -234,6 +251,56 @@ def direction_a_entries():
                 "cekano 'habit' nebo 'distraction' -- neparsovatelne, hlaste zpet, "
                 "needituju bibli sam." % (aid, rodina))
         out.append({"id": aid, "rodina": rodina, "soubor": soubor})
+    return out
+
+
+def bible_boss_ids():
+    """Ids z <!-- gen:forms --> (SS8), jejichz `kind` je 'distraction_boss' -- data-driven
+    zdroj pravdy pro to, kdo je boss, misto hardcodovaneho retezce jako 'social_media_binge'
+    primo v tomhle skriptu (CLAUDE.md: obsah je data, ne kod). Sloupce jsou
+    id | kind | family | base | form; kind je cells[1]. Dnes vrati {'social_media_binge'},
+    ale novy boss v bibli se prijme sam, bez zasahu do skriptu."""
+    text = io.open(BIBLE, encoding="utf-8").read()
+    ids = set()
+    for cells in _table_rows(_block(text, "gen:forms")):
+        if len(cells) < 2 or cells[0] in ("", "id") or set(cells[0]) <= {"-"}:
+            continue
+        if cells[1] == "distraction_boss":
+            ids.add(cells[0])
+    return ids
+
+
+def _is_boss(aid, boss_ids):
+    """`aid` je bud primo boss id (gen:direction_a master), nebo odvozeny z legacy
+    nazvu souboru (napr. 'social_media_binge_attack_frame_1'), ktery zacina boss id +
+    '_'. Presna shoda i prefix, aby chytilo obe podoby."""
+    return any(aid == bid or aid.startswith(bid + "_") for bid in boss_ids)
+
+
+def parse_file_args(raw_list):
+    """--file RODINA=CESTA -> [(id, rodina, absolutni_cesta), ...]. Zadani koordinatora
+    (SS12f: master se meri PRED tim, nez se zapise do gen:direction_a a ukaze
+    uzivateli): kandidat jeste nema radek v bibli, takze se musi dat gatovat rucne.
+    Neznama rodina i chybejici soubor jsou tvrda chyba (SystemExit), nikdy tiche
+    preskoceni -- stejny standard jako direction_a_entries()."""
+    out = []
+    for raw in raw_list:
+        rodina, sep, cesta = raw.partition("=")
+        if not sep:
+            raise SystemExit(
+                "--file '%s': cekan tvar RODINA=CESTA, napr. "
+                "distraction=assets/raw/master_distraction_a/cand_00.png" % raw)
+        if rodina not in ("habit", "distraction"):
+            raise SystemExit(
+                "--file '%s': neznama rodina '%s', cekano 'habit' nebo "
+                "'distraction'" % (raw, rodina))
+        # relativni cesta je od korene repa -- stejna konvence jako sloupec `soubor`
+        # v gen:direction_a ("cesta od korene repa", SS12e).
+        path = cesta if os.path.isabs(cesta) else os.path.normpath(os.path.join(ROOT, cesta))
+        if not os.path.isfile(path):
+            raise SystemExit("--file '%s': soubor neexistuje: %s" % (raw, cesta))
+        aid = os.path.splitext(os.path.basename(path))[0]
+        out.append((aid, rodina, path))
     return out
 
 
@@ -423,11 +490,23 @@ def main():
     ap = argparse.ArgumentParser(
         description="Meri silhouette/style/horde failure-mode brany smeru A "
                     "(STYLE_BIBLE.md SS12d) na PNG souborech.")
-    ap.add_argument("--all", action="store_true",
-                     help="gatuj i cely legacy rejstrik (assets/towers/head_*.png, "
-                          "assets/distractions/*_frame_1.png), ne jen "
-                          "gen:direction_a -- diagnosticky pohled, verify.sh tohle "
-                          "nepouziva")
+    mode = ap.add_mutually_exclusive_group()
+    mode.add_argument("--all", action="store_true",
+                       help="gatuj i cely legacy rejstrik (assets/towers/head_*.png, "
+                            "assets/distractions/*_frame_1.png), ne jen "
+                            "gen:direction_a -- diagnosticky pohled, verify.sh tohle "
+                            "nepouziva")
+    mode.add_argument("--file", action="append", default=[], metavar="RODINA=CESTA",
+                       help="zmer VYHRADNE tenhle soubor jako gatovany kandidat "
+                            "(stejne brany a stejne pocitani do exit kodu jako radek "
+                            "v gen:direction_a) -- opakovatelne, pro master pred "
+                            "schvalenim, kdy jeste nema radek v bibli (SS12f). "
+                            "RODINA je 'habit' nebo 'distraction', CESTA je cesta od "
+                            "korene repa (nebo absolutni). Priklad: --file "
+                            "distraction=assets/raw/master_distraction_a/cand_00.png "
+                            "--file habit=assets/raw/master_habit_a/cand_00.png. "
+                            "Kdyz je zadano, negatuji se legacy globy ani "
+                            "gen:direction_a -- jen presne tyhle soubory.")
     args = ap.parse_args()
 
     gates = bible_gates()
@@ -437,37 +516,56 @@ def main():
             "STYLE_BIBLE.md gen:failure_modes: nejde naparsovat prah pro %s -- "
             "hlaste zpet, needituju bibli sam." % ", ".join(missing))
     ground = ground_color()
-    direction_a = direction_a_entries()
+    boss_ids = bible_boss_ids()
+    file_entries = parse_file_args(args.file)
 
-    gated_paths = set()
-    gated_entries = []
-    for e in direction_a:
-        p = os.path.normpath(os.path.join(ROOT, e["soubor"]))
-        gated_paths.add(p)
-        gated_entries.append((e["id"], e["rodina"], p, "direction_a"))
-
-    legacy_entries = []
-    for p in legacy_habit_files():
-        if os.path.normpath(p) in gated_paths:
-            continue
-        aid = os.path.splitext(os.path.basename(p))[0]
-        legacy_entries.append((aid, "habit", p, "legacy"))
-    for p in legacy_distraction_files():
-        if os.path.normpath(p) in gated_paths:
-            continue
-        aid = os.path.basename(p)[:-4]   # strip ".png", keep the "_frame_1" suffix
-        legacy_entries.append((aid, "distraction", p, "legacy"))
-
-    if args.all:
-        pool = sorted(gated_entries + legacy_entries, key=lambda e: (e[1], e[0]))
+    if file_entries:
+        # --file: VYHRADNE tyhle soubory, se stejnym src="direction_a" znackou jako
+        # radek v gen:direction_a -- boss-skip, INCONCLUSIVE=FAIL a vsechny ostatni
+        # gatovane vetve nize se pak chovaji identicky, bez duplikovane logiky.
+        gated_entries = [(aid, rodina, path, "direction_a") for aid, rodina, path in file_entries]
+        legacy_entries = []
+        pool = sorted(gated_entries, key=lambda e: (e[1], e[0]))
         printed_legacy = []
     else:
-        pool = sorted(gated_entries, key=lambda e: (e[1], e[0]))
-        printed_legacy = sorted(legacy_entries, key=lambda e: (e[1], e[0]))
+        direction_a = direction_a_entries()
+        gated_paths = set()
+        gated_entries = []
+        for e in direction_a:
+            p = os.path.normpath(os.path.join(ROOT, e["soubor"]))
+            gated_paths.add(p)
+            gated_entries.append((e["id"], e["rodina"], p, "direction_a"))
+
+        legacy_entries = []
+        for p in legacy_habit_files():
+            if os.path.normpath(p) in gated_paths:
+                continue
+            aid = os.path.splitext(os.path.basename(p))[0]
+            legacy_entries.append((aid, "habit", p, "legacy"))
+        for p in legacy_distraction_files():
+            if os.path.normpath(p) in gated_paths:
+                continue
+            aid = os.path.basename(p)[:-4]   # strip ".png", keep the "_frame_1" suffix
+            legacy_entries.append((aid, "distraction", p, "legacy"))
+
+        if args.all:
+            pool = sorted(gated_entries + legacy_entries, key=lambda e: (e[1], e[0]))
+            printed_legacy = []
+        else:
+            pool = sorted(gated_entries, key=lambda e: (e[1], e[0]))
+            printed_legacy = sorted(legacy_entries, key=lambda e: (e[1], e[0]))
 
     print("STYLE_BIBLE.md SS12d failure-mode brany")
     print("GROUND (tools/flat_terrain.py) = rgb%s, soucet %d" % (ground, sum(ground)))
-    if args.all:
+    if file_entries:
+        print("--file: gatuji VYHRADNE %d zadany soubor(u) (%d habit, %d distraction) "
+              "-- zadne legacy globy, zadna gen:direction_a. Kandidat pred schvalenim "
+              "(SS12f)." % (len(pool),
+                             sum(1 for e in pool if e[1] == "habit"),
+                             sum(1 for e in pool if e[1] == "distraction")))
+        for aid, rodina, path, src in pool:
+            print("  %-11s %-20s %s" % (rodina, aid, _rel(path)))
+    elif args.all:
         print("--all: gatuji VSECHNO -- gen:direction_a (%d) + legacy rejstrik (%d) "
               "= %d souboru." % (len(gated_entries), len(legacy_entries), len(pool)))
     else:
@@ -618,6 +716,12 @@ def main():
               "distraction-only, habits are stationary towers)" % (hab_gated, hab_legacy))
 
     for aid, fam, path, src, label, rgba, mask in dist_gated:
+        if _is_boss(aid, boss_ids):
+            # SS12g "Boss se hordovym testem nemeri vubec": count=1 za level, nikdy
+            # nestoji vedle kopie sebe sama. Plati stejne pro gatovane i legacy --
+            # neni to vlastnost diagnostickeho rezimu, je to vlastnost hry.
+            skip_boss(label)
+            continue
         # gatovany soubor: INCONCLUSIVE se pocita jako FAIL (check(False)), ne jako
         # zvlastni netrestany stav -- presycene pole se nesmi splest se splnenou branou
         # (zadani koordinatora, SS12g).
@@ -625,6 +729,9 @@ def main():
                   lambda l, ok, d: check(l, ok, d),
                   lambda l, d: check(l, False, d))
     for aid, fam, path, src, label, rgba, mask in dist_legacy:
+        if _is_boss(aid, boss_ids):
+            skip_boss(label)
+            continue
         horde_row(aid, fam, path, src, label, rgba, mask,
                   lambda l, ok, d: legacy(l, ok, d),
                   lambda l, d: legacy_inconclusive(l, d))

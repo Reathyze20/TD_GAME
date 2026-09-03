@@ -246,30 +246,46 @@ def cmd_sheet(_args):
     jako CERNY TVAR", a to se neda posoudit, kdyz je vedle barva, ktera odpoved
     napovi."""
     from PIL import Image
-    cells = []
+    groups = []
     for name in sorted(FORMS):
         d = raw_dir(name)
         if not os.path.isdir(d):
             continue
-        for p in sorted(f for f in os.listdir(d) if f.endswith(".png")):
-            cells.append((name, os.path.join(d, p)))
-    if not cells:
+        paths = [os.path.join(d, p)
+                 for p in sorted(f for f in os.listdir(d) if f.endswith(".png"))]
+        if paths:
+            groups.append((name, paths))
+    if not groups:
         raise SystemExit("zadni kandidati -- nejdriv `status`")
+
     scale = 4                      # 480x270 se prezentuje pres integer 4x (§12a)
     cell = 64 * scale
     pad = 8
-    w = len(cells) * (cell + pad) + pad
-    sheet = Image.new("RGBA", (w, cell * 2 + pad * 3), (20, 17, 41, 255))  # tkan §4
-    for i, (_name, path) in enumerate(cells):
-        im = Image.open(path).convert("RGBA")
-        im = im.resize((cell, cell), Image.NEAREST)
-        x = pad + i * (cell + pad)
-        sheet.paste(im, (x, pad), im)
-        sil = _silhouette(im)
-        sheet.paste(sil, (x, cell + pad * 2), sil)
+    per_row = 8                    # jinak je list sirsi nez kterykoli monitor
+    band = cell * 2 + pad          # barva + silueta pod ni
+    rows = []                      # (name, radek cest)
+    for name, paths in groups:
+        for i in range(0, len(paths), per_row):
+            rows.append((name, paths[i:i + per_row]))
+
+    w = per_row * (cell + pad) + pad
+    h = len(rows) * (band + pad * 3) + pad
+    sheet = Image.new("RGBA", (w, h), (20, 17, 41, 255))          # tkan §4
+    y = pad
+    for _name, paths in rows:
+        for i, path in enumerate(paths):
+            im = Image.open(path).convert("RGBA").resize((cell, cell), Image.NEAREST)
+            x = pad + i * (cell + pad)
+            sheet.paste(im, (x, y), im)
+            sil = _silhouette(im)
+            sheet.paste(sil, (x, y + cell + pad), sil)
+        y += band + pad * 3
     os.makedirs(os.path.dirname(SHEET), exist_ok=True)
     sheet.save(SHEET)
-    print("zapsano %s (%d kandidatu)" % (os.path.relpath(SHEET, PROJ), len(cells)))
+    print("zapsano %s (%d rad, %d kandidatu)"
+          % (os.path.relpath(SHEET, PROJ), len(rows), sum(len(p) for _n, p in groups)))
+    for name, paths in groups:
+        print("  %s: %d" % (name, len(paths)))
 
 
 def main(argv=None):
