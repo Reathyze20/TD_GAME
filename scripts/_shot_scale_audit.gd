@@ -164,6 +164,46 @@ func _run() -> void:
 		print("  %s : raw %s -> %.1f x %.1f px = %.2f tiles" % [
 			String(did), str(t.get_size()), s.x, s.y, s.x / tile])
 
+
+	# ---- habit head art ------------------------------------------------------------
+	# Towers are the one family Data.UNIT_ART_SCALE does NOT cover: its header scopes
+	# itself to "a moving combat unit's sprite (enemy Distraction and DefenderUnit)", and
+	# tower.gd draws its head at get_size() * pixel_scale() with no further factor. So the
+	# same 64px sheet that becomes a 1.6-tile distraction becomes a 4-tile tower. Measured
+	# here rather than reasoned about, because that is this harness's whole point.
+	print("")
+	print("---- habit head art (tower.gd: get_size() * pixel_scale(), no UNIT_ART_SCALE) ----")
+	for hid in Data.HABIT_ORDER:
+		var hd = Data.get_habit(String(hid))
+		var found := ""
+		for suffix in ["", "_frame_1", "_east"]:
+			var hp := "res://assets/towers/head_%s%s.png" % [String(hid), suffix]
+			if ResourceLoader.exists(hp):
+				found = hp
+				break
+		if found == "":
+			print("  %s : no head art on disk" % String(hid))
+			continue
+		var ht: Texture2D = load(found)
+		var hs := Vector2(ht.get_size()) * Data.pixel_scale()
+		print("  %s : raw %s -> %.1f x %.1f px = %.2f tiles" % [
+			String(hid), str(ht.get_size()), hs.x, hs.y, hs.x / tile])
+
+	# The direction-A master candidates, if they are on disk, measured through BOTH
+	# formulas -- the number the approval decision actually turns on.
+	print("")
+	print("---- direction A master candidates at game scale ----")
+	for pair in [["assets/raw/master_distraction_a/cand_00.png", "as a distraction",
+			Data.UNIT_ART_SCALE],
+			["assets/raw/master_habit_a/cand_00.png", "as a habit head", 1.0]]:
+		var cp: String = "res://" + str(pair[0])
+		if not ResourceLoader.exists(cp):
+			print("  %s : not on disk" % str(pair[0]))
+			continue
+		var ct: Texture2D = load(cp)
+		var cs := Vector2(ct.get_size()) * Data.pixel_scale() * float(pair[2])
+		print("  %s %s: raw %s -> %.1f px = %.2f tiles" % [
+			str(pair[0]).get_file(), str(pair[1]), str(ct.get_size()), cs.x, cs.x / tile])
 	# ---- HUD ----------------------------------------------------------------------
 	print("")
 	print("---- HUD controls leaving the %.0f x %.0f canvas ----" % [vp.x, vp.y])

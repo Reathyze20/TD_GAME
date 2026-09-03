@@ -4954,3 +4954,58 @@ záměr (Rogue Tower laťka) a výkonově odůvodněný, ale **jestli je to dost
 Stejně tak velikost jádra (`CORE_PROP_ART_SCALE = 0.3`, jedna konstanta) a velikost
 banneru „Build Phase" (`UI.FS_TITLE` = 8, dvojnásobek `FS_HEAD`). Ani jedno není vada —
 obojí je rozhodnutí.
+
+## 2026-09-02 — art v herním měřítku: habit se kreslí 4,00 dlaždice a nikdo to nevěděl
+
+Připravoval jsem podklad pro schválení masterů směru A (§12f) a při měření vyšlo najevo
+něco, co to schválení mění.
+
+### Dvě rodiny, dva různé vzorce, a ten rozdíl nebyl nikde vidět
+
+Rozšířil jsem `_shot_scale_audit` o hlavy věží a o kandidáty směru A. Naměřeno:
+
+| co | vzorec | výsledek |
+|---|---|---|
+| distrakce | `get_size() × pixel_scale() × UNIT_ART_SCALE` | 48px → **1,20 dlaždice** |
+| habit | `get_size() × pixel_scale()` — **bez dalšího faktoru** | 64px → **4,00 dlaždice** |
+| stavební blok pod habitem | `BUILD_BLOCK × tile` | **3,00 dlaždice** |
+
+**Všech osm habitů přetéká blok, na kterém stojí**, a je 3,3× širší než nepřítel, po
+kterém střílí. `UNIT_ART_SCALE` se v hlavičce sám omezuje na *„a moving combat unit's
+sprite (enemy Distraction and DefenderUnit)"* — věže do té definice nikdy nespadly.
+Pátý výskyt téže třídy vady a největší z nich.
+
+### Proč to zdrželo schválení masteru
+
+Kandidáti směru A jsou 64×64. Jako distrakce 1,60 dlaždice, **jako habit 4,00**. §12f
+říká, že schválený master se stane style referencí pro celý rejstřík — takže by se s ním
+schválila i tahle velikost. Zapsáno do `BLOCKED.md` se třemi možnostmi.
+
+### Nový nástroj: `tools/master_scale_sheet.py`
+
+`direction_a_masters.py sheet` dělá kontaktní list a je dobrý na to, na co je — barva
+a silueta, kandidát přes půl obrazovky. Rozhodnutí se ale nedělá na kandidátovi velkém
+200 px. Tenhle nástroj staví tři řady **na desce v herním měřítku** (4× nearest, stejný
+filtr jako engine): distrakce 25,6 px s obrysem jedné buňky, habity tak, jak je engine
+kreslí dnes (64 px, s obrysem jejich bloku), a tytéž habity zmenšené přesně na ten blok
+(48 px).
+
+**Žádnou konstantu neopisuje** — `tile`, `cols`, `BUILD_BLOCK`, `UNIT_ART_SCALE`,
+`ISO_PIXEL_SCALE` i obě barvy desky čte regexem ze `scripts/data.gd` a `scripts/game.gd`,
+a když je nenajde, **spadne** místo aby dosadil kopii. To je to pravidlo z `CLAUDE.md`
+(commit `94ecfb0`) použité hned na prvním novém nástroji po jeho zavedení.
+
+### Mimochodem: iso podstavce
+
+Všech 16 habit kandidátů má izometrický podstavec (kosočtvercová základna, 3/4 pohled).
+Deska jede `GridProjection.active_mode = MODE_SQUARE` — plochá top-down mřížka, výchozí
+od T5. Neposuzuju, jestli to na ploché desce funguje; je to ale rozhodnutí, které se
+schválením masteru zamkne do celého rejstříku, takže patří na stůl teď.
+
+### Ověření
+
+- `./verify.sh` s displejem: **46 pass, 0 fail, 0 skip, 2 known-broken, 0 flaky,
+  0 no-display.**
+- Soubory: `scripts/_shot_scale_audit.gd` (hlavy věží + kandidáti),
+  nový `tools/master_scale_sheet.py`, `.dev/screenshots/master_scale_sheet.png`,
+  `BLOCKED.md`, tento zápis.

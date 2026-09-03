@@ -3,6 +3,50 @@
 Design decisions found ambiguous or contradictory during autonomous runs.
 Not fixed by guessing — recorded here with options, then moved past.
 
+## Habit se kreslí 4,00 dlaždice a přetéká vlastní stavební blok (2026-09-02) — ROZHODNI PŘED SCHVÁLENÍM MASTERU
+
+**Naměřeno, ne odhadnuto** (`scenes/_shot_scale_audit.tscn`, obě rodiny přes jejich
+skutečný vzorec):
+
+| co | vzorec v kódu | výsledek |
+|---|---|---|
+| distrakce | `get_size() × pixel_scale() × UNIT_ART_SCALE` | 48px sprite → **1,20 dlaždice** |
+| habit (hlava věže) | `get_size() × pixel_scale()`, **žádný další faktor** | 64px sprite → **4,00 dlaždice** |
+| stavební blok, na kterém habit stojí | `BUILD_BLOCK × tile` | **3,00 dlaždice** |
+
+Všech osm habitů má hlavu 64×64 a všech osm se kreslí na **4,00 dlaždice**, tedy
+**širší než blok, na kterém stojí**, a **3,3× širší než nepřítel, po kterém střílí**.
+
+**Není to nedopatření, je to mezera v zadání.** `Data.UNIT_ART_SCALE` se v hlavičce sám
+omezuje na *„a moving combat unit's sprite (enemy Distraction and DefenderUnit)"* —
+věže do té definice nikdy nespadly, takže je nikdo nezmenšil. Je to pátý výskyt téže
+třídy („art nakreslený pro jiné plátno, kreslený přes `pixel_scale()` bez úpravy") a
+zdaleka největší.
+
+**Proč to blokuje schválení masteru, ne až fázi 1.** Kandidáti směru A jsou taky 64×64.
+Jako distrakce se kreslí na 1,60 dlaždice, **jako habit na 4,00**. Až podle §12f schválíš
+master habit, stane se style referencí pro celý rejstřík — a schválíš s ním i tuhle
+velikost, pokud se o ní nerozhodne dřív.
+
+Podklad je `.dev/screenshots/master_scale_sheet.png` (`python tools/master_scale_sheet.py`):
+tři řady na desce ve 4× — distrakce na 25,6 px, habity **tak, jak je engine kreslí dnes**
+(64 px, s obrysem jejich bloku, který přetékají), a tytéž habity **zmenšené přesně na ten
+blok** (48 px).
+
+**Možnosti, každá jeden řádek:**
+
+1. **`HABIT_ART_SCALE := 0.75`** → 48 px = přesně stavební blok. Věž nikdy nepřeteče
+   místo, na kterém stojí, a poměr k distrakci je 2,5:1. Stejný tvar řešení jako
+   `UNIT_ART_SCALE` a `CORE_PROP_ART_SCALE`: pojmenovaná konstanta, „first-pass, ne
+   posouzená finální velikost".
+2. **Nechat 4,00 dlaždice.** Věže jsou pak dominantní prvek desky a přetékají do
+   sousedních bloků. Na desce 30×14 se vejde 10×4 bloků, takže tři věže vedle sebe se
+   začnou překrývat.
+3. **Něco mezi** (např. 0,875 → 56 px). Kompromis, ale pořád přetéká.
+
+**Nerozhodl jsem to sám, protože je to vizuální posouzení** — „jak velká má věž být"
+není nic, co by šlo změřit. Čísla a obrázek k tomu ale jsou.
+
 ## Po H1 zbývají tři čísla, která jsou rozhodnutí, ne vada (2026-09-02)
 
 HUD je změřený a sedí: `scenes/_shot_scale_audit.tscn` hlásí na obou levelech **0 prvků
