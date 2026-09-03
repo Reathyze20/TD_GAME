@@ -5009,3 +5009,49 @@ schválením masteru zamkne do celého rejstříku, takže patří na stůl teď
 - Soubory: `scripts/_shot_scale_audit.gd` (hlavy věží + kandidáti),
   nový `tools/master_scale_sheet.py`, `.dev/screenshots/master_scale_sheet.png`,
   `BLOCKED.md`, tento zápis.
+
+## 2026-09-02 — M0: podklad pro schválení masterů, a co řekly brány
+
+Zadání: rozšířit `tools/master_scale_sheet.py` o tři listy, projet mastery
+`check_style_failure_modes.py`, commitnout jen skript. Nic se negenerovalo.
+
+### Tři listy
+
+**a) SCALE** — tři řady s popiskem a poměrem k distrakci. Habit dnes **2,50× distrakce**
+a přetéká svůj stavební blok; při navrhovaném `HABIT_ART_SCALE` 0,75 je **1,88×** a sedí.
+
+**b) PODSTAVEC** — všech 16 habitů při 48 px, 8×, **nad mřížkou buněk `MODE_SQUARE`**.
+Tohle je jediný z těch tří listů, který odpovídá na otázku, kterou jsem otevřel minule:
+jestli izometrická kosočtvercová základna sedí na plochou čtvercovou mřížku. Bez
+vykreslené buňky pod spritem to nešlo posoudit vůbec.
+
+**c) DVOJICE** — 3 nejlepší z každé rodiny, barva i silueta, herní měřítko. **Pořadí není
+odhad:** `compactness()` se **importuje** z `check_style_failure_modes.py`, takže list
+řadí kandidáty touž funkcí, jakou je měří brána. Druhá kopie vzorce by byla přesně to,
+před čím varuje nové pravidlo v `CLAUDE.md`.
+
+### Brány: 35 FAILů, a jeden z nich je ten důležitý
+
+Silueta habitů projde (15/16, `cand_13` je 1,61 proti prahu 1,60). Horda projde 8/8.
+Barvy neprojdou ani jednou — **ale kandidáti ještě neprošli `reduce_colors` s
+`palette_48`**, takže se měří syrový výstup PixelLabu, ne hotový sprite. To je
+pravděpodobně pipeline, ne návrh.
+
+**Skutečný nález je odstup rodin.** Na celé sadě `min(distraction) − max(habit)` = **−0,25**
+proti prahu ≥ 0,80, tedy rozsahy se **překrývají** — přesně ta vada, kvůli které směr A
+vznikl. Na trojici z listu c) ale vyjde **0,84 a projde**. Výběr té trojice tedy není
+kosmetika: je to ta část rozhodnutí, která bránu splní, nebo ne.
+
+### Zadání mělo jednu vadnou premisu
+
+Bod 3 říkal „necommituj obrázky (.dev je gitignored)". `.dev` gitignored **není celé**:
+`.gitignore` vylučuje `/.dev/*` a hned nato `!/.dev/screenshots/` zase zahrnuje, s vlastním
+komentářem proč (T7). V tom adresáři leží 20+ commitnutých snímků. Instrukci jsem splnil
+— commitnut je jen skript — ale premisu hlásím, ať se podle ní nerozhoduje dál.
+
+### Ověření
+
+- `./verify.sh` s displejem: **46 pass, 0 fail, 0 skip, 2 known-broken, 0 flaky,
+  0 no-display.**
+- Report bran: `.dev/master_failure_modes.txt` (necommitnutý, `/.dev/*` ho ignoruje).
+- Soubory: `tools/master_scale_sheet.py`, `PATHFINDING.MD`, tento zápis.

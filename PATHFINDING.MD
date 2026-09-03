@@ -1259,6 +1259,58 @@ disclosure vyplnit poctivě za celou hru včetně toho, že in-game sprity přes
 vznikly — a hlídat konzistenci s `palette_48`, protože nejspolehlivější indicie není
 rukopis, ale capsule, jejíž světlo a paleta nesedí na screenshoty.
 
+## M0 — podklad pro schválení masterů
+Model: sonnet
+Needs-me: no
+Status: done
+
+Nic se negenerovalo. Pracováno výhradně s tím, co leží v `assets/raw/master_*`.
+
+**Hotovo, tři listy v `.dev/screenshots/`** (`python tools/master_scale_sheet.py`,
+volitelně `scale` / `podstavec` / `dvojice`):
+
+- **a) `master_scale_sheet.png`** — tři řady na desce ve 4× s popiskem a poměrem
+  k distrakci: distrakce 25,6 px = 1,60 dlaždice (1,00×), habit **jak to engine kreslí
+  dnes** 64,0 px = 4,00 dlaždice (**2,50×**, přetéká svůj blok 3×3), habit při navrhovaném
+  `HABIT_ART_SCALE` 0,75 → 48,0 px = 3,00 dlaždice (1,88×, sedí přesně na blok).
+- **b) `master_podstavec.png`** — všech 16 habit kandidátů při 48 px, zvětšeno 8×, nad
+  vykreslenou mřížkou buněk `MODE_SQUARE` (tenká, 16 px) a obrysem stavebního bloku
+  (48 px). Teprve tady jde posoudit, jestli kosočtvercová základna na čtvercové buňce
+  sedí — bez té mřížky pod ní to nešlo vůbec.
+- **c) `master_dvojice.png`** — 3 nejlepší distrakce vedle 3 nejlepších habitů, barevná
+  i siluetová řada, obojí v herním měřítku. **„Nejlepší" není odhad:** pořadí je podle
+  kompaktnosti počítané `compactness()` **importovanou** z
+  `tools/check_style_failure_modes.py`, tedy touž funkcí, kterou používá brána — ne druhou
+  kopií vzorce.
+
+**Výsledek bran (`.dev/master_failure_modes.txt`, `--file` na všech 24 souborech):**
+
+| brána | výsledek |
+|---|---|
+| silueta habit ≤ 1,60 | **15 z 16 ok** (0,84–1,42); `cand_13` = 1,61, těsně mimo |
+| silueta distraction ≥ 2,40 | **0 z 8** — všechny 1,36–1,90 |
+| odstup rodin ≥ 0,80 | **−0,25 na celé sadě = FAIL** (rozsahy se překrývají) |
+| **odstup na trojici z listu c)** | **0,84 = PROJDE** |
+| barvy habit ≤ 8 / distraction ≤ 6 | **0 z 24** — 15–24 barev |
+| horda (jen distrakce) | **8 z 8 ok**, poměr 0,80–1,00; kontrast 204–227 |
+
+Celkem 35 FAILů, exit 1.
+
+**Dvě z toho jsou pravděpodobně pipeline, ne návrh:** barvy neprošly ani jednou, ale
+kandidáti **ještě neprošli `reduce_colors` s `palette_48`**, což CLAUDE.md předepisuje
+pro každý asset. Test měří syrový výstup PixelLabu, ne hotový sprite.
+
+**Odstup rodin je naopak skutečný nález a rozhoduje se u něj.** Na celé sadě se rozsahy
+překrývají (přesně ta vada, kvůli které směr A vznikl), **ale na vybrané trojici vychází
+0,84 a projde**. Výběr trojice tedy není kosmetika — je to ta část rozhodnutí, která
+bránu buď splní, nebo ne.
+
+**Poznámka k zadání, bod 3:** `.dev` **není** celé gitignored. `.gitignore` vylučuje
+`/.dev/*` a hned potom **`!/.dev/screenshots/` zase zahrnuje** — ten adresář je
+trackovaný záměrně (T7) a leží v něm 20+ commitnutých snímků. Commitnut je proto jen
+skript, jak zadání chtělo; obrázky zůstávají necommitnuté a `master_scale_sheet.png`
+(commitnutý dřív) se ukazuje jako ` M`. Stačí říct a je to jeden `git add`.
+
 ## H1 — HUD nesedí na 480×270 (dokončení /4 rescale z T5)
 Model: opus
 Needs-me: no
