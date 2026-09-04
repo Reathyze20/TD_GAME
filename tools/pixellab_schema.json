@@ -1,5 +1,20 @@
 {
   "create_1_direction_object": {
+    "conflicts": [
+      [
+        "size",
+        "style_images"
+      ]
+    ],
+    "defaults": {
+      "view": "top-down"
+    },
+    "enums": {
+      "view": [
+        "top-down",
+        "sidescroller"
+      ]
+    },
     "properties": [
       "description",
       "item_descriptions",
@@ -12,6 +27,56 @@
     ]
   },
   "create_character": {
+    "conflicts": [],
+    "defaults": {
+      "body_type": "humanoid",
+      "detail": "medium detail",
+      "mode": "standard",
+      "n_directions": 8,
+      "outline": "single color black outline",
+      "proportions": "{\"type\": \"preset\", \"name\": \"default\"}",
+      "shading": "basic shading",
+      "text_guidance_scale": 8.0,
+      "view": "low top-down"
+    },
+    "enums": {
+      "body_type": [
+        "humanoid",
+        "quadruped"
+      ],
+      "detail": [
+        "low detail",
+        "medium detail",
+        "high detail"
+      ],
+      "mode": [
+        "standard",
+        "pro",
+        "v3"
+      ],
+      "n_directions": [
+        4,
+        8
+      ],
+      "outline": [
+        "single color black outline",
+        "single color outline",
+        "selective outline",
+        "lineless"
+      ],
+      "shading": [
+        "flat shading",
+        "basic shading",
+        "medium shading",
+        "detailed shading"
+      ],
+      "view": [
+        "low top-down",
+        "high top-down",
+        "side",
+        "oblique"
+      ]
+    },
     "properties": [
       "body_type",
       "description",
@@ -35,6 +100,38 @@
     ]
   },
   "create_tiles_pro": {
+    "conflicts": [
+      [
+        "style_images",
+        "tile_feature"
+      ]
+    ],
+    "defaults": {
+      "outline_mode": "outline",
+      "tile_size": 32,
+      "tile_type": "isometric",
+      "tile_view": "low top-down"
+    },
+    "enums": {
+      "outline_mode": [
+        "outline",
+        "segmentation"
+      ],
+      "tile_type": [
+        "hex",
+        "hex_pointy",
+        "isometric",
+        "oblique",
+        "octagon",
+        "square_topdown"
+      ],
+      "tile_view": [
+        "top-down",
+        "high top-down",
+        "low top-down",
+        "side"
+      ]
+    },
     "properties": [
       "description",
       "oblique_lean",
@@ -56,6 +153,24 @@
     ]
   },
   "reduce_colors": {
+    "conflicts": [
+      [
+        "num_colors",
+        "palette_image_base64"
+      ]
+    ],
+    "defaults": {
+      "dithering": "none",
+      "dithering_strength": 5.0
+    },
+    "enums": {
+      "dithering": [
+        "none",
+        "2x2",
+        "4x4",
+        "8x8"
+      ]
+    },
     "properties": [
       "dithering",
       "dithering_strength",

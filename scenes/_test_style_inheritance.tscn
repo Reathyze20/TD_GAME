@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/_test_style_inheritance.gd" id="1_styin"]
+
+[node name="TestStyleInheritance" type="Node" unique_id=418277302]
+script = ExtResource("1_styin")

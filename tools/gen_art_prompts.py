@@ -265,6 +265,21 @@ def adapt_to_schema(mcp_tool, params, schema):
     `seed` a `negative_description` na `create_character`/`create_1_direction_object`
     vůbec neexistují -- psalo se to proti `create_image_pixflux`).
 
+    Kromě filtru na jména hlídá i dvě věci, které živé schéma nese v próze svých
+    `description` a `tools/fetch_pixellab_schema.py` z nich vytahuje do strojového
+    tvaru (`enums`, `conflicts`) -- žádná z nich se sem neopisuje jako konstanta:
+
+    * **vzájemně se vylučující pole** (`conflicts`). `create_1_direction_object`
+      říká doslova "Cannot be set together with style_images -- when style_images
+      are provided, the largest style image determines the output size", takže
+      `size` + `style_images` v jednom volání je odmítnutí, ne kompromis. Padá to
+      tvrdě: kdyby se jedno z dvojice tiše zahodilo, plán by tvrdil něco jiného,
+      než co se pošle, a to je přesně ta třída chyby, kvůli které tenhle filtr
+      vznikl.
+    * **neplatné hodnoty enumu** (`enums`). Filtr na jména pustí `body_type` dál,
+      protože pole existuje -- ale hodnota mimo `["humanoid", "quadruped"]` se
+      pozná až na serveru. Plán je poslední místo, kde to nic nestojí.
+
     Vrací (payload, vyhozené pole). SystemExit, když po oseku chybí povinné pole --
     lepší nahlas selhat při generování plánu, než tiše poslat neplatné volání
     o dávky později (A0b, docs/refactor/-- "tohle se nesmí opakovat u Phase 1")."""
@@ -273,15 +288,73 @@ def adapt_to_schema(mcp_tool, params, schema):
         raise SystemExit(
             "tools/pixellab_schema.json nezná nástroj '%s' -- spusť "
             "`python tools/fetch_pixellab_schema.py`" % name)
-    allowed = set(schema[name]["properties"])
-    required = set(schema[name]["required"])
+    spec = schema[name]
+    allowed = set(spec["properties"])
+    required = set(spec["required"])
     payload = {k: v for k, v in params.items() if k in allowed}
     missing = required - set(payload)
     if missing:
         raise SystemExit(
             "%s: po oseku na živé schéma chybí povinné pole %s (entita ho musí "
             "dodat před filtrací)" % (name, sorted(missing)))
+    for pair in spec.get("conflicts", []):
+        if all(k in payload for k in pair):
+            raise SystemExit(
+                "%s: %s se podle živého schématu nesmí poslat současně -- "
+                "volající musí jedno z nich vynechat, filtr to za něj neuhodne"
+                % (name, " + ".join(sorted(pair))))
+    for key, values in sorted(spec.get("enums", {}).items()):
+        if key in payload and str(payload[key]) not in [str(v) for v in values]:
+            raise SystemExit(
+                "%s: %s=%r není v živém enumu %s" % (name, key, payload[key], values))
     return payload, sorted(set(params) - allowed)
+
+
+def style_images_payload(bible, items, size, root=ROOT):
+    """Referenční položky z plánu -> to, co API opravdu bere.
+
+    V plánu je style reference zapsaná JMÉNEM ENTITY (`{"entity": "focus_timer",
+    "format": "png"}`), ne cestou ani daty. Tři důvody, všechny tvrdé:
+
+    1. Cestu ke konkrétnímu vybranému kandidátovi vlastní `gen:selected` v bibli
+       (STYLE_BIBLE.md) -- kdyby ji plán nesl podruhé, rozešly by se v okamžiku,
+       kdy uživatel vybere jiného kandidáta.
+    2. API bere `style_images` VÝHRADNĚ jako base64 (`{"base64": ..., "format":
+       "png"}`, max 256x256 px). Base64 nesmí do kontextu ani do dokumentu
+       (CLAUDE.md) -- vzniká proto až tady, v paměti, těsně před voláním.
+    3. `size` se se `style_images` poslat nedá (viz `adapt_to_schema`) a výstupní
+       velikost určuje NEJVĚTŠÍ style image. Kontrola nad rozměrem tedy zbývá
+       jediná: zmenšit referenci na `size` (= `gen_px` daného kindu) dřív, než se
+       odešle. Proto je `size` povinný argument, ne volitelný -- bez něj by
+       32px rekvizita zdědila 96px rozměr Focus core a nikdo by si toho nevšiml
+       až do stažení výsledku.
+
+    Vrací seznam ve tvaru, který schéma přijímá. SystemExit, když entita ještě
+    nemá vybraného kandidáta -- objednat dědičnost z něčeho, co si uživatel
+    nevybral, nejde."""
+    import base64
+    from PIL import Image
+
+    out = []
+    for item in items:
+        eid = item["entity"]
+        sel = bible["selected"].get(eid)
+        if not sel:
+            raise SystemExit(
+                "style reference '%s' nemá řádek v gen:selected -- uživatel z něj "
+                "ještě nevybral kandidáta, takže není z čeho dědit" % eid)
+        path = os.path.join(root, sel["soubor"].replace("/", os.sep))
+        if not os.path.isfile(path):
+            raise SystemExit("gen:selected říká %s, ale ten soubor neexistuje"
+                             % sel["soubor"])
+        im = Image.open(path).convert("RGBA")
+        if im.size != (size, size):
+            im = im.resize((size, size), Image.NEAREST)
+        buf = io.BytesIO()
+        im.save(buf, format="PNG")
+        out.append({"type": "base64", "format": "png",
+                    "base64": base64.b64encode(buf.getvalue()).decode("ascii")})
+    return out
 
 
 def build(bible, schema):
@@ -304,7 +377,7 @@ def build(bible, schema):
     batch_no = 0
     for ph in phases:
         rows = _order_within(buckets.get(ph["phase"], []), eff_base)
-        open_batches = {}                       # kind -> (batch_id, [ids])
+        open_batches = {}                       # kind -> (batch_id, [ids], zdroj stylu)
         for r in rows:
             kind, eid = r["kind"], r["id"]
             # `size` je cil na disku, `gen` je to, co se objedna. Lisi se u vseho, co se
@@ -320,6 +393,14 @@ def build(bible, schema):
             tier = "tileset" if tool["mcp_tool"].endswith("create_tiles_pro") else (
                 "pro" if gen <= 64 else "pro_velky")
 
+            # Po kom se dedi styl. Teren se sem nepocita (`tile_feature` a
+            # `style_images` se podle ziveho schematu vylucuji, viz terrain_riders()),
+            # stejne tak koren rodiny a ten, kdo se veze v cizim volani. Musi se to
+            # vedet uz TADY, protoze podle toho se deli davky (nize).
+            style_from = None
+            if eid not in riders and tier != "tileset" and r["base"] not in ("-", ""):
+                style_from = r["base"]
+
             # Davka: az `maxbatch` polozek sdili jedno volani. Kdo davku otevre, plati.
             batch_id, leads = None, True
             if eid in riders:
@@ -330,14 +411,24 @@ def build(bible, schema):
                 cur = open_batches.get(kind)
                 # Do jedne davky nesmi spadnout entita se svym vlastnim `base`: jedno
                 # volani vznika naraz, takze by se odkazovalo na PNG, ktere jeste neni.
-                if cur and len(cur[1]) < maxbatch and r["base"] not in cur[1]:
-                    batch_id, members = cur
+                #
+                # A nesmi se michat ZDROJE STYLU. `style_images` je parametr VOLANI, ne
+                # polozky -- jedno volani umi nest jedinou stylovou referenci, at uz v
+                # `item_descriptions` sedi ctyri objekty nebo jeden. Do 2026-09-04 to
+                # nevadilo jen proto, ze reference nikde v parametrech nebyla (byla to
+                # veta ve sloupci "zavislost"); jakmile v parametrech je, davka
+                # `habit_05` (accountability_2 + exercise_2 + mindfulness_2 +
+                # real_hobby_2, kazdy dedici po JINEM tier 1) je objednavka, kterou API
+                # splnit neumi. Deli se proto podle zdroje -- draz, ale objednatelne.
+                if (cur and len(cur[1]) < maxbatch and r["base"] not in cur[1]
+                        and cur[2] == style_from):
+                    batch_id, members, _src = cur
                     members.append(eid)
                     leads = False
                 else:
                     batch_no += 1
                     batch_id = "%s_%02d" % (kind, batch_no)
-                    open_batches[kind] = (batch_id, [eid])
+                    open_batches[kind] = (batch_id, [eid], style_from)
 
             # Design constraints (STYLE_BIBLE.md §7b) jdou hned za formu, PRED technicky
             # suffix (§7) -- obsah driv, technika kresby az po nem. Je to jedina cesta,
@@ -380,7 +471,10 @@ def build(bible, schema):
                 # per-kus popis pro pripad, ze `size` vyrobi vic objektu najednou.
                 params["description"] = prompt
                 params["item_descriptions"] = [prompt]
-                params["size"] = gen
+                # `size` JEN kdyz se nededi styl: zive schema obe pole vylucuje a
+                # velikost pak urcuje nejvetsi style image (viz style_images nize).
+                if style_from is None:
+                    params["size"] = gen
             else:
                 params["description"] = prompt
                 params["name"] = eid
@@ -392,20 +486,49 @@ def build(bible, schema):
                 anchor = bible["anchors"][r["family"]]
                 params["style_character_id"] = anchor["style_character_id"]
 
+            # Dedicnost stylu patri do PARAMETRU volani. Do 2026-09-04 se zapisovala
+            # jen jako veta do sloupce "zavislost" -- dokument tvrdil "style_images =
+            # hotove PNG entity X", ale v `params` nic takoveho nebylo, takze
+            # objednavka by dedila NIC a rozdil by se poznal az na stazenem vysledku.
+            # Nastroj rozhoduje, KTERYM parametrem styl cestuje, a rozhoduje o tom
+            # zive schema, ne domenka:
+            #   * `create_1_direction_object` ma `style_images` -> jde tudy
+            #   * `create_character` `style_images` NEMA; u postav nese rodinu
+            #     `style_character_id` z gen:anchors (nastavene o par radku vys)
+            if style_from is not None and "style_images" in schema[
+                    tool["mcp_tool"].rsplit("__", 1)[-1]]["properties"]:
+                # Jmeno entity, ne cesta a uz vubec ne base64 -- prevod na to, co bere
+                # API, dela `style_images_payload()` az pri volani (viz jeho docstring).
+                params["style_images"] = [{"entity": style_from, "format": "png"}]
+
             # Osek na to, co dane MCP volani OPRAVDU prijme -- viz adapt_to_schema().
             params, _dropped = adapt_to_schema(tool["mcp_tool"], params, schema)
 
+            # Veta ve sloupci "zavislost" popisuje TENTYZ parametr, ktery je o kus vys
+            # v `params` -- nikdy jiny. Drive tu stalo `init_image_url` u tier 2 habitu;
+            # takovy parametr `create_1_direction_object` v zivem schematu NEMA (jeho
+            # pole jsou description/item_descriptions/size/style_images/view), takze
+            # to byl slib, ktery API neumi splnit. Tier 2 dedi toutez cestou jako
+            # zbytek objektu -- pres `style_images`.
             depends = ""
             if eid in riders:
                 depends = ("vzniká jako druhý terén ve volání entity %s — vlastní volání "
                            "nemá a neplatí se" % riders[eid])
-            elif r["base"] not in ("-", ""):
-                if tier == "tileset":
-                    depends = "%s je v tomhle volání druhý terén" % r["base"]
-                elif kind == "habit" and eid.endswith(("_2", "_2a", "_2b")):
-                    depends = "init_image_url = hotové PNG entity %s (tier 2 je TÁŽ kresba)" % r["base"]
+            elif tier == "tileset" and r["base"] not in ("-", ""):
+                depends = "%s je v tomhle volání druhý terén" % r["base"]
+            elif style_from is not None:
+                if "style_images" in params:
+                    depends = ("`style_images` = vybraný kandidát entity %s "
+                               "(gen:selected), zmenšený na %d px — velikost výstupu "
+                               "určuje největší style image, proto se `size` neposílá"
+                               % (style_from, gen))
+                elif "style_character_id" in params:
+                    depends = ("rodinu drží `style_character_id` (%s); %s je v plánu "
+                               "kořen téže rodiny, ne parametr volání"
+                               % (r["family"], style_from))
                 else:
-                    depends = "style_images = hotové PNG entity %s (dědí styl i rozměr)" % r["base"]
+                    depends = ("dědí po %s, ale %s pro to nemá parametr — styl nese "
+                               "jen text promptu" % (style_from, tool["mcp_tool"]))
 
             index += 1
             records.append({
@@ -424,6 +547,7 @@ def build(bible, schema):
                 "leads": leads,
                 "anchor": anchor,
                 "base": r["base"],
+                "style_from": style_from,
                 "co_produced": riders.get(r["base"]) == eid or eid in riders,
                 "depends": depends,
                 "prompt": prompt,
@@ -518,7 +642,17 @@ def render(bible, records):
     w("10. **`animate_character` nad 64 px tiše eskaluje na `pro`** = 20–40 generací")
     w("    *na směr*, když se nepošle `mode:\"v3\"` výslovně. Do animací se nesahá dřív,")
     w("    než statická sada projde bránou fáze 3.")
-    w("11. **`create_character` a `create_1_direction_object` NEMAJÍ žádný parametr pro")
+    w("11. **Dědičnost stylu je PARAMETR, ne poznámka.** Entita, která v")
+    w("    `STYLE_BIBLE.md` §12 dědí po jiné, to má v `params` níž: objekty přes")
+    w("    `style_images`, postavy přes `style_character_id`. `style_images` se v tomhle")
+    w("    dokumentu píše jako JMÉNO ENTITY; na base64, které API vyžaduje, ho převede")
+    w("    `gen_art_prompts.style_images_payload()` až při volání, ze souboru")
+    w("    vybraného v `gen:selected`. Dvě věci z toho plynou a obě jsou měřitelné:")
+    w("    dědit jde jen z entity, ze které už uživatel vybral kandidáta, a **`size`")
+    w("    se u takového volání neposílá vůbec** — živé schéma obě pole vylučuje a")
+    w("    výstupní rozměr určuje největší style image, takže se reference před")
+    w("    odesláním zmenší na velikost objednávky.")
+    w("12. **`create_character` a `create_1_direction_object` NEMAJÍ žádný parametr pro")
     w("    seed ani jinou formu determinismu** — ověřeno proti živému schématu")
     w("    (`tools/pixellab_schema.json`, A0b). Objednávka stejné postavy/objektu")
     w("    podruhé dá JINÝ výsledek, ne reprodukci. `seed` v `params` níže u nich")

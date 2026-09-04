@@ -12,10 +12,10 @@
 | fáze | název | entit | volání | generací |
 |---|---|---|---|---|
 | 0 | Focus core, habit a obránce-kotva | 3 | 3 | 80 |
-| 1 | Zbytek rejstříku | 34 | 21 | 440 |
-| **celkem** | | **37** | **24** | **520** |
+| 1 | Zbytek rejstříku | 34 | 24 | 500 |
+| **celkem** | | **37** | **27** | **580** |
 
-**37 entit, 24 volání, 520 generací** (pesimisticky — horní hranice každého pásma,
+**37 entit, 27 volání, 580 generací** (pesimisticky — horní hranice každého pásma,
 viz STYLE_BIBLE.md §9). Animace se sem nepočítají, jsou vlastní kolo.
 
 Rozpad podle druhu:
@@ -26,7 +26,7 @@ Rozpad podle druhu:
 | distraction | 12 | 12 | 240 | 32 px |
 | distraction_boss | 1 | 1 | 40 | 64 px |
 | focus_core | 1 | 1 | 40 | 96 px |
-| habit | 15 | 5 | 100 | 64 px |
+| habit | 15 | 8 | 160 | 64 px |
 | prop | 4 | 1 | 20 | 32 px |
 
 ## Co platí pro každé jedno volání
@@ -62,7 +62,17 @@ Rozpad podle druhu:
 10. **`animate_character` nad 64 px tiše eskaluje na `pro`** = 20–40 generací
     *na směr*, když se nepošle `mode:"v3"` výslovně. Do animací se nesahá dřív,
     než statická sada projde bránou fáze 3.
-11. **`create_character` a `create_1_direction_object` NEMAJÍ žádný parametr pro
+11. **Dědičnost stylu je PARAMETR, ne poznámka.** Entita, která v
+    `STYLE_BIBLE.md` §12 dědí po jiné, to má v `params` níž: objekty přes
+    `style_images`, postavy přes `style_character_id`. `style_images` se v tomhle
+    dokumentu píše jako JMÉNO ENTITY; na base64, které API vyžaduje, ho převede
+    `gen_art_prompts.style_images_payload()` až při volání, ze souboru
+    vybraného v `gen:selected`. Dvě věci z toho plynou a obě jsou měřitelné:
+    dědit jde jen z entity, ze které už uživatel vybral kandidáta, a **`size`
+    se u takového volání neposílá vůbec** — živé schéma obě pole vylučuje a
+    výstupní rozměr určuje největší style image, takže se reference před
+    odesláním zmenší na velikost objednávky.
+12. **`create_character` a `create_1_direction_object` NEMAJÍ žádný parametr pro
     seed ani jinou formu determinismu** — ověřeno proti živému schématu
     (`tools/pixellab_schema.json`, A0b). Objednávka stejné postavy/objektu
     podruhé dá JINÝ výsledek, ne reprodukci. `seed` v `params` níže u nich
@@ -224,7 +234,7 @@ vybráno uživatelem 30. 8. 2026; paleta už hotová (cand_00_pal48.png)
 | velikost na disku | 64 art px (STYLE_BIBLE.md §5, kind `habit`) |
 | velikost objednávky | 64 px, bez půlení |
 | kotva | žádná — není to postava, rodinu drží dědičnost níž |
-| závislost | style_images = hotové PNG entity prop_focus_core (dědí styl i rozměr) |
+| závislost | `style_images` = vybraný kandidát entity prop_focus_core (gen:selected), zmenšený na 64 px — velikost výstupu určuje největší style image, proto se `size` neposílá |
 | dávka | `habit_01` |
 | cena | 20 generací (tier `pro`) |
 
@@ -236,7 +246,12 @@ vybráno uživatelem 30. 8. 2026; paleta už hotová (cand_00_pal48.png)
   "item_descriptions": [
     "a round glial cell body with one coiled process wound like a spring and a single warm amber node, working in bursts; no eyes and no face anywhere, no brows and no mouth on any entity; no arms and no legs anywhere, except the four Nutrition Guild defenders, who hold a weapon or tool and therefore have hands; every habit is geometric, built from flat faces and clean arcs on a square or circular base, symmetrical about its vertical axis, with hard cut edges, and reads cool, quiet and controlled; every distraction, including the boss, is an amorphous organic mass of curved fibrous matter with an irregular dissolving edge, no two edges alike, no geometry anywhere in it and no mechanical parts, panels or screws, and reads warm, saturated and enticing; terrain, props and the focus core read neutral and quiet; flat colour fields only, no dithering, no texture noise, no gradient banding; built and rooted things sit still and anchored to the tissue, anything that moves stays low and in contact with the surface, nothing floats or hovers clear of the ground; camera is a low top-down view straight at the subject, front-facing, zero isometric tilt, no camera pitch; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; not a literal brain or organ, no anatomical diagram, no medical illustration; centered, full object visible, margin on all sides; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "size": 64,
+  "style_images": [
+    {
+      "entity": "prop_focus_core",
+      "format": "png"
+    }
+  ],
   "view": "top-down"
 }
 ```
@@ -255,7 +270,7 @@ vybráno uživatelem 30. 8. 2026; paleta zatím neproběhla
 
 ## Fáze 1 — Zbytek rejstříku
 
-**Cena:** 440 generací · **volání:** 21 · **entit:** 34
+**Cena:** 500 generací · **volání:** 24 · **entit:** 34
 
 **Brána, než se pustí další fáze:** Každá vygenerovaná postava má siluetu rozeznatelnou od ostatních v kontaktním listu v herním měřítku a jas nad pásmem cesty (146).
 
@@ -269,7 +284,7 @@ vybráno uživatelem 30. 8. 2026; paleta zatím neproběhla
 | velikost na disku | 64 art px (STYLE_BIBLE.md §5, kind `habit`) |
 | velikost objednávky | 64 px, bez půlení |
 | kotva | žádná — není to postava, rodinu drží dědičnost níž |
-| závislost | style_images = hotové PNG entity focus_timer (dědí styl i rozměr) |
+| závislost | `style_images` = vybraný kandidát entity focus_timer (gen:selected), zmenšený na 64 px — velikost výstupu určuje největší style image, proto se `size` neposílá |
 | dávka | `habit_02` |
 | cena | 20 generací (tier `pro`) |
 
@@ -281,7 +296,12 @@ vybráno uživatelem 30. 8. 2026; paleta zatím neproběhla
   "item_descriptions": [
     "a nest of several small round glial bodies sharing one teal membrane, a place others come out of; no eyes and no face anywhere, no brows and no mouth on any entity; no arms and no legs anywhere, except the four Nutrition Guild defenders, who hold a weapon or tool and therefore have hands; every habit is geometric, built from flat faces and clean arcs on a square or circular base, symmetrical about its vertical axis, with hard cut edges, and reads cool, quiet and controlled; every distraction, including the boss, is an amorphous organic mass of curved fibrous matter with an irregular dissolving edge, no two edges alike, no geometry anywhere in it and no mechanical parts, panels or screws, and reads warm, saturated and enticing; terrain, props and the focus core read neutral and quiet; flat colour fields only, no dithering, no texture noise, no gradient banding; built and rooted things sit still and anchored to the tissue, anything that moves stays low and in contact with the surface, nothing floats or hovers clear of the ground; camera is a low top-down view straight at the subject, front-facing, zero isometric tilt, no camera pitch; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; not a literal brain or organ, no anatomical diagram, no medical illustration; centered, full object visible, margin on all sides; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "size": 64,
+  "style_images": [
+    {
+      "entity": "focus_timer",
+      "format": "png"
+    }
+  ],
   "view": "top-down"
 }
 ```
@@ -302,7 +322,7 @@ a nest of several small round glial bodies sharing one teal membrane, a place ot
 | velikost na disku | 64 art px (STYLE_BIBLE.md §5, kind `habit`) |
 | velikost objednávky | 64 px, bez půlení |
 | kotva | žádná — není to postava, rodinu drží dědičnost níž |
-| závislost | style_images = hotové PNG entity focus_timer (dědí styl i rozměr) |
+| závislost | `style_images` = vybraný kandidát entity focus_timer (gen:selected), zmenšený na 64 px — velikost výstupu určuje největší style image, proto se `size` neposílá |
 | dávka | `habit_02` — jede v už otevřeném volání |
 | cena | 0 — placeno v dávce `habit_02` |
 
@@ -314,7 +334,12 @@ a nest of several small round glial bodies sharing one teal membrane, a place ot
   "item_descriptions": [
     "a squat glial body rooted into the tissue by thick processes, one cyan crystal node, it holds and does not fire; no eyes and no face anywhere, no brows and no mouth on any entity; no arms and no legs anywhere, except the four Nutrition Guild defenders, who hold a weapon or tool and therefore have hands; every habit is geometric, built from flat faces and clean arcs on a square or circular base, symmetrical about its vertical axis, with hard cut edges, and reads cool, quiet and controlled; every distraction, including the boss, is an amorphous organic mass of curved fibrous matter with an irregular dissolving edge, no two edges alike, no geometry anywhere in it and no mechanical parts, panels or screws, and reads warm, saturated and enticing; terrain, props and the focus core read neutral and quiet; flat colour fields only, no dithering, no texture noise, no gradient banding; built and rooted things sit still and anchored to the tissue, anything that moves stays low and in contact with the surface, nothing floats or hovers clear of the ground; camera is a low top-down view straight at the subject, front-facing, zero isometric tilt, no camera pitch; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; not a literal brain or organ, no anatomical diagram, no medical illustration; centered, full object visible, margin on all sides; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "size": 64,
+  "style_images": [
+    {
+      "entity": "focus_timer",
+      "format": "png"
+    }
+  ],
   "view": "top-down"
 }
 ```
@@ -335,7 +360,7 @@ a squat glial body rooted into the tissue by thick processes, one cyan crystal n
 | velikost na disku | 64 art px (STYLE_BIBLE.md §5, kind `defender`) |
 | velikost objednávky | 64 px, bez půlení |
 | kotva | `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (general) |
-| závislost | style_images = hotové PNG entity broccoli_knight (dědí styl i rozměr) |
+| závislost | rodinu drží `style_character_id` (general); broccoli_knight je v plánu kořen téže rodiny, ne parametr volání |
 | dávka | samostatné volání |
 | cena | 20 generací (tier `pro`) |
 
@@ -369,7 +394,7 @@ an avocado monk with wrapped fists and a stone pit core, calm, mends the defende
 | velikost na disku | 64 art px (STYLE_BIBLE.md §5, kind `defender`) |
 | velikost objednávky | 64 px, bez půlení |
 | kotva | `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (general) |
-| závislost | style_images = hotové PNG entity broccoli_knight (dědí styl i rozměr) |
+| závislost | rodinu drží `style_character_id` (general); broccoli_knight je v plánu kořen téže rodiny, ne parametr volání |
 | dávka | samostatné volání |
 | cena | 20 generací (tier `pro`) |
 
@@ -437,7 +462,7 @@ a pathogen dominated by one huge lidless eye with a barbed rim, pink, armoured a
 | velikost na disku | 32 art px (STYLE_BIBLE.md §5, kind `prop`) |
 | velikost objednávky | 32 px, bez půlení |
 | kotva | žádná — není to postava, rodinu drží dědičnost níž |
-| závislost | style_images = hotové PNG entity prop_focus_core (dědí styl i rozměr) |
+| závislost | `style_images` = vybraný kandidát entity prop_focus_core (gen:selected), zmenšený na 32 px — velikost výstupu určuje největší style image, proto se `size` neposílá |
 | dávka | `prop_03` |
 | cena | 20 generací (tier `pro`) |
 
@@ -449,7 +474,12 @@ a pathogen dominated by one huge lidless eye with a barbed rim, pink, armoured a
   "item_descriptions": [
     "a small tangled knot of fibres resting on the tissue, scenery only; no eyes and no face anywhere, no brows and no mouth on any entity; no arms and no legs anywhere, except the four Nutrition Guild defenders, who hold a weapon or tool and therefore have hands; every habit is geometric, built from flat faces and clean arcs on a square or circular base, symmetrical about its vertical axis, with hard cut edges, and reads cool, quiet and controlled; every distraction, including the boss, is an amorphous organic mass of curved fibrous matter with an irregular dissolving edge, no two edges alike, no geometry anywhere in it and no mechanical parts, panels or screws, and reads warm, saturated and enticing; terrain, props and the focus core read neutral and quiet; flat colour fields only, no dithering, no texture noise, no gradient banding; built and rooted things sit still and anchored to the tissue, anything that moves stays low and in contact with the surface, nothing floats or hovers clear of the ground; camera is a low top-down view straight at the subject, front-facing, zero isometric tilt, no camera pitch; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; not a literal brain or organ, no anatomical diagram, no medical illustration; centered, full object visible, margin on all sides; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "size": 32,
+  "style_images": [
+    {
+      "entity": "prop_focus_core",
+      "format": "png"
+    }
+  ],
   "view": "top-down"
 }
 ```
@@ -470,7 +500,7 @@ a small tangled knot of fibres resting on the tissue, scenery only; no eyes and 
 | velikost na disku | 32 art px (STYLE_BIBLE.md §5, kind `prop`) |
 | velikost objednávky | 32 px, bez půlení |
 | kotva | žádná — není to postava, rodinu drží dědičnost níž |
-| závislost | style_images = hotové PNG entity prop_focus_core (dědí styl i rozměr) |
+| závislost | `style_images` = vybraný kandidát entity prop_focus_core (gen:selected), zmenšený na 32 px — velikost výstupu určuje největší style image, proto se `size` neposílá |
 | dávka | `prop_03` — jede v už otevřeném volání |
 | cena | 0 — placeno v dávce `prop_03` |
 
@@ -482,7 +512,12 @@ a small tangled knot of fibres resting on the tissue, scenery only; no eyes and 
   "item_descriptions": [
     "a small synaptic cleft between two processes, scenery only, never reads as a collectable; no eyes and no face anywhere, no brows and no mouth on any entity; no arms and no legs anywhere, except the four Nutrition Guild defenders, who hold a weapon or tool and therefore have hands; every habit is geometric, built from flat faces and clean arcs on a square or circular base, symmetrical about its vertical axis, with hard cut edges, and reads cool, quiet and controlled; every distraction, including the boss, is an amorphous organic mass of curved fibrous matter with an irregular dissolving edge, no two edges alike, no geometry anywhere in it and no mechanical parts, panels or screws, and reads warm, saturated and enticing; terrain, props and the focus core read neutral and quiet; flat colour fields only, no dithering, no texture noise, no gradient banding; built and rooted things sit still and anchored to the tissue, anything that moves stays low and in contact with the surface, nothing floats or hovers clear of the ground; camera is a low top-down view straight at the subject, front-facing, zero isometric tilt, no camera pitch; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; not a literal brain or organ, no anatomical diagram, no medical illustration; centered, full object visible, margin on all sides; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "size": 32,
+  "style_images": [
+    {
+      "entity": "prop_focus_core",
+      "format": "png"
+    }
+  ],
   "view": "top-down"
 }
 ```
@@ -503,7 +538,7 @@ a small synaptic cleft between two processes, scenery only, never reads as a col
 | velikost na disku | 64 art px (STYLE_BIBLE.md §5, kind `habit`) |
 | velikost objednávky | 64 px, bez půlení |
 | kotva | žádná — není to postava, rodinu drží dědičnost níž |
-| závislost | style_images = hotové PNG entity focus_timer (dědí styl i rozměr) |
+| závislost | `style_images` = vybraný kandidát entity focus_timer (gen:selected), zmenšený na 64 px — velikost výstupu určuje největší style image, proto se `size` neposílá |
 | dávka | `habit_02` — jede v už otevřeném volání |
 | cena | 0 — placeno v dávce `habit_02` |
 
@@ -515,7 +550,12 @@ a small synaptic cleft between two processes, scenery only, never reads as a col
   "item_descriptions": [
     "a thick walled glial body with a glowing orange core showing through the membrane, heavy and slow; no eyes and no face anywhere, no brows and no mouth on any entity; no arms and no legs anywhere, except the four Nutrition Guild defenders, who hold a weapon or tool and therefore have hands; every habit is geometric, built from flat faces and clean arcs on a square or circular base, symmetrical about its vertical axis, with hard cut edges, and reads cool, quiet and controlled; every distraction, including the boss, is an amorphous organic mass of curved fibrous matter with an irregular dissolving edge, no two edges alike, no geometry anywhere in it and no mechanical parts, panels or screws, and reads warm, saturated and enticing; terrain, props and the focus core read neutral and quiet; flat colour fields only, no dithering, no texture noise, no gradient banding; built and rooted things sit still and anchored to the tissue, anything that moves stays low and in contact with the surface, nothing floats or hovers clear of the ground; camera is a low top-down view straight at the subject, front-facing, zero isometric tilt, no camera pitch; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; not a literal brain or organ, no anatomical diagram, no medical illustration; centered, full object visible, margin on all sides; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "size": 64,
+  "style_images": [
+    {
+      "entity": "focus_timer",
+      "format": "png"
+    }
+  ],
   "view": "top-down"
 }
 ```
@@ -536,7 +576,7 @@ a thick walled glial body with a glowing orange core showing through the membran
 | velikost na disku | 64 art px (STYLE_BIBLE.md §5, kind `habit`) |
 | velikost objednávky | 64 px, bez půlení |
 | kotva | žádná — není to postava, rodinu drží dědičnost níž |
-| závislost | style_images = hotové PNG entity focus_timer (dědí styl i rozměr) |
+| závislost | `style_images` = vybraný kandidát entity focus_timer (gen:selected), zmenšený na 64 px — velikost výstupu určuje největší style image, proto se `size` neposílá |
 | dávka | `habit_02` — jede v už otevřeném volání |
 | cena | 0 — placeno v dávce `habit_02` |
 
@@ -548,7 +588,12 @@ a thick walled glial body with a glowing orange core showing through the membran
   "item_descriptions": [
     "a fluted round glial column with a single cyan crystal at its crown, quiet and upright; no eyes and no face anywhere, no brows and no mouth on any entity; no arms and no legs anywhere, except the four Nutrition Guild defenders, who hold a weapon or tool and therefore have hands; every habit is geometric, built from flat faces and clean arcs on a square or circular base, symmetrical about its vertical axis, with hard cut edges, and reads cool, quiet and controlled; every distraction, including the boss, is an amorphous organic mass of curved fibrous matter with an irregular dissolving edge, no two edges alike, no geometry anywhere in it and no mechanical parts, panels or screws, and reads warm, saturated and enticing; terrain, props and the focus core read neutral and quiet; flat colour fields only, no dithering, no texture noise, no gradient banding; built and rooted things sit still and anchored to the tissue, anything that moves stays low and in contact with the surface, nothing floats or hovers clear of the ground; camera is a low top-down view straight at the subject, front-facing, zero isometric tilt, no camera pitch; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; not a literal brain or organ, no anatomical diagram, no medical illustration; centered, full object visible, margin on all sides; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "size": 64,
+  "style_images": [
+    {
+      "entity": "focus_timer",
+      "format": "png"
+    }
+  ],
   "view": "top-down"
 }
 ```
@@ -569,7 +614,7 @@ a fluted round glial column with a single cyan crystal at its crown, quiet and u
 | velikost na disku | 64 art px (STYLE_BIBLE.md §5, kind `habit`) |
 | velikost objednávky | 64 px, bez půlení |
 | kotva | žádná — není to postava, rodinu drží dědičnost níž |
-| závislost | init_image_url = hotové PNG entity focus_timer (tier 2 je TÁŽ kresba) |
+| závislost | `style_images` = vybraný kandidát entity focus_timer (gen:selected), zmenšený na 64 px — velikost výstupu určuje největší style image, proto se `size` neposílá |
 | dávka | `habit_04` |
 | cena | 20 generací (tier `pro`) |
 
@@ -581,7 +626,12 @@ a fluted round glial column with a single cyan crystal at its crown, quiet and u
   "item_descriptions": [
     "the same cell escalated, the coil tighter and doubled, the amber node brighter, one added ring; no eyes and no face anywhere, no brows and no mouth on any entity; no arms and no legs anywhere, except the four Nutrition Guild defenders, who hold a weapon or tool and therefore have hands; every habit is geometric, built from flat faces and clean arcs on a square or circular base, symmetrical about its vertical axis, with hard cut edges, and reads cool, quiet and controlled; every distraction, including the boss, is an amorphous organic mass of curved fibrous matter with an irregular dissolving edge, no two edges alike, no geometry anywhere in it and no mechanical parts, panels or screws, and reads warm, saturated and enticing; terrain, props and the focus core read neutral and quiet; flat colour fields only, no dithering, no texture noise, no gradient banding; built and rooted things sit still and anchored to the tissue, anything that moves stays low and in contact with the surface, nothing floats or hovers clear of the ground; camera is a low top-down view straight at the subject, front-facing, zero isometric tilt, no camera pitch; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; not a literal brain or organ, no anatomical diagram, no medical illustration; centered, full object visible, margin on all sides; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "size": 64,
+  "style_images": [
+    {
+      "entity": "focus_timer",
+      "format": "png"
+    }
+  ],
   "view": "top-down"
 }
 ```
@@ -602,7 +652,7 @@ the same cell escalated, the coil tighter and doubled, the amber node brighter, 
 | velikost na disku | 64 art px (STYLE_BIBLE.md §5, kind `defender`) |
 | velikost objednávky | 64 px, bez půlení |
 | kotva | `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (general) |
-| závislost | style_images = hotové PNG entity broccoli_knight (dědí styl i rozměr) |
+| závislost | rodinu drží `style_character_id` (general); broccoli_knight je v plánu kořen téže rodiny, ne parametr volání |
 | dávka | samostatné volání |
 | cena | 20 generací (tier `pro`) |
 
@@ -636,7 +686,7 @@ an ivory garlic bulb sage with a root staff, its pungent air slows everything sh
 | velikost na disku | 64 art px (STYLE_BIBLE.md §5, kind `habit`) |
 | velikost objednávky | 64 px, bez půlení |
 | kotva | žádná — není to postava, rodinu drží dědičnost níž |
-| závislost | style_images = hotové PNG entity focus_timer (dědí styl i rozměr) |
+| závislost | `style_images` = vybraný kandidát entity focus_timer (gen:selected), zmenšený na 64 px — velikost výstupu určuje největší style image, proto se `size` neposílá |
 | dávka | `habit_04` — jede v už otevřeném volání |
 | cena | 0 — placeno v dávce `habit_04` |
 
@@ -648,7 +698,12 @@ an ivory garlic bulb sage with a root staff, its pungent air slows everything sh
   "item_descriptions": [
     "a round glial cell under a wide crown of fine violet dendritic processes, reaching over everything nearby; no eyes and no face anywhere, no brows and no mouth on any entity; no arms and no legs anywhere, except the four Nutrition Guild defenders, who hold a weapon or tool and therefore have hands; every habit is geometric, built from flat faces and clean arcs on a square or circular base, symmetrical about its vertical axis, with hard cut edges, and reads cool, quiet and controlled; every distraction, including the boss, is an amorphous organic mass of curved fibrous matter with an irregular dissolving edge, no two edges alike, no geometry anywhere in it and no mechanical parts, panels or screws, and reads warm, saturated and enticing; terrain, props and the focus core read neutral and quiet; flat colour fields only, no dithering, no texture noise, no gradient banding; built and rooted things sit still and anchored to the tissue, anything that moves stays low and in contact with the surface, nothing floats or hovers clear of the ground; camera is a low top-down view straight at the subject, front-facing, zero isometric tilt, no camera pitch; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; not a literal brain or organ, no anatomical diagram, no medical illustration; centered, full object visible, margin on all sides; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "size": 64,
+  "style_images": [
+    {
+      "entity": "focus_timer",
+      "format": "png"
+    }
+  ],
   "view": "top-down"
 }
 ```
@@ -669,7 +724,7 @@ a round glial cell under a wide crown of fine violet dendritic processes, reachi
 | velikost na disku | 32 art px (STYLE_BIBLE.md §5, kind `prop`) |
 | velikost objednávky | 32 px, bez půlení |
 | kotva | žádná — není to postava, rodinu drží dědičnost níž |
-| závislost | style_images = hotové PNG entity prop_focus_core (dědí styl i rozměr) |
+| závislost | `style_images` = vybraný kandidát entity prop_focus_core (gen:selected), zmenšený na 32 px — velikost výstupu určuje největší style image, proto se `size` neposílá |
 | dávka | `prop_03` — jede v už otevřeném volání |
 | cena | 0 — placeno v dávce `prop_03` |
 
@@ -681,7 +736,12 @@ a round glial cell under a wide crown of fine violet dendritic processes, reachi
   "item_descriptions": [
     "a synaptic vesicle, a small round warm amber droplet swollen to bursting, translucent membrane; no eyes and no face anywhere, no brows and no mouth on any entity; no arms and no legs anywhere, except the four Nutrition Guild defenders, who hold a weapon or tool and therefore have hands; every habit is geometric, built from flat faces and clean arcs on a square or circular base, symmetrical about its vertical axis, with hard cut edges, and reads cool, quiet and controlled; every distraction, including the boss, is an amorphous organic mass of curved fibrous matter with an irregular dissolving edge, no two edges alike, no geometry anywhere in it and no mechanical parts, panels or screws, and reads warm, saturated and enticing; terrain, props and the focus core read neutral and quiet; flat colour fields only, no dithering, no texture noise, no gradient banding; built and rooted things sit still and anchored to the tissue, anything that moves stays low and in contact with the surface, nothing floats or hovers clear of the ground; camera is a low top-down view straight at the subject, front-facing, zero isometric tilt, no camera pitch; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; not a literal brain or organ, no anatomical diagram, no medical illustration; centered, full object visible, margin on all sides; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "size": 32,
+  "style_images": [
+    {
+      "entity": "prop_focus_core",
+      "format": "png"
+    }
+  ],
   "view": "top-down"
 }
 ```
@@ -702,7 +762,7 @@ a synaptic vesicle, a small round warm amber droplet swollen to bursting, transl
 | velikost na disku | 32 art px (STYLE_BIBLE.md §5, kind `prop`) |
 | velikost objednávky | 32 px, bez půlení |
 | kotva | žádná — není to postava, rodinu drží dědičnost níž |
-| závislost | style_images = hotové PNG entity prop_focus_core (dědí styl i rozměr) |
+| závislost | `style_images` = vybraný kandidát entity prop_focus_core (gen:selected), zmenšený na 32 px — velikost výstupu určuje největší style image, proto se `size` neposílá |
 | dávka | `prop_03` — jede v už otevřeném volání |
 | cena | 0 — placeno v dávce `prop_03` |
 
@@ -714,7 +774,12 @@ a synaptic vesicle, a small round warm amber droplet swollen to bursting, transl
   "item_descriptions": [
     "a torn opening in the tissue where something comes through, ragged cold edges, dark and empty inside; no eyes and no face anywhere, no brows and no mouth on any entity; no arms and no legs anywhere, except the four Nutrition Guild defenders, who hold a weapon or tool and therefore have hands; every habit is geometric, built from flat faces and clean arcs on a square or circular base, symmetrical about its vertical axis, with hard cut edges, and reads cool, quiet and controlled; every distraction, including the boss, is an amorphous organic mass of curved fibrous matter with an irregular dissolving edge, no two edges alike, no geometry anywhere in it and no mechanical parts, panels or screws, and reads warm, saturated and enticing; terrain, props and the focus core read neutral and quiet; flat colour fields only, no dithering, no texture noise, no gradient banding; built and rooted things sit still and anchored to the tissue, anything that moves stays low and in contact with the surface, nothing floats or hovers clear of the ground; camera is a low top-down view straight at the subject, front-facing, zero isometric tilt, no camera pitch; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; not a literal brain or organ, no anatomical diagram, no medical illustration; centered, full object visible, margin on all sides; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "size": 32,
+  "style_images": [
+    {
+      "entity": "prop_focus_core",
+      "format": "png"
+    }
+  ],
   "view": "top-down"
 }
 ```
@@ -735,7 +800,7 @@ a torn opening in the tissue where something comes through, ragged cold edges, d
 | velikost na disku | 64 art px (STYLE_BIBLE.md §5, kind `habit`) |
 | velikost objednávky | 64 px, bez půlení |
 | kotva | žádná — není to postava, rodinu drží dědičnost níž |
-| závislost | style_images = hotové PNG entity focus_timer (dědí styl i rozměr) |
+| závislost | `style_images` = vybraný kandidát entity focus_timer (gen:selected), zmenšený na 64 px — velikost výstupu určuje největší style image, proto se `size` neposílá |
 | dávka | `habit_04` — jede v už otevřeném volání |
 | cena | 0 — placeno v dávce `habit_04` |
 
@@ -747,7 +812,12 @@ a torn opening in the tissue where something comes through, ragged cold edges, d
   "item_descriptions": [
     "a slender glial column fraying at the top into many fine golden fibres, reaching further than anything else; no eyes and no face anywhere, no brows and no mouth on any entity; no arms and no legs anywhere, except the four Nutrition Guild defenders, who hold a weapon or tool and therefore have hands; every habit is geometric, built from flat faces and clean arcs on a square or circular base, symmetrical about its vertical axis, with hard cut edges, and reads cool, quiet and controlled; every distraction, including the boss, is an amorphous organic mass of curved fibrous matter with an irregular dissolving edge, no two edges alike, no geometry anywhere in it and no mechanical parts, panels or screws, and reads warm, saturated and enticing; terrain, props and the focus core read neutral and quiet; flat colour fields only, no dithering, no texture noise, no gradient banding; built and rooted things sit still and anchored to the tissue, anything that moves stays low and in contact with the surface, nothing floats or hovers clear of the ground; camera is a low top-down view straight at the subject, front-facing, zero isometric tilt, no camera pitch; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; not a literal brain or organ, no anatomical diagram, no medical illustration; centered, full object visible, margin on all sides; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "size": 64,
+  "style_images": [
+    {
+      "entity": "focus_timer",
+      "format": "png"
+    }
+  ],
   "view": "top-down"
 }
 ```
@@ -768,7 +838,7 @@ a slender glial column fraying at the top into many fine golden fibres, reaching
 | velikost na disku | 64 art px (STYLE_BIBLE.md §5, kind `habit`) |
 | velikost objednávky | 64 px, bez půlení |
 | kotva | žádná — není to postava, rodinu drží dědičnost níž |
-| závislost | style_images = hotové PNG entity focus_timer (dědí styl i rozměr) |
+| závislost | `style_images` = vybraný kandidát entity focus_timer (gen:selected), zmenšený na 64 px — velikost výstupu určuje největší style image, proto se `size` neposílá |
 | dávka | `habit_04` — jede v už otevřeném volání |
 | cena | 0 — placeno v dávce `habit_04` |
 
@@ -780,7 +850,12 @@ a slender glial column fraying at the top into many fine golden fibres, reaching
   "item_descriptions": [
     "a spherical glial bulb held inside one standing cyan ring, still until it releases; no eyes and no face anywhere, no brows and no mouth on any entity; no arms and no legs anywhere, except the four Nutrition Guild defenders, who hold a weapon or tool and therefore have hands; every habit is geometric, built from flat faces and clean arcs on a square or circular base, symmetrical about its vertical axis, with hard cut edges, and reads cool, quiet and controlled; every distraction, including the boss, is an amorphous organic mass of curved fibrous matter with an irregular dissolving edge, no two edges alike, no geometry anywhere in it and no mechanical parts, panels or screws, and reads warm, saturated and enticing; terrain, props and the focus core read neutral and quiet; flat colour fields only, no dithering, no texture noise, no gradient banding; built and rooted things sit still and anchored to the tissue, anything that moves stays low and in contact with the surface, nothing floats or hovers clear of the ground; camera is a low top-down view straight at the subject, front-facing, zero isometric tilt, no camera pitch; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; not a literal brain or organ, no anatomical diagram, no medical illustration; centered, full object visible, margin on all sides; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "size": 64,
+  "style_images": [
+    {
+      "entity": "focus_timer",
+      "format": "png"
+    }
+  ],
   "view": "top-down"
 }
 ```
@@ -801,7 +876,7 @@ a spherical glial bulb held inside one standing cyan ring, still until it releas
 | velikost na disku | 64 art px (STYLE_BIBLE.md §5, kind `habit`) |
 | velikost objednávky | 64 px, bez půlení |
 | kotva | žádná — není to postava, rodinu drží dědičnost níž |
-| závislost | init_image_url = hotové PNG entity accountability (tier 2 je TÁŽ kresba) |
+| závislost | `style_images` = vybraný kandidát entity accountability (gen:selected), zmenšený na 64 px — velikost výstupu určuje největší style image, proto se `size` neposílá |
 | dávka | `habit_05` |
 | cena | 20 generací (tier `pro`) |
 
@@ -813,7 +888,12 @@ a spherical glial bulb held inside one standing cyan ring, still until it releas
   "item_descriptions": [
     "the same cell escalated, two more bodies in the nest, the teal membrane brighter; no eyes and no face anywhere, no brows and no mouth on any entity; no arms and no legs anywhere, except the four Nutrition Guild defenders, who hold a weapon or tool and therefore have hands; every habit is geometric, built from flat faces and clean arcs on a square or circular base, symmetrical about its vertical axis, with hard cut edges, and reads cool, quiet and controlled; every distraction, including the boss, is an amorphous organic mass of curved fibrous matter with an irregular dissolving edge, no two edges alike, no geometry anywhere in it and no mechanical parts, panels or screws, and reads warm, saturated and enticing; terrain, props and the focus core read neutral and quiet; flat colour fields only, no dithering, no texture noise, no gradient banding; built and rooted things sit still and anchored to the tissue, anything that moves stays low and in contact with the surface, nothing floats or hovers clear of the ground; camera is a low top-down view straight at the subject, front-facing, zero isometric tilt, no camera pitch; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; not a literal brain or organ, no anatomical diagram, no medical illustration; centered, full object visible, margin on all sides; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "size": 64,
+  "style_images": [
+    {
+      "entity": "accountability",
+      "format": "png"
+    }
+  ],
   "view": "top-down"
 }
 ```
@@ -834,7 +914,7 @@ the same cell escalated, two more bodies in the nest, the teal membrane brighter
 | velikost na disku | 32 art px (STYLE_BIBLE.md §5, kind `distraction`) |
 | velikost objednávky | 64 px — a pak **půlit přesně jednou** na 32 |
 | kotva | `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (general) |
-| závislost | style_images = hotové PNG entity clickbait (dědí styl i rozměr) |
+| závislost | rodinu drží `style_character_id` (general); clickbait je v plánu kořen téže rodiny, ne parametr volání |
 | dávka | samostatné volání |
 | cena | 20 generací (tier `pro`) |
 
@@ -868,7 +948,7 @@ a heavy orange sac with hooked barbs and a slick membrane, low to the ground and
 | velikost na disku | 32 art px (STYLE_BIBLE.md §5, kind `distraction`) |
 | velikost objednávky | 64 px — a pak **půlit přesně jednou** na 32 |
 | kotva | `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (general) |
-| závislost | style_images = hotové PNG entity clickbait (dědí styl i rozměr) |
+| závislost | rodinu drží `style_character_id` (general); clickbait je v plánu kořen téže rodiny, ne parametr volání |
 | dávka | samostatné volání |
 | cena | 20 generací (tier `pro`) |
 
@@ -902,7 +982,7 @@ an amber spore chain of three fused capsules that keeps unrolling forward, each 
 | velikost na disku | 32 art px (STYLE_BIBLE.md §5, kind `distraction`) |
 | velikost objednávky | 64 px — a pak **půlit přesně jednou** na 32 |
 | kotva | `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (general) |
-| závislost | style_images = hotové PNG entity clickbait (dědí styl i rozměr) |
+| závislost | rodinu drží `style_character_id` (general); clickbait je v plánu kořen téže rodiny, ne parametr volání |
 | dávka | samostatné volání |
 | cena | 20 generací (tier `pro`) |
 
@@ -936,7 +1016,7 @@ a bleached cyan mimic blob wearing a half finished copy of another creature, edg
 | velikost na disku | 32 art px (STYLE_BIBLE.md §5, kind `distraction`) |
 | velikost objednávky | 64 px — a pak **půlit přesně jednou** na 32 |
 | kotva | `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (general) |
-| závislost | style_images = hotové PNG entity clickbait (dědí styl i rozměr) |
+| závislost | rodinu drží `style_character_id` (general); clickbait je v plánu kořen téže rodiny, ne parametr volání |
 | dávka | samostatné volání |
 | cena | 20 generací (tier `pro`) |
 
@@ -970,7 +1050,7 @@ a long green ciliated ribbon that flows head first, segmented, with no visible e
 | velikost na disku | 32 art px (STYLE_BIBLE.md §5, kind `distraction`) |
 | velikost objednávky | 64 px — a pak **půlit přesně jednou** na 32 |
 | kotva | `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (general) |
-| závislost | style_images = hotové PNG entity clickbait (dědí styl i rozměr) |
+| závislost | rodinu drží `style_character_id` (general); clickbait je v plánu kořen téže rodiny, ne parametr volání |
 | dávka | samostatné volání |
 | cena | 20 generací (tier `pro`) |
 
@@ -1004,9 +1084,9 @@ a swollen teal cyst under pressure, ribbed, with a torn neck venting, faster the
 | velikost na disku | 64 art px (STYLE_BIBLE.md §5, kind `habit`) |
 | velikost objednávky | 64 px, bez půlení |
 | kotva | žádná — není to postava, rodinu drží dědičnost níž |
-| závislost | init_image_url = hotové PNG entity exercise (tier 2 je TÁŽ kresba) |
-| dávka | `habit_05` — jede v už otevřeném volání |
-| cena | 0 — placeno v dávce `habit_05` |
+| závislost | `style_images` = vybraný kandidát entity exercise (gen:selected), zmenšený na 64 px — velikost výstupu určuje největší style image, proto se `size` neposílá |
+| dávka | `habit_06` |
+| cena | 20 generací (tier `pro`) |
 
 **Parametry**
 
@@ -1016,7 +1096,12 @@ a swollen teal cyst under pressure, ribbed, with a torn neck venting, faster the
   "item_descriptions": [
     "the same cell escalated, the wall thicker and the orange core burning brighter through it; no eyes and no face anywhere, no brows and no mouth on any entity; no arms and no legs anywhere, except the four Nutrition Guild defenders, who hold a weapon or tool and therefore have hands; every habit is geometric, built from flat faces and clean arcs on a square or circular base, symmetrical about its vertical axis, with hard cut edges, and reads cool, quiet and controlled; every distraction, including the boss, is an amorphous organic mass of curved fibrous matter with an irregular dissolving edge, no two edges alike, no geometry anywhere in it and no mechanical parts, panels or screws, and reads warm, saturated and enticing; terrain, props and the focus core read neutral and quiet; flat colour fields only, no dithering, no texture noise, no gradient banding; built and rooted things sit still and anchored to the tissue, anything that moves stays low and in contact with the surface, nothing floats or hovers clear of the ground; camera is a low top-down view straight at the subject, front-facing, zero isometric tilt, no camera pitch; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; not a literal brain or organ, no anatomical diagram, no medical illustration; centered, full object visible, margin on all sides; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "size": 64,
+  "style_images": [
+    {
+      "entity": "exercise",
+      "format": "png"
+    }
+  ],
   "view": "top-down"
 }
 ```
@@ -1037,7 +1122,7 @@ the same cell escalated, the wall thicker and the orange core burning brighter t
 | velikost na disku | 32 art px (STYLE_BIBLE.md §5, kind `distraction`) |
 | velikost objednávky | 64 px — a pak **půlit přesně jednou** na 32 |
 | kotva | `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (general) |
-| závislost | style_images = hotové PNG entity clickbait (dědí styl i rozměr) |
+| závislost | rodinu drží `style_character_id` (general); clickbait je v plánu kořen téže rodiny, ne parametr volání |
 | dávka | samostatné volání |
 | cena | 20 generací (tier `pro`) |
 
@@ -1071,7 +1156,7 @@ a darting magenta filament with a bright head and a dissolving tail, already hal
 | velikost na disku | 32 art px (STYLE_BIBLE.md §5, kind `distraction`) |
 | velikost objednávky | 64 px — a pak **půlit přesně jednou** na 32 |
 | kotva | `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (general) |
-| závislost | style_images = hotové PNG entity clickbait (dědí styl i rozměr) |
+| závislost | rodinu drží `style_character_id` (general); clickbait je v plánu kořen téže rodiny, ne parametr volání |
 | dávka | samostatné volání |
 | cena | 20 generací (tier `pro`) |
 
@@ -1105,7 +1190,7 @@ a knot of six small green spores sharing one membrane, all of them mouths, none 
 | velikost na disku | 32 art px (STYLE_BIBLE.md §5, kind `distraction`) |
 | velikost objednávky | 64 px — a pak **půlit přesně jednou** na 32 |
 | kotva | `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (general) |
-| závislost | style_images = hotové PNG entity clickbait (dědí styl i rozměr) |
+| závislost | rodinu drží `style_character_id` (general); clickbait je v plánu kořen téže rodiny, ne parametr volání |
 | dávka | samostatné volání |
 | cena | 20 generací (tier `pro`) |
 
@@ -1139,7 +1224,7 @@ a crimson gland with three swollen lobes and one bright wet core, pulsing on a s
 | velikost na disku | 32 art px (STYLE_BIBLE.md §5, kind `distraction`) |
 | velikost objednávky | 64 px — a pak **půlit přesně jednou** na 32 |
 | kotva | `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (general) |
-| závislost | style_images = hotové PNG entity clickbait (dědí styl i rozměr) |
+| závislost | rodinu drží `style_character_id` (general); clickbait je v plánu kořen téže rodiny, ne parametr volání |
 | dávka | samostatné volání |
 | cena | 20 generací (tier `pro`) |
 
@@ -1173,9 +1258,9 @@ a violet cluster of four loosely bound spores pulling apart at the seams, about 
 | velikost na disku | 64 art px (STYLE_BIBLE.md §5, kind `habit`) |
 | velikost objednávky | 64 px, bez půlení |
 | kotva | žádná — není to postava, rodinu drží dědičnost níž |
-| závislost | init_image_url = hotové PNG entity mindfulness (tier 2 je TÁŽ kresba) |
-| dávka | `habit_05` — jede v už otevřeném volání |
-| cena | 0 — placeno v dávce `habit_05` |
+| závislost | `style_images` = vybraný kandidát entity mindfulness (gen:selected), zmenšený na 64 px — velikost výstupu určuje největší style image, proto se `size` neposílá |
+| dávka | `habit_07` |
+| cena | 20 generací (tier `pro`) |
 
 **Parametry**
 
@@ -1185,7 +1270,12 @@ a violet cluster of four loosely bound spores pulling apart at the seams, about 
   "item_descriptions": [
     "the same cell escalated, the dendritic crown denser and wider, the violet deeper; no eyes and no face anywhere, no brows and no mouth on any entity; no arms and no legs anywhere, except the four Nutrition Guild defenders, who hold a weapon or tool and therefore have hands; every habit is geometric, built from flat faces and clean arcs on a square or circular base, symmetrical about its vertical axis, with hard cut edges, and reads cool, quiet and controlled; every distraction, including the boss, is an amorphous organic mass of curved fibrous matter with an irregular dissolving edge, no two edges alike, no geometry anywhere in it and no mechanical parts, panels or screws, and reads warm, saturated and enticing; terrain, props and the focus core read neutral and quiet; flat colour fields only, no dithering, no texture noise, no gradient banding; built and rooted things sit still and anchored to the tissue, anything that moves stays low and in contact with the surface, nothing floats or hovers clear of the ground; camera is a low top-down view straight at the subject, front-facing, zero isometric tilt, no camera pitch; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; not a literal brain or organ, no anatomical diagram, no medical illustration; centered, full object visible, margin on all sides; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "size": 64,
+  "style_images": [
+    {
+      "entity": "mindfulness",
+      "format": "png"
+    }
+  ],
   "view": "top-down"
 }
 ```
@@ -1206,7 +1296,7 @@ the same cell escalated, the dendritic crown denser and wider, the violet deeper
 | velikost na disku | 32 art px (STYLE_BIBLE.md §5, kind `distraction`) |
 | velikost objednávky | 64 px — a pak **půlit přesně jednou** na 32 |
 | kotva | `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (general) |
-| závislost | style_images = hotové PNG entity clickbait (dědí styl i rozměr) |
+| závislost | rodinu drží `style_character_id` (general); clickbait je v plánu kořen téže rodiny, ne parametr volání |
 | dávka | samostatné volání |
 | cena | 20 generací (tier `pro`) |
 
@@ -1240,7 +1330,7 @@ the smallest and fastest spore of the swarm, a hard red shell and one twitching 
 | velikost na disku | 32 art px (STYLE_BIBLE.md §5, kind `distraction`) |
 | velikost objednávky | 64 px — a pak **půlit přesně jednou** na 32 |
 | kotva | `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (general) |
-| závislost | style_images = hotové PNG entity clickbait (dědí styl i rozměr) |
+| závislost | rodinu drží `style_character_id` (general); clickbait je v plánu kořen téže rodiny, ne parametr volání |
 | dávka | samostatné volání |
 | cena | 20 generací (tier `pro`) |
 
@@ -1274,9 +1364,9 @@ a hollow blue spore husk that hovers, no legs, a sharp vibrating rim, and nothin
 | velikost na disku | 64 art px (STYLE_BIBLE.md §5, kind `habit`) |
 | velikost objednávky | 64 px, bez půlení |
 | kotva | žádná — není to postava, rodinu drží dědičnost níž |
-| závislost | init_image_url = hotové PNG entity real_hobby (tier 2 je TÁŽ kresba) |
-| dávka | `habit_05` — jede v už otevřeném volání |
-| cena | 0 — placeno v dávce `habit_05` |
+| závislost | `style_images` = vybraný kandidát entity real_hobby (gen:selected), zmenšený na 64 px — velikost výstupu určuje největší style image, proto se `size` neposílá |
+| dávka | `habit_08` |
+| cena | 20 generací (tier `pro`) |
 
 **Parametry**
 
@@ -1286,7 +1376,12 @@ a hollow blue spore husk that hovers, no legs, a sharp vibrating rim, and nothin
   "item_descriptions": [
     "the same cell escalated, more golden fibres, fraying further down the column; no eyes and no face anywhere, no brows and no mouth on any entity; no arms and no legs anywhere, except the four Nutrition Guild defenders, who hold a weapon or tool and therefore have hands; every habit is geometric, built from flat faces and clean arcs on a square or circular base, symmetrical about its vertical axis, with hard cut edges, and reads cool, quiet and controlled; every distraction, including the boss, is an amorphous organic mass of curved fibrous matter with an irregular dissolving edge, no two edges alike, no geometry anywhere in it and no mechanical parts, panels or screws, and reads warm, saturated and enticing; terrain, props and the focus core read neutral and quiet; flat colour fields only, no dithering, no texture noise, no gradient banding; built and rooted things sit still and anchored to the tissue, anything that moves stays low and in contact with the surface, nothing floats or hovers clear of the ground; camera is a low top-down view straight at the subject, front-facing, zero isometric tilt, no camera pitch; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; not a literal brain or organ, no anatomical diagram, no medical illustration; centered, full object visible, margin on all sides; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "size": 64,
+  "style_images": [
+    {
+      "entity": "real_hobby",
+      "format": "png"
+    }
+  ],
   "view": "top-down"
 }
 ```
@@ -1307,7 +1402,7 @@ the same cell escalated, more golden fibres, fraying further down the column; no
 | velikost na disku | 64 art px (STYLE_BIBLE.md §5, kind `distraction_boss`) |
 | velikost objednávky | 128 px — a pak **půlit přesně jednou** na 64 |
 | kotva | `fa8294b1-c3ec-4ae5-92fb-39570ced0f65` (general) |
-| závislost | style_images = hotové PNG entity clickbait (dědí styl i rozměr) |
+| závislost | rodinu drží `style_character_id` (general); clickbait je v plánu kořen téže rodiny, ne parametr volání |
 | dávka | samostatné volání |
 | cena | 40 generací (tier `pro_velky`) |
 
@@ -1341,8 +1436,8 @@ a violet colonial mass of fused spores, many eyes, a shielding outer membrane, d
 | velikost na disku | 64 art px (STYLE_BIBLE.md §5, kind `habit`) |
 | velikost objednávky | 64 px, bez půlení |
 | kotva | žádná — není to postava, rodinu drží dědičnost níž |
-| závislost | init_image_url = hotové PNG entity zen_pulsar (tier 2 je TÁŽ kresba) |
-| dávka | `habit_06` |
+| závislost | `style_images` = vybraný kandidát entity zen_pulsar (gen:selected), zmenšený na 64 px — velikost výstupu určuje největší style image, proto se `size` neposílá |
+| dávka | `habit_09` |
 | cena | 20 generací (tier `pro`) |
 
 **Parametry**
@@ -1353,7 +1448,12 @@ a violet colonial mass of fused spores, many eyes, a shielding outer membrane, d
   "item_descriptions": [
     "the same cell escalated, a second concentric cyan ring standing outside the first; no eyes and no face anywhere, no brows and no mouth on any entity; no arms and no legs anywhere, except the four Nutrition Guild defenders, who hold a weapon or tool and therefore have hands; every habit is geometric, built from flat faces and clean arcs on a square or circular base, symmetrical about its vertical axis, with hard cut edges, and reads cool, quiet and controlled; every distraction, including the boss, is an amorphous organic mass of curved fibrous matter with an irregular dissolving edge, no two edges alike, no geometry anywhere in it and no mechanical parts, panels or screws, and reads warm, saturated and enticing; terrain, props and the focus core read neutral and quiet; flat colour fields only, no dithering, no texture noise, no gradient banding; built and rooted things sit still and anchored to the tissue, anything that moves stays low and in contact with the surface, nothing floats or hovers clear of the ground; camera is a low top-down view straight at the subject, front-facing, zero isometric tilt, no camera pitch; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; not a literal brain or organ, no anatomical diagram, no medical illustration; centered, full object visible, margin on all sides; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "size": 64,
+  "style_images": [
+    {
+      "entity": "zen_pulsar",
+      "format": "png"
+    }
+  ],
   "view": "top-down"
 }
 ```
@@ -1374,9 +1474,9 @@ the same cell escalated, a second concentric cyan ring standing outside the firs
 | velikost na disku | 64 art px (STYLE_BIBLE.md §5, kind `habit`) |
 | velikost objednávky | 64 px, bez půlení |
 | kotva | žádná — není to postava, rodinu drží dědičnost níž |
-| závislost | init_image_url = hotové PNG entity zen_pulsar (tier 2 je TÁŽ kresba) |
-| dávka | `habit_06` — jede v už otevřeném volání |
-| cena | 0 — placeno v dávce `habit_06` |
+| závislost | `style_images` = vybraný kandidát entity zen_pulsar (gen:selected), zmenšený na 64 px — velikost výstupu určuje největší style image, proto se `size` neposílá |
+| dávka | `habit_09` — jede v už otevřeném volání |
+| cena | 0 — placeno v dávce `habit_09` |
 
 **Parametry**
 
@@ -1386,7 +1486,12 @@ the same cell escalated, a second concentric cyan ring standing outside the firs
   "item_descriptions": [
     "the same cell escalated, the single ring split into two smaller counter turning half rings; no eyes and no face anywhere, no brows and no mouth on any entity; no arms and no legs anywhere, except the four Nutrition Guild defenders, who hold a weapon or tool and therefore have hands; every habit is geometric, built from flat faces and clean arcs on a square or circular base, symmetrical about its vertical axis, with hard cut edges, and reads cool, quiet and controlled; every distraction, including the boss, is an amorphous organic mass of curved fibrous matter with an irregular dissolving edge, no two edges alike, no geometry anywhere in it and no mechanical parts, panels or screws, and reads warm, saturated and enticing; terrain, props and the focus core read neutral and quiet; flat colour fields only, no dithering, no texture noise, no gradient banding; built and rooted things sit still and anchored to the tissue, anything that moves stays low and in contact with the surface, nothing floats or hovers clear of the ground; camera is a low top-down view straight at the subject, front-facing, zero isometric tilt, no camera pitch; 1px outline in a darker shade of the same hue, never black; three shading tones with the shadow tone hue-shifted at least 20 degrees toward cool; no dithering, no anti-aliasing, no gradient banding; colours taken only from the supplied reference palette image; not a literal brain or organ, no anatomical diagram, no medical illustration; centered, full object visible, margin on all sides; no text, no numbers, no UI, no logo, no frame, no baked drop shadow"
   ],
-  "size": 64,
+  "style_images": [
+    {
+      "entity": "zen_pulsar",
+      "format": "png"
+    }
+  ],
   "view": "top-down"
 }
 ```
@@ -1428,16 +1533,16 @@ the same cell escalated, the single ring split into two smaller counter turning 
 | 23 | 1 | `comparison` | `clickbait` | — |
 | 24 | 1 | `doomscroll` | `clickbait` | — |
 | 25 | 1 | `energy_drink` | `clickbait` | — |
-| 26 | 1 | `exercise_2` | `exercise` | `habit_05` |
+| 26 | 1 | `exercise_2` | `exercise` | `habit_06` |
 | 27 | 1 | `fomo` | `clickbait` | — |
 | 28 | 1 | `group_chat` | `clickbait` | — |
 | 29 | 1 | `jackpot` | `clickbait` | — |
 | 30 | 1 | `just_one_more` | `clickbait` | — |
-| 31 | 1 | `mindfulness_2` | `mindfulness` | `habit_05` |
+| 31 | 1 | `mindfulness_2` | `mindfulness` | `habit_07` |
 | 32 | 1 | `notification` | `clickbait` | — |
 | 33 | 1 | `phantom_buzz` | `clickbait` | — |
-| 34 | 1 | `real_hobby_2` | `real_hobby` | `habit_05` |
+| 34 | 1 | `real_hobby_2` | `real_hobby` | `habit_08` |
 | 35 | 1 | `social_media_binge` | `clickbait` | — |
-| 36 | 1 | `zen_pulsar_2a` | `zen_pulsar` | `habit_06` |
-| 37 | 1 | `zen_pulsar_2b` | `zen_pulsar` | `habit_06` |
+| 36 | 1 | `zen_pulsar_2a` | `zen_pulsar` | `habit_09` |
+| 37 | 1 | `zen_pulsar_2b` | `zen_pulsar` | `habit_09` |
 

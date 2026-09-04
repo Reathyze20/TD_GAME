@@ -27,10 +27,35 @@ jméno do TOOLS níž a spusť tenhle skript znovu. `tools/gen_art_prompts.py`
 sám hlásí SystemExit, když narazí na nástroj, který v tomhle souboru chybí —
 tichý drift stejného druhu, co tenhle soubor sám opravuje, se tak nemůže
 zopakovat.
+
+CO SE ZE SCHÉMATU BERE A PROČ ZROVNA TOHLE
+
+Do 2026-09-04 se zamrazovala jen jména polí (`properties`) a povinnost
+(`required`). To stačí na otázku „projde tenhle parametr filtrem?", ale ne na
+otázku „smí se poslat SPOLU s tamtím?" ani „je tahle hodnota vůbec platná?".
+Obě odpovědi v živém schématu JSOU, jen ne ve strojovém tvaru: sedí v prose
+`description` jednotlivých polí. Vytahují se proto tady, mechanicky, a ukládají
+vedle jmen:
+
+  enums      — `enum` daného pole. Bez nich by `body_type="amorphous"` prošel
+               generátorem a spadl až na serveru, za peníze.
+  defaults   — `default` daného pole. Parametr, který se NEPOŠLE, není „prázdný":
+               server za něj dosadí tohle. `create_character` má
+               `body_type` default `humanoid`, takže mlčení == „bipedál".
+  conflicts  — dvojice polí, která se navzájem vylučují. Odvozuje se z vět typu
+               „Cannot be set together with X" / „Cannot be combined with X" tak,
+               že se ve větě hledají JMÉNA JINÝCH POLÍ TÉHOŽ nástroje. Věty jsou
+               psané symetricky (`num_colors` × `palette_image_base64` se zmiňují
+               navzájem), takže se dvojice chytí, i když ji jedna strana pojmenuje
+               jen prózou („a palette image").
+
+Žádná z těch tří věcí se tedy nikde v repu neopisuje jako konstanta — přepíšou se
+při každém `fetch`, stejně jako jména polí (CLAUDE.md, „Konstantu neopisuj").
 """
 import argparse
 import json
 import os
+import re
 import sys
 
 PROJ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -52,6 +77,35 @@ TOOLS = [
 ]
 
 
+# Věta, kterou PixelLab popisuje vzájemné vyloučení dvou polí. Obě formulace jsou
+# v dnešním schématu doložené: `create_1_direction_object.size` říká "Cannot be set
+# together with style_images", `create_tiles_pro.tile_feature` a
+# `reduce_colors.palette_image_base64` říkají "Cannot be combined with ...".
+_CONFLICT_RE = re.compile(
+    r"[Cc]annot be (?:set together with|combined with)\b([^.]*)", re.S)
+
+
+def _conflicts(props):
+    """Dvojice vzájemně se vylučujících polí, vyčtené z prose `description`.
+
+    Hledá se JMÉNO JINÉHO POLE TÉHOŽ nástroje jako celé slovo uvnitř té věty --
+    proto se dvojice nedá vymyslet, jen najít. Když věta pojmenuje protějšek jen
+    prózou ("a palette image"), z týhle strany nevznikne nic; chytí se z druhé,
+    protože jsou psané symetricky. Vrací setříděný seznam setříděných dvojic, aby
+    byl výstup deterministický."""
+    names = set(props)
+    pairs = set()
+    for name, spec in props.items():
+        text = (spec or {}).get("description") or ""
+        for m in _CONFLICT_RE.finditer(text):
+            for other in names:
+                if other == name:
+                    continue
+                if re.search(r"\b%s\b" % re.escape(other), m.group(1)):
+                    pairs.add(tuple(sorted((name, other))))
+    return [list(p) for p in sorted(pairs)]
+
+
 def fetch():
     c = pixellab._shared()
     c.ready()
@@ -66,6 +120,11 @@ def fetch():
         out[name] = {
             "required": sorted(schema.get("required") or []),
             "properties": sorted(props.keys()),
+            "enums": {k: v["enum"] for k, v in sorted(props.items())
+                      if isinstance(v, dict) and v.get("enum")},
+            "defaults": {k: v["default"] for k, v in sorted(props.items())
+                         if isinstance(v, dict) and v.get("default") is not None},
+            "conflicts": _conflicts(props),
         }
     return out
 
