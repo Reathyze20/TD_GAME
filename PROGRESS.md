@@ -5134,3 +5134,52 @@ v `HEAD` existuje (ověřeno importem HEAD verze modulu).
   s displejem to bylo 46 pass.)
 - Soubory: `README.md`, `.gitignore`, 24× `assets/raw/master_*/cand_*.png.import`,
   tento zápis.
+
+## 2026-09-04 — Paletový průchod přes 24 masterů: barevné brány byly artefakt pipeline
+
+Zadání: první ze čtyř úkolů za 0 generací. Lokálně, offline, deterministicky projet
+kandidáty masterů směru A `reduce_colors`-ekvivalentem a přeměřit brány. Nic se
+negenerovalo, PixelLab API se nevolalo ani jednou.
+
+### Výsledek: 0/24 → 24/24 na barvách
+
+| rodina | rozpočet | barvy před | po 1. kole | po 2. kole | projde |
+|---|---|---|---|---|---|
+| habit | ≤ 8 | 15–20 | 6–10 | 6–8 | **16/16** (bylo 0/16) |
+| distraction | ≤ 6 | 21–24 | 6 | 6 | **8/8** (bylo 0/8) |
+
+Soudržnost rodiny: habit 2, distraction 0 (práh ≤ 4) — obojí OK. M0 hádal, že barevné
+FAILy jsou „pravděpodobně pipeline, ne návrh". **Byly.** Měřil se syrový výstup
+PixelLabu, který nikdy nešel přes `reduce_colors`.
+
+### A co to NEspravilo, což je ten důležitější výsledek
+
+Silueta se nehnula ani o tisícinu: habit 15/16, **distraction 0/8**, odstup rodin
+−0,249 proti prahu ≥ 0,80. Paletový průchod nesahá na alfu, takže na siluetu sáhnout
+**nemůže** — a nástroj to nejen tvrdí, on to po zápisu ověří (`compactness` před a po;
+při odchylce skončí chybou). Tím se M-SEZENÍ zjednodušilo: barvy jsou vyřešené, jediná
+otevřená vada je silueta master distrakce, a ta se řeší přegenerováním, ne paletou.
+
+### Dvě kola podle §12d, doslova
+
+`sprite_cleanup.build_palette()` vrací jako reprezentanta shluku jeho **nejčastější
+skutečnou barvu**, ne průměr. Když mu na vstup jde pool už nasnapovaný na `palette_48`,
+je výstup podmnožinou `palette_48` **z konstrukce** — přesně to, co §12d žádá („vybere
+podmnožinu už nasnapované palety, takže se z ní nedá vypadnout"). Nástroj to i tak
+kontroluje a na barvu mimo paletu skončí chybou.
+
+### Žádná vlastní kopie konstanty
+
+Rozpočty (8/6), prahy siluety i odstupu, `ALPHA_THRESH`, `compactness` a `unique_colors`
+se **importují** z `check_style_failure_modes.py`, cesta k paletě z `gen_ui.MASTER_PAL`,
+Oklab remap a `CHROMA_WEIGHT` ze `sprite_cleanup.py`. Nástroj tedy měří touž funkcí,
+jakou měří brána — druhá kopie vzorce je přesně to, před čím varuje CLAUDE.md.
+
+### Ověření
+
+- `./verify.sh`: **45 pass, 0 fail, 0 skip, 2 known-broken, 0 flaky, 1 no-display**
+  (no-display je běh bez displeje, ne regrese).
+- Soubory: `tools/master_palette_pass.py`, 48 PNG (24 kandidátů × 2 kola).
+- **Necommitnuto cizí:** `assets/raw/master_*/cand_*.png.import` (24 sidecarů) byly
+  netrackované už před tímhle úkolem — je to nedodělaný commit někoho jiného, nechávám
+  ho být. `.dev/screenshots/*` taky beze změny ode mě.
