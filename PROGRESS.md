@@ -5340,3 +5340,45 @@ a zavádějícího `1.20`.
   `_test_horde_renderer` prochází s novou konstantou.
 - Snímky před/po (deska i zoom 8×) předány uživateli.
 - **Necommitnuto cizí:** prázdný soubor `git` v rootu, netrackovaný už při startu session.
+
+## 2026-09-05 — Doúklid po canvas_items: pět harnessů, které přestaly měřit, co slibovaly
+
+Následek commitu 62b37e8 (stretch mode → `canvas_items`), který jsem zavedl já. Tam jsem
+opravil čtyři harnessy ořezávající podle souřadnic plátna; při práci na velikostech spritů
+vyšlo najevo, že stejný přechod tiše rozbil i druhou skupinu — tu, která snímek **násobí
+nebo dělí pevným číslem**.
+
+### Slepé `* 4` (obrázek 4× větší, než měl být)
+
+`_shot_scale_audit`, `_shot_unitscale`, `_shot_isoleftover`. Readback už přichází v
+1920×1080, takže `* 4` psalo PNG 7680×4320. U `_shot_scale_audit` to bylo doložitelné:
+`.dev/screenshots/p_scale_l0_4x.png` narostl z 27 kB na 203 kB. Nahrazeno odvozeným
+zbytkovým faktorem `4.0 / UI.readback_scale(...)`, tedy stejnou opravou, jakou dostaly
+ořezy. Totéž `_shot_shadows` s jeho `* 2`.
+
+### Slepé `/ 4` — horší, protože test ztratil smysl a tvářil se, že běží
+
+`_shot_topdown_mockup` a `_shot_squashed_tiles` dělaly „squint" snímek: zmenšit na čtvrtinu
+a podívat se, jestli je deska čitelná z dálky. Když readback vyskočil na 1920×1080, `/4`
+padlo přesně na 480×270 — tedy plnou velikost plátna. Squint se pořád ukládal, pořád se
+jmenoval `_squint.png` a **nezmenšoval vůbec nic**.
+
+### A jedna chyba, kterou jsem si udělal a chytil až měřením
+
+První oprava zněla „cíl je čtvrtina PLÁTNA", tedy `canvas.x/4, canvas.y/4`. Spuštění
+ukázalo `120x67` místo původních `120x56`: `_shot_topdown_mockup` renderuje do vlastního
+SubViewportu a jeho obrázek je 480×**224** (tvar desky), ne 480×270 (tvar plátna) — sizing
+podle plátna mu tiše změnil poměr stran. Správný výraz dělí OBRÁZEK a teprve z něj
+vydělí měřítko readbacku: `img / (4 * readback_scale)`. To dá 120×56 pro SubViewport
+i pro kořenový snímek. Vyzkoušeno, oba harnessy teď hlásí `120x56`.
+
+Poučení je totéž, které má repo v CLAUDE.md už čtyřikrát, jen z druhé strany: odvozovat
+je správně, ale odvodit se musí ze **správného zdroje**. „Čtvrtina plátna" a „čtvrtina
+obrázku" jsou dvě různá čísla, kdykoli se obrázek netvaruje podle plátna.
+
+### Ověření
+
+- `./verify.sh` (viz hash commitu níž): beze změny proti předchozímu běhu.
+- `_shot_topdown_mockup` a `_shot_squashed_tiles` spuštěny a zkontrolovány na výstupní
+  rozměry (`120x56`, resp. `120x49` pro squashed variantu — jiná výška, protože ten
+  render je schválně sražený).

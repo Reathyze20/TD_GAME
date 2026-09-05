@@ -149,6 +149,22 @@ func _draw_ellipse(img: Image, center: Vector2, rx: float, ry: float, col: Color
 					img.set_pixel(x, y, under.lerp(col, col.a))
 
 
+## A quarter of the image's CANVAS-space size -- "how does this read from across the room".
+##
+## The readback scale is divided out first, so this shrinks by the same REAL factor whether
+## its source came back at canvas resolution (a SubViewport render) or at window resolution
+## (a root readback, which is what every grab became when the stretch mode changed on
+## 2026-09-05 -- a blind `/ 4` then landed on exactly 480x270 and stopped squinting at all).
+## Derived from the image and not from the canvas: these renders are board-shaped, not
+## canvas-shaped, so sizing them off the canvas would quietly change their aspect ratio.
+func _squint(img: Image) -> Image:
+	var div: float = 4.0 * UI.readback_scale(get_viewport(), img)
+	var out: Image = img.duplicate()
+	out.resize(maxi(1, int(img.get_width() / div)), maxi(1, int(img.get_height() / div)),
+		Image.INTERPOLATE_NEAREST)
+	return out
+
+
 func _save(img: Image, path: String) -> void:
 	var dir := path.get_base_dir()
 	if dir != "" and not DirAccess.dir_exists_absolute(dir):
@@ -169,6 +185,7 @@ func _run() -> void:
 	print("-- level %d (%s), tile=%d, squash=%.2f --" % [lv.id, lv.display_name, tile, SQUASH_FACTOR])
 
 	var free_cells := _free_cells(lv, Data.GRID.cols, Data.GRID.rows)
+	# (see _squint below for why the shrink factor is derived per image)
 	var units := _pick_units(free_cells)
 	var n_def: int = units.filter(func(e): return e[1]).size()
 	print("_shot_squashed_tiles: %d jednotkových značek (%d obránci, %d distrakce)" %
@@ -176,15 +193,11 @@ func _run() -> void:
 
 	var flat := _render(lv, tile, 1.0, units)
 	_save(flat, "%s/squashed_tiles_flat.png" % OUT_DIR)
-	var flat_squint: Image = flat.duplicate()
-	flat_squint.resize(maxi(1, flat.get_width() / 4), maxi(1, flat.get_height() / 4), Image.INTERPOLATE_NEAREST)
-	_save(flat_squint, "%s/squashed_tiles_flat_squint.png" % OUT_DIR)
+	_save(_squint(flat), "%s/squashed_tiles_flat_squint.png" % OUT_DIR)
 
 	var squashed := _render(lv, tile, SQUASH_FACTOR, units)
 	_save(squashed, "%s/squashed_tiles_88pct.png" % OUT_DIR)
-	var squashed_squint: Image = squashed.duplicate()
-	squashed_squint.resize(maxi(1, squashed.get_width() / 4), maxi(1, squashed.get_height() / 4), Image.INTERPOLATE_NEAREST)
-	_save(squashed_squint, "%s/squashed_tiles_88pct_squint.png" % OUT_DIR)
+	_save(_squint(squashed), "%s/squashed_tiles_88pct_squint.png" % OUT_DIR)
 
 	print("\nhotovo")
 	get_tree().quit(0)

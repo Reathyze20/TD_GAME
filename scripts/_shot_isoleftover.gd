@@ -66,8 +66,12 @@ func _save(img: Image, path: String) -> void:
 	var dir := path.get_base_dir()
 	if dir != "" and not DirAccess.dir_exists_absolute(dir):
 		DirAccess.make_dir_recursive_absolute(dir)
+	# 4x the CANVAS, derived rather than a blind *4: since the stretch mode became
+	# "canvas_items" (2026-09-05) a viewport grab already arrives at window resolution.
 	var big := img.duplicate()
-	big.resize(big.get_width() * 4, big.get_height() * 4, Image.INTERPOLATE_NEAREST)
+	var up := maxi(1, int(round(4.0 / UI.readback_scale(get_viewport(), img))))
+	if up > 1:
+		big.resize(big.get_width() * up, big.get_height() * up, Image.INTERPOLATE_NEAREST)
 	if big.save_png(path) != OK:
 		printerr("_shot_isoleftover: uložení selhalo: ", path)
 		return

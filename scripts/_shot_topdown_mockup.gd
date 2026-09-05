@@ -80,8 +80,15 @@ func _run() -> void:
 	_save(full, "%s/topdown_mockup_native.png" % OUT_DIR)
 
 	## A gameplay-scale sanity check: how this reads much smaller, not just up close.
+	## A quarter of the image's CANVAS-space size: divide out the readback scale first, so
+	## this squints by the same real factor whether the source arrived at canvas resolution
+	## (a SubViewport render, as here) or at window resolution (a root readback, since the
+	## stretch mode changed on 2026-09-05). A blind `/ 4` squints correctly only in the
+	## first case; dividing by the canvas instead would break the aspect ratio in it.
+	var div: float = 4.0 * UI.readback_scale(get_viewport(), full)
 	var squint: Image = full.duplicate()
-	squint.resize(full.get_width() / 4, full.get_height() / 4, Image.INTERPOLATE_NEAREST)
+	squint.resize(maxi(1, int(full.get_width() / div)), maxi(1, int(full.get_height() / div)),
+		Image.INTERPOLATE_NEAREST)
 	_save(squint, "%s/topdown_mockup_squint.png" % OUT_DIR)
 
 	print("\ndone")

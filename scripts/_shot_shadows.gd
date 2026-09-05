@@ -141,7 +141,12 @@ func _run() -> void:
 	_save(img_off, out_prefix + "_off_wide.png")
 	var zoom_off := img_off.get_region(
 		UI.readback_rect(get_viewport(), img_off, zoom_canvas))
-	zoom_off.resize(zoom_off.get_width() * 2, zoom_off.get_height() * 2, Image.INTERPOLATE_NEAREST)
+	# 2x the CANVAS crop, derived -- a blind *2 on a readback that is already 4x canvas
+	# would write an 8x image (2026-09-05 stretch-mode change).
+	var zup := maxi(1, int(round(2.0 / UI.readback_scale(get_viewport(), img_off))))
+	if zup > 1:
+		zoom_off.resize(zoom_off.get_width() * zup, zoom_off.get_height() * zup,
+			Image.INTERPOLATE_NEAREST)
 	_save(zoom_off, out_prefix + "_off_zoom.png")
 
 	# --- ON ---
@@ -152,7 +157,9 @@ func _run() -> void:
 	_save(img_on, out_prefix + "_on_wide.png")
 	var zoom_on := img_on.get_region(
 		UI.readback_rect(get_viewport(), img_on, zoom_canvas))
-	zoom_on.resize(zoom_on.get_width() * 2, zoom_on.get_height() * 2, Image.INTERPOLATE_NEAREST)
+	if zup > 1:
+		zoom_on.resize(zoom_on.get_width() * zup, zoom_on.get_height() * zup,
+			Image.INTERPOLATE_NEAREST)
 	_save(zoom_on, out_prefix + "_on_zoom.png")
 
 	print("_shot_shadows: occluder count = %d" % game._shadow_occluder_count)

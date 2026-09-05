@@ -146,10 +146,14 @@ func _run() -> void:
 		[tag, spawned_defenders, spawned_distractions,
 		spawned_defenders + spawned_distractions, anchor])
 
-	# Internal viewport, upscaled 4x nearest — stretch/mode="viewport" (project.godot)
-	# means this is what actually shows on screen, not the raw 480x270 buffer.
+	# Brought up to 4x the CANVAS, whatever resolution the readback arrives at. The comment
+	# here used to say stretch/mode="viewport" makes this the raw 480x270 buffer; that
+	# stopped being true on 2026-09-05 (mode is "canvas_items", readback is already
+	# 1920x1080), so the blind *4 was writing a 7680x4320 PNG.
 	var img := get_viewport().get_texture().get_image()
-	img.resize(img.get_width() * 4, img.get_height() * 4, Image.INTERPOLATE_NEAREST)
+	var up := maxi(1, int(round(4.0 / UI.readback_scale(get_viewport(), img))))
+	if up > 1:
+		img.resize(img.get_width() * up, img.get_height() * up, Image.INTERPOLATE_NEAREST)
 	_save(img, "%s_%s.png" % [out_prefix, tag])
 
 	print("HOTOVO")
