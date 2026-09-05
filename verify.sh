@@ -16,6 +16,22 @@ if [ ! -f "$GODOT" ]; then
   exit 1
 fi
 
+# Interpret pro python kontroly níž. Stejná konvence jako $GODOT výš: pojmenovat ho, ne
+# hádat — jen s výchozí hodnotou, aby se pro nikoho nic nezměnilo, dokud ji nepotřebuje.
+#
+# PROČ TO EXISTUJE (5. 9. 2026). `python` na tomhle stroji ukazuje na EMBEDDABLE
+# distribuci v C:\Users\reath\python311. Ta nemá pip a nemůže ho získat: chybí jí
+# `ensurepip` a v `python311._pth` je `import site` zakomentované. Do ní tedy Pillow,
+# numpy ani scipy nainstalovat nejde, a `check_art_colors.py` i
+# `check_style_failure_modes.py` na nich stojí — proto ty dvě kontroly padaly měsíce na
+# "No module named 'numpy'" a vypadalo to jako trvalý dluh, i když to byl jen špatný
+# interpret. Balíčky bydlí v pip-schopném Pythonu vedle; tahle proměnná je propojí.
+#
+# Schválně to NENÍ tvrdý exit jako u $GODOT: kdyby chyběl, zabil by i všechny Godot
+# fixtures. Když interpret moduly nemá, spadnou jen ty dvě kontroly a řeknou si proč
+# samy, přesně jako dosud.
+PYTHON="${PYTHON:-python}"
+
 TIMEOUT_S=120
 LOG_DIR=".dev"
 mkdir -p "$LOG_DIR"
@@ -335,7 +351,7 @@ echo "== roster regex =="
 # (tools/_fixtures/, .gdignore'd so it can never become game content) that carries both
 # ext_resource spellings Godot emits — with and without uid= between type= and path=.
 regex_log="$LOG_DIR/roster_regex.log"
-PYTHONIOENCODING=utf-8 python tools/test_roster.py >"$regex_log" 2>&1
+PYTHONIOENCODING=utf-8 "$PYTHON" tools/test_roster.py >"$regex_log" 2>&1
 regex_status=$?
 if [ "$regex_status" -ne 0 ]; then
   echo "FAIL roster regex (exit $regex_status) — see $regex_log"
@@ -353,7 +369,7 @@ roster_tmp="$LOG_DIR/ROSTER.md.generated"
 # Windows cp1250 codepage even when redirected to a file, which crashes on
 # roster.py's arrow characters. Force UTF-8 so generation itself can't fail
 # on encoding, independent of whether the content is stale.
-PYTHONIOENCODING=utf-8 python tools/roster.py --md >"$roster_tmp"
+PYTHONIOENCODING=utf-8 "$PYTHON" tools/roster.py --md >"$roster_tmp"
 roster_status=$?
 if [ "$roster_status" -ne 0 ]; then
   echo "FAIL roster (tools/roster.py exited $roster_status, docs/ROSTER.md left untouched) — see $roster_tmp"
@@ -391,7 +407,7 @@ echo "== level side-cars =="
 # roster above -- regenerate from the source and compare -- except --check never writes,
 # so a verification run cannot quietly "fix" the thing it is verifying.
 sidecar_log="$LOG_DIR/level_sidecars.log"
-PYTHONIOENCODING=utf-8 python tools/level_to_ascii.py --check >"$sidecar_log" 2>&1
+PYTHONIOENCODING=utf-8 "$PYTHON" tools/level_to_ascii.py --check >"$sidecar_log" 2>&1
 sidecar_status=$?
 if [ "$sidecar_status" -ne 0 ]; then
   echo "FAIL level side-cars (exit $sidecar_status) - see $sidecar_log"
@@ -411,7 +427,7 @@ echo "== terrain contrast =="
 # flat_terrain.py, no local copy of either. The whole board's legibility under Brain Fog
 # rests on that one luminance difference.
 terrain_log="$LOG_DIR/terrain_contrast.log"
-PYTHONIOENCODING=utf-8 python tools/check_terrain_contrast.py >"$terrain_log" 2>&1
+PYTHONIOENCODING=utf-8 "$PYTHON" tools/check_terrain_contrast.py >"$terrain_log" 2>&1
 terrain_status=$?
 if [ "$terrain_status" -ne 0 ]; then
   echo "FAIL terrain contrast (exit $terrain_status) — see $terrain_log"
@@ -431,7 +447,7 @@ echo "== art prompts =="
 # and that the generator is deterministic — two runs must be byte-identical, or --check
 # itself would be meaningless. PYTHONIOENCODING for the same cp1250 reason as roster.py.
 art_log="$LOG_DIR/art_prompts.log"
-PYTHONIOENCODING=utf-8 python tools/gen_art_prompts.py --check >"$art_log" 2>&1
+PYTHONIOENCODING=utf-8 "$PYTHON" tools/gen_art_prompts.py --check >"$art_log" 2>&1
 art_status=$?
 if [ "$art_status" -ne 0 ]; then
   echo "FAIL art prompts (exit $art_status) — see $art_log"
@@ -454,7 +470,7 @@ echo "== art colors =="
 # "single source of truth" shape as the roster/terrain-contrast checks above) — only a
 # NEW, undocumented mismatch fails the build.
 art_colors_log="$LOG_DIR/art_colors.log"
-PYTHONIOENCODING=utf-8 python tools/check_art_colors.py >"$art_colors_log" 2>&1
+PYTHONIOENCODING=utf-8 "$PYTHON" tools/check_art_colors.py >"$art_colors_log" 2>&1
 art_colors_status=$?
 if [ "$art_colors_status" -ne 0 ]; then
   echo "FAIL art colors (exit $art_colors_status) — see $art_colors_log"
@@ -478,7 +494,7 @@ echo "== style failure modes =="
 # anything else, so it is measured and printed as LEGACY instead, same convention as
 # KNOWN_BROKEN_TESTS above and the allowlist in docs/art/ART_DEBT.md.
 style_fm_log="$LOG_DIR/style_failure_modes.log"
-PYTHONIOENCODING=utf-8 python tools/check_style_failure_modes.py >"$style_fm_log" 2>&1
+PYTHONIOENCODING=utf-8 "$PYTHON" tools/check_style_failure_modes.py >"$style_fm_log" 2>&1
 style_fm_status=$?
 if [ "$style_fm_status" -ne 0 ]; then
   echo "FAIL style failure modes (exit $style_fm_status) — see $style_fm_log"

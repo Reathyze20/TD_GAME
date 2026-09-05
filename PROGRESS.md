@@ -5548,3 +5548,32 @@ běhu bez souběžných Godot instancí prošel. Test neupravován.
 
 Jednorázový harness `_diag_preview` smazán včetně `.uid` a packeru; před/po snímky
 zůstávají v `.dev/screenshots/preview/`.
+
+## 2026-09-05 — verify.sh čistý: `python` byl embeddable interpret bez pipu
+
+**Úkol** (bod 1 z uživatelova „co bych dělal teď"): doinstalovat numpy, ať `art colors`
+a `style failure modes` v `verify.sh` přestanou padat na `No module named 'numpy'`.
+
+**Proč se to nedalo prostě `pip install`.** `python` na tomhle stroji je
+`C:\Users\reath\python311\python.exe` — embeddable distribuce. Nemá `ensurepip`
+a `python311._pth` má `import site` schválně zakomentované, takže do ní `pip` nejde
+dostat vůbec, natož balíčky. Na stroji je ale druhý, plnohodnotný Python 3.14
+(`C:\Users\reath\AppData\Local\Python\bin\python.exe`, `py`/WindowsApps alias na
+totéž) s pipem a s numpy i Pillow **už nainstalovanými** — chyběl mu jen `scipy`, který
+`check_style_failure_modes.py` taky potřebuje.
+
+**Co se udělalo.** `pip install scipy` do toho druhého Pythonu (numpy 2.4.1, Pillow
+12.3.0, scipy 1.18.1). `verify.sh` dostal `PYTHON="${PYTHON:-python}"` stejnou konvencí
+jako existující `$GODOT` — výchozí hodnota `python` nic nemění pro nikoho, kdo má balíčky
+jinde; sedm volání `PYTHONIOENCODING=utf-8 python …` přepsáno na `"$PYTHON"`. Schválně to
+NENÍ tvrdý exit jako u `$GODOT`: kdyby proměnná chyběla, zabilo by to i Godot fixtures,
+které s Pythonem nemají nic společného.
+
+**Výsledek: 46 pass / 1 fail** (`_test_antiblock`, výkonnostní mez — Godot editor běžel
+na pozadí a je to stejný flake, co v předchozí položce PROGRESS.md, ne nová věc).
+`art colors` a `style failure modes` procházejí poprvé v historii tohohle repa.
+
+**Pro trvalé použití** (aby `./verify.sh` bez ruční proměnné fungoval napořád):
+`export PYTHON="/c/Users/reath/AppData/Local/Python/bin/python.exe"` do shell profilu,
+nebo přeinstalovat `python.exe` v PATH za tuhle distribuci — cokoli z toho je uživatelovo
+rozhodnutí o vlastním stroji, ne něco, co mění tenhle commit.
