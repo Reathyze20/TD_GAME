@@ -125,9 +125,10 @@ func _run() -> void:
 	# Zoom okno na Anchor — tam je stín nejlíp vidět. Anchor lampa má průměr 520 px, okno
 	# 600x600 dá kolem ní i kus okolní zdi/chodby.
 	var anchor_pos: Vector2 = game.cell_center(anchor_cell)
-	var zoom_rect := Rect2i(int(anchor_pos.x - 300), int(anchor_pos.y - 300), 600, 600)
-	var view_rect := Rect2i(Vector2i.ZERO, get_viewport().get_visible_rect().size)
-	zoom_rect = zoom_rect.intersection(view_rect)
+	# CANVAS-space window; converted to readback pixels per grab via UI.readback_rect(),
+	# because stretch mode "canvas_items" renders at window resolution and the image that
+	# comes back is 4x these coordinates (2026-09-05 — see the note in ui.gd).
+	var zoom_canvas := Rect2(anchor_pos - Vector2(300, 300), Vector2(600, 600))
 
 	for _f in range(30):
 		await get_tree().process_frame
@@ -138,7 +139,8 @@ func _run() -> void:
 		await get_tree().process_frame
 	var img_off := get_viewport().get_texture().get_image()
 	_save(img_off, out_prefix + "_off_wide.png")
-	var zoom_off := img_off.get_region(zoom_rect)
+	var zoom_off := img_off.get_region(
+		UI.readback_rect(get_viewport(), img_off, zoom_canvas))
 	zoom_off.resize(zoom_off.get_width() * 2, zoom_off.get_height() * 2, Image.INTERPOLATE_NEAREST)
 	_save(zoom_off, out_prefix + "_off_zoom.png")
 
@@ -148,7 +150,8 @@ func _run() -> void:
 		await get_tree().process_frame
 	var img_on := get_viewport().get_texture().get_image()
 	_save(img_on, out_prefix + "_on_wide.png")
-	var zoom_on := img_on.get_region(zoom_rect)
+	var zoom_on := img_on.get_region(
+		UI.readback_rect(get_viewport(), img_on, zoom_canvas))
 	zoom_on.resize(zoom_on.get_width() * 2, zoom_on.get_height() * 2, Image.INTERPOLATE_NEAREST)
 	_save(zoom_on, out_prefix + "_on_zoom.png")
 

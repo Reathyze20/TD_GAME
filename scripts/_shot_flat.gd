@@ -161,22 +161,24 @@ func _run() -> void:
 	# nejjasněji, protože nemá vlastní velký kruh, který by pohled zaplnil.
 	# `trect` je zvednuté nad cyklus, protože ho pozdější sweep měřítka znovu použije
 	# jako záběr — uvnitř `for` by po skončení cyklu zmizelo z dosahu.
-	var trect := Rect2i()
+	# Oba výřezy níž jsou v CANVAS souřadnicích (cell_center vrací světové px). Od přechodu
+	# na stretch mode "canvas_items" (2026-09-05) je čtený obrázek 4x větší než tenhle
+	# prostor, takže se rect převádí až v okamžiku odběru — viz poznámka v ui.gd.
+	var trect := Rect2()
 	for cell: Vector2i in built:
 		if cell == anchor_cell or cell.x <= -999:
 			continue
 		var tower_pos: Vector2 = game.cell_center(cell)
-		trect = Rect2i(int(tower_pos.x - 220), int(tower_pos.y - 220), 440, 440)
-		trect = trect.intersection(Rect2i(Vector2i.ZERO, get_viewport().get_visible_rect().size))
+		trect = Rect2(tower_pos - Vector2(220, 220), Vector2(440, 440))
 		var timg := get_viewport().get_texture().get_image()
-		_save(timg.get_region(trect), "%s_tower_closeup.png" % out_prefix)
+		_save(timg.get_region(UI.readback_rect(get_viewport(), timg, trect)),
+			"%s_tower_closeup.png" % out_prefix)
 		break
 
 	# Výřez kolem Anchoru — tam je lampa největší, takže tam je i největší rozdíl mezi
 	# "nasvíceno" a "plocho".
 	var focus_pos: Vector2 = game.cell_center(anchor_cell) if anchor_cell.x > -999 else game.objective_pos
-	var zoom_rect := Rect2i(int(focus_pos.x - 320), int(focus_pos.y - 240), 640, 480)
-	zoom_rect = zoom_rect.intersection(Rect2i(Vector2i.ZERO, get_viewport().get_visible_rect().size))
+	var zoom_rect := Rect2(focus_pos - Vector2(320, 240), Vector2(640, 480))
 
 	for step: float in STEPS:
 		GameState.set_tolerance(step)
@@ -189,7 +191,7 @@ func _run() -> void:
 		print("_shot_flat: tolerance %3d  jas %.4f  kontrast %.4f" % [int(step), st.mean, st.sd])
 		_save(img, "%s_%s_wide.png" % [out_prefix, tag])
 		if zoom_rect.size.x > 0 and zoom_rect.size.y > 0:
-			var z := img.get_region(zoom_rect)
+			var z := img.get_region(UI.readback_rect(get_viewport(), img, zoom_rect))
 			_save(z, "%s_%s_zoom.png" % [out_prefix, tag])
 
 	# --- Kontrola: SAMOTNÁ SVĚTLA (depth channel), bez flatten shaderu ------------
@@ -210,8 +212,7 @@ func _run() -> void:
 	# samotná eroze geometrie, a ne co udělá filtr přes obrazovku.
 	game.sinking_walls = true
 	var sink_pos: Vector2 = game.cell_center(game._sink_block)
-	var sink_rect := Rect2i(int(sink_pos.x - 320), int(sink_pos.y - 240), 640, 480)
-	sink_rect = sink_rect.intersection(Rect2i(Vector2i.ZERO, get_viewport().get_visible_rect().size))
+	var sink_rect := Rect2(sink_pos - Vector2(320, 240), Vector2(640, 480))
 	for step: float in [0.0, 70.0]:
 		GameState.set_tolerance(step)
 		game._update_sinking(0.016)
@@ -220,7 +221,8 @@ func _run() -> void:
 		var img3 := get_viewport().get_texture().get_image()
 		print("_shot_flat: [sink] tolerance %3d  propadlo=%s" % [int(step), str(game._sunk)])
 		if sink_rect.size.x > 0 and sink_rect.size.y > 0:
-			_save(img3.get_region(sink_rect), "%s_sink_t%02d.png" % [out_prefix, int(step)])
+			_save(img3.get_region(UI.readback_rect(get_viewport(), img3, sink_rect)),
+				"%s_sink_t%02d.png" % [out_prefix, int(step)])
 	GameState.set_tolerance(0.0)
 	game._update_sinking(0.016)
 	game.sinking_walls = false
@@ -247,7 +249,8 @@ func _run() -> void:
 			await get_tree().process_frame
 		var simg := get_viewport().get_texture().get_image()
 		var tag2 := "%.2f" % sc
-		_save(simg.get_region(trect if trect.size.x > 0 else zoom_rect),
+		_save(simg.get_region(UI.readback_rect(get_viewport(), simg,
+			trect if trect.size.x > 0 else zoom_rect)),
 			"%s_scale_%s.png" % [out_prefix, tag2])
 	Data.pixel_scale_override = -1.0
 	for spot in game.build_spots.values():

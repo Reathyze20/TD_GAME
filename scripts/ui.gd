@@ -44,11 +44,32 @@ const ACCENT      := Color("9bd0ff")   ## Neutral highlight, headings.
 ## (exactly /4) for the square-projection pixel-art rescale — GridProjection.gd's own
 ## header comment and BLOCKED.md's T5 entry cover why. These six sizes were tuned for the
 ## old canvas and are divided by the same /4 here so nothing overflows its container at
-## the new resolution; not a fresh design pass. At native pixel sizes this small a
-## generic vector fallback font will likely look rough once nearest-filter-upscaled 4x —
-## a real, flagged follow-up (candidates: a dedicated small pixel font, or splitting HUD
-## text onto a viewport that isn't subject to the low-res rescale), not something to
-## silently call finished.
+## the new resolution; not a fresh design pass.
+##
+## RESOLVED 2026-09-05. This block used to carry a flagged follow-up: at these sizes a
+## generic vector font "will likely look rough once nearest-filter-upscaled 4x". It did —
+## unreadably so, on the menus AND the in-game HUD, which is what finally got it fixed.
+## The cause was never the font or these numbers; it was project.godot's stretch mode,
+## which was "viewport": EVERY draw call, text included, rasterized into a 480x270 buffer
+## that was then nearest-upscaled to the window, so a 4 px glyph really was drawn out of
+## 4 physical pixels. The fix is one line there — stretch mode "canvas_items" — which
+## keeps these very same layout coordinates (get_visible_rect() still reports 480x270, so
+## anchors, container sizes and every _shot_scale_audit measurement are unchanged) while
+## rasterizing the draw calls at real window resolution. Sizes below are therefore still
+## in 480x270 canvas units and still must not overflow their containers; they are just no
+## longer quantised to the canvas grid when drawn.
+##
+## What that costs, deliberately accepted (user decision, 2026-09-05): sprites are
+## unaffected (default_texture_filter=0 is nearest and the scale is an integer 4x, so
+## pixel art stays pixel art), but everything drawn procedurally as vectors —
+## DistractionAnimator's enemies, game.gd's _draw() walls, telegraph arcs — now renders
+## smooth instead of chunky, because it is rasterized at 1920x1080. That is a real change
+## to the game's look, not a side effect nobody noticed.
+##
+## Harness consequence, and the reason this note is long: get_viewport().get_texture()
+## .get_image() now returns 1920x1080, not 480x270. Any harness that crops or samples
+## that image with CANVAS coordinates must scale them — see readback_scale() below. Two
+## _shot_* harnesses were photographing the wrong region until they were fixed with it.
 const FS_DISPLAY := 12
 const FS_TITLE   := 8
 const FS_HEAD    := 5
@@ -89,6 +110,38 @@ static func flat(bg: Color, border: Color = Color.TRANSPARENT, border_width: int
 static func card_style(border_color: Color = BORDER, border_width: int = 1,
 		bg: Color = PANEL) -> StyleBoxFlat:
 	return flat(bg, border_color, border_width, RADIUS, PAD_PANEL)
+
+# ---------------------------------------------------------------- readback scale
+#
+# ONLY for screenshot/measurement harnesses, never for gameplay code.
+#
+# Under stretch mode "canvas_items" (see the type-scale note above) the game LAYS OUT in
+# 480x270 canvas units but RENDERS at window resolution, so these two disagree:
+#
+#   get_viewport().get_visible_rect().size   -> 480x270   (canvas units — layout, input)
+#   get_viewport().get_texture().get_image() -> 1920x1080 (physical pixels — readback)
+#
+# Gameplay code only ever sees the first and is unaffected. A harness that reads pixels
+# back sees the second, and any canvas-space rect it built (a tower's world position, a
+# HUD bar's height) is off by this factor when applied to that image.
+#
+# Derived, never assumed: the factor is measured from the two sizes at the moment of the
+# grab, so it stays correct if the window, the canvas or the stretch mode ever changes.
+# This exists because CLAUDE.md records the same copied-constant bug four separate times;
+# a fifth one would have been "the crop is 4x off since the stretch mode changed".
+static func readback_scale(vp: Viewport, img: Image) -> float:
+	var canvas: Vector2 = vp.get_visible_rect().size
+	if canvas.x <= 0.0:
+		return 1.0
+	return float(img.get_width()) / canvas.x
+
+## Canvas-space rect -> readback-image rect, clamped to the image. Use for get_region().
+static func readback_rect(vp: Viewport, img: Image, canvas_rect: Rect2) -> Rect2i:
+	var s := readback_scale(vp, img)
+	var r := Rect2i(
+		Vector2i((canvas_rect.position * s).floor()),
+		Vector2i((canvas_rect.size * s).ceil()))
+	return r.intersection(Rect2i(Vector2i.ZERO, img.get_size()))
 
 # ---------------------------------------------------------------- theme
 #

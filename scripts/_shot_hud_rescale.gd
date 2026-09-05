@@ -31,9 +31,16 @@ func _save(img: Image, path: String) -> void:
 	print("_shot_hud_rescale: %s  %dx%d" % [path, img.get_width(), img.get_height()])
 
 
+## Brings a grab up to 4x CANVAS size, whatever resolution it arrived at. Since the
+## stretch mode became "canvas_items" (2026-09-05) the readback is already 1920x1080, so
+## a blind *4 would have produced a 7680x4320 PNG; the remaining factor is derived from
+## the image rather than assumed, same rule as the crops below.
 func _upscale4x(img: Image) -> Image:
+	var factor := maxi(1, int(round(4.0 / UI.readback_scale(get_viewport(), img))))
+	if factor == 1:
+		return img
 	var out: Image = img.duplicate()
-	out.resize(out.get_width() * 4, out.get_height() * 4, Image.INTERPOLATE_NEAREST)
+	out.resize(out.get_width() * factor, out.get_height() * factor, Image.INTERPOLATE_NEAREST)
 	return out
 
 
@@ -65,15 +72,22 @@ func _run() -> void:
 	# "here is the build panel" picture 5 px above the build panel — the same
 	# inherited-subject failure _shot_fog had, in the one place whose entire job is to
 	# show a bar's real geometry.
+	# Both bar heights are CANVAS units (that is the space _HUD_BOTTOM_H is declared in),
+	# so they go through readback_rect — under "canvas_items" the image is 4x that space
+	# and a raw crop would take the bottom 29 PHYSICAL px, i.e. the bottom 7 canvas px of
+	# a 29 px panel. Exactly the inherited-subject failure this file's header warns about,
+	# reintroduced by the stretch-mode change instead of by a copied literal.
 	var bottom_h: int = Game._HUD_BOTTOM_H
 	var top_h: int = int(game.top_bar_height())
-	var bh := full.get_height()
-	var bar_rect := Rect2i(0, bh - bottom_h, full.get_width(), bottom_h)
+	var canvas: Vector2 = get_viewport().get_visible_rect().size
+	var bar_rect := UI.readback_rect(get_viewport(), full,
+		Rect2(0.0, canvas.y - float(bottom_h), canvas.x, float(bottom_h)))
 	var bottom_crop := full.get_region(bar_rect)
 	_save(_upscale4x(bottom_crop), "%s/p_hudrescale_buildpanel.png" % OUT_DIR)
 
 	# Zoomed crop of just the top bar row (Focus/Burnout/Tolerance meters + combo label).
-	var top_rect := Rect2i(0, 0, full.get_width(), top_h)
+	var top_rect := UI.readback_rect(get_viewport(), full,
+		Rect2(0.0, 0.0, canvas.x, float(top_h)))
 	var top_crop := full.get_region(top_rect)
 	_save(_upscale4x(top_crop), "%s/p_hudrescale_topbar.png" % OUT_DIR)
 

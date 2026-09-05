@@ -169,7 +169,10 @@ func _compactness(mask: PackedByteArray, w: int, h: int) -> float:
 				continue
 			area += 1
 			var edge := false
-			for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			# `for d: Vector2i` kvůli Godot 4.7.2: bez typu je `d` Variant a `x + d.x`
+			# se pod zpřísněným parserem nedá inferovat přes `:=` — skript se nenačetl
+			# a test visel do timeoutu. Žádná assertion se nemění.
+			for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
 				var nx := x + d.x
 				var ny := y + d.y
 				if nx < 0 or ny < 0 or nx >= w or ny >= h or mask[ny * w + nx] == 0:

@@ -92,14 +92,22 @@ func _spawn_defender(game: Game, type_key: String, pos: Vector2) -> DefenderUnit
 	return u
 
 
+## `center`/`half_size` are CANVAS coordinates (a defender's world position). Since the
+## stretch mode became "canvas_items" the readback image is 4x that space, so the window
+## is converted per grab instead of applied raw — ui.gd's readback note has the why.
 func _crop_zoom(img: Image, center: Vector2, half_size: int) -> Image:
-	var full := Rect2i(Vector2i.ZERO, img.get_size())
-	var rect := Rect2i(int(center.x) - half_size, int(center.y) - half_size,
-		half_size * 2, half_size * 2).intersection(full)
+	var rect := UI.readback_rect(get_viewport(), img,
+		Rect2(center - Vector2(half_size, half_size), Vector2(half_size, half_size) * 2.0))
 	if rect.size.x <= 0 or rect.size.y <= 0:
 		return img
 	var crop := img.get_region(rect)
-	crop.resize(crop.get_width() * 4, crop.get_height() * 4, Image.INTERPOLATE_NEAREST)
+	# The 4x upscale existed to make a 480x270-buffer crop inspectable. The crop now
+	# already arrives at window resolution, so scale by whatever is left to reach the
+	# same apparent size rather than blindly multiplying again.
+	var factor := maxi(1, int(round(4.0 / UI.readback_scale(get_viewport(), img))))
+	if factor > 1:
+		crop.resize(crop.get_width() * factor, crop.get_height() * factor,
+			Image.INTERPOLATE_NEAREST)
 	return crop
 
 

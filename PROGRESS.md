@@ -5183,3 +5183,82 @@ jakou měří brána — druhá kopie vzorce je přesně to, před čím varuje 
 - **Necommitnuto cizí:** `assets/raw/master_*/cand_*.png.import` (24 sidecarů) byly
   netrackované už před tímhle úkolem — je to nedodělaný commit někoho jiného, nechávám
   ho být. `.dev/screenshots/*` taky beze změny ode mě.
+
+## 2026-09-05 — UI bylo nečitelné, protože se text rasterizoval do 480×270. Jeden řádek v project.godot
+
+Uživatel poslal screenshot `Select Level`: nadpis šel přečíst, ale `Not yet cleared`,
+`Play` i `Back` byly rozsypaný pixelový šum. Podruhé pak totéž o HUD ve hře („UI ve hře
+ale stojí furt na prd").
+
+### Příčina — ne font, ne velikosti písma
+
+`project.godot` měl `window/stretch/mode="viewport"`. V tomhle režimu se **každý** draw
+call, text nevyjímaje, rasterizuje do interního bufferu 480×270 a ten se teprve táhne 4×
+nearest filtrem na okno. `UI.FS_BODY` je 4 px, takže glyf se doopravdy kreslil ze čtyř
+fyzických pixelů a ty se pak zvětšily na 16×16. Žádná změna velikosti fontu to nespraví —
+kreslilo se do rozlišení, kde glyf nemá z čeho vzniknout.
+
+`ui.gd` tenhle dluh měl od T5 (2026-08-29) sám v komentáři flagnutý jako „a real, flagged
+follow-up", jen s chybnou hypotézou příčiny (font). Komentář je přepsaný na to, co to
+opravdu bylo.
+
+### Oprava
+
+`window/stretch/mode="canvas_items"`. Layout zůstává v souřadnicích 480×270 — **změřeno,
+ne odhadnuto**: `get_visible_rect()` hlásí `(480, 270)` v obou režimech, takže anchory,
+velikosti kontejnerů ani `_shot_scale_audit` se nehnuly. Draw cally se rasterizují
+v nativním rozlišení okna, takže readback je `1920×1080`.
+
+Herní kód nepotřeboval **žádnou** změnu (menu.gd, level_select.gd, education.gd,
+game_over.gd, victory.gd, game.gd jsou beze změny). Mezikrok s runtime přepínačem
+`UI.crisp_text()` byl proto zahozen — s globálním přepnutím by to byl mrtvý kód, který
+lže o tom, že existují dva režimy.
+
+### Co to stojí — rozhodnutí uživatele, ne tichý vedlejší efekt
+
+Sprity nedotčené (`default_texture_filter=0` je nearest a měřítko je celočíselné 4×, takže
+pixel art zůstal pixel artem — ověřeno na fotce). Ale všechno vektorově kreslené —
+`DistractionAnimator`, `_draw()` zdi, telegraph oblouky — se teď rasterizuje hladce.
+Uživatel dostal variantu popsanou předem a vybral ji (nabízené alternativy: bitmapový
+pixel font, nebo HUD do vlastního viewportu = velký refaktor kvůli `SCREEN_UV` mlze).
+
+### Následek pro harnessy, a proč to má vlastní helper
+
+Readback už není 480×270. Čtyři `_shot_*` ořezávaly ten obrázek **souřadnicemi plátna** a
+bez opravy by fotily oblast 4× vedle — přesně to selhání, které CLAUDE.md dokumentuje
+čtyřikrát. `_shot_hud_rescale` by bral spodních 29 **fyzických** px místo spodních 29 px
+plátna, tedy 7 px z 29px panelu — ironicky to samé, před čím varuje jeho vlastní hlavička.
+Přidán `UI.readback_scale()` / `UI.readback_rect()`, které měřítko **odvodí** z obou
+velikostí v okamžiku odběru; použito v `_shot_flat`, `_shot_shadows`,
+`_shot_defender_pivot`, `_shot_hud_rescale`.
+
+Mlha ověřena vizuálně (`_shot_fog`), protože `brain_fog.gdshader` má v hlavičce výslovný
+seznam předpokladů o stretch módu: světelný kruh sedí na postavené věži, jádro svítí,
+stín od zdi má správný směr. `SCREEN_UV` mapování drží, protože 0..1 přes obrazovku
+odpovídá témuž světovému rozsahu v obou režimech.
+
+### Oprava testu pod výjimkou „vadné samo měření"
+
+`_test_style_inheritance` padal na **timeout**, ne na assertion: Godot 4.7.2 zpřísnil
+inferenci typů a `for d in [Vector2i(...)]` + `var nx := x + d.x` je teď parse error, takže
+se skript vůbec nenačetl. Test tedy netvrdil o hře nic a jen visel. Změněno na
+`for d: Vector2i in [...]` — **žádná assertion, práh ani očekávaná hodnota se nezměnily**,
+jen se test zase spouští. Spadá pod „vadné SAMO MĚŘENÍ" (závislost na chování parseru, ne
+na hře). Po opravě prochází.
+
+### Ověření
+
+- `./verify.sh`: **44 pass, 3 fail, 0 skip, 2 known-broken, 0 flaky, 1 no-display**
+  (před úkolem 43 pass / 4 fail — přibyl opravený `_test_style_inheritance`).
+- Všechny 3 zbylé fail jsou **předchozí a doložené na čistém stromu**:
+  - `art colors` a `style failure modes` — `No module named 'numpy'`, prostředí.
+  - `_test_antiblock` — výkonnostní práh 1000 µs. Na HEAD bez mých změn 3 běhy:
+    1332,9 / 1303,2 / 2059,9 µs; s mými změnami 1017,9 µs. Padá v obou, s mými
+    změnami shodou okolností líp. Není to regrese; je to práh nastavený pod reálný
+    výkon tohohle stroje.
+- **Necommitnuto cizí:** prázdný soubor `git` v rootu (0 B) — byl netrackovaný už při
+  startu session, není můj, nechávám ho být.
+- **Pozor, mimo rozsah:** cesta ke Godotu v `CLAUDE.md` i v hlášce `verify.sh` míří na
+  4.7.1, který na stroji **neexistuje**. Reálná binárka je
+  `Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe`. Neopravuji
+  sám (CLAUDE.md je ground truth uživatele), jen hlásím.
