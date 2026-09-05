@@ -68,7 +68,22 @@ func setup(_game, _type_key: String, _col: int, _row: int, initial_facing: float
 	# Barracks._draw()) apply as a canvas transform, exactly the split IsoTopSegment
 	# already uses — node position stays at ground level for sorting and gameplay math,
 	# the raised look is only ever a transform around the draw calls.
-	if game != null and game.high_ground.has(Vector2i(col, row)):
+	#
+	# ONLY IN AN ISOMETRIC PROJECTION, and that condition is the fix for "the towers are
+	# drawn enormous / floating" (2026-09-05). The lift exists to put a habit on top of a
+	# plateau that the ISO branch actually draws (IsoTopSegment/_spawn_wall_segment, both
+	# offset by WALL_HEIGHT). MODE_SQUARE never reaches that code: game.gd's
+	# _build_platforms() calls _build_square_terrain() and returns, and SquareTerrain
+	# paints a FLAT cell with no height anywhere in it. So on the top-down board this was
+	# lifting every tower 32 px = TWO TILES onto a plateau nothing had drawn, which is why
+	# a frame diff found the head sitting entirely clear of the 3-tile pad it is supposed
+	# to stand on -- measured, and visible in the capture: the pad had only the health bar
+	# on it and the head floated above its top edge.
+	#
+	# Same T5 leftover as the fonts (ui.gd), the style-box paddings (H1) and the glow
+	# floors: an iso-era constant the square migration never reached.
+	if game != null and game.high_ground.has(Vector2i(col, row)) \
+			and GridProjection.active_mode != GridProjection.MODE_SQUARE:
 		_iso_lift = game.WALL_HEIGHT
 
 	_setup_specific(initial_facing, initial_arc)

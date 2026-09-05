@@ -1429,7 +1429,14 @@ func _draw_placement_preview(cv: CanvasItem) -> void:
 	# GridProjection.diamond_corners() -- iso-only, and the exact shape a live
 	# top-down screenshot caught floating over the board; see _cell_rect() above).
 	var b: int = Data.BUILD_BLOCK
-	var elevation := Vector2(0.0, WALL_HEIGHT) if high_ground.has(_hover_cell) else Vector2.ZERO
+	# Elevation only where a plateau is actually DRAWN -- the iso branch of
+	# _build_platforms(). MODE_SQUARE returns from _build_square_terrain() having painted a
+	# flat cell, so lifting the preview there put the outline 32 px (two tiles) above the
+	# block it was previewing. Matches base_habit.gd's _iso_lift, which carries the same
+	# guard and the long version of why (2026-09-05).
+	var elevated: bool = high_ground.has(_hover_cell) \
+		and GridProjection.active_mode != GridProjection.MODE_SQUARE
+	var elevation := Vector2(0.0, WALL_HEIGHT) if elevated else Vector2.ZERO
 	var t: float = float(Data.GRID.get("tile", 32))
 	var top_left := Data.cell_center(_hover_cell - Vector2i(b / 2, b / 2)) - Vector2(t, t) * 0.5 - elevation
 	var block_rect := Rect2(top_left, Vector2(t, t) * float(b))
