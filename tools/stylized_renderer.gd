@@ -237,6 +237,13 @@ func _draw_square() -> void:
 	var ox := _origin.x
 	var oy := _origin.y
 	draw_rect(Rect2(ox, oy, float(g.cols) * t, float(g.rows) * t), G.SQUARE_GROUND_COLOR)
+	# Lane BEFORE high ground — same order and same color as Game.SquareTerrain._draw()
+	# (scripts/game.gd, "draw the lane as a surface", 2026-09-05): a lane is floor and
+	# a wall stands on floor, so if the two ever disagreed the wall must win. Until this
+	# fix _draw_square() drew no lane at all — the square panel's biggest gap, since a
+	# maze TD's whole point is where the wave walks.
+	for c: Vector2i in _paths:
+		draw_rect(Rect2(ox + float(c.x) * t, oy + float(c.y) * t, t, t), G.SQUARE_LANE_COLOR)
 	for c: Vector2i in _walls.keys():
 		draw_rect(Rect2(ox + float(c.x) * t, oy + float(c.y) * t, t, t), G.SQUARE_TOP_COLOR)
 
@@ -301,20 +308,19 @@ func rebuild(ed) -> void:
 	_objective = ed._read_objective()
 	_zones = ed._read_zones()
 
-	var tm: TileMapLayer = ed.get_node_or_null("HighGroundTiles")
-	if tm != null:
-		for c: Vector2i in tm.get_used_cells():
-			if c != _objective:
-				_walls[c] = true
-
-	var pt: TileMapLayer = ed.get_node_or_null("PathTiles")
-	if pt != null:
-		for c: Vector2i in pt.get_used_cells():
-			_paths.append(c)
-		# Stejné řazení používá Bake — díky tomu editor i hra vylosují buňkám tytéž
-		# varianty a náhled je playtestu věrný do posledního pixelu.
-		_paths.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
-			return a.y < b.y or (a.y == b.y and a.x < b.x))
+	# _high_cells()/_lane_cells(), NOT the raw TileMapLayer nodes: those two merge the
+	# BLOCK layers (BlockTiles/BlockPath — the default one-click-per-block way of
+	# painting) with the per-cell layers, which is exactly what MODE_ISO already reads
+	# two lines up (_iso_high/_iso_lane). Reading only HighGroundTiles/PathTiles here
+	# left MODE_SQUARE blind to anything painted in blocks — a canvas built entirely
+	# from BlockTiles/BlockPath (like MapEditor.tscn ships) drew NO walls and no lane
+	# at all on the square panel.
+	for c: Vector2i in ed._high_cells():
+		if c != _objective:
+			_walls[c] = true
+	# Already sorted (y, x) by _lane_cells() — the same order Bake writes path_cells
+	# in, so the square panel matches what a playtest would actually show.
+	_paths.assign(ed._lane_cells())
 
 	var props: Node2D = ed.get_node_or_null("Props")
 	if props != null:

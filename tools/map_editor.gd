@@ -613,8 +613,13 @@ func _process(delta: float) -> void:
 	# Náhled má VLASTNÍ, levnější otisk a NENÍ debouncovaný — překreslit pravou stranu
 	# nestojí nic vedle pathfindingu, a náhled o 0,8 s za štětcem je horší než žádný.
 	# Otisk pokrývá všechno, co pravá strana kreslí: zdi, cesty, rekvizity, zóny, cíl.
+	# Zdi a cesty se dnes malují PŘEDEVŠÍM po blocích (BlockTiles/BlockPath — viz dock:
+	# "Jedno kliknutí = jeden blok"), takže obojí musí být v otisku vedle buňkových
+	# vrstev, jinak namalovaný blok náhled vůbec nepřekreslí.
 	var tmp: TileMapLayer = get_node_or_null("HighGroundTiles")
 	var ptl: TileMapLayer = get_node_or_null("PathTiles")
+	var btl: TileMapLayer = get_node_or_null("BlockTiles")
+	var bpl: TileMapLayer = get_node_or_null("BlockPath")
 	var props_sig: Array = []
 	var props_node: Node2D = get_node_or_null("Props")
 	if props_node != null:
@@ -625,6 +630,8 @@ func _process(delta: float) -> void:
 	var pfp: int = hash([
 		tmp.get_used_cells() if tmp != null else [],
 		ptl.get_used_cells() if ptl != null else [],
+		btl.get_used_cells() if btl != null else [],
+		bpl.get_used_cells() if bpl != null else [],
 		props_sig, _read_zones(), _read_objective()])
 	if pfp != _preview_fp:
 		_preview_fp = pfp
@@ -645,11 +652,22 @@ func _process(delta: float) -> void:
 			_analyze()
 
 ## Cheap identity of everything analysis depends on. When it changes, an edit happened.
+## _high_cells() merges BlockTiles (the default one-click-per-block way of painting)
+## with the per-cell HighGroundTiles — both must be watched here, or a block painted on
+## the recommended layer never triggers a re-analysis. BlockPath is included too even
+## though no analysis metric reads lane cells today, so the panel still reacts when a
+## designer paints a path block and expects SOMETHING to move.
 func _current_fingerprint() -> int:
 	var tm: TileMapLayer = get_node_or_null("HighGroundTiles")
+	var bt: TileMapLayer = get_node_or_null("BlockTiles")
+	var bp: TileMapLayer = get_node_or_null("BlockPath")
 	var parts := []
 	if tm != null:
 		parts.append(tm.get_used_cells())
+	if bt != null:
+		parts.append(bt.get_used_cells())
+	if bp != null:
+		parts.append(bp.get_used_cells())
 	parts.append(_read_objective())
 	parts.append(_read_zones())
 	parts.append(_settings_fingerprint())
