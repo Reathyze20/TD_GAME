@@ -5456,3 +5456,51 @@ a level 1 nemá co vykreslit (obsah, patří do MapEditoru — nesahám na level
 - `./verify.sh`: viz hash commitu. `terrain contrast` prochází — nová barva je ta, kterou
   ten test měří.
 - Snímky levelu 98 s vykreslenou cestou předány uživateli.
+
+## 2026-09-05 — Věž se vznášela nad podložkou: byla to KOTVA, ne měřítko
+
+**Úkol** (vrstva 1b z uživatelova hlášení, varianta A): opravit kotvení hlavy věže vůči
+stavebnímu bloku. Boční přesah artu NEŘEŠIT — zapsat jako vědomý placeholder.
+
+**Co se změřilo.** Stavební blok je 48 px, odvozeno z `Data.GRID.tile` (16) ×
+`Data.BUILD_BLOCK` (3). `_draw_head_sprite` kotvil spodek obsahu hlavy na `position`,
+což je STŘED bloku, ne jeho spodní hrana. Sprite z bodu dotyku roste jen nahoru, takže
+hlava trčela nad podložku a její spodní půlka zůstala prázdná.
+
+Před/po týmž harnessem, stejný level 98, stejná věž `focus_timer`, jediná proměnná je
+kotva:
+
+| | před | po |
+|---|---|---|
+| `art_origin.y` | 0,0 | 24,0 |
+| ink svisle (svět. px) | 136,0–203,8 | 160,0–227,8 |
+| přesah nad podložku | **1,56 dlaždice** | **0,06** (1 px) |
+| ink celkem | 53,0 × 67,8 px | **53,0 × 67,8 px** |
+
+Ink se nezměnil ani o pixel — to je ten důkaz, že příčina nebyla ve `scale`. Šířka 53 px
+navíc souhlasí na pixel s alfa-bboxem PNG změřeným nezávisle ze souboru.
+
+**Co se změnilo v kódu.** `BaseHabit.art_origin()` — nová sdílená kotva, odvozená ze
+`Data.GRID.tile * Data.BUILD_BLOCK * 0.5`, ne opsaná. `tower.gd:_draw()` rozdělen na dva
+počátky: ART (stín, podstavec, hlava, záblesk u ústí, ukazatel práce) kolem bodu dotyku,
+HERNÍ SLIBY (dostřel, kužel palby, AoE pulz) dál kolem `position` — ty se posunout
+nesměly, protože právě odtud se každá z těch vzdáleností počítá. Stín odsazen o vlastní
+vnější poloměr nahoru, jinak by po přesunu ležel ze tří pětin mimo podložku.
+`Barracks._draw()` nezměněn: kreslí tělo vystředěné na `position` a s inkem 46 × 44 se
+do 48px bloku vejde celé, takže se nikdy nevznášel.
+
+**Co se vědomě NEopravilo.** Boční přesah hlav (`real_hobby` +8 px, `focus_timer` +5 px
+a probliká s natočením) — rozhodnutí uživatele: nepřidávat scale cap na art, který se
+zahodí při přegenerování do směru A. Zapsáno do `docs/art/ART_DEBT.md` jako
+`legacy-habit-head-overflows-build-block`, s tabulkou všech 15 typů a s podmínkou, která
+ten záznam smaže. Nadpis záznamu schválně není id entity, aby nerozšířil barevný
+allowlist `check_art_colors.py` — stejná konvence jako u ostatních `legacy-*` záznamů.
+
+**verify.sh: 44 pass / 3 fail.** `art colors` a `style failure modes` padají na
+`No module named 'numpy'` — doloženo jako předchozí stav. `_test_antiblock` padá na
+VÝKONNOSTNÍ mez (avg 1034 µs proti prahu 1000 µs), ne na tvrzení o chování; ověřeno
+odložením obou změněných souborů přes `git stash`, že padá **stejně i bez nich**
+(1391,8 a 1258,4 µs). Test neupravován.
+
+Jednorázové harnessy (`_diag_pad_fit`, `_diag_board_state` a jejich packery) smazány
+včetně `.uid`. Před/po snímky zůstávají v `.dev/screenshots/pad_fit/`.

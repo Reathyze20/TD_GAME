@@ -151,6 +151,54 @@ still the evidence behind §12's thresholds.
   against a table that currently disagrees with the disk by 16 px.
 - **Status:** legacy — superseded by směr A
 
+## legacy-habit-head-overflows-build-block
+
+- **Type:** measurement (art size vs board geometry)
+- **Gated ids:** none — this entry adds nothing to the colour allowlist, by design.
+  Deliberately not spelled `Affected ids`, for the same reason as
+  `legacy-figural-direction` above: `check_art_colors.py` would swallow the list.
+- **Files:** `assets/towers/head_*.png`
+- **What was measured 2026-09-05:** the build block is **48 px** — derived, not copied:
+  `Data.GRID.tile` (16) × `Data.BUILD_BLOCK` (3) in `scripts/data.gd`. Heads draw at their
+  raw PNG size, because `Data.pixel_scale()` returns `ISO_PIXEL_SCALE` = 1.0, so one art
+  pixel is one world pixel and nothing else scales them
+  (`tower.gd:_draw_head_sprite`, `size = tex.get_size() * Data.pixel_scale()`).
+  Alfa-bbox (alpha > 8) of every PNG referenced from `data/habits/*.tres`:
+
+  | typ | ink | vůči 48px bloku |
+  |---|---|---|
+  | `real_hobby`, `real_hobby_2` | 56 na výšku | **+8** (3,50 dlaždice) |
+  | `exercise`, `exercise_2` | 53 na výšku | +5 (3,31) |
+  | `anchor` | 53 × 31 | +5 na výšku, na šířku se vejde |
+  | `focus_timer`, `focus_timer_2` | 53 na **šířku** (V/Z), 51 (SV/SZ), 48–50 na výšku | +5 na šířku |
+  | `focus_pillar` | 51 na výšku | +3 |
+  | `zen_pulsar`, `_2a`, `_2b` | 50 na výšku | +2 |
+  | `mindfulness`, `mindfulness_2` | 37 × 42 | vejde se |
+  | `accountability`, `accountability_2` | 46 × 44 | vejde se |
+  | sdílený `tower_base.png` | 33 × 33 | vejde se |
+
+  Potvrzeno druhou, nezávislou metodou: frame diff živé desky (level 98, `focus_timer`)
+  naměřil ink 53,0 px na šířku — na pixel stejně jako alfa-bbox ze souboru.
+  `focus_timer` je jediný typ s kompletní osmisměrnou sadou, takže je i jediný, u kterého
+  přesah **probliká** — na východ/západ vyjede o 5 px, na sever ne.
+- **Why it is not being fixed in code:** rozhodl uživatel 5. 9. 2026 — nepřidávat scale
+  cap na art, který se stejně zahodí. Věže se přegenerují do směru A jako geometrické
+  habity dimenzované rovnou pro 48px blok. Sražení výšky u figurky s nohama vyrobí jen
+  rozmáčknutou figurku — stejný závěr jako `BLOCKED.md`, záznam „Věže vypadají obrovské
+  a izometricky". Per-typ konstanta pro měřítko hlavy dnes neexistuje a založit ji by
+  znamenalo vyrobit něco, co se s novým artem musí zase mazat.
+  (`Data.UNIT_ART_SCALE` = 0.4 se hlav věží netýká — platí jen pro pohyblivé jednotky.)
+- **Not this entry:** svislé „vznášení" věže nad podložkou **nebyl** přesah artu, ale
+  kotva — `_draw_head_sprite` kotvil spodek obsahu na `position`, tedy na STŘED bloku
+  místo na jeho spodní hranu, takže hlava trčela 1,56 dlaždice nad podložku a její
+  spodní půlka zůstala prázdná. Opraveno 5. 9. 2026 v `BaseHabit.art_origin()`; ink se
+  přitom nezměnil ani o pixel (53,0 × 67,8 px před i po), což je důkaz, že to nebylo
+  měřítko. Boční přesah výše tím dotčený není a trvá.
+- **What clears this entry:** schválení masterů směru A a jejich instalace do
+  `assets/towers/`. Pak přeměř stejným bboxem; když se všech 15 typů vejde do 48 px,
+  smaž tuhle sekci.
+- **Status:** legacy — superseded by směr A
+
 ---
 
 # Colour mismatches (per-entity, allowlisted by `check_art_colors.py`)

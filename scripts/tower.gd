@@ -776,13 +776,17 @@ func _measure_foot_pad() -> float:
 ## one — the ground was already at 3.0. Data.pixel_scale() is the single source now.
 
 ## `offset`/`rot` are LOCAL to whatever transform is already active when this is called
-## (always the plateau-lift origin set at the top of _draw() — see _lift_origin there),
+## (always the ART origin set at the top of _draw() — see _art_origin there, and the
+## two-origin split it documents; do NOT read this as _lift_origin, that one is the
+## gameplay origin and the head has not been drawn around it since 5. 9. 2026),
 ## so both absolute draw_set_transform calls below fold that origin back in rather than
 ## overwriting it with a bare Vector2.ZERO, which would snap the head back to true
 ## ground level for exactly one draw call.
 func _draw_head_sprite(tex: Texture2D, tint: Color, rot: float = 0.0, offset: Vector2 = Vector2.ZERO) -> void:
 	var size := Vector2(tex.get_size()) * Data.pixel_scale()
-	var lift_origin := Vector2(0.0, -_iso_lift)
+	# Spodek obsahu dosedá na SPODNÍ HRANU podložky, ne na její střed — viz
+	# BaseHabit.art_origin(), kde je i celé proč.
+	var lift_origin := art_origin()
 	var transformed := rot != 0.0 or offset != Vector2.ZERO
 	if transformed:
 		draw_set_transform(lift_origin + offset, rot, Vector2.ONE)
@@ -806,7 +810,18 @@ func _draw() -> void:
 	# about it individually. `position`/global_position are untouched — see why in the
 	# block comment where _iso_lift is set.
 	var _lift_origin := Vector2(0.0, -_iso_lift)
-	draw_set_transform(_lift_origin, 0.0, Vector2.ONE)
+	# DVA POČÁTKY, a rozdíl mezi nimi je celý ten 5. 9. opravený bug.
+	#
+	#   _art_origin  = kde věž stojí na podložce (BaseHabit.art_origin(), spodní hrana
+	#                  bloku). Kolem něj se kreslí ART: stín, podstavec, hlava, záblesk
+	#                  u ústí a ukazatel práce. Ten se posouvá s hlavou proto, aby
+	#                  nezůstal pod ní — jeho komentář ho vždycky umisťoval "pod
+	#                  podstavec", a podstavec se přesunul.
+	#   _lift_origin = `position`, tedy bod, ze kterého se počítá KAŽDÁ vzdálenost
+	#                  (dostřel, kužel palby, AoE pulz, cíle). Herní sliby se kreslí
+	#                  kolem něj a posunout je by znamenalo kreslit lež o dosahu.
+	var _art_origin := art_origin()
+	draw_set_transform(_art_origin, 0.0, Vector2.ONE)
 
 	# Support habits get their own look — an Anchor drawn as a turret with barrels
 	# promises damage it will never deal. A pylon with a diamond marker reads as
@@ -832,6 +847,9 @@ func _draw() -> void:
 			var diamond := PackedVector2Array([
 				Vector2(0, -dr), Vector2(dr, 0), Vector2(0, dr), Vector2(-dr, 0)])
 			draw_colored_polygon(diamond, main_col)
+		# Zpátky na herní počátek: Routine radius se měří od `position`, ne od bodu, kde
+		# sprite dosedá na podložku.
+		draw_set_transform(_lift_origin, 0.0, Vector2.ONE)
 		if show_range_indicator:
 			PixelDraw.ellipse(self, Vector2.ZERO, def.range, def.range / GridProjection.GROUND_Y_SCALE, Color(main_col.r, main_col.g, main_col.b, 0.7), 1.0, 2.5)
 		if not in_routine:
@@ -847,11 +865,15 @@ func _draw() -> void:
 	# (docs/art/iso_bible.md kap. 2). Drive to bylo (0, base_r*0.5), tedy 6,7 px primo
 	# dolu -- spolu s prazdnym okrajem spritu (viz _measure_foot_pad) to udelalo sest
 	# radku hole zeme mezi vezi a jejim stinem a vez se vznasela.
-	draw_set_transform(_lift_origin + Vector2(base_r * 0.16, base_r * 0.10), 0.0,
+	# Odsazení o vlastní vnější poloměr NAHORU: bod dotyku je od 5. 9. spodní hrana
+	# podložky (BaseHabit.art_origin()), takže stín kreslený kolem něj by ze tří pětin
+	# ležel mimo podložku a na tmavé zemi pod ní četl jako kaňka. Takhle se zevnitř
+	# dotýká její spodní hrany. Odvozeno z base_r, ne z natvrdo napsaného posunu.
+	draw_set_transform(_art_origin + Vector2(base_r * 0.16, base_r * 0.10 - base_r * 1.15), 0.0,
 		Vector2(1.0, 1.0 / GridProjection.GROUND_Y_SCALE))
 	draw_circle(Vector2.ZERO, base_r * 1.15, Color(0.01, 0.01, 0.04, 0.15))
 	draw_circle(Vector2.ZERO, base_r * 0.85, Color(0.01, 0.01, 0.04, 0.35))
-	draw_set_transform(_lift_origin, 0.0, Vector2.ONE)
+	draw_set_transform(_art_origin, 0.0, Vector2.ONE)
 
 	# 1. FIXED PEDESTAL BASE (PNG Sprite or Vector Fallback)
 	if _base_tex != null and not (def != null and def.has_own_pedestal):
@@ -938,10 +960,10 @@ func _draw() -> void:
 		var mf_r := 1.6 * mf_units
 		var halo := Color(1.0, 0.62, 0.22, _muzzle_flash_alpha * 0.5)
 		var core := Color(1.0, 0.93, 0.72, _muzzle_flash_alpha)
-		draw_set_transform(_lift_origin + flash_tip, 0.0, Vector2(1.0, 1.0 / GridProjection.GROUND_Y_SCALE))
+		draw_set_transform(_art_origin + flash_tip, 0.0, Vector2(1.0, 1.0 / GridProjection.GROUND_Y_SCALE))
 		draw_circle(Vector2.ZERO, mf_r * 2.0, halo)
 		draw_circle(Vector2.ZERO, mf_r, core)
-		draw_set_transform(_lift_origin, 0.0, Vector2.ONE)
+		draw_set_transform(_art_origin, 0.0, Vector2.ONE)
 
 	# 3. WORK-INTERVAL BAR (Pomodoro ammo / rest meter — drawn BELOW pedestal)
 	if has_work_cycle():
@@ -957,6 +979,10 @@ func _draw() -> void:
 			var left: float = clampf(work_left / maxf(float(def.work_duration), 0.001), 0.0, 1.0)
 			draw_rect(Rect2(-w / 2.0, y, w * left, 4.0),
 				Color("ffd479") if left < 0.3 else Color("35ff8d"))
+
+	# Konec artu. Všechno od téhle chvíle je herní slib o vzdálenosti a měří se od
+	# `position`, ne od bodu dotyku s podložkou — viz dva počátky na začátku _draw().
+	draw_set_transform(_lift_origin, 0.0, Vector2.ONE)
 
 	# 4. PULSE VISUAL (AoE activation): expanding wave, not a full-area flash
 	if _pulse_progress > 0.0 and _pulse_progress < 1.0:

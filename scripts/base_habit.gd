@@ -94,6 +94,33 @@ func setup(_game, _type_key: String, _col: int, _row: int, initial_facing: float
 	# death animation after removal, so this is a one-way flip: nothing re-enables it.
 	set_process(false)
 
+## Bod, ve kterém se ART habitu dotýká své podložky, v LOKÁLNÍCH souřadnicích uzlu.
+##
+## `position` je STŘED stavebního bloku, ne jeho spodní hrana: setup() výše dosazuje
+## `Data.cell_center(col, row)` a (col, row) je prostřední buňka bloku (Data.build_block()).
+## Spodní hrana podložky proto leží o půl bloku níž. Odvozeno ze zdroje, neopsané —
+## `Data.GRID.tile` (16) × `Data.BUILD_BLOCK` (3) × 0,5 = 24 px. Změň kteroukoli z těch
+## dvou konstant a kotva se posune sama.
+##
+## PROČ TO EXISTUJE (5. 9. 2026). Do dneška se tady dosazovala nula, tedy STŘED podložky.
+## Hlava věže se kotví spodkem OBSAHU (tower.gd:_measure_foot_pad), takže z bodu dotyku
+## roste jenom NAHORU. Podložka sahá nahoru 24 px, ale hlava `real_hobby` má 56 px inku:
+## trčela 32 px = DVĚ DLAŽDICE nad svůj vlastní blok a spodní půlka podložky zůstala
+## prázdná. Na živém snímku z 5. 9. na ní byl jen ukazatel práce a rajče se vznášelo nad
+## její horní hranou.
+##
+## Příčina tedy NENÍ měřítko artu. Boční přesah (ink širší než 48 px) je samostatná,
+## vědomě odložená věc — viz `docs/art/ART_DEBT.md`, záznam
+## `legacy-habit-head-overflows-build-block`; sem nepatří a scale cap se sem nepřidává.
+##
+## Kdo tohle používá, používá to na ART. Cokoli, co je herní slib (dostřel, kužel
+## palby, AoE pulz), se dál kreslí kolem `position`, protože přesně odtud se ty
+## vzdálenosti počítají — posunout je by znamenalo kreslit lež.
+##
+## `_iso_lift` se odečítá dál, aby na terase v MODE_ISO platilo obojí naráz.
+func art_origin() -> Vector2:
+	return Vector2(0.0, float(Data.GRID.tile * Data.BUILD_BLOCK) * 0.5 - _iso_lift)
+
 ## Virtual method for subclass-specific setup.
 func _setup_specific(_initial_facing: float, _initial_arc: float) -> void:
 	pass
