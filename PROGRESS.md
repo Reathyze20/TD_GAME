@@ -5382,3 +5382,77 @@ obrázku" jsou dvě různá čísla, kdykoli se obrázek netvaruje podle plátna
 - `_shot_topdown_mockup` a `_shot_squashed_tiles` spuštěny a zkontrolovány na výstupní
   rozměry (`120x56`, resp. `120x49` pro squashed variantu — jiná výška, protože ten
   render je schválně sražený).
+
+## 2026-09-05 — Vrstvy 1b a 2a: věž se vznášela nad podložkou, cesta se nekreslila vůbec
+
+Uživatel rozdělil vizuální vady desky na vrstvy a zadal pořadí. Tohle je 1b (měřítko
+spritů vůči blokům) a 2a (cesta jako plocha, ne tečky). 1a a 2b níž jako zjištění.
+
+### 1b — a NENÍ to měřítko
+
+Změřeno frame diffem, ne přepočtem vzorce:
+
+| | naměřeno |
+|---|---|
+| podložka (`BUILD_BLOCK=3`) | 3,00 dlaždice |
+| hlava — box spritu | 4,00 |
+| hlava — **viditelný ink** | **2,50 × 3,25** |
+| přesah inku přes podložku na šířku | **−0,25** |
+| věž celkem PŘED | 4,13 × **5,06** |
+| věž celkem PO | 4,13 × **4,23** |
+
+Viditelná hlava je o čtvrt dlaždice **užší** než podložka. Zavést `HABIT_ART_SCALE` by
+tedy zmenšovalo něco, co se vejde, a ubralo čitelnost spritu, který je ze 37 % průhledný.
+Snímek ukázal skutečnou vadu: hlava se **vznášela úplně nad podložkou**, na podložce byl
+jen zelený health bar.
+
+Příčina: `base_habit.gd:72` nastavovalo `_iso_lift = Game.WALL_HEIGHT` (32 px = **2
+dlaždice**) každému habitu na high groundu, **bezpodmínečně**. To zvednutí existuje, aby
+habit stál na plošině, kterou kreslí ISO větev (`IsoTopSegment`, `_spawn_wall_segment`,
+obojí posunuté o `WALL_HEIGHT`). `MODE_SQUARE` se tam nikdy nedostane:
+`_build_platforms()` zavolá `_build_square_terrain()` a vrátí se, a `SquareTerrain._draw()`
+jsou dva `draw_rect` bez jediné výšky. Věž se tedy zvedala na plošinu, kterou nic
+nenakreslilo.
+
+Opraveny **obě** místa se stejnou vadou — `_iso_lift` i elevace náhledu umístění
+v `_draw_placement_preview` (ta posouvala obrys bloku 2 dlaždice nad blok, který
+zobrazovala). Obě se teď ptají `GridProjection.active_mode != MODE_SQUARE`.
+
+Zbylý přesah (hlava je 3,25 dlaždice vysoká na 3dlaždicové podložce) je **art**, ne kód —
+čelní figurky na top-down desce, vedené v BLOCKED.md od `14384c0`.
+
+### 2a — cesta se na top-down desce nekreslila VŮBEC
+
+Ne „kreslí se špatně", ale „nekreslí se". Kód to sám přiznává: `_build_path_layer()`, což
+JE renderer cesty (Wang dlaždice `lane_%02d.png`, 18 souborů na disku), má jako první
+příkaz `if active_mode == MODE_SQUARE: return` s komentářem *„there is no square
+equivalent to paint yet"*. A `SquareTerrain._draw()` kreslil jen pozadí a béžové
+high-ground buňky. Nejdůležitější informace v maze TD tedy neměla žádné vykreslení.
+
+To, co uživatel četl jako tečkovanou trasu, je `_draw_static_field()`: `draw_circle(cpos,
+2.0, Color("3b4561", 0.7))` pro každou buňku, kde `x % 3 == 1 and y % 3 == 1` — mřížka
+středů stavitelných bloků, kreslená **přes celou desku bez ohledu na high ground**. Na
+levelu 1 tedy značí 50 pozic, z nichž se dá stavět na 3.
+
+Přidán `SQUARE_LANE_COLOR := Color8(78, 52, 16)` a kreslení `lane_cells` jako plochy
+v `SquareTerrain._draw()`, pod high groundem. Barva **není vymyšlená**: je to
+`LANE = (78, 52, 16)` z `tools/flat_terrain.py:55`, tedy hodnota, kterou už hlídá
+`tools/check_terrain_contrast.py` proti pásmu z `STYLE_BIBLE.md` §4 — stejným způsobem,
+jakým `SQUARE_GROUND_COLOR` už přebírá `GROUND` z téhož souboru. `_open_trod()` teď
+překresluje i terén, jinak by nově otevřený trod zůstal nenamalovaný.
+
+### Proč to na levelu 1 pořád nic nekreslí — a je to zjištění, ne vada
+
+`data/levels/level_1.tres` **nemá `path_cells` vůbec** (`docs/levels/1.md` řádek 44:
+`path_cells: (none)`, v ASCII mřížce ani jeden znak `~`). Level 1 žádnou cestu
+nedefinuje; nepřátelé si volně hledají trasu kolem 3×3 bloků. Ověřeno na levelu 98, který
+`path_cells` má (38 buněk): jantarový koridor se vykreslí přesně podle dat.
+
+Takže vrstva 2a měla DVĚ příčiny a obě jsou teď pojmenované: chyběl renderer (opraveno)
+a level 1 nemá co vykreslit (obsah, patří do MapEditoru — nesahám na levely).
+
+### Ověření
+
+- `./verify.sh`: viz hash commitu. `terrain contrast` prochází — nová barva je ta, kterou
+  ten test měří.
+- Snímky levelu 98 s vykreslenou cestou předány uživateli.

@@ -770,9 +770,29 @@ func _build_terrace_blocks() -> void:
 ## already put in front of the user for this exact decision.
 const SQUARE_GROUND_COLOR := Color8(20, 17, 41)
 const SQUARE_TOP_COLOR := Color8(184, 165, 135)
+## The lane, painted as a SURFACE. Added 2026-09-05, and it is not a new feature so much
+## as a hole being filled: until now MODE_SQUARE drew no lane at all. _build_path_layer()
+## is the lane renderer and its first statement is `if active_mode == MODE_SQUARE: return`
+## ("there is no square equivalent to paint yet"), and SquareTerrain._draw() was two
+## draw_rect calls, ground and high ground. So on the top-down board the single most
+## important thing in a maze TD -- where the wave walks -- had NO rendering, and the only
+## structure on the field was _draw_static_field()'s build-block dot lattice, which is why
+## it read as a debug overlay.
+##
+## Same rule as the two above: the value is not invented here. tools/flat_terrain.py:55
+## `LANE = (78, 52, 16)` is the amber the live terrain art is painted with, and its
+## luminance sits in the band STYLE_BIBLE.md §4 requires and tools/check_terrain_contrast.py
+## gates. Reusing it keeps the flat board and the generated art the same colour instead of
+## opening a second opinion about what a lane looks like.
+const SQUARE_LANE_COLOR := Color8(78, 52, 16)
+
+## The live SquareTerrain, kept so _open_trod() can repaint the lane it just grew. Null in
+## MODE_ISO, where the lane is a TileMapLayer built by _build_path_layer() instead.
+var _square_terrain: Node2D = null
 
 class SquareTerrain extends Node2D:
 	var solid: Dictionary = {}
+	var lane: Dictionary = {}
 	var ox := 0
 	var oy := 0
 	var tile := 16
@@ -781,6 +801,12 @@ class SquareTerrain extends Node2D:
 
 	func _draw() -> void:
 		draw_rect(Rect2(ox, oy, cols * tile, rows * tile), Game.SQUARE_GROUND_COLOR)
+		# Lane BEFORE high ground: a lane is floor and a wall stands on floor, so if the
+		# two ever disagree about a cell the wall must win. (They should not disagree --
+		# _open_trod skips cells in high_ground -- but the draw order makes that a fact
+		# rather than a promise.)
+		for c: Vector2i in lane.keys():
+			draw_rect(Rect2(ox + c.x * tile, oy + c.y * tile, tile, tile), Game.SQUARE_LANE_COLOR)
 		for c: Vector2i in solid.keys():
 			draw_rect(Rect2(ox + c.x * tile, oy + c.y * tile, tile, tile), Game.SQUARE_TOP_COLOR)
 
@@ -796,6 +822,10 @@ func _build_square_terrain() -> void:
 	terrain.name = "SquareTerrain"
 	terrain.z_index = Z_TERRAIN
 	terrain.solid = solid
+	# `lane_cells`, not `level.path_cells`: the lane the player must read is the one that
+	# exists RIGHT NOW, and a trod opening grows it mid-run (see lane_cells' own header).
+	terrain.lane = lane_cells
+	_square_terrain = terrain
 	terrain.ox = int(g.origin_x)
 	terrain.oy = int(g.origin_y)
 	terrain.tile = int(g.tile)
@@ -5584,6 +5614,12 @@ func _open_trod(t: TrodData) -> void:
 	_compute_path_previews()
 	if _static_overlay != null and is_instance_valid(_static_overlay):
 		_static_overlay.queue_redraw()
+	# The lane surface just grew. _build_path_layer() above repaints it in MODE_ISO by
+	# rebuilding its TileMapLayer; MODE_SQUARE returns from it immediately, so the flat
+	# terrain has to be told separately or a newly opened trod would stay unpainted until
+	# the next level load -- the one moment the player most needs to see the route change.
+	if _square_terrain != null and is_instance_valid(_square_terrain):
+		_square_terrain.queue_redraw()
 	queue_redraw()
 	_flash(t.announce, UI.TOLERANCE)
 
