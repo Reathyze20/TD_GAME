@@ -260,7 +260,9 @@ func rebuild(distractions: Array) -> void:
 
 		# ---- glow ----
 		var vr: float = animator.visual_radius()
-		var glow_d: float = vr * 3.4
+		# Was a local `vr * 3.4` — a second copy of DistractionAnimator's own pool size,
+		# which had drifted from that file's `r * 1.75` (= 3.5x) by 3%. One source now.
+		var glow_d: float = vr * DistractionAnimator.TYPE_GLOW_DIAMETER_SCALE
 		_glow_mm.set_instance_transform_2d(i,
 			Transform2D(Vector2(glow_d, 0.0), Vector2(0.0, glow_d * gy), d.position))
 		var gcol: Color = Color(d.def.color) if d.def != null else Color.WHITE

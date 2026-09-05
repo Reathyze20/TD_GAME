@@ -9,6 +9,18 @@ var _goal_marker_tex: Texture2D = null
 ## nesou stav (zbyvajici Focus, tempo zasahu), ktery sprite ukazat neumi.
 var _core_prop_tex: Texture2D = null
 
+## How much of core.png's raw size the objective is actually drawn at. See _draw()'s
+## core branch for what it is compensating for.
+##
+## CLASS-level, not function-local, and that matters: while it lived inside _draw() no
+## other file could name it, so scripts/_shot_scale_audit.gd -- the harness whose entire
+## job is reporting how many cells the core occupies -- had `raw * pixel_scale * 0.3`
+## with the 0.3 hand-copied. Retuning the constant here would have left that harness
+## confidently printing the old size, which is CLAUDE.md's copied-constant failure in its
+## purest form: the ruler quietly disagreeing with the thing it measures. Promoted
+## 2026-09-05 so the audit reads THIS symbol.
+const CORE_PROP_ART_SCALE := 0.3
+
 # Core gameplay (maze TD). Attach to the root Node2D of Game.tscn.
 # HIGH GROUND cells are fixed terrain that BLOCK movement AND are the only spots
 # habits can be built on. Distractions pathfind (AStarGrid2D) around high ground
@@ -2437,8 +2449,8 @@ func _draw() -> void:
 		# drift, never resized for the 480x270/16px-tile board), so pixel_scale()'s 1.0
 		# draws it at nearly a quarter of the whole board width and off the right edge
 		# near the objective. CORE_PROP_ART_SCALE is a first-pass stop-the-overflow factor,
-		# not a judged final size — tune this one constant if it should read bigger/smaller.
-		const CORE_PROP_ART_SCALE := 0.3
+		# not a judged final size — tune that one constant (declared at class level near
+		# _core_prop_tex) if it should read bigger/smaller.
 		var csz := Vector2(_core_prop_tex.get_size()) * Data.pixel_scale() * CORE_PROP_ART_SCALE
 		var tint := Color.WHITE.lerp(core_color, 0.35)
 		if _glitch_hit > 0.01:

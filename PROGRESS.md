@@ -5262,3 +5262,81 @@ na hře). Po opravě prochází.
   4.7.1, který na stroji **neexistuje**. Reálná binárka je
   `Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe`. Neopravuji
   sám (CLAUDE.md je ground truth uživatele), jen hlásím.
+
+## 2026-09-05 — Sprity nebyly moc velké. Měřidlo bylo slepé, a přerostl je glow
+
+Uživatel: „Focus core a distrakce se na desce kreslí OBROVSKÉ — přetékají přes buňky.
+Mřížka a zdi mají správnou velikost, takže to NENÍ globální škálování. Změř, nehádej."
+
+### Proč to nešlo přečíst ze `_shot_scale_audit`
+
+Šlo, ale odpověď byla nepravdivá. Harness hlásil `notification -> 19.2 px = 1.20 tiles`,
+tedy přesně cílovou velikost, a přitom měl uživatel pravdu. Důvod: **harness neměří, on
+přepočítává vzorec**, a to jen pro tělo. Načte texturu, vynásobí a vytiskne; framebuffer,
+který si sám ukládá, nikdy nečte. Každou vrstvu kolem těla proto nevidí.
+
+Nezávisle to potvrdily dvě ověřovací agenty proti zdroji: `_shot_scale_audit.gd:163`
+počítá `t.get_size() * pixel_scale * UNIT_ART_SCALE` a nic dalšího, a `:133` mělo
+`raw * pixel_scale * 0.3` s **ručně opsanou** trojkou, protože `CORE_PROP_ART_SCALE`
+byla function-local konstanta uvnitř `_draw()`, na kterou odjinud nešlo ukázat. To je
+pátý výskyt vzorce ze CLAUDE.md „Konstantu neopisuj", tentokrát v nástroji, jehož jediná
+práce je tenhle druh chyby chytat.
+
+### Skutečné měření: frame diff
+
+Jednorázový harness (`_diag_spritebox`, smazán) vykreslil snímek, odstranil subjekt,
+vykreslil znovu a vzal bounding box změněných pixelů. Bez vzorce, tedy bez možnosti
+zdědit něčí omyl; zachytí i rodičovský `Node2D.scale` a jakoukoli dekoraci.
+
+| subjekt | vzorec tvrdil | **změřeno** | cíl uživatele |
+|---|---|---|---|
+| Focus core (celý shluk) | 2.10 × 2.10 | **1.88 × 2.44** | 2–3 ✔ už vyhovuje |
+| distrakce `notification` | 1.20 | **1.72 × 2.09** | 1–1.5 ✘ o 15 % ven |
+
+Tělo distrakce je 19.2 px = 1.20 dlaždice, přesně jak `UNIT_ART_SCALE` slibuje. Přebytek
+nedělá sprite, ale **type-glow pool** — barevná kaluž kreslená kolem těla každý snímek.
+
+### Příčina: jedno číslo ve dvou kopiích, které se už rozešly
+
+- `horde_renderer.gd` (batchovaná cesta, běžný případ): `glow_d = vr * 3.4`
+- `distraction_animator.gd` (per-node cesta): `rad = r * 1.75`, tedy průměr **3.5×**
+
+Táž kaluž, dvě čísla, 3 % rozdíl — nepřítel tedy měnil velikost v okamžiku, kdy ho něco
+zablokovalo a vypadl z dávky. Sjednoceno do `DistractionAnimator.TYPE_GLOW_DIAMETER_SCALE`,
+kterou obě cesty čtou, a hodnota odvozena z cíle uživatele: **2.9**.
+Falloff si per-node cesta drží beze změny tvaru (vnitřní prstenec je pořád 59,3 %
+vnějšího), měněn je jen vnější poloměr.
+
+Výsledek změřen stejným harnessem: **1.72 → 1.47 dlaždice** šířky. Tělo beze změny.
+
+### Co jsem NEzměnil, ačkoli to byla vada
+
+`_draw_body_glow` má `step = maxf(2.0, size.x * 0.06)`. Ta `2.0` je absolutní pixel psaný
+2026-08-15 pro plátno 1920×1080; T5 zmenšilo plátno 29. 8. a `/4`, které dostalo písmo
+i paddingy, se sem nedostalo. Opravil jsem to, **změřil, a zjistil, že to nehne ani
+pixelem** — pool (27.84 px) je širší než to halo tak jako tak. Změnu jsem proto **vrátil**
+a nechal na místě jen poznámku s měřením. Nezměřená vizuální změna nemá co dělat v commitu
+o velikostech.
+
+Stejně tak jádro: `ring_r = base_radius + 7.0` je taky pre-T5 absolutní konstanta
+(úvodní commit 13. 8.). Jádro ale změřeně padne do rozsahu 2–3, který uživatel sám zadal,
+takže by ho zmenšení vystrčilo **pod** cíl. Neměněno, jen vypsáno v auditu jako číslo.
+
+### Oprava měřidla (to hlavní)
+
+- `CORE_PROP_ART_SCALE` povýšena z function-local na class-level konstantu `Game`, takže
+  audit čte `Game.CORE_PROP_ART_SCALE` místo opsané `0.3`.
+- Sekce jednotek hlásí nově `body ... | footprint ...`, kde footprint je odvozený z
+  `DistractionAnimator.TYPE_GLOW_DIAMETER_SCALE`.
+- Sekce jádra hlásí prstenec a nejširší pulz.
+
+Audit teď na témž levelu říká `body 1.20 tiles | footprint 1.74 tiles` místo osamoceného
+a zavádějícího `1.20`.
+
+### Ověření
+
+- `./verify.sh`: **45 pass, 2 fail** (`art colors`, `style failure modes` — obojí
+  `No module named 'numpy'`, prostředí, doloženo jako předchozí už u minulého úkolu).
+  `_test_horde_renderer` prochází s novou konstantou.
+- Snímky před/po (deska i zoom 8×) předány uživateli.
+- **Necommitnuto cizí:** prázdný soubor `git` v rootu, netrackovaný už při startu session.

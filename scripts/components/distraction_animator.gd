@@ -203,15 +203,31 @@ func _variant_first_frame_exists(base_id: String, suffix: String) -> bool:
 ## and matches the wave-preview legend, which uses the same colour.
 ##
 ## Drawn first, so it sits beneath the body; it fades out with the death animation.
+## Widest ground-pool diameter, as a multiple of visual_radius(). THE number that decides
+## how many cells an enemy occupies on screen -- measured 2026-09-05, and not what anyone
+## expected: UNIT_ART_SCALE puts the BODY at 1.20 cells, but this pool is drawn around it,
+## so a frame-diff of the real render measured the enemy at 1.72 cells. _shot_scale_audit
+## reported the healthy 1.20 because it only ever recomputed the body rect and never saw
+## this layer at all.
+##
+## It lives here, as one constant, because it used to be TWO literals that had already
+## drifted: this file drew `r * 1.75` (diameter 3.5x) and horde_renderer.gd's batched quad
+## used `vr * 3.4`. Same pool, two numbers, so an enemy changed size by 3% the moment it
+## got blocked and fell out of the batch. Both now read this.
+const TYPE_GLOW_DIAMETER_SCALE := 2.9
+
 func _draw_type_glow(r: float, strength: float) -> void:
 	if strength <= 0.01 or enemy.def == null:
 		return
 	var col := Color(enemy.def.color)
 	# Squashed vertically in 2:1 ground projection anchored at feet
 	var steps := 4
+	var top: float = TYPE_GLOW_DIAMETER_SCALE * 0.5
 	for i in range(steps):
 		var t := float(i) / float(steps)
-		var rad := r * (1.75 - t * 0.95)
+		# Same falloff SHAPE the hand-tuned `1.75 - t * 0.95` had (the innermost ring is
+		# 59.3% of the outermost); only the outer radius is now derived, not authored.
+		var rad := r * top * (1.0 - t * 0.543)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2(1.0, 1.0 / GridProjection.GROUND_Y_SCALE))
 		draw_circle(Vector2.ZERO, rad, Color(col.r, col.g, col.b, 0.10 * strength))
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
@@ -432,6 +448,15 @@ func _draw_body_glow(tex: Texture2D, size: Vector2, strength: float,
 	if enemy.def == null or strength <= 0.01:
 		return
 	var col := Color(enemy.def.color)
+	# NOTE (2026-09-05, measured): this 2.0 is a pre-T5 absolute pixel floor -- authored
+	# 2026-08-15 for the 1920x1080 canvas, never given the /4 that T5 gave the font sizes
+	# and (later, in H1) the style-box paddings. At today's size.x = 19.2 the proportional
+	# term is 1.15, so the floor wins and each ring grows the stamp by +8.0 px.
+	# Deliberately NOT changed in the sprite-scale pass: a frame diff of the real render
+	# showed the enemy's outer bounding box is set by the type-glow pool (27.84 px), which
+	# is WIDER than this halo either way, so retuning it moves no measurable pixel of the
+	# footprint. It is a real staleness and a live question for whoever tunes the halo's
+	# tightness; it is not what made enemies overflow their cells.
 	var step: float = maxf(2.0, size.x * 0.06)
 	for ring in [2.0, 1.0]:
 		var i: float = float(ring)

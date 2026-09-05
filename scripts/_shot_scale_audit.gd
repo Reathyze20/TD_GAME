@@ -41,9 +41,16 @@ func _save(img: Image, path: String) -> void:
 		printerr("_shot_scale_audit: save failed: ", path)
 
 
+## Brings a grab up to 4x CANVAS size whatever resolution it arrived at. The blind `* 4`
+## this replaced was written when the readback WAS the 480x270 canvas; since the stretch
+## mode became "canvas_items" (2026-09-05) it arrives at 1920x1080 already, and this
+## harness was writing a 7680x4320 PNG into .dev/screenshots on every run.
 func _up4(img: Image) -> Image:
+	var factor := maxi(1, int(round(4.0 / UI.readback_scale(get_viewport(), img))))
+	if factor == 1:
+		return img
 	var out: Image = img.duplicate()
-	out.resize(out.get_width() * 4, out.get_height() * 4, Image.INTERPOLATE_NEAREST)
+	out.resize(out.get_width() * factor, out.get_height() * factor, Image.INTERPOLATE_NEAREST)
 	return out
 
 
@@ -129,8 +136,10 @@ func _run() -> void:
 		print("  core prop texture NOT LOADED - falls back to the drawn circles")
 	else:
 		var raw := Vector2(tex.get_size())
-		# Recomputed with game.gd's own formula from _draw(), CORE_PROP_ART_SCALE branch.
-		var csz := raw * Data.pixel_scale() * 0.3
+		# Recomputed with game.gd's own formula from _draw(), reading game.gd's OWN
+		# constant. It used to say `* 0.3` -- a hand-copied literal, because the constant
+		# was function-local and unnameable from here (fixed 2026-09-05 by promoting it).
+		var csz := raw * Data.pixel_scale() * Game.CORE_PROP_ART_SCALE
 		var r := Rect2(game.objective_pos + Vector2(-csz.x * 0.5, -csz.y + tile * 0.5), csz)
 		print("  core.png raw  : %.0f x %.0f px" % [raw.x, raw.y])
 		print("  drawn size    : %.1f x %.1f px = %.2f x %.2f tiles" % [
@@ -149,10 +158,31 @@ func _run() -> void:
 		var free_r := board.end.x - game.objective_pos.x
 		print("  room right    : %.1f px = %.2f tiles from objective to board edge" % [
 			free_r, free_r / tile])
+		# Same omission as the unit section had: the sprite is not the only thing drawn at
+		# the objective. game.gd::_draw() also paints the Focus arc ring and two pulse
+		# waves there every frame, and on a 16px tile the ring's `+ 7.0` is nearly half a
+		# tile of pure addition -- a pre-T5 absolute constant (initial commit, 2026-08-13)
+		# that the canvas /4 never reached. Printed so it is a number, not a surprise.
+		var ring_d := (tile * 0.45 + 7.0) * 2.0
+		var wave_d := tile * 0.45 * 1.9 * 2.0
+		print("  ring / waves  : ring %.1f px = %.2f tiles, widest pulse %.1f px = %.2f tiles" % [
+			ring_d, ring_d / tile, wave_d, wave_d / tile])
 
 	# ---- unit art -----------------------------------------------------------------
 	print("")
 	print("---- unit art (Data.UNIT_ART_SCALE = %.2f) ----" % Data.UNIT_ART_SCALE)
+	# BODY vs FOOTPRINT, and the difference is the whole reason this section was wrong.
+	#
+	# Until 2026-09-05 this printed only the body rect and called it the unit's size. It
+	# is not: distraction_animator.gd::_draw_type_glow (and horde_renderer.gd's batched
+	# quad) paints a ground pool of the creature's colour AROUND that body every single
+	# frame, sized off visual_radius(). So this harness reported a comfortable 1.20 tiles
+	# for `notification` while a frame diff of the actual render measured 1.72 -- and the
+	# oversized enemies stayed invisible to the one tool built to catch them. Reporting
+	# the body alone is exactly as useful as measuring a person and omitting their coat.
+	var glow_mult: float = DistractionAnimator.TYPE_GLOW_DIAMETER_SCALE
+	print("  (footprint = the type-glow pool, visual_radius * %.2f, which is what the" % glow_mult)
+	print("   player sees as the creature's extent -- the body rect is only its middle)")
 	for did in _level_distraction_ids(lvl):
 		var path := "res://assets/distractions/%s_frame_1.png" % String(did)
 		if not ResourceLoader.exists(path):
@@ -161,8 +191,11 @@ func _run() -> void:
 			continue
 		var t: Texture2D = load(path)
 		var s := Vector2(t.get_size()) * Data.pixel_scale() * Data.UNIT_ART_SCALE
-		print("  %s : raw %s -> %.1f x %.1f px = %.2f tiles" % [
-			String(did), str(t.get_size()), s.x, s.y, s.x / tile])
+		# visual_radius() is half the body WIDTH (animator's own definition), so the pool
+		# is derived from s.x here rather than from a second copy of the sprite formula.
+		var pool: float = (s.x * 0.5) * glow_mult
+		print("  %s : raw %s -> body %.1f x %.1f px = %.2f tiles | footprint %.1f px = %.2f tiles" % [
+			String(did), str(t.get_size()), s.x, s.y, s.x / tile, pool, pool / tile])
 
 
 	# ---- habit head art ------------------------------------------------------------
