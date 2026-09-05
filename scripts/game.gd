@@ -4482,6 +4482,7 @@ func spawn_distraction(type_key: String, spawn_cell: Vector2i, gen: int = 0) -> 
 	d.defeated.connect(_on_distraction_defeated)
 	d.reached_core.connect(_on_distraction_reached_core)
 	d.expired.connect(_on_distraction_expired)
+	d.entered_light.connect(_on_distraction_entered_light)
 	_distractions.append(d)
 	SignalBus.distraction_spawned.emit(d)
 	_update_enemy_stats()
@@ -4738,6 +4739,13 @@ func _on_distraction_expired(d: Distraction) -> void:
 	_update_enemy_stats()
 	# No _check_wave_progress() here: _process polls it every frame, and a wave whose
 	# last body simply left still has to end through that one path.
+
+## Fires once per body per dark-to-light crossing (Distraction._tick_fog_speed), which is
+## far too often for a persisted one-shot to matter — show_hint() itself is the guard,
+## since it does nothing after the first time this save has ever seen "fog_speed".
+func _on_distraction_entered_light(_d: Distraction) -> void:
+	if _hints != null:
+		_hints.show_hint("fog_speed")
 
 # ---------------------------------------------------------------- autoplay
 

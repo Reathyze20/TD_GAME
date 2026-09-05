@@ -19,6 +19,10 @@ signal reached_core(distraction: Distraction)
 ## `defeated` — nothing was beaten, nobody is paid, and no kill is recorded. The game
 ## only needs it to drop the body from its live list so the wave can end.
 signal expired(distraction: Distraction)
+## Crossed from an unlit cell into a lit one (P11+: see FOG_SPEED_BOOST below). game.gd
+## uses this to show the fog_speed hint the first time it happens — never fired on
+## spawn, only on the edge, so a body that spawns already lit never trips it.
+signal entered_light(distraction: Distraction)
 
 var def: DistractionData
 var type_key: String
@@ -52,6 +56,31 @@ var blockers: Array = []   # Array[Ally] currently engaging this distraction
 
 var _color: Color
 var game               # reference to the Game node
+
+# --- Brain Fog speed (docs/core/14) ----------------------------------------------
+#
+# The loop the game is teaching (docs/core/00_overview.md): a narrowed Routine means
+# more of the board sits in the dark, and standing in the dark is where a distraction
+# picks up speed — nothing is watching it there. Multiplies ALONGSIDE
+# status_manager.move_scale() rather than through it (apply_slow/apply_haste): this is
+# a property of the ground a body stands on, not a status effect, and routing it
+# through StatusManager would trip the Calm ring or Rush chevrons
+# (distraction_animator.gd) that are reserved for the real thing.
+
+## Steady-state speed multiplier while standing on an unlit cell.
+const FOG_SPEED_BOOST := 1.5
+## Seconds to ramp between 1.0 and FOG_SPEED_BOOST, in either direction. A snap would
+## flicker every tick for a body straddling a fog-grid block edge (48px, Data.BUILD_BLOCK);
+## the ramp also IS the tell — a body visibly decelerates as it crosses into light.
+const FOG_SPEED_RAMP := 0.35
+
+## 1.0 in the light, eases toward FOG_SPEED_BOOST in the dark. Driven by the caller's own
+## `delta` (see _tick_fog_speed) — never Time.get_ticks_msec() or a Tween — so it stays
+## exactly as deterministic as the fixed sim tick that calls _process().
+var _fog_speed_mult := 1.0
+## Starts true so a body that spawns already lit never fires entered_light on its first
+## tick — there was no darkness for the player to have missed.
+var _was_in_light := true
 
 ## Where this body currently is on the movement grid. Advanced only on arrival at the
 ## previous step's target (mirrors the old path_index's advance-on-arrival, so the "walk
@@ -203,6 +232,29 @@ func _needs_own_redraw() -> bool:
 		return true
 	return def.disrupt_interval > 0.0 or def.haste_interval > 0.0
 
+## Reads Game.is_pos_visible() (the same O(1) lit-cell lookup combat gates on) and eases
+## _fog_speed_mult toward the corresponding target. Called from both movement sites (the
+## maze walk and _fly()) with the exact `delta` _process() was called with — always
+## Game.FIXED_TICK_DT, since both call sites only ever run from Game's fixed sim tick
+## (see this file's header and _process's own comment below) — so the ramp is a function
+## of simulated time, not real time, and stays deterministic under --fixed-fps.
+##
+## `game == null` (a Distraction driven directly by a test harness, with no Game behind
+## it) and `not game.fog_enabled` both read as "no fog" and hold the multiplier at 1.0 —
+## the required no-op for level 1 and every harness that fogs off.
+func _tick_fog_speed(delta: float) -> float:
+	if game == null or not game.fog_enabled:
+		_fog_speed_mult = 1.0
+		_was_in_light = true
+		return _fog_speed_mult
+	var in_light: bool = game.is_pos_visible(global_position)
+	if in_light and not _was_in_light:
+		entered_light.emit(self)
+	_was_in_light = in_light
+	var target: float = 1.0 if in_light else FOG_SPEED_BOOST
+	_fog_speed_mult = move_toward(_fog_speed_mult, target, delta / FOG_SPEED_RAMP)
+	return _fog_speed_mult
+
 ## Driven by Game's fixed-tick accumulator (Q1, docs/refactor/PATHFINDING.MD) rather
 ## than Godot's automatic per-frame call — see the `set_process(false)` in setup() — so
 ## speed cannot change outcome, only how many real frames it takes to get there.
@@ -276,7 +328,7 @@ func _process(delta: float) -> void:
 	var target: Vector2 = game.cell_center(next_cell) + _scatter
 	var to: Vector2 = target - position
 	var dist: float = to.length()
-	var step: float = current_speed * status_manager.move_scale() * delta
+	var step: float = current_speed * status_manager.move_scale() * _tick_fog_speed(delta) * delta
 	if dist <= step:
 		position = target
 		current_cell = next_cell
@@ -472,7 +524,7 @@ func _fly(delta: float) -> void:
 	var target: Vector2 = game.objective_pos + _scatter
 	var to: Vector2 = target - position
 	var dist: float = to.length()
-	var step: float = current_speed * status_manager.move_scale() * delta
+	var step: float = current_speed * status_manager.move_scale() * _tick_fog_speed(delta) * delta
 	if dist <= step:
 		_reach_core()
 		return

@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/_play_tolerance_loop.gd" id="1_b6dn4"]
+
+[node name="PlayToleranceLoop" type="Node" unique_id=583008131]
+script = ExtResource("1_b6dn4")

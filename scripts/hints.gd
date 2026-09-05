@@ -37,6 +37,9 @@ const HINTS := {
 	"first_lean":
 		"A lean wave: defeats pay no Dopamine here. What you saved — and the "
 		+ "early-call bonus — is what you have.",
+	"fog_speed":
+		"Distractions move faster in Brain Fog — nothing is watching them there. "
+		+ "They slow back down the moment they cross into your Routine's light.",
 }
 
 const HINT_SECONDS := 8.0
