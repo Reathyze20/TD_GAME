@@ -1686,3 +1686,95 @@ staré iso levely byly smazány (`26814f9`) — což je silná indicie, že
 ne závěr: ověřit patří do samotného C1.
 
 Status: todo → blocked.
+
+## Věže vypadají obrovské a izometricky — `Needs-me: yes`, protože oprava je REGENERACE ARTU
+
+Uživatel (2026-09-05, po opravě velikostí core a distrakcí): *„takhle obrovské věže
+a podložky na věže jsou za tebe v pořádku?"* a vzápětí *„Tak hlavně ta věž je i
+izometrická. To musíme změnit na top to down pohled."*
+
+Změřeno frame diffem (jednorázový `_diag_towerbox`, smazán), ne odhadnuto ze vzorce.
+
+### Podložky jsou v pořádku a nejsou předmětem sporu
+
+`Data.BUILD_BLOCK = 3` a `game.gd:408-425` zakládá `BuildSpot` jen ve středu **celého**
+3×3 bloku high ground, takže podložka je 48 px = **3,00 dlaždice** z konstrukce.
+`docs/levels/1.md` to potvrzuje z druhé strany — high ground levelu 1 je autorovaný
+přesně jako 3×3 shluky (`.........###...`). Změřeno na snímku: 384 px při 8 px/canvas px,
+tedy 48 canvas px. **Sedí. Tady žádná vada není.**
+
+### Věž: vada NENÍ v měřítku, je v projekci
+
+| | naměřeno |
+|---|---|
+| podložka | 3,00 dlaždice |
+| hlava — box spritu | 4,00 (64 px × `pixel_scale` 1,0, bez rodinného faktoru) |
+| hlava — **viditelný ink** | **2,50 × 3,25** dlaždice (63 % boxu) |
+| přesah inku přes podložku (šířka) | **−0,25** dlaždice |
+| věž celkem, sloupec podložky | 4,13 × **5,06** |
+| vše, co se změnilo (včetně routine tetheru) | 6,00 × 5,44 |
+
+Šířka je **v pořádku** — viditelná hlava je užší než podložka, o čtvrt dlaždice.
+Zmenšovat `pixel_scale` nebo zavádět `HABIT_ART_SCALE` by tedy řešilo neexistující
+problém a jen by ubralo čitelnost už tak řídkému spritu (63 % boxu je průhledných).
+
+Vada je **výška a projekce**: 5,06 dlaždice nahoru ze 3dlaždicové podložky.
+
+### Shipnutý art porušuje vlastní bibli hned třikrát
+
+Prohlédnuto přímo, ne z komentářů:
+- `head_focus_timer.png` — čelně stojící maskot rajčete/budíku, **s obličejem a nohama**
+- `head_anchor.png` — **stolní lampa z profilu**
+- `head_mindfulness.png` — strašidýlko **s očima**
+- `tower_base.png` — osmiúhelníkový disk **shora, tedy správně top-down**
+
+Podstavec je top-down a hlava na něm je čelní postavička. Právě ten rozpor čte oko jako
+„izometrickou věž". Proti `docs/art/STYLE_BIBLE.md`:
+1. *„camera is a low top-down view straight at the subject, front-facing, zero isometric
+   tilt, no camera pitch"* (§ promptová specifikace, ř. 453-454, 602, 644) — porušeno.
+2. *„every habit is geometric, built from flat faces and clean arcs on a square or
+   circular base, symmetrical about its vertical axis"* (ř. 644) — porušeno, jsou to
+   figurky.
+3. *„no eyes and no face anywhere, no brows and no mouth on any entity; no arms and no
+   legs anywhere, except the four Nutrition Guild defenders"* (ř. 644) — porušeno.
+
+Bible navíc už má i rozhodnutý nástroj a parametry (ř. 730-732):
+`habit` → `mcp__pixellab__create_1_direction_object`, `mode="pro"`, `view=top-down`,
+`get_object(object_id)`. A `docs/art/iso_bible.md` je vedený jako **nahrazený pro
+top-down desku** (ř. 16, větev `iso-to-topdown`). Směr tedy není otevřená otázka —
+otevřená je jen realizace.
+
+### Proč to nedělám
+
+- CLAUDE.md, sekce Autonomní běh: **„Nikdy negeneruj assety v PixelLabu."** Oprava je ze
+  své podstaty regenerace osmi hlav (+ 8směrné varianty `head_focus_timer_<dir>.png`,
+  které podle `tower.gd::_head_art_key()` sdílí i `focus_timer_2`).
+- CLAUDE.md: „ZASTAV a zapiš do BLOCKED.md, pokud úkol vyžaduje vizuální posouzení."
+  Tohle je celé vizuální posouzení.
+
+### Co je částečně už zapsané jinde, ať se to nehledá znovu
+
+`docs/art/ART_DEBT.md` § `focus_timer` (ř. 213-236) tenhle sprite popisuje — *„tomato/
+Pomodoro-style character with a small green stem, sitting on a wooden crate — not a glial
+cell with an amber node"* — a sám dodává, že rozpor **formy** je *„flagged for awareness,
+not something this color checker can resolve"*. Ta debt je tedy vedená jen v barevném
+rozsahu a jen pro jeden habit; **projekce (top-down vs čelní pohled) není zapsaná nikde**
+a týká se všech osmi. Tenhle záznam je pro ni.
+
+### Co od tebe potřebuju rozhodnout
+
+1. **Regenerovat všech 8 hlav** podle bible (`view=top-down`, `mode="pro"`, style anchor
+   `fa8294b1-...`, `reduce_colors` s `palette_48`) — kdo to spustí, když já nesmím?
+   Pozn.: předplacené generace mají v CLAUDE.md reset **13. 9. 2026**, takže to není
+   úkol, který snese odklad o měsíce.
+2. **8směrné varianty**: bible pro habity předepisuje `create_1_direction_object`, ale
+   `focus_timer` dnes veze 8 směrů. Zůstává rotace hlavy podle míření, nebo se u top-down
+   geometrie ruší a `tower.gd` bude rotovat jeden sprite?
+3. **Mezitím**: chceš nějakou dočasnou kódovou berličku (např. sražení výšky hlavy), nebo
+   to nechat být, dokud nebude art? Doporučuju **nechat být** — měřeně není moc široká,
+   jen moc vysoká, a sražení výšky u figurky s nohama vyrobí jen rozmáčknutou figurku.
+
+Nezměněno v kódu **nic** — žádné `HABIT_ART_SCALE`, protože měření říká, že měřítko
+není příčina.
+
+Status: todo → blocked.
