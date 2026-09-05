@@ -5577,3 +5577,39 @@ na pozadí a je to stejný flake, co v předchozí položce PROGRESS.md, ne nov�
 `export PYTHON="/c/Users/reath/AppData/Local/Python/bin/python.exe"` do shell profilu,
 nebo přeinstalovat `python.exe` v PATH za tuhle distribuci — cokoli z toho je uživatelovo
 rozhodnutí o vlastním stroji, ne něco, co mění tenhle commit.
+
+## 2026-09-05 — Live náhled a analýza slepé k blokovému malování: opraveno
+
+**Úkol.** Editor nabádá k malování bloky (BlockTiles/BlockPath, jeden klik = jeden blok),
+ale ani live náhled (split-view), ani live analýza (semafor, panel metrik) na ně
+nereagovaly — protože oba otisky ve `_process()` hashovaly jen buňkové vrstvy
+(HighGroundTiles/PathTiles), ne blokové. Druhá díra: `StylizedMapRenderer._draw_square()`
+bral zdi jen z `HighGroundTiles` napřímo a cestu nekreslil vůbec, takže mapa postavená
+čistě bloky (přesně stav `MapEditor.tscn`) měla v MODE_SQUARE prázdný pravý panel.
+
+**Oprava.**
+- `_process()`'s preview otisk a `_current_fingerprint()` (tools/map_editor.gd) teď
+  hashují i `BlockTiles`/`BlockPath`.
+- `StylizedMapRenderer.rebuild()` teď plní `_walls`/`_paths` z `ed._high_cells()` /
+  `ed._lane_cells()` (stejné sloučení bloky+buňky, jaké MODE_ISO větev už používala),
+  místo čtení syrových `HighGroundTiles`/`PathTiles` uzlů.
+- `_draw_square()` teď kreslí cestu (`G.SQUARE_LANE_COLOR`) PŘED zdmi (`G.SQUARE_TOP_COLOR`)
+  — stejné pořadí a stejné konstanty jako `Game.SquareTerrain._draw()`.
+
+**Ověření.** Jednorázový headless harness (instancoval skutečnou `MapEditor.tscn`, kde
+HighGroundTiles/PathTiles jsou prázdné a BlockTiles/BlockPath nesou celou geometrii):
+otisk se změnil po namalování jednoho bloku; `_walls`/`_paths` renderu odpovídaly
+`_high_cells()`/`_lane_cells()` přesně (117/162 buněk) místo 0/0. Ne-headless běh
+zachytil skutečný screenshot — histogram pixelů potvrdil obě nové barvy (zeď 184,165,135
+i cesta 78,52,16) skutečně na plátně. Harness po použití smazán (`.gd`, `.gd.uid`,
+`.tscn`, screenshot i jeho `.import`/cache).
+
+`scenes/_test_mapeditor.tscn`: PASSED (0 failures). `./verify.sh`: 45 pass / 2
+known-broken (pre-existing, docs/KNOWN_BROKEN.md) / 1 no-display-skip / 2 fail — ty dva
+FAILy (`art colors`, `style failure modes`) jsou stejný `numpy`-less-`python` env gap,
+který si tenhle soubor zapsal o pár řádků výš (2026-09-05, "verify.sh čistý"); s
+`PYTHON=/c/Users/reath/AppData/Local/Python/bin/python.exe` proběhly oba čistě.
+
+Bake, zálohy ani validace se nemění.
+
+Commit: ab84d50
