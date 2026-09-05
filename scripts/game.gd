@@ -1451,8 +1451,11 @@ func _draw_placement_preview(cv: CanvasItem) -> void:
 	var sel = GameState.selected_habit
 	if sel == null or not _in_bounds(_hover_cell):
 		return
-	var ok: bool = _can_build(_hover_cell) and GameState.can_afford(Data.get_habit(sel).build_cost) \
-		and GameState.can_reserve_bandwidth(Data.get_habit(sel).bandwidth_cost)
+	var sel_def := Data.get_habit(sel)
+	# Jedna otázka, jedna odpověď: `ok` i hláška pod blokem pocházejí z TÉHOŽ volání,
+	# takže nemůže nastat "rámeček je červený, ale text tvrdí, že je všechno v pořádku".
+	var refusal := _placement_refusal(_hover_cell, sel_def)
+	var ok: bool = refusal.is_empty()
 	var tint := Color(0.35, 1.0, 0.55) if ok else Color(1.0, 0.4, 0.4)
 
 	# Hover block b x b square, centered on _hover_cell (was 4 diamond vertices via
@@ -1473,11 +1476,43 @@ func _draw_placement_preview(cv: CanvasItem) -> void:
 	cv.draw_rect(block_rect, Color(tint.r, tint.g, tint.b, 0.20))
 	cv.draw_rect(block_rect, tint, false, 2.5)
 
-	var sel_def := Data.get_habit(sel)
+	# DOSAH JAKO PLOCHA, NE JAKO LINIE (5. 9. 2026).
+	#
+	# Tohle byla `PixelDraw.ellipse(...)`, tedy tečkovaný obrys z 3px bloků. Na desce
+	# vysoké 14 dlaždic má ale dostřel poloměr 11,25 dlaždice (u focus_timeru 180 px,
+	# změřeno frame diffem: 99,5 % teček leželo 170–190 px od kurzoru), takže se ten
+	# kruh do desky nevejde a nahoře i dole ho ořízne HUD. Zbydou z něj dva svislé
+	# tečkované oblouky přes celou výšku obrazovky — a přesně ty uživatel 5. 9. přečetl
+	# jako "cesta je tečkovaná debug čára" a hledal, kam vedou.
+	#
+	# Vyplněný kotouč tuhle záměnu nemůže udělat: plocha se nedá sledovat jako trasa.
+	# Krytí 0,10 je z rodiny, kterou tenhle soubor pro velké plochy už používá — pole
+	# intervence kreslí 0,07 (viz _draw() níž), malý AoE disk 0,2. Obrys se schválně
+	# nekreslí: draw_circle dává ostrou hranu sám, takže je vidět, kde dosah končí, a
+	# každá další linka by se zase mohla číst jako čára.
+	#
+	# Na hodnotu poloměru se NESAHÁ — 180 px je výsledek vědomého přeškálování všech
+	# dostřelů na desku 480x224 z 30. 8. 2026 (commit 612a043), ne překlep.
 	var pr: float = _preview_radius(sel_def)
 	if pr > 0.0:
 		var centre := Data.cell_center(_hover_cell) - elevation
-		PixelDraw.ellipse(cv, centre, pr, pr / GridProjection.GROUND_Y_SCALE, Color(tint.r, tint.g, tint.b, 0.6))
+		cv.draw_set_transform(centre, 0.0, Vector2(1.0, 1.0 / GridProjection.GROUND_Y_SCALE))
+		cv.draw_circle(Vector2.ZERO, pr, Color(tint.r, tint.g, tint.b, 0.10))
+		cv.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+	# DŮVOD ODMÍTNUTÍ. Bez něj rámeček říká jen "nejde" a hráč hádá, jestli mu chybí
+	# peníze, nebo stojí mimo Routine. Kreslí se nad blokem, na vlastním tmavém
+	# podkladu, aby byl čitelný i nad světlou podložkou i nad tmavou zemí.
+	if not refusal.is_empty():
+		var font := ThemeDB.fallback_font
+		var tw: float = font.get_string_size(refusal, HORIZONTAL_ALIGNMENT_LEFT, -1,
+			UI.FS_BODY).x
+		var cx: float = block_rect.position.x + block_rect.size.x * 0.5
+		var ty: float = block_rect.position.y - 3.0
+		cv.draw_rect(Rect2(cx - tw * 0.5 - 2.0, ty - float(UI.FS_BODY) - 2.0,
+			tw + 4.0, float(UI.FS_BODY) + 5.0), Color(0.02, 0.02, 0.06, 0.85))
+		cv.draw_string(font, Vector2(cx - tw * 0.5, ty), refusal,
+			HORIZONTAL_ALIGNMENT_LEFT, -1, UI.FS_BODY, UI.DANGER)
 
 ## Compass label -> screen-space angle (0 rad = +X/right, increasing clockwise since Y
 ## grows downward) for a SpawnPointData.direction_id. NAN for empty/unrecognized values
@@ -3148,20 +3183,48 @@ func _begin_aiming(habit: Habit, spot: BuildSpot, fresh_build: bool) -> void:
 	if fresh_build and _hints != null:
 		_hints.show_hint("first_aim")
 
-## Placement validity — the same predicate the preview tint and _build_on() share, so
-## what shows green is exactly what a click will accept. Affordability (Dopamine,
-## Bandwidth) deliberately stays OUT of it: an unaffordable spot is still a valid spot,
-## and the two refusals need different error messages.
-func _can_build(cell: Vector2i) -> bool:
-	if not build_spots.has(cell) or build_spots[cell].state != BuildSpot.State.EMPTY:
-		return false
+## Proč se na `cell` nedá stavět — hráčův text anglicky, prázdný řetězec znamená „dá se".
+##
+## Tohle je JEDINÝ zdroj pravdy o odmítnutí a `_can_build()` níž se ptá jeho, ne naopak.
+## Druhá kopie těch podmínek by byla přesně ta chyba, kterou CLAUDE.md popisuje u
+## opsaných konstant, jen o patro výš: náhled by časem odmítal z jiných důvodů, než
+## z jakých odmítá stavba, a nikdo by si toho nevšiml, protože obojí říká jen „nejde".
+##
+## `def == null` vynechá cenové kontroly. Tím si `_can_build()` drží PŘESNĚ to chování,
+## co mělo dřív (nikdy se neptalo na peníze) — cenu řeší až náhled, který def má.
+##
+## Co tu SCHVÁLNĚ není: „zazdil bys cestu". `AntiBlockValidator.would_block()` sice
+## existuje, ale do stavby habitů zapojený není a nemůže být — habity stojí výhradně na
+## high groundu, který je pevný už předtím, takže postavením se průchodnost desky nemění
+## (viz i komentář u _compute_path_previews()). Hláška pro stav, který nenastane, by
+## byla lež.
+func _placement_refusal(cell: Vector2i, def: HabitData) -> String:
+	if not build_spots.has(cell):
+		return "No build pad here"
+	if build_spots[cell].state != BuildSpot.State.EMPTY:
+		return "Pad already taken"
 	# Only inside the Routine's light. This used to be allowed ("place, extend the
 	# Routine, move on") and the freedom taught nothing: a stalled tower in the dark
 	# read as a bug, not a lesson. Refusing at placement puts the Anchor decision
 	# BEFORE the money is spent, where a decision belongs.
-	if not routine_gates_enabled:
-		return true
-	return is_position_in_routine(cell_center(cell), _routine_sources)
+	if routine_gates_enabled and not is_position_in_routine(cell_center(cell), _routine_sources):
+		return "Outside your Routine"
+	if def == null:
+		return ""
+	if not GameState.can_afford(def.build_cost):
+		return "Needs %d Dopamine" % def.build_cost
+	if not GameState.can_reserve_bandwidth(def.bandwidth_cost):
+		return "Needs %d Bandwidth" % def.bandwidth_cost
+	return ""
+
+
+## Placement validity — the same predicate the preview tint and _build_on() share, so
+## what shows green is exactly what a click will accept. Affordability (Dopamine,
+## Bandwidth) deliberately stays OUT of it: an unaffordable spot is still a valid spot,
+## and the two refusals need different error messages. Odtud to `null` výš — obě otázky
+## se ptají téže funkce, ale tahle jí nedá `def`, takže se na peníze nezeptá.
+func _can_build(cell: Vector2i) -> bool:
+	return _placement_refusal(cell, null).is_empty()
 
 ## Radius previewed at the hover cell before a habit is bought. Attack habits go
 ## through ModifierManager so the circle matches what the tower will ACTUALLY get with

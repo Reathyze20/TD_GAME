@@ -5504,3 +5504,47 @@ odložením obou změněných souborů přes `git stash`, že padá **stejně i 
 
 Jednorázové harnessy (`_diag_pad_fit`, `_diag_board_state` a jejich packery) smazány
 včetně `.uid`. Před/po snímky zůstávají v `.dev/screenshots/pad_fit/`.
+
+## 2026-09-05 — Náhled umístění: dosah jako plocha, a rámeček konečně řekne proč
+
+**Úkol** (vrstvy 2 a 3, obě čitelnostní, zadané uživatelem po změření): dostřel překreslit
+z tečkovaného obrysu na plochu; k červenému rámečku doplnit důvod odmítnutí. Routine
+tether nechat — je to legitimní herní vazba.
+
+**Proč tečky četly jako cesta.** Změřeno frame diffem: vypnutí jediného uzlu
+`PlacementOverlay` odstranilo rámeček i všechny červené tečky naráz, 99,5 % teček leželo
+170–190 px od kurzoru (medián 179,8) — byl to `PixelDraw.ellipse` kolem `_preview_radius`.
+U `focus_timer` je poloměr 180 px = **11,25 dlaždice** na desce vysoké 14, takže se kruh do
+desky nevejde a nahoře i dole ho ořízne HUD; zbydou z něj dva svislé tečkované oblouky
+přes celou výšku obrazovky. Uživatel je přečetl jako trasu a hledal, kam vedou.
+Skutečná cesta se přitom jako plocha kreslí už od `32fb850` — je to ten hnědoolivový pás
+(100 % změněných pixelů po jejím vypnutí padlo dovnitř `path_cells`).
+
+**Co se změnilo.** `PixelDraw.ellipse` → `draw_circle` s krytím 0,10 pod
+`draw_set_transform` se svislým squashem, aby to v MODE_ISO zůstalo elipsou. Obrys se
+schválně nekreslí: `draw_circle` dává ostrou hranu sám. Krytí je z rodiny, kterou soubor
+pro velké plochy už používá (pole intervence 0,07, malý AoE disk 0,2). **Na hodnotu 180 px
+se nesáhlo** — je to výsledek vědomého přeškálování všech dostřelů na desku 480×224
+z 30. 8. (`612a043`).
+
+**Důvod odmítnutí.** Nová `_placement_refusal(cell, def) -> String` je JEDINÝ zdroj pravdy
+a `_can_build()` se ptá jí (`def == null` vynechá cenové kontroly, čímž si `_can_build`
+drží přesně původní chování — nikdy se na peníze neptalo). Druhá kopie těch podmínek by
+byla táž chyba, kterou CLAUDE.md popisuje u opsaných konstant, jen o patro výš: náhled by
+se časem rozešel se stavbou a nikdo by si toho nevšiml, protože obojí říká jen „nejde".
+Ověřeno na běžící hře, že je dosažitelných všech pět hlášek, ne jen ta, co padla do
+screenshotu: `No build pad here`, `Pad already taken`, `Outside your Routine`,
+`Needs 30 Dopamine`, `Needs 8 Bandwidth`.
+
+Hlášku „zazdil bys cestu" jsem **nepsal**, ačkoli byla v zadání navržená:
+`AntiBlockValidator.would_block()` sice existuje, ale do stavby habitů zapojený není a být
+nemůže — habity stojí výhradně na high groundu, který je pevný už předtím, takže se
+postavením průchodnost desky nemění. Text pro stav, který nenastane, by byl lež.
+
+**verify.sh: 45 pass / 2 fail** (`art colors`, `style failure modes` — obojí
+`No module named 'numpy'`, doložený předchozí stav). `_test_antiblock` v mezitímním běhu
+spadl na výkonnostní mez 1000 µs; ověřeno `git stash`em, že padal i bez změn, a v čistém
+běhu bez souběžných Godot instancí prošel. Test neupravován.
+
+Jednorázový harness `_diag_preview` smazán včetně `.uid` a packeru; před/po snímky
+zůstávají v `.dev/screenshots/preview/`.
