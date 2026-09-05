@@ -47,6 +47,43 @@ blok** (48 px).
 **Nerozhodl jsem to sám, protože je to vizuální posouzení** — „jak velká má věž být"
 není nic, co by šlo změřit. Čísla a obrázek k tomu ale jsou.
 
+### OPRAVA 2026-09-05: premisa výše je změřeně NEPRAVDIVÁ — habit blok NEPŘETÉKÁ
+
+Tenhle záznam stojí na tvrzení „hlava je 4,00 dlaždice, tedy **širší než blok**". To
+pochází ze `_shot_scale_audit`, a ten **neměří, jen přepočítává vzorec** — vzorec dává
+velikost **boxu spritu**, do kterého se blituje, ne toho, co je vidět.
+`head_focus_timer.png` je 64×64, ale **neprůhledného artu je v něm jen 40×52**, tedy
+63 %. Změřeno frame diffem (vykreslit, odstranit subjekt, vykreslit, bounding box):
+
+| | box (co říká vzorec) | **viditelný ink (co vidí hráč)** |
+|---|---|---|
+| hlava habitu | 4,00 × 4,00 dlaždice | **2,50 × 3,25** |
+| stavební blok | — | 3,00 |
+| poměr k tělu distrakce (ink 0,88) | „3,3×" | **2,8×**; k celé stopě distrakce (1,47) jen **1,7×** |
+
+Hlava je na šířku **o čtvrt dlaždice UŽŠÍ než blok**, ne širší. Přetéká jen na výšku,
+o 0,25 dlaždice.
+
+**Možnost 1 výše (`HABIT_ART_SCALE := 0.75`) by proto zmenšovala něco, co se už vejde** —
+a zaplatila by za to čitelností spritu, který je ze 37 % průhledný. Nedělám to.
+
+**Co skutečně vypadalo jako přetékání, byla POZICE, ne velikost:** `base_habit.gd`
+zvedalo každý habit na high groundu o `WALL_HEIGHT` = 32 px = 2 dlaždice, aby stál na
+plošině, kterou kreslí jen ISO větev — `MODE_SQUARE` se do ní nikdy nedostane. Hlava se
+tak vznášela úplně nad podložkou. Opraveno v `352d575`; výška shluku klesla 5,06 → 4,23
+a hlava na podložce stojí.
+
+**Co z tohoto záznamu platí dál:** habity se kreslí bez rodinné konstanty (jen
+`pixel_scale()`), zatímco distrakce mají `UNIT_ART_SCALE` a jádro `CORE_PROP_ART_SCALE`.
+Ta asymetrie je pořád tvoje rozhodnutí — jen ji nezdůvodňuj přetékáním bloku, protože
+k němu nedochází.
+
+**A hlavně:** zbylá vada věží není měřítko, ale **projekce** — čelně stojící figurky
+(rajče s obličejem a nohama, lampa z profilu, strašidlo s očima) na top-down desce, proti
+`STYLE_BIBLE.md`, která žádá „low top-down view, zero isometric tilt" a „no eyes and no
+face anywhere". Viz záznam „Věže vypadají obrovské a izometricky" (`14384c0`), který je
+pro schválení masteru relevantnější než volba `HABIT_ART_SCALE`.
+
 ## Po H1 zbývají tři čísla, která jsou rozhodnutí, ne vada (2026-09-02)
 
 HUD je změřený a sedí: `scenes/_shot_scale_audit.tscn` hlásí na obou levelech **0 prvků
